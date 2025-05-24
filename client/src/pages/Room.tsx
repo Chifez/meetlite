@@ -29,6 +29,11 @@ interface PeerConnection {
   stream?: MediaStream;
 }
 
+interface MediaState {
+  audioEnabled: boolean;
+  videoEnabled: boolean;
+}
+
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   // const { user, getAuthHeaders } = useAuth();
@@ -45,6 +50,9 @@ const Room = () => {
     sessionStorage.getItem('meetlite_video_enabled') !== 'false'
   );
   const [participantCount, setParticipantCount] = useState(1); // Including self
+  const [peerMediaState, setPeerMediaState] = useState<Map<string, MediaState>>(
+    new Map()
+  );
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -113,8 +121,14 @@ const Room = () => {
           localVideoRef.current.srcObject = stream;
         }
 
-        // Signal ready to server
-        newSocket.emit('ready', roomId);
+        // Signal ready to server with initial media state
+        newSocket.emit('ready', {
+          roomId,
+          mediaState: {
+            audioEnabled,
+            videoEnabled,
+          },
+        });
       } catch (error) {
         console.error('Error accessing media devices:', error);
         toast({
@@ -238,9 +252,33 @@ const Room = () => {
     };
 
     // Handle room data update
-    const handleRoomData = (data: { participants: string[] }) => {
+    const handleRoomData = (data: {
+      participants: string[];
+      mediaState: Record<string, MediaState>;
+    }) => {
       console.log('Room data update:', data);
       setParticipantCount(data.participants.length);
+
+      // Update peer media state
+      const newMediaState = new Map(Object.entries(data.mediaState));
+      setPeerMediaState(newMediaState);
+    };
+
+    // Handle media state updates
+    const handleMediaStateUpdate = (data: {
+      userId: string;
+      audioEnabled: boolean;
+      videoEnabled: boolean;
+    }) => {
+      console.log('Media state update:', data);
+      setPeerMediaState((prev) => {
+        const next = new Map(prev);
+        next.set(data.userId, {
+          audioEnabled: data.audioEnabled,
+          videoEnabled: data.videoEnabled,
+        });
+        return next;
+      });
     };
 
     // Register event listeners
@@ -250,6 +288,7 @@ const Room = () => {
     socket.on('ice-candidate', handleIceCandidate);
     socket.on('user-left', handleUserLeft);
     socket.on('room-data', handleRoomData);
+    socket.on('media-state-update', handleMediaStateUpdate);
 
     // Clean up on unmount
     return () => {
@@ -259,6 +298,7 @@ const Room = () => {
       socket.off('ice-candidate', handleIceCandidate);
       socket.off('user-left', handleUserLeft);
       socket.off('room-data', handleRoomData);
+      socket.off('media-state-update', handleMediaStateUpdate);
     };
   }, [socket, localStream]);
 
@@ -291,7 +331,7 @@ const Room = () => {
       });
     }
 
-    // Create a new peer object
+    // Create a new peer object with media state
     const peer: PeerConnection = {
       id: userId,
       connection,
@@ -355,6 +395,13 @@ const Room = () => {
         track.enabled = newState;
       });
       setAudioEnabled(newState);
+
+      // Emit media state change
+      socket?.emit('media-state-change', {
+        roomId,
+        audioEnabled: newState,
+        videoEnabled,
+      });
     }
   };
 
@@ -366,6 +413,13 @@ const Room = () => {
         track.enabled = newState;
       });
       setVideoEnabled(newState);
+
+      // Emit media state change
+      socket?.emit('media-state-change', {
+        roomId,
+        audioEnabled,
+        videoEnabled: newState,
+      });
     }
   };
 
@@ -474,26 +528,46 @@ const Room = () => {
           </div>
 
           {/* Remote videos */}
-          {Array.from(peers.values()).map((peer) => (
-            <div key={peer.id} className="video-container">
-              {peer.stream ? (
-                <video
-                  autoPlay
-                  playsInline
-                  ref={(el) => {
-                    if (el && peer.stream) {
-                      el.srcObject = peer.stream;
-                    }
-                  }}
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                  <Users className="h-12 w-12 text-muted-foreground" />
+          {Array.from(peers.values()).map((peer) => {
+            const mediaState = peerMediaState.get(peer.id) || {
+              audioEnabled: true,
+              videoEnabled: true,
+            };
+            return (
+              <div key={peer.id} className="video-container">
+                {peer.stream ? (
+                  <>
+                    <video
+                      autoPlay
+                      playsInline
+                      muted={!mediaState.audioEnabled}
+                      ref={(el) => {
+                        if (el && peer.stream) {
+                          el.srcObject = peer.stream;
+                        }
+                      }}
+                      className={`${!mediaState.videoEnabled ? 'hidden' : ''}`}
+                    />
+                    {!mediaState.videoEnabled && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                        <VideoOff className="h-12 w-12 text-muted-foreground" />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                    <Users className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="video-label">
+                  Participant{' '}
+                  {!mediaState.audioEnabled && (
+                    <MicOff className="h-4 w-4 inline ml-1" />
+                  )}
                 </div>
-              )}
-              <div className="video-label">Participant</div>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 
