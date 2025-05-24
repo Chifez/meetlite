@@ -1,0 +1,15 @@
+{
+  "name": "meetlite-backend",
+  "version": "1.0.0",
+  "description": "Backend services for MeetLite video meeting application",
+  "scripts": {
+    "dev:auth": "cd auth-service && npm run dev",
+    "dev:room": "cd room-service && npm run dev",
+    "dev:signaling": "cd signaling-service && npm run dev",
+    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:signaling\"",
+    "install:all": "npm install && cd auth-service && npm install && cd ../room-service && npm install && cd ../signaling-service && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
