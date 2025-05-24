@@ -104,8 +104,8 @@ The application will be available at:
 
 ## Contributing
 
-[Your contribution guidelines]
+<!-- [Your contribution guidelines] -->
 
 ## License
 
-[Your chosen license]
+<!-- [Your chosen license] -->

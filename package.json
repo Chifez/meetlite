@@ -1,0 +1,30 @@
+{
+  "name": "minimeet",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "backend/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:backend\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build": "npm run build --workspaces",
+    "build:client": "npm run build --workspace=client",
+    "build:backend": "npm run build --workspace=backend",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "clean": "npm run clean --workspaces",
+    "install:all": "npm install && npm install --workspace=client && npm install --workspace=backend/auth-service && npm install --workspace=backend/room-service && npm install --workspace=backend/signaling-service"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "A real-time video conferencing application with multiple services"
+}
