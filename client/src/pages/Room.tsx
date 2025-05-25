@@ -21,9 +21,7 @@ const Room = () => {
   const [videoEnabled, setVideoEnabled] = useState<boolean>(
     sessionStorage.getItem('meetlite_video_enabled') !== 'false'
   );
-  const [participantCount, setParticipantCount] = useState(1);
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
   const socketRef = useRef<Socket | null>(null);
 
   // Connect to signaling server and set up media
@@ -74,27 +72,32 @@ const Room = () => {
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        // Apply saved mute states
+        // Apply saved mute states from session storage
+        const savedAudioEnabled =
+          sessionStorage.getItem('meetlite_audio_enabled') !== 'false';
+        const savedVideoEnabled =
+          sessionStorage.getItem('meetlite_video_enabled') !== 'false';
+
         stream.getAudioTracks().forEach((track) => {
-          track.enabled = audioEnabled;
+          track.enabled = savedAudioEnabled;
         });
 
         stream.getVideoTracks().forEach((track) => {
-          track.enabled = videoEnabled;
+          track.enabled = savedVideoEnabled;
         });
 
-        setLocalStream(stream);
+        // Set the state to match the actual track states
+        setAudioEnabled(savedAudioEnabled);
+        setVideoEnabled(savedVideoEnabled);
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
+        setLocalStream(stream);
 
         // Signal ready to server with initial media state
         newSocket.emit('ready', {
           roomId,
           mediaState: {
-            audioEnabled,
-            videoEnabled,
+            audioEnabled: savedAudioEnabled,
+            videoEnabled: savedVideoEnabled,
           },
         });
       } catch (error) {
@@ -121,12 +124,10 @@ const Room = () => {
         localStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [roomId, navigate, toast, audioEnabled, videoEnabled]);
+  }, [roomId, navigate, toast]);
 
   // Use WebRTC hook
-  const { peers, peerMediaState } = useWebRTC(socket, localStream, (count) =>
-    setParticipantCount(count)
-  );
+  const { peers, peerMediaState } = useWebRTC(socket, localStream);
 
   // Toggle audio
   const toggleAudio = () => {
@@ -137,6 +138,10 @@ const Room = () => {
       });
       setAudioEnabled(newState);
 
+      // Save to session storage
+      sessionStorage.setItem('meetlite_audio_enabled', String(newState));
+
+      console.log('[Room] Toggling audio:', newState);
       // Emit media state change
       socket?.emit('media-state-change', {
         roomId,
@@ -155,6 +160,10 @@ const Room = () => {
       });
       setVideoEnabled(newState);
 
+      // Save to session storage
+      sessionStorage.setItem('meetlite_video_enabled', String(newState));
+
+      console.log('[Room] Toggling video:', newState);
       // Emit media state change
       socket?.emit('media-state-change', {
         roomId,
@@ -167,7 +176,6 @@ const Room = () => {
   // Leave meeting
   const leaveMeeting = () => {
     console.log('[Room] Leaving meeting, socket state:', socket?.connected);
-    setParticipantCount((prev) => prev - 1);
     // Close all peer connections locally
     peers.forEach((peer) => {
       console.log('[Room] Closing peer connection for:', peer.id);
@@ -209,11 +217,6 @@ const Room = () => {
             sender.replaceTrack(videoTrack)
         );
 
-        // Update local video display
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = screenStream;
-        }
-
         // Handle user ending screen share
         videoTrack.onended = () => {
           // Get original video track
@@ -226,11 +229,6 @@ const Room = () => {
                 sender.replaceTrack(originalVideoTrack);
               }
             );
-
-            // Update local video display
-            if (localVideoRef.current) {
-              localVideoRef.current.srcObject = localStream;
-            }
           }
         };
 
@@ -258,7 +256,6 @@ const Room = () => {
     peers,
     audioEnabled,
     videoEnabled,
-    participantCount,
     peerMediaState,
     toggleAudio,
     toggleVideo,
@@ -274,9 +271,6 @@ const Room = () => {
         </div>
 
         <RoomControls
-          audioEnabled={audioEnabled}
-          videoEnabled={videoEnabled}
-          participantCount={participantCount}
           onRefreshConnection={() => window.location.reload()}
           onReturnToLobby={() => navigate(`/lobby/${roomId}`)}
         />

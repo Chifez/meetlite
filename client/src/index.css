@@ -99,7 +99,6 @@
   border-radius: 9999px;
   background-color: rgba(0, 0, 0, 0.5);
 }
-
 .video-label {
   position: absolute;
   left: 16px;
@@ -119,15 +118,19 @@
   grid-template-columns: repeat(2, 1fr);
 }
 
-.participants-grid-3, .participants-grid-4 {
+.participants-grid-3,
+.participants-grid-4 {
   grid-template-columns: repeat(2, 1fr);
 }
 
-.participants-grid-5, .participants-grid-6 {
+.participants-grid-5,
+.participants-grid-6 {
   grid-template-columns: repeat(3, 1fr);
 }
 
-.participants-grid-7, .participants-grid-8, .participants-grid-9 {
+.participants-grid-7,
+.participants-grid-8,
+.participants-grid-9 {
   grid-template-columns: repeat(3, 1fr);
 }
 
@@ -135,9 +138,13 @@
   .video-grid {
     grid-template-columns: 1fr;
   }
-  
-  .participants-grid-3, .participants-grid-4, .participants-grid-5, 
-  .participants-grid-6, .participants-grid-7, .participants-grid-8, 
+
+  .participants-grid-3,
+  .participants-grid-4,
+  .participants-grid-5,
+  .participants-grid-6,
+  .participants-grid-7,
+  .participants-grid-8,
   .participants-grid-9 {
     grid-template-columns: 1fr;
   }

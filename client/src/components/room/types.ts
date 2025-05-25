@@ -4,6 +4,7 @@ export interface PeerConnection {
   id: string;
   connection: RTCPeerConnection;
   stream?: MediaStream;
+  isLoading?: boolean;
 }
 
 export interface MediaState {
@@ -14,14 +15,6 @@ export interface MediaState {
 export interface RoomData {
   participants: string[];
   mediaState: Record<string, MediaState>;
-}
-
-export interface RoomControlsProps {
-  audioEnabled: boolean;
-  videoEnabled: boolean;
-  participantCount: number;
-  onRefreshConnection: () => void;
-  onReturnToLobby: () => void;
 }
 
 export interface VideoGridProps {
@@ -35,6 +28,7 @@ export interface VideoParticipantProps {
   stream: MediaStream | null;
   mediaState: MediaState;
   isLocal: boolean;
+  isLoading?: boolean;
 }
 
 export interface RoomContextType {
@@ -43,7 +37,6 @@ export interface RoomContextType {
   peers: Map<string, PeerConnection>;
   audioEnabled: boolean;
   videoEnabled: boolean;
-  participantCount: number;
   peerMediaState: Map<string, MediaState>;
   toggleAudio: () => void;
   toggleVideo: () => void;

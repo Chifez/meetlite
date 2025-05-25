@@ -15,29 +15,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { RoomControlsProps } from './types';
 import { useRoom } from './RoomContext';
 
 export const RoomControls = ({
-  audioEnabled,
-  videoEnabled,
-  participantCount,
   onRefreshConnection,
   onReturnToLobby,
-}: RoomControlsProps) => {
+}: {
+  onRefreshConnection: () => void;
+  onReturnToLobby: () => void;
+}) => {
   const {
-    toggleAudio: onToggleAudio,
-    toggleVideo: onToggleVideo,
-    leaveMeeting: onLeaveMeeting,
-    shareScreen: onShareScreen,
+    audioEnabled,
+    videoEnabled,
+    toggleAudio,
+    toggleVideo,
+    leaveMeeting,
+    shareScreen,
+    peers,
   } = useRoom();
+
   return (
     <div className="bg-background border-t py-4">
       <div className="container max-w-4xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="gap-1">
             <Users className="h-4 w-4" />
-            <span>{participantCount}</span>
+            <span>{peers.size + 1}</span>
           </Button>
         </div>
         <div className="flex items-center gap-3">
@@ -49,7 +52,7 @@ export const RoomControls = ({
                 ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                 : ''
             }`}
-            onClick={onToggleAudio}
+            onClick={toggleAudio}
           >
             {audioEnabled ? (
               <Mic className="h-5 w-5" />
@@ -66,7 +69,7 @@ export const RoomControls = ({
                 ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                 : ''
             }`}
-            onClick={onToggleVideo}
+            onClick={toggleVideo}
           >
             {videoEnabled ? (
               <Video className="h-5 w-5" />
@@ -79,7 +82,7 @@ export const RoomControls = ({
             variant="destructive"
             size="icon"
             className="rounded-full h-12 w-12"
-            onClick={onLeaveMeeting}
+            onClick={leaveMeeting}
           >
             <PhoneOff className="h-5 w-5" />
           </Button>
@@ -88,7 +91,7 @@ export const RoomControls = ({
             variant="outline"
             size="icon"
             className="rounded-full h-12 w-12"
-            onClick={onShareScreen}
+            onClick={shareScreen}
           >
             <Share className="h-5 w-5" />
           </Button>
