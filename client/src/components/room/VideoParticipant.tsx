@@ -10,24 +10,20 @@ export const VideoParticipant = ({
 }: VideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
-  const [videoLoaded, setVideoLoaded] = useState<boolean>(false);
 
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement || !stream) {
-      setVideoLoaded(false);
       return;
     }
 
     // Reset states
     setVideoError(false);
-    setVideoLoaded(false);
 
     // Set the stream
     videoElement.srcObject = stream;
 
     const handleLoadedMetadata = () => {
-      setVideoLoaded(true);
       if (!isLocal) {
         videoElement.play().catch((error) => {
           console.error('Error playing remote video:', error);

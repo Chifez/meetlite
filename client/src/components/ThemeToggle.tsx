@@ -8,8 +8,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from 'next-themes';
 
-export default function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+const ThemeToggle = () => {
+  const { setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -33,4 +33,6 @@ export default function ThemeToggle() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
+
+export default ThemeToggle;
