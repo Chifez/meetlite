@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Mic, MicOff, Video as VideoIcon, VideoOff, Copy } from 'lucide-react';
+import { env } from '@/config/env';
 
 type MediaDeviceInfo = {
   deviceId: string;
@@ -49,7 +50,7 @@ const Lobby = () => {
   useEffect(() => {
     const checkRoom = async () => {
       try {
-        await axios.get(`${process.env.ROOM_API_URL}/rooms/${roomId}`, {
+        await axios.get(`${env.ROOM_API_URL}/rooms/${roomId}`, {
           headers: getAuthHeaders(),
         });
         setIsValidRoom(true);

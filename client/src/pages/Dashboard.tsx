@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { PlusCircle, Users } from 'lucide-react';
+import { env } from '@/config/env';
 
 const Dashboard = () => {
   const { user, getAuthHeaders } = useAuth();
@@ -26,7 +27,7 @@ const Dashboard = () => {
     try {
       setIsCreatingRoom(true);
       const response = await axios.post(
-        `${process.env.ROOM_API_URL}/rooms`,
+        `${env.ROOM_API_URL}/rooms`,
         {},
         { headers: getAuthHeaders() }
       );

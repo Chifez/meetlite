@@ -2,8 +2,7 @@ import { createContext, useState, useEffect, ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import { toast } from 'sonner';
-
-// API base URL
+import { env } from '@/config/env';
 
 // Types
 type User = {
@@ -82,13 +81,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login user
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(
-        `${process.env.AUTH_API_URL}/auth/login`,
-        {
-          email,
-          password,
-        }
-      );
+      const response = await axios.post(`${env.AUTH_API_URL}/auth/login`, {
+        email,
+        password,
+      });
 
       const { token } = response.data;
       localStorage.setItem('token', token);
@@ -114,13 +110,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Register user
   const signup = async (email: string, password: string) => {
     try {
-      const response = await axios.post(
-        `${process.env.AUTH_API_URL}/auth/signup`,
-        {
-          email,
-          password,
-        }
-      );
+      const response = await axios.post(`${env.AUTH_API_URL}/auth/signup`, {
+        email,
+        password,
+      });
 
       const { token } = response.data;
       localStorage.setItem('token', token);

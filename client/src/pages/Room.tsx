@@ -7,7 +7,7 @@ import { RoomControls } from '@/components/room/RoomControls';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { RoomProvider } from '@/components/room/RoomContext';
 import SEO from '@/components/SEO';
-
+import { env } from '@/config/env';
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ const Room = () => {
     }
 
     // Connect to signaling server
-    const newSocket = io(process.env.SIGNALING_SERVER_URL, {
+    const newSocket = io(env.SIGNALING_SERVER_URL, {
       auth: { token },
       query: { roomId },
     });
