@@ -6,7 +6,7 @@ import { VideoGrid } from '@/components/room/VideoGrid';
 import { RoomControls } from '@/components/room/RoomControls';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { RoomProvider } from '@/components/room/RoomContext';
-import { SIGNALING_SERVER } from '@/config';
+import SEO from '@/components/SEO';
 
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -33,7 +33,7 @@ const Room = () => {
     }
 
     // Connect to signaling server
-    const newSocket = io(SIGNALING_SERVER, {
+    const newSocket = io(process.env.SIGNALING_SERVER_URL, {
       auth: { token },
       query: { roomId },
     });
@@ -264,18 +264,26 @@ const Room = () => {
   };
 
   return (
-    <RoomProvider value={contextValue}>
-      <div className="flex flex-col h-screen">
-        <div className="flex-1 overflow-hidden bg-background p-4">
-          <VideoGrid />
-        </div>
+    <>
+      <SEO
+        title={`Meeting Room - MeetLite`}
+        description={`Join your video conference meeting with high-quality audio and video.`}
+        keywords={`video conferencing, online meetings, web conferencing, video chat, remote collaboration`}
+        ogUrl={`https://your-domain.com/room/${roomId}`}
+      />
+      <RoomProvider value={contextValue}>
+        <div className="flex flex-col h-screen">
+          <div className="flex-1 overflow-hidden bg-background p-4">
+            <VideoGrid />
+          </div>
 
-        <RoomControls
-          onRefreshConnection={() => window.location.reload()}
-          onReturnToLobby={() => navigate(`/lobby/${roomId}`)}
-        />
-      </div>
-    </RoomProvider>
+          <RoomControls
+            onRefreshConnection={() => window.location.reload()}
+            onReturnToLobby={() => navigate(`/lobby/${roomId}`)}
+          />
+        </div>
+      </RoomProvider>
+    </>
   );
 };
 

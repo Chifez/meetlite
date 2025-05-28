@@ -15,8 +15,6 @@ import {
 import { toast } from 'sonner';
 import { PlusCircle, Users } from 'lucide-react';
 
-const API_URL = 'http://localhost:5001/api';
-
 const Dashboard = () => {
   const { user, getAuthHeaders } = useAuth();
   const navigate = useNavigate();
@@ -28,7 +26,7 @@ const Dashboard = () => {
     try {
       setIsCreatingRoom(true);
       const response = await axios.post(
-        `${API_URL}/rooms`,
+        `${process.env.ROOM_API_URL}/rooms`,
         {},
         { headers: getAuthHeaders() }
       );
