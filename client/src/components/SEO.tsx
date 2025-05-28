@@ -12,7 +12,7 @@ export default function SEO({
   title = 'MeetLite - Video Conferencing Made Simple',
   description = 'High-quality video conferencing solution for seamless online meetings and collaboration.',
   keywords = 'video conferencing, online meetings, web conferencing, video chat, remote collaboration',
-  ogImage = '/og-image.jpg', // You'll need to add this image to your public folder
+  ogImage = '/og-image.png', // You'll need to add this image to your public folder
   ogUrl = 'https://your-domain.com',
 }: SEOProps) {
   return (
