@@ -2,6 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { PeerConnection, MediaState } from '@/components/room/types';
 
+// Configuration for production-ready WebRTC
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+];
+
+const CONNECTION_TIMEOUT = 30000; // 30 seconds timeout for connection establishment
+
 export const useWebRTC = (
   socket: Socket | null,
   localStream: MediaStream | null
@@ -11,6 +22,9 @@ export const useWebRTC = (
     new Map()
   );
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
+  const iceCandidatesQueue = useRef<Map<string, RTCIceCandidateInit[]>>(
+    new Map()
+  );
 
   // Create a new peer connection
   const createPeerConnection = (userId: string, isInitiator: boolean) => {
@@ -26,9 +40,10 @@ export const useWebRTC = (
       peersRef.current.delete(userId);
     }
 
-    // Basic STUN configuration
+    // Create connection with ICE servers
     const connection = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: ICE_SERVERS,
+      iceTransportPolicy: 'all',
     });
 
     // Add local stream tracks to the connection
@@ -45,6 +60,16 @@ export const useWebRTC = (
       isLoading: true,
     };
 
+    // Set connection timeout
+    const timeoutId = setTimeout(() => {
+      if (peer.isLoading) {
+        console.warn(`Connection timeout for peer ${userId}`);
+        connection.close();
+        peersRef.current.delete(userId);
+        setPeers(new Map(peersRef.current));
+      }
+    }, CONNECTION_TIMEOUT);
+
     // Handle ICE candidates
     connection.onicecandidate = (event) => {
       if (event.candidate) {
@@ -55,7 +80,7 @@ export const useWebRTC = (
       }
     };
 
-    // Log state changes for debugging
+    // Connection state monitoring
     connection.onsignalingstatechange = () => {
       console.log(
         `Signaling state changed for ${userId}:`,
@@ -68,6 +93,15 @@ export const useWebRTC = (
         `Connection state changed for ${userId}:`,
         connection.connectionState
       );
+
+      // Handle failed connections
+      if (connection.connectionState === 'failed') {
+        console.warn(`Connection failed for ${userId}, recreating...`);
+        connection.close();
+        peersRef.current.delete(userId);
+        setPeers(new Map(peersRef.current));
+        createPeerConnection(userId, true);
+      }
     };
 
     connection.oniceconnectionstatechange = () => {
@@ -75,6 +109,20 @@ export const useWebRTC = (
         `ICE connection state changed for ${userId}:`,
         connection.iceConnectionState
       );
+
+      // Handle disconnected state
+      if (connection.iceConnectionState === 'disconnected') {
+        console.warn(`ICE connection disconnected for ${userId}`);
+        // Wait briefly for potential recovery
+        setTimeout(() => {
+          if (connection.iceConnectionState === 'disconnected') {
+            connection.close();
+            peersRef.current.delete(userId);
+            setPeers(new Map(peersRef.current));
+            createPeerConnection(userId, true);
+          }
+        }, 5000);
+      }
     };
 
     // Handle incoming stream
@@ -82,6 +130,7 @@ export const useWebRTC = (
       if (event.streams && event.streams[0]) {
         peer.stream = event.streams[0];
         peer.isLoading = false;
+        clearTimeout(timeoutId); // Clear timeout when connection is established
         peersRef.current.set(userId, peer);
         setPeers(new Map(peersRef.current));
       }
@@ -105,12 +154,35 @@ export const useWebRTC = (
         })
         .catch((error) => {
           console.error('Error creating/sending offer:', error);
+          connection.close();
+          peersRef.current.delete(userId);
+          setPeers(new Map(peersRef.current));
         });
     }
 
     peersRef.current.set(userId, peer);
     setPeers(new Map(peersRef.current));
     return peer;
+  };
+
+  // Function to process queued ICE candidates
+  const processIceCandidateQueue = (userId: string) => {
+    const queuedCandidates = iceCandidatesQueue.current.get(userId) || [];
+    const peer = peersRef.current.get(userId);
+
+    if (peer && queuedCandidates.length > 0) {
+      console.log(
+        `Processing ${queuedCandidates.length} queued candidates for ${userId}`
+      );
+      queuedCandidates.forEach((candidate) => {
+        peer.connection
+          .addIceCandidate(new RTCIceCandidate(candidate))
+          .catch((error) => {
+            console.warn('Error adding queued ICE candidate:', error);
+          });
+      });
+      iceCandidatesQueue.current.delete(userId);
+    }
   };
 
   useEffect(() => {
@@ -123,41 +195,43 @@ export const useWebRTC = (
     };
 
     // Handle incoming call
-    const handleCallUser = (data: {
+    const handleCallUser = async (data: {
       from: string;
       offer: RTCSessionDescriptionInit;
     }) => {
       console.log('Received call from:', data.from);
       const peer = createPeerConnection(data.from, false);
 
-      console.log('Setting remote description (offer)...');
-      peer.connection
-        .setRemoteDescription(new RTCSessionDescription(data.offer))
-        .then(() => {
-          console.log('Creating answer...');
-          return peer.connection.createAnswer();
-        })
-        .then((answer) => {
-          console.log('Setting local description (answer)...');
-          return peer.connection.setLocalDescription(answer);
-        })
-        .then(() => {
-          console.log('Sending answer...');
-          socket.emit('answer', {
-            to: data.from,
-            answer: peer.connection.localDescription,
-          });
-        })
-        .catch((error) => {
-          console.error('Error in call handling:', error);
-          peer.connection.close();
-          peersRef.current.delete(data.from);
-          setPeers(new Map(peersRef.current));
+      try {
+        console.log('Setting remote description (offer)...');
+        await peer.connection.setRemoteDescription(
+          new RTCSessionDescription(data.offer)
+        );
+
+        // Process any queued candidates after setting remote description
+        processIceCandidateQueue(data.from);
+
+        console.log('Creating answer...');
+        const answer = await peer.connection.createAnswer();
+
+        console.log('Setting local description (answer)...');
+        await peer.connection.setLocalDescription(answer);
+
+        console.log('Sending answer...');
+        socket.emit('answer', {
+          to: data.from,
+          answer: peer.connection.localDescription,
         });
+      } catch (error) {
+        console.error('Error in call handling:', error);
+        peer.connection.close();
+        peersRef.current.delete(data.from);
+        setPeers(new Map(peersRef.current));
+      }
     };
 
     // Handle call answer
-    const handleAnswerMade = (data: {
+    const handleAnswerMade = async (data: {
       from: string;
       answer: RTCSessionDescriptionInit;
     }) => {
@@ -169,36 +243,17 @@ export const useWebRTC = (
         return;
       }
 
-      const { signalingState } = peer.connection;
-      console.log(`Current signaling state for ${data.from}:`, signalingState);
-
-      // Only set remote description if we're in have-local-offer state
-      if (signalingState === 'have-local-offer') {
-        console.log('Setting remote description...');
-        peer.connection
-          .setRemoteDescription(new RTCSessionDescription(data.answer))
-          .then(() => {
-            console.log('Remote description set successfully');
-          })
-          .catch((error) => {
-            console.error('Error setting remote description:', error);
-            // If there's an error, close and recreate the connection
-            peer.connection.close();
-            peersRef.current.delete(data.from);
-            setPeers(new Map(peersRef.current));
-            // Reinitiate the connection
-            createPeerConnection(data.from, true);
-          });
-      } else {
-        console.warn(
-          `Cannot set remote description in state ${signalingState}. Recreating connection...`
+      try {
+        await peer.connection.setRemoteDescription(
+          new RTCSessionDescription(data.answer)
         );
-        // Close the existing connection and create a new one
+        // Process any queued candidates after setting remote description
+        processIceCandidateQueue(data.from);
+      } catch (error) {
+        console.error('Error setting remote description:', error);
         peer.connection.close();
         peersRef.current.delete(data.from);
         setPeers(new Map(peersRef.current));
-        // Reinitiate the connection
-        createPeerConnection(data.from, true);
       }
     };
 
@@ -208,29 +263,21 @@ export const useWebRTC = (
       candidate: RTCIceCandidateInit;
     }) => {
       const peer = peersRef.current.get(data.from);
-      if (!peer) {
-        console.warn('No peer connection found for ICE candidate:', data.from);
+
+      // Queue the candidate if we don't have a peer yet or remote description isn't set
+      if (!peer || !peer.connection.remoteDescription) {
+        console.log(`Queueing ICE candidate for ${data.from}`);
+        const queue = iceCandidatesQueue.current.get(data.from) || [];
+        queue.push(data.candidate);
+        iceCandidatesQueue.current.set(data.from, queue);
         return;
       }
 
-      const { signalingState, iceConnectionState } = peer.connection;
-      console.log(`Adding ICE candidate for ${data.from}. States:`, {
-        signalingState,
-        iceConnectionState,
-      });
-
+      // Add the candidate if we're ready
       peer.connection
         .addIceCandidate(new RTCIceCandidate(data.candidate))
         .catch((error) => {
           console.error('Error adding ICE candidate:', error);
-          if (error.name === 'OperationError') {
-            // If we can't add ICE candidates, the connection might be in a bad state
-            console.warn('Connection may be in a bad state, recreating...');
-            peer.connection.close();
-            peersRef.current.delete(data.from);
-            setPeers(new Map(peersRef.current));
-            createPeerConnection(data.from, true);
-          }
         });
     };
 
@@ -290,12 +337,13 @@ export const useWebRTC = (
       socket.off('media-state-update', handleMediaStateUpdate);
       socket.off('room-data', handleRoomData);
 
-      // Close all peer connections
+      // Clear all timeouts and close connections
       peersRef.current.forEach((peer) => {
         peer.connection.close();
       });
       peersRef.current.clear();
       setPeers(new Map());
+      iceCandidatesQueue.current.clear();
     };
   }, [socket, localStream]);
 
