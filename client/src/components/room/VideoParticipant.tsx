@@ -62,16 +62,16 @@ export const VideoParticipant = ({
   }, [stream, isLocal]);
 
   // Update video visibility when mediaState changes
-  useEffect(() => {
-    const videoElement = videoRef.current;
-    if (videoElement && stream) {
-      if (!mediaState.videoEnabled) {
-        videoElement.style.display = 'none';
-      } else {
-        videoElement.style.display = 'block';
-      }
-    }
-  }, [mediaState.videoEnabled, stream]);
+  // useEffect(() => {
+  //   const videoElement = videoRef.current;
+  //   if (videoElement && stream) {
+  //     if (!mediaState.videoEnabled) {
+  //       videoElement.style.display = 'none';
+  //     } else {
+  //       videoElement.style.display = 'block';
+  //     }
+  //   }
+  // }, [mediaState.videoEnabled, stream]);
 
   const showVideoOff = !mediaState.videoEnabled;
   const showError = videoError && !isLocal;
