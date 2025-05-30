@@ -48,11 +48,14 @@ const Room = () => {
     });
 
     socketRef.current = newSocket;
-    setSocket(newSocket);
+    // Don't set socket state until connected
 
     // Setup event listeners
     newSocket.on('connect', () => {
       console.log('Connected to signaling server');
+      console.log('🔗 [Room] Socket ID assigned:', newSocket.id);
+      // Now set the socket state to trigger WebRTC hooks
+      setSocket(newSocket);
     });
 
     newSocket.on('connect_error', (err) => {
@@ -135,15 +138,9 @@ const Room = () => {
     };
   }, [roomId, navigate, toast]);
 
-  // Use WebRTC hooks - only when socket is ready
-  const { peers, peerMediaState } = useWebRTC(
-    socket?.id ? socket : null, // ensure to check if this works on development too
-    localStream
-  );
-  const { screenPeers } = useScreenShareRTC(
-    socket?.id ? socket : null, // ensure to check if this works on development too
-    screenStream
-  );
+  // Use WebRTC hooks - socket is only set when connected and has ID
+  const { peers, peerMediaState } = useWebRTC(socket, localStream);
+  const { screenPeers } = useScreenShareRTC(socket, screenStream);
 
   // Toggle audio
   const toggleAudio = () => {
