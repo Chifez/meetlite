@@ -135,9 +135,15 @@ const Room = () => {
     };
   }, [roomId, navigate, toast]);
 
-  // Use WebRTC hooks
-  const { peers, peerMediaState } = useWebRTC(socket, localStream);
-  const { screenPeers } = useScreenShareRTC(socket, screenStream);
+  // Use WebRTC hooks - only when socket is ready
+  const { peers, peerMediaState } = useWebRTC(
+    socket?.id ? socket : null, // ensure to check if this works on development too
+    localStream
+  );
+  const { screenPeers } = useScreenShareRTC(
+    socket?.id ? socket : null, // ensure to check if this works on development too
+    screenStream
+  );
 
   // Toggle audio
   const toggleAudio = () => {
