@@ -5,9 +5,11 @@ import { useToast } from '@/hooks/use-toast';
 import { VideoGrid } from '@/components/room/VideoGrid';
 import { RoomControls } from '@/components/room/RoomControls';
 import { useWebRTC } from '@/hooks/useWebRTC';
-import { RoomProvider } from '@/components/room/RoomContext';
+import { useScreenShareRTC } from '@/hooks/useScreenShareRTC';
 import SEO from '@/components/SEO';
 import { env } from '@/config/env';
+import { RoomProvider } from '@/contexts/RoomContext';
+
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
@@ -23,6 +25,13 @@ const Room = () => {
   );
 
   const socketRef = useRef<Socket | null>(null);
+
+  // Screen sharing state
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenSharingUser, setScreenSharingUser] = useState<string | null>(
+    null
+  );
 
   // Connect to signaling server and set up media
   useEffect(() => {
@@ -126,8 +135,9 @@ const Room = () => {
     };
   }, [roomId, navigate, toast]);
 
-  // Use WebRTC hook
+  // Use WebRTC hooks
   const { peers, peerMediaState } = useWebRTC(socket, localStream);
+  const { screenPeers } = useScreenShareRTC(socket, screenStream);
 
   // Toggle audio
   const toggleAudio = () => {
@@ -176,6 +186,13 @@ const Room = () => {
   // Leave meeting
   const leaveMeeting = () => {
     console.log('[Room] Leaving meeting, socket state:', socket?.connected);
+    // Stop screen sharing if active
+    if (screenStream) {
+      screenStream.getTracks().forEach((track) => track.stop());
+      setScreenStream(null);
+      setIsScreenSharing(false);
+    }
+
     // Close all peer connections locally
     peers.forEach((peer) => {
       console.log('[Room] Closing peer connection for:', peer.id);
@@ -192,52 +209,42 @@ const Room = () => {
   // Share screen
   const shareScreen = async () => {
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
+      // Don't allow screen sharing if someone else is already sharing
+      if (screenSharingUser && screenSharingUser !== socket?.id) {
+        toast({
+          variant: 'destructive',
+          title: 'Screen Sharing Not Available',
+          description: 'Another user is already sharing their screen.',
+        });
+        return;
+      }
 
-      // Replace video track with screen track for all peers
-      const videoTrack = screenStream.getVideoTracks()[0];
-
-      if (localStream && videoTrack) {
-        const senders: any = [];
-
-        // Collect all RTCRtpSenders from all peer connections
-        peers.forEach((peer) => {
-          peer.connection.getSenders().forEach((sender) => {
-            if (sender.track?.kind === 'video') {
-              senders.push(sender);
-            }
-          });
+      if (isScreenSharing) {
+        // Stop screen sharing
+        if (screenStream) {
+          screenStream.getTracks().forEach((track) => track.stop());
+          setScreenStream(null);
+          setIsScreenSharing(false);
+          socket?.emit('screen-share-stopped', { roomId });
+        }
+      } else {
+        // Start screen sharing
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
         });
 
-        // Replace track for each sender
-        const promises = senders.map(
-          (sender: { replaceTrack: (arg0: MediaStreamTrack) => any }) =>
-            sender.replaceTrack(videoTrack)
-        );
-
-        // Handle user ending screen share
-        videoTrack.onended = () => {
-          // Get original video track
-          const originalVideoTrack = localStream.getVideoTracks()[0];
-
-          if (originalVideoTrack) {
-            // Replace screen track with original video track
-            senders.forEach(
-              (sender: { replaceTrack: (arg0: MediaStreamTrack) => void }) => {
-                sender.replaceTrack(originalVideoTrack);
-              }
-            );
-          }
+        // Handle stream stop from browser controls
+        stream.getVideoTracks()[0].onended = () => {
+          stream.getTracks().forEach((track) => track.stop());
+          setScreenStream(null);
+          setIsScreenSharing(false);
+          socket?.emit('screen-share-stopped', { roomId });
         };
 
-        await Promise.all(promises);
-
-        toast({
-          title: 'Screen Sharing',
-          description: 'You are now sharing your screen',
-        });
+        setScreenStream(stream);
+        setIsScreenSharing(true);
+        socket?.emit('screen-share-started', { roomId });
       }
     } catch (error) {
       console.error('Error sharing screen:', error);
@@ -249,14 +256,39 @@ const Room = () => {
     }
   };
 
+  // Handle screen sharing events
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleScreenShareStarted = (data: { userId: string }) => {
+      setScreenSharingUser(data.userId);
+    };
+
+    const handleScreenShareStopped = () => {
+      setScreenSharingUser(null);
+    };
+
+    socket.on('screen-share-started', handleScreenShareStarted);
+    socket.on('screen-share-stopped', handleScreenShareStopped);
+
+    return () => {
+      socket.off('screen-share-started', handleScreenShareStarted);
+      socket.off('screen-share-stopped', handleScreenShareStopped);
+    };
+  }, [socket]);
+
   // Create context value
   const contextValue = {
     socket,
     localStream,
+    screenStream,
     peers,
+    screenPeers,
     audioEnabled,
     videoEnabled,
     peerMediaState,
+    isScreenSharing,
+    screenSharingUser,
     toggleAudio,
     toggleVideo,
     leaveMeeting,

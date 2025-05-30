@@ -17,13 +17,6 @@ export interface RoomData {
   mediaState: Record<string, MediaState>;
 }
 
-export interface VideoGridProps {
-  localStream: MediaStream | null;
-  peers: Map<string, PeerConnection>;
-  peerMediaState: Map<string, MediaState>;
-  videoEnabled: boolean;
-}
-
 export interface VideoParticipantProps {
   stream: MediaStream | null;
   mediaState: MediaState;
@@ -34,12 +27,16 @@ export interface VideoParticipantProps {
 export interface RoomContextType {
   socket: Socket | null;
   localStream: MediaStream | null;
+  screenStream: MediaStream | null;
   peers: Map<string, PeerConnection>;
+  screenPeers: Map<string, PeerConnection>;
   audioEnabled: boolean;
   videoEnabled: boolean;
   peerMediaState: Map<string, MediaState>;
+  isScreenSharing: boolean;
+  screenSharingUser: string | null;
   toggleAudio: () => void;
   toggleVideo: () => void;
   leaveMeeting: () => void;
-  shareScreen: () => void;
+  shareScreen: () => Promise<void>;
 }

@@ -4,8 +4,9 @@ import {
   Video,
   VideoOff,
   PhoneOff,
+  MonitorUp,
+  MonitorOff,
   Users,
-  Share,
   MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,24 +16,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useRoom } from './RoomContext';
+import { useRoom } from '@/contexts/RoomContext';
 
-export const RoomControls = ({
-  onRefreshConnection,
-  onReturnToLobby,
-}: {
+interface RoomControlsProps {
   onRefreshConnection: () => void;
   onReturnToLobby: () => void;
+}
+
+export const RoomControls: React.FC<RoomControlsProps> = ({
+  onRefreshConnection,
+  onReturnToLobby,
 }) => {
   const {
     audioEnabled,
     videoEnabled,
+    isScreenSharing,
+    screenSharingUser,
     toggleAudio,
     toggleVideo,
-    leaveMeeting,
     shareScreen,
+    leaveMeeting,
+    socket,
     peers,
   } = useRoom();
+
+  const canShareScreen =
+    !screenSharingUser || (socket && screenSharingUser === socket.id);
 
   return (
     <div className="bg-background border-t py-4">
@@ -90,10 +99,15 @@ export const RoomControls = ({
           <Button
             variant="outline"
             size="icon"
-            className="rounded-full h-12 w-12"
             onClick={shareScreen}
+            disabled={!canShareScreen}
+            className={
+              isScreenSharing
+                ? 'bg-destructive text-destructive-foreground'
+                : ''
+            }
           >
-            <Share className="h-5 w-5" />
+            {isScreenSharing ? <MonitorOff /> : <MonitorUp />}
           </Button>
 
           <DropdownMenu>

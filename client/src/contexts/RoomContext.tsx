@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { RoomContextType } from './types';
+import { RoomContextType } from '@/components/room/types';
 
 const RoomContext = createContext<RoomContextType | null>(null);
 

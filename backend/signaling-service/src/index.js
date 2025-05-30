@@ -1,235 +1,3 @@
-// import { createServer } from 'http';
-// import { Server } from 'socket.io';
-// import jwt from 'jsonwebtoken';
-// import dotenv from 'dotenv';
-
-// dotenv.config();
-
-// const httpServer = createServer();
-// const io = new Server(httpServer, {
-//   cors: {
-//     origin: process.env.CORS_ORIGIN,
-//     methods: ['GET', 'POST'],
-//   },
-// });
-
-// // Store room state and user mappings
-// const roomState = new Map();
-// const userToSocket = new Map(); // Map user IDs to socket IDs
-
-// // Middleware to verify JWT
-// io.use((socket, next) => {
-//   const token = socket.handshake.auth.token;
-
-//   if (!token) {
-//     return next(new Error('Authentication error'));
-//   }
-
-//   try {
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     socket.user = decoded;
-//     next();
-//   } catch (err) {
-//     next(new Error('Authentication error'));
-//   }
-// });
-
-// io.on('connection', (socket) => {
-//   console.log('User connected:', socket.user.email);
-
-//   // Map user ID to socket ID
-//   userToSocket.set(socket.user.userId, socket.id);
-
-//   // Join room
-//   socket.on('ready', ({ roomId, mediaState }) => {
-//     socket.join(roomId);
-
-//     // Initialize room state if it doesn't exist
-//     if (!roomState.has(roomId)) {
-//       roomState.set(roomId, new Map());
-//     }
-
-//     // Get existing participants before adding new user
-//     const existingParticipants = Array.from(
-//       io.sockets.adapter.rooms.get(roomId) || []
-//     ).filter((id) => id !== socket.id);
-
-//     // Add user to room state with their initial media state
-//     const room = roomState.get(roomId);
-//     room.set(socket.user.userId, {
-//       audioEnabled: mediaState.audioEnabled,
-//       videoEnabled: mediaState.videoEnabled,
-//     });
-
-//     // Notify existing users about the new user
-//     socket.to(roomId).emit('user-joined', socket.user.userId);
-
-//     // Notify the new user about existing participants
-//     existingParticipants.forEach((socketId) => {
-//       const existingSocket = io.sockets.sockets.get(socketId);
-//       if (existingSocket && existingSocket.user) {
-//         socket.emit('user-joined', existingSocket.user.userId);
-//       }
-//     });
-
-//     // Send room data and state to all participants
-//     const roomParticipants = Array.from(
-//       io.sockets.adapter.rooms.get(roomId) || []
-//     );
-//     const roomStateData = Object.fromEntries(room);
-
-//     io.to(roomId).emit('room-data', {
-//       participants: roomParticipants,
-//       mediaState: roomStateData,
-//     });
-
-//     console.log(
-//       `User ${socket.user.userId} joined room ${roomId}. Existing participants:`,
-//       existingParticipants.length
-//     );
-//   });
-
-//   // Handle media state changes
-//   socket.on('media-state-change', ({ roomId, audioEnabled, videoEnabled }) => {
-//     console.log(`Media state change from ${socket.user.userId}:`, {
-//       audioEnabled,
-//       videoEnabled,
-//     });
-
-//     const room = roomState.get(roomId);
-//     if (room) {
-//       room.set(socket.user.userId, { audioEnabled, videoEnabled });
-
-//       // Broadcast to all other users in the room
-//       socket.to(roomId).emit('media-state-update', {
-//         userId: socket.user.userId,
-//         audioEnabled,
-//         videoEnabled,
-//       });
-
-//       console.log(
-//         `Broadcasted media state update for ${socket.user.userId} to room ${roomId}`
-//       );
-//     } else {
-//       console.log(`Room ${roomId} not found for media state change`);
-//     }
-//   });
-
-//   // Handle WebRTC signaling
-//   socket.on('call-user', ({ to, offer }) => {
-//     console.log(`Call from ${socket.user.userId} to ${to}`);
-//     const targetSocketId = userToSocket.get(to);
-//     if (targetSocketId) {
-//       io.to(targetSocketId).emit('call-user', {
-//         from: socket.user.userId,
-//         offer,
-//       });
-//       console.log(`Sent call to socket ${targetSocketId}`);
-//     } else {
-//       console.log(`Target user ${to} not found`);
-//     }
-//   });
-
-//   socket.on('answer', ({ to, answer }) => {
-//     console.log(`Answer from ${socket.user.userId} to ${to}`);
-//     const targetSocketId = userToSocket.get(to);
-//     if (targetSocketId) {
-//       io.to(targetSocketId).emit('answer-made', {
-//         from: socket.user.userId,
-//         answer,
-//       });
-//       console.log(`Sent answer to socket ${targetSocketId}`);
-//     } else {
-//       console.log(`Target user ${to} not found`);
-//     }
-//   });
-
-//   socket.on('ice-candidate', ({ to, candidate }) => {
-//     console.log(`ICE candidate from ${socket.user.userId} to ${to}`);
-//     const targetSocketId = userToSocket.get(to);
-//     if (targetSocketId) {
-//       io.to(targetSocketId).emit('ice-candidate', {
-//         from: socket.user.userId,
-//         candidate,
-//       });
-//       console.log(`Sent ICE candidate to socket ${targetSocketId}`);
-//     } else {
-//       console.log(`Target user ${to} not found`);
-//     }
-//   });
-
-//   // Handle user leaving
-//   socket.on('user-left', ({ roomId }) => {
-//     console.log('User left room:', socket.user.userId, roomId);
-
-//     // Remove user from room state
-//     const room = roomState.get(roomId);
-//     if (room) {
-//       room.delete(socket.user.userId);
-//       if (room.size === 0) {
-//         roomState.delete(roomId);
-//       }
-//     }
-
-//     socket.to(roomId).emit('user-left', socket.user.userId);
-
-//     // Update room data
-//     const roomParticipants = Array.from(
-//       io.sockets.adapter.rooms.get(roomId) || []
-//     );
-//     const roomStateData = Object.fromEntries(room || new Map());
-
-//     io.to(roomId).emit('room-data', {
-//       participants: roomParticipants,
-//       mediaState: roomStateData,
-//     });
-
-//     socket.leave(roomId);
-
-//     // Remove user mapping
-//     userToSocket.delete(socket.user.userId);
-//   });
-
-//   // Handle disconnection
-//   socket.on('disconnect', () => {
-//     console.log('User disconnected:', socket.user.userId);
-
-//     // Remove user mapping
-//     userToSocket.delete(socket.user.userId);
-
-//     const rooms = Array.from(socket.rooms);
-//     rooms.forEach((roomId) => {
-//       // Remove user from room state
-//       const room = roomState.get(roomId);
-//       if (room) {
-//         room.delete(socket.user.userId);
-//         if (room.size === 0) {
-//           roomState.delete(roomId);
-//         }
-//       }
-
-//       socket.to(roomId).emit('user-left', socket.user.userId);
-
-//       // Update room data
-//       const roomParticipants = Array.from(
-//         io.sockets.adapter.rooms.get(roomId) || []
-//       );
-//       const roomStateData = Object.fromEntries(room || new Map());
-
-//       io.to(roomId).emit('room-data', {
-//         participants: roomParticipants,
-//         mediaState: roomStateData,
-//       });
-//     });
-//   });
-// });
-
-// const PORT = process.env.PORT || 5002;
-
-// httpServer.listen(PORT, () => {
-//   console.log(`Signaling service running on port ${PORT}`);
-// });
-
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
@@ -250,6 +18,7 @@ const roomState = new Map();
 const userToSocket = new Map();
 const socketToUser = new Map();
 const activeConnections = new Map(); // Track active peer connections
+const screenSharingState = new Map(); // Track screen sharing state per room
 
 // Helper function to determine who should initiate the connection
 const shouldInitiateConnection = (userA, userB) => {
@@ -260,6 +29,11 @@ const shouldInitiateConnection = (userA, userB) => {
 // Helper function to create connection key
 const createConnectionKey = (userA, userB) => {
   return [userA, userB].sort().join('_');
+};
+
+// Helper function to create screen sharing connection key
+const createScreenConnectionKey = (userA, userB) => {
+  return `screen_${[userA, userB].sort().join('_')}`;
 };
 
 // Middleware to verify JWT
@@ -293,6 +67,11 @@ io.on('connection', (socket) => {
     // Initialize room state if it doesn't exist
     if (!roomState.has(roomId)) {
       roomState.set(roomId, new Map());
+    }
+
+    // Initialize screen sharing state if it doesn't exist
+    if (!screenSharingState.has(roomId)) {
+      screenSharingState.set(roomId, null);
     }
 
     // Get existing participants before adding new user
@@ -392,6 +171,34 @@ io.on('connection', (socket) => {
       mediaState: roomStateData,
     });
 
+    // Send current screen sharing state to new user
+    const currentScreenSharer = screenSharingState.get(roomId);
+    if (currentScreenSharer) {
+      socket.emit('screen-share-started', { userId: currentScreenSharer });
+
+      // If someone is sharing their screen, set up the connection
+      const connectionKey = createScreenConnectionKey(
+        currentScreenSharer,
+        socket.user.userId
+      );
+      if (!activeConnections.has(connectionKey)) {
+        activeConnections.set(connectionKey, {
+          users: [currentScreenSharer, socket.user.userId],
+          timestamp: Date.now(),
+          status: 'screen-initiating',
+        });
+
+        // Notify the screen sharer to initiate connection with the new user
+        const sharerSocketId = userToSocket.get(currentScreenSharer);
+        if (sharerSocketId) {
+          io.to(sharerSocketId).emit('initiate-screen-connection', {
+            targetUserId: socket.user.userId,
+            isInitiator: true,
+          });
+        }
+      }
+    }
+
     // Clean up old connection tracking (remove entries older than 1 minute)
     const oneMinuteAgo = Date.now() - 60000;
     for (const [key, connection] of activeConnections.entries()) {
@@ -402,59 +209,24 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Enhanced WebRTC signaling with connection state tracking
+  // WebRTC signaling
   socket.on('call-user', ({ to, offer }) => {
-    console.log(`Call from ${socket.user.userId} to ${to}`);
-
-    const connectionKey = createConnectionKey(socket.user.userId, to);
-    const connection = activeConnections.get(connectionKey);
-
-    if (!connection) {
-      console.warn(
-        `No active connection found for ${connectionKey}, creating one`
-      );
-      activeConnections.set(connectionKey, {
-        users: [socket.user.userId, to],
-        timestamp: Date.now(),
-        status: 'offer-sent',
-      });
-    } else {
-      connection.status = 'offer-sent';
-    }
-
     const targetSocketId = userToSocket.get(to);
     if (targetSocketId) {
       io.to(targetSocketId).emit('call-user', {
         from: socket.user.userId,
         offer,
       });
-      console.log(`Sent call to socket ${targetSocketId}`);
-    } else {
-      console.log(`Target user ${to} not found`);
-      // Clean up connection tracking if target not found
-      activeConnections.delete(connectionKey);
     }
   });
 
-  socket.on('answer', ({ to, answer }) => {
-    console.log(`Answer from ${socket.user.userId} to ${to}`);
-
-    const connectionKey = createConnectionKey(socket.user.userId, to);
-    const connection = activeConnections.get(connectionKey);
-
-    if (connection) {
-      connection.status = 'answer-sent';
-    }
-
+  socket.on('make-answer', ({ to, answer }) => {
     const targetSocketId = userToSocket.get(to);
     if (targetSocketId) {
       io.to(targetSocketId).emit('answer-made', {
         from: socket.user.userId,
         answer,
       });
-      console.log(`Sent answer to socket ${targetSocketId}`);
-    } else {
-      console.log(`Target user ${to} not found`);
     }
   });
 
@@ -465,40 +237,80 @@ io.on('connection', (socket) => {
         from: socket.user.userId,
         candidate,
       });
-    } else {
-      console.log(`Target user ${to} not found for ICE candidate`);
     }
   });
 
-  // Enhanced connection success tracking
-  socket.on('connection-established', ({ to }) => {
-    console.log(
-      `Connection established between ${socket.user.userId} and ${to}`
-    );
-    const connectionKey = createConnectionKey(socket.user.userId, to);
-    const connection = activeConnections.get(connectionKey);
-
-    if (connection) {
-      connection.status = 'established';
-    }
-  });
-
-  // Enhanced connection failure handling
-  socket.on('connection-failed', ({ to, reason }) => {
-    console.log(
-      `Connection failed between ${socket.user.userId} and ${to}: ${reason}`
-    );
-    const connectionKey = createConnectionKey(socket.user.userId, to);
-    activeConnections.delete(connectionKey);
-
-    // Notify the other peer about the failure
+  // Screen sharing signaling
+  socket.on('screen-share-call', ({ to, offer }) => {
+    console.log(`Screen share call from ${socket.user.userId} to ${to}`);
     const targetSocketId = userToSocket.get(to);
     if (targetSocketId) {
-      io.to(targetSocketId).emit('connection-failed', {
+      io.to(targetSocketId).emit('screen-share-call', {
         from: socket.user.userId,
-        reason,
+        offer,
+      });
+      console.log(`Sent screen share call to socket ${targetSocketId}`);
+    }
+  });
+
+  socket.on('screen-share-answer', ({ to, answer }) => {
+    console.log(`Screen share answer from ${socket.user.userId} to ${to}`);
+    const targetSocketId = userToSocket.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('screen-share-answer', {
+        from: socket.user.userId,
+        answer,
+      });
+      console.log(`Sent screen share answer to socket ${targetSocketId}`);
+    }
+  });
+
+  socket.on('screen-share-candidate', ({ to, candidate }) => {
+    const targetSocketId = userToSocket.get(to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('screen-share-candidate', {
+        from: socket.user.userId,
+        candidate,
       });
     }
+  });
+
+  // Screen sharing state management
+  socket.on('screen-share-started', ({ roomId }) => {
+    console.log(
+      `Screen sharing started by ${socket.user.userId} in room ${roomId}`
+    );
+    screenSharingState.set(roomId, socket.user.userId);
+
+    // Get all users in the room except the sharer
+    const roomSockets = io.sockets.adapter.rooms.get(roomId);
+    if (roomSockets) {
+      roomSockets.forEach((socketId) => {
+        if (socketId !== socket.id) {
+          const userId = socketToUser.get(socketId);
+          if (userId) {
+            // Notify the screen sharer to initiate connection with the target user
+            io.to(socket.id).emit('initiate-screen-connection', {
+              targetUserId: userId,
+              isInitiator: true,
+            });
+          }
+        }
+      });
+    }
+
+    // Notify others about screen sharing
+    socket
+      .to(roomId)
+      .emit('screen-share-started', { userId: socket.user.userId });
+  });
+
+  socket.on('screen-share-stopped', ({ roomId }) => {
+    console.log(
+      `Screen sharing stopped by ${socket.user.userId} in room ${roomId}`
+    );
+    screenSharingState.set(roomId, null);
+    socket.to(roomId).emit('screen-share-stopped');
   });
 
   // Handle media state changes
@@ -534,113 +346,62 @@ io.on('connection', (socket) => {
     handleUserLeaving(socket, roomId);
   });
 
-  // Enhanced disconnection handling
+  // Handle disconnection
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.user.userId);
+    console.log('User disconnected:', socket.user.email);
 
-    const userId = socket.user.userId;
-
-    // Clean up user mappings
-    userToSocket.delete(userId);
-    socketToUser.delete(socket.id);
-
-    // Clean up active connections
-    const connectionsToRemove = [];
-    for (const [key, connection] of activeConnections.entries()) {
-      if (connection.users.includes(userId)) {
-        connectionsToRemove.push(key);
-      }
-    }
-
-    connectionsToRemove.forEach((key) => {
-      activeConnections.delete(key);
-    });
-
-    // Handle room cleanup
+    // Find and leave all rooms the user was in
     const rooms = Array.from(socket.rooms);
     rooms.forEach((roomId) => {
       if (roomId !== socket.id) {
-        // Skip the default room (socket's own room)
-        handleUserLeaving(socket, roomId, false); // false = don't emit user-left again
+        handleUserLeaving(socket, roomId, false);
       }
     });
+
+    // Clean up user mappings
+    userToSocket.delete(socket.user.userId);
+    socketToUser.delete(socket.id);
   });
-
-  // Helper function to handle user leaving
-  function handleUserLeaving(socket, roomId, emitUserLeft = true) {
-    console.log('User left room:', socket.user.userId, roomId);
-
-    // Remove user from room state
-    const room = roomState.get(roomId);
-    if (room) {
-      room.delete(socket.user.userId);
-      if (room.size === 0) {
-        roomState.delete(roomId);
-        console.log(`Room ${roomId} deleted (empty)`);
-      }
-    }
-
-    // Clean up connections involving this user
-    const userId = socket.user.userId;
-    const connectionsToRemove = [];
-
-    for (const [key, connection] of activeConnections.entries()) {
-      if (connection.users.includes(userId)) {
-        connectionsToRemove.push(key);
-
-        // Notify the other user about disconnection
-        const otherUser = connection.users.find((u) => u !== userId);
-        if (otherUser && emitUserLeft) {
-          const otherSocketId = userToSocket.get(otherUser);
-          if (otherSocketId) {
-            io.to(otherSocketId).emit('user-left', userId);
-          }
-        }
-      }
-    }
-
-    connectionsToRemove.forEach((key) => {
-      activeConnections.delete(key);
-    });
-
-    if (emitUserLeft) {
-      socket.to(roomId).emit('user-left', socket.user.userId);
-    }
-
-    // Update room data for remaining participants
-    if (room && room.size > 0) {
-      const roomParticipants = Array.from(room.keys());
-      const roomStateData = Object.fromEntries(room);
-
-      io.to(roomId).emit('room-data', {
-        participants: roomParticipants,
-        mediaState: roomStateData,
-      });
-    }
-
-    socket.leave(roomId);
-  }
 });
 
-// Periodic cleanup of stale connections
-setInterval(() => {
-  const fiveMinutesAgo = Date.now() - 300000; // 5 minutes
-  let cleanedUp = 0;
+// Helper function to handle user leaving
+function handleUserLeaving(socket, roomId, emitUserLeft = true) {
+  console.log(`User ${socket.user.userId} leaving room ${roomId}`);
 
-  for (const [key, connection] of activeConnections.entries()) {
-    if (connection.timestamp < fiveMinutesAgo) {
-      activeConnections.delete(key);
-      cleanedUp++;
+  // Remove user from room state
+  const room = roomState.get(roomId);
+  if (room) {
+    room.delete(socket.user.userId);
+    if (room.size === 0) {
+      roomState.delete(roomId);
+      screenSharingState.delete(roomId);
     }
   }
 
-  if (cleanedUp > 0) {
-    console.log(`Cleaned up ${cleanedUp} stale connection(s)`);
+  // Check if user was sharing screen
+  if (screenSharingState.get(roomId) === socket.user.userId) {
+    screenSharingState.set(roomId, null);
+    socket.to(roomId).emit('screen-share-stopped');
   }
-}, 60000); // Run every minute
 
-const PORT = process.env.PORT || 5002;
+  // Clean up any active connections involving this user
+  for (const [key, connection] of activeConnections.entries()) {
+    if (connection.users.includes(socket.user.userId)) {
+      console.log(`Cleaning up connection ${key} for leaving user`);
+      activeConnections.delete(key);
+    }
+  }
 
+  // Notify others in the room
+  if (emitUserLeft) {
+    socket.to(roomId).emit('user-left', socket.user.userId);
+  }
+
+  // Leave the room
+  socket.leave(roomId);
+}
+
+const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-  console.log(`Signaling service running on port ${PORT}`);
+  console.log(`Signaling server running on port ${PORT}`);
 });
