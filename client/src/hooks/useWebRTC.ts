@@ -365,7 +365,16 @@ export const useWebRTC = (
 
   // Effect to handle socket events
   useEffect(() => {
-    if (!socket || !socket.id) return;
+    if (!socket || !socket.id) {
+      console.log(
+        '⚠️ [WebRTC] Socket not ready, skipping event listener setup'
+      );
+      return;
+    }
+
+    console.log(
+      `🎧 [WebRTC] Setting up event listeners for socket ${socket.id}`
+    );
 
     // Handle call from another user
     const handleCallUser = async (data: {
@@ -533,12 +542,8 @@ export const useWebRTC = (
     // Handle user left
     const handleUserLeft = (userId: string) => {
       if (!socket.id) return;
-      const connectionId = createConnectionId(socket.id, userId);
-      console.log(
-        '👋 [WebRTC] User left, cleaning up connection:',
-        connectionId
-      );
-      cleanupPeerConnection(connectionId);
+      console.log('👋 [WebRTC] User left, cleaning up connection:', userId);
+      cleanupPeerConnection(createConnectionId(socket.id, userId));
     };
 
     // Handle media state updates
@@ -567,31 +572,56 @@ export const useWebRTC = (
       setPeerMediaState(new Map(Object.entries(data.mediaState)));
     };
 
-    // Register event listeners
-    socket.on('call-user', handleCallUser);
-    socket.on('answer-made', handleAnswerMade);
-    socket.on('ice-candidate', handleIceCandidate);
-    socket.on('user-left', handleUserLeft);
-    socket.on('media-state-update', handleMediaStateUpdate);
-    socket.on('room-data', handleRoomData);
-    socket.on('initiate-connection', ({ targetUserId, isInitiator }) => {
+    // Handle initiate connection
+    const handleInitiateConnection = ({
+      targetUserId,
+      isInitiator,
+    }: {
+      targetUserId: string;
+      isInitiator: boolean;
+    }) => {
       console.log(
         `🚀 [WebRTC] Initiating connection with ${targetUserId}, isInitiator: ${isInitiator}`
       );
       if (isInitiator) {
         createPeerConnection(targetUserId, true);
       }
-    });
+    };
+
+    // Register event listeners
+    console.log(`🎧 [WebRTC] Registering event listeners...`);
+
+    // Add a generic listener to catch all events for debugging
+    const handleAnyEvent = (eventName: string, ...args: any[]) => {
+      console.log(`📡 [WebRTC] Received socket event: ${eventName}`, args);
+    };
+    socket.onAny(handleAnyEvent);
+
+    socket.on('call-user', handleCallUser);
+    socket.on('answer-made', handleAnswerMade);
+    socket.on('ice-candidate', handleIceCandidate);
+    socket.on('user-left', handleUserLeft);
+    socket.on('media-state-update', handleMediaStateUpdate);
+    socket.on('room-data', handleRoomData);
+    socket.on('initiate-connection', handleInitiateConnection);
+
+    console.log(
+      `✅ [WebRTC] Event listeners registered for socket ${socket.id}`
+    );
 
     // Cleanup
     return () => {
+      console.log(
+        `🧹 [WebRTC] Cleaning up event listeners for socket ${socket.id}`
+      );
+      socket.offAny(handleAnyEvent);
       socket.off('call-user', handleCallUser);
       socket.off('answer-made', handleAnswerMade);
       socket.off('ice-candidate', handleIceCandidate);
       socket.off('user-left', handleUserLeft);
       socket.off('media-state-update', handleMediaStateUpdate);
       socket.off('room-data', handleRoomData);
-      socket.off('initiate-connection');
+      socket.off('initiate-connection', handleInitiateConnection);
 
       // Clean up all connections
       peersRef.current.forEach((peer) => {
