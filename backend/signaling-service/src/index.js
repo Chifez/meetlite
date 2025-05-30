@@ -54,23 +54,42 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.user.email);
+  console.log(
+    '🔌 [Server] User connected:',
+    socket.user.email,
+    'Socket ID:',
+    socket.id
+  );
 
   // Map user ID to socket ID and vice versa
   userToSocket.set(socket.user.userId, socket.id);
   socketToUser.set(socket.id, socket.user.userId);
 
+  console.log('🗺️ [Server] User mapping created:', {
+    userId: socket.user.userId,
+    socketId: socket.id,
+  });
+
   // Enhanced room joining with proper peer coordination
   socket.on('ready', ({ roomId, mediaState }) => {
+    console.log(
+      `🏠 [Server] User ${socket.user.userId} joining room ${roomId}`
+    );
+    console.log(`🏠 [Server] Media state:`, mediaState);
+
     socket.join(roomId);
 
     // Initialize room state if it doesn't exist
     if (!roomState.has(roomId)) {
+      console.log(`🏠 [Server] Creating new room state for ${roomId}`);
       roomState.set(roomId, new Map());
     }
 
     // Initialize screen sharing state if it doesn't exist
     if (!screenSharingState.has(roomId)) {
+      console.log(
+        `🏠 [Server] Initializing screen sharing state for ${roomId}`
+      );
       screenSharingState.set(roomId, null);
     }
 
@@ -78,12 +97,15 @@ io.on('connection', (socket) => {
     const existingParticipants = [];
     const roomSockets = io.sockets.adapter.rooms.get(roomId);
 
+    console.log(`🏠 [Server] Room ${roomId} sockets:`, roomSockets);
+
     if (roomSockets) {
       roomSockets.forEach((socketId) => {
         if (socketId !== socket.id) {
           const userId = socketToUser.get(socketId);
           if (userId) {
             existingParticipants.push(userId);
+            console.log(`🏠 [Server] Found existing participant: ${userId}`);
           }
         }
       });
@@ -97,7 +119,7 @@ io.on('connection', (socket) => {
     });
 
     console.log(
-      `User ${socket.user.userId} joined room ${roomId}. Existing participants:`,
+      `🏠 [Server] User ${socket.user.userId} joined room ${roomId}. Existing participants:`,
       existingParticipants
     );
 
@@ -108,10 +130,12 @@ io.on('connection', (socket) => {
         existingUserId
       );
 
+      console.log(`🔗 [Server] Processing connection ${connectionKey}`);
+
       // Prevent duplicate connection attempts
       if (activeConnections.has(connectionKey)) {
         console.log(
-          `Connection ${connectionKey} already in progress, skipping`
+          `🔗 [Server] Connection ${connectionKey} already in progress, skipping`
         );
         return;
       }
@@ -123,14 +147,23 @@ io.on('connection', (socket) => {
         status: 'initiating',
       });
 
+      console.log(`🔗 [Server] Marked connection ${connectionKey} as active`);
+
       // Determine who should initiate based on consistent ordering
       const shouldInitiate = shouldInitiateConnection(
         socket.user.userId,
         existingUserId
       );
 
+      console.log(
+        `🔗 [Server] Should ${socket.user.userId} initiate to ${existingUserId}? ${shouldInitiate}`
+      );
+
       if (shouldInitiate) {
         // New user initiates connection to existing user
+        console.log(
+          `🚀 [Server] Telling ${socket.user.userId} to initiate connection to ${existingUserId}`
+        );
         socket.emit('initiate-connection', {
           targetUserId: existingUserId,
           isInitiator: true,
@@ -139,22 +172,39 @@ io.on('connection', (socket) => {
         // Notify existing user to expect connection
         const targetSocketId = userToSocket.get(existingUserId);
         if (targetSocketId) {
+          console.log(
+            `🚀 [Server] Telling ${existingUserId} to expect connection from ${socket.user.userId}`
+          );
           io.to(targetSocketId).emit('initiate-connection', {
             targetUserId: socket.user.userId,
             isInitiator: false,
           });
+        } else {
+          console.warn(
+            `⚠️ [Server] Could not find socket for user ${existingUserId}`
+          );
         }
       } else {
         // Existing user should initiate to new user
         const targetSocketId = userToSocket.get(existingUserId);
         if (targetSocketId) {
+          console.log(
+            `🚀 [Server] Telling ${existingUserId} to initiate connection to ${socket.user.userId}`
+          );
           io.to(targetSocketId).emit('initiate-connection', {
             targetUserId: socket.user.userId,
             isInitiator: true,
           });
+        } else {
+          console.warn(
+            `⚠️ [Server] Could not find socket for user ${existingUserId}`
+          );
         }
 
         // Notify new user to expect connection
+        console.log(
+          `🚀 [Server] Telling ${socket.user.userId} to expect connection from ${existingUserId}`
+        );
         socket.emit('initiate-connection', {
           targetUserId: existingUserId,
           isInitiator: false,
@@ -166,6 +216,14 @@ io.on('connection', (socket) => {
     const allParticipants = [socket.user.userId, ...existingParticipants];
     const roomStateData = Object.fromEntries(room);
 
+    console.log(
+      `🏠 [Server] Sending room data to all participants in ${roomId}:`,
+      {
+        participants: allParticipants,
+        mediaState: roomStateData,
+      }
+    );
+
     io.to(roomId).emit('room-data', {
       participants: allParticipants,
       mediaState: roomStateData,
@@ -174,6 +232,9 @@ io.on('connection', (socket) => {
     // Send current screen sharing state to new user
     const currentScreenSharer = screenSharingState.get(roomId);
     if (currentScreenSharer) {
+      console.log(
+        `📺 [Server] Room ${roomId} has active screen sharer: ${currentScreenSharer}`
+      );
       socket.emit('screen-share-started', { userId: currentScreenSharer });
 
       // If someone is sharing their screen, set up the connection
@@ -191,6 +252,9 @@ io.on('connection', (socket) => {
         // Notify the screen sharer to initiate connection with the new user
         const sharerSocketId = userToSocket.get(currentScreenSharer);
         if (sharerSocketId) {
+          console.log(
+            `📺 [Server] Telling screen sharer ${currentScreenSharer} to connect to ${socket.user.userId}`
+          );
           io.to(sharerSocketId).emit('initiate-screen-connection', {
             targetUserId: socket.user.userId,
             isInitiator: true,
@@ -203,40 +267,59 @@ io.on('connection', (socket) => {
     const oneMinuteAgo = Date.now() - 60000;
     for (const [key, connection] of activeConnections.entries()) {
       if (connection.timestamp < oneMinuteAgo) {
-        console.log(`Cleaning up stale connection tracking: ${key}`);
+        console.log(
+          `🧹 [Server] Cleaning up stale connection tracking: ${key}`
+        );
         activeConnections.delete(key);
       }
     }
+
+    console.log(
+      `✅ [Server] Room join complete for ${socket.user.userId} in ${roomId}`
+    );
   });
 
   // WebRTC signaling
   socket.on('call-user', ({ to, offer }) => {
+    console.log(`📞 [Server] Call from ${socket.user.userId} to ${to}`);
     const targetSocketId = userToSocket.get(to);
     if (targetSocketId) {
+      console.log(`📞 [Server] Forwarding call to socket ${targetSocketId}`);
       io.to(targetSocketId).emit('call-user', {
         from: socket.user.userId,
         offer,
       });
+    } else {
+      console.warn(`⚠️ [Server] No socket found for user ${to}`);
     }
   });
 
   socket.on('make-answer', ({ to, answer }) => {
+    console.log(`📞 [Server] Answer from ${socket.user.userId} to ${to}`);
     const targetSocketId = userToSocket.get(to);
     if (targetSocketId) {
+      console.log(`📞 [Server] Forwarding answer to socket ${targetSocketId}`);
       io.to(targetSocketId).emit('answer-made', {
         from: socket.user.userId,
         answer,
       });
+    } else {
+      console.warn(`⚠️ [Server] No socket found for user ${to}`);
     }
   });
 
   socket.on('ice-candidate', ({ to, candidate }) => {
+    console.log(
+      `🧊 [Server] ICE candidate from ${socket.user.userId} to ${to}`
+    );
     const targetSocketId = userToSocket.get(to);
     if (targetSocketId) {
       io.to(targetSocketId).emit('ice-candidate', {
         from: socket.user.userId,
         candidate,
       });
+    } else {
+      console.warn(`⚠️ [Server] No socket found for user ${to}`);
     }
   });
 
