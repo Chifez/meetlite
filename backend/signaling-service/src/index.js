@@ -402,8 +402,6 @@ function handleUserLeaving(socket, roomId, emitUserLeft = true) {
 }
 
 const PORT = process.env.PORT || 3001;
-const HOST = process.env.HOST || '0.0.0.0';
-
-httpServer.listen(PORT, HOST, () => {
-  console.log(`Signaling server running on ${HOST}:${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Signaling server running on port ${PORT}`);
 });
