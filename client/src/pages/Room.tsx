@@ -6,6 +6,7 @@ import { VideoGrid } from '@/components/room/VideoGrid';
 import { RoomControls } from '@/components/room/RoomControls';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useScreenShareRTC } from '@/hooks/useScreenShareRTC';
+import { useSound } from '@/hooks/useSound';
 import SEO from '@/components/SEO';
 import { env } from '@/config/env';
 import { RoomProvider } from '@/contexts/RoomContext';
@@ -142,6 +143,9 @@ const Room = () => {
   const { peers, peerMediaState } = useWebRTC(socket, localStream);
   const { screenPeers } = useScreenShareRTC(socket, screenStream);
 
+  // Sound functionality
+  const { playUserJoinSound, playUserLeaveSound } = useSound();
+
   // Toggle audio
   const toggleAudio = () => {
     if (localStream) {
@@ -271,12 +275,34 @@ const Room = () => {
       setScreenSharingUser(null);
     };
 
+    // Handle user joining sound
+    const handleUserJoined = (data: { userId: string; userName: string }) => {
+      console.log('🔊 [Room] User joined, playing sound:', data);
+      playUserJoinSound();
+
+      // Optional: Show a toast notification
+      // toast({
+      //   title: 'User Joined',
+      //   description: `${data.userName} joined the meeting`,
+      // });
+    };
+
+    // Handle user leaving sound
+    const handleUserLeft = (userId: string) => {
+      console.log('🔇 [Room] User left, playing sound:', userId);
+      playUserLeaveSound();
+    };
+
     socket.on('screen-share-started', handleScreenShareStarted);
     socket.on('screen-share-stopped', handleScreenShareStopped);
+    socket.on('user-joined', handleUserJoined);
+    socket.on('user-left', handleUserLeft);
 
     return () => {
       socket.off('screen-share-started', handleScreenShareStarted);
       socket.off('screen-share-stopped', handleScreenShareStopped);
+      socket.off('user-joined', handleUserJoined);
+      socket.off('user-left', handleUserLeft);
     };
   }, [socket]);
 
@@ -307,8 +333,8 @@ const Room = () => {
         ogUrl={`https://your-domain.com/room/${roomId}`}
       />
       <RoomProvider value={contextValue}>
-        <div className="flex flex-col h-screen">
-          <div className="flex-1 overflow-hidden bg-background p-4">
+        <div className="flex flex-col h-screen bg-[#121212]">
+          <div className="flex-1 overflow-hidden bg-[#121212] p-4">
             <VideoGrid />
           </div>
 

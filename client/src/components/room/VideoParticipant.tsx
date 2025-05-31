@@ -78,7 +78,7 @@ export const VideoParticipant = ({
   const showLoading = isLoading && !isLocal && !stream;
 
   return (
-    <div className="relative bg-muted rounded-lg overflow-hidden">
+    <div className="relative bg-muted rounded-lg overflow-hidden w-full h-full aspect-[4/3] min-w-0 min-h-0">
       <video
         ref={videoRef}
         autoPlay
@@ -107,10 +107,10 @@ export const VideoParticipant = ({
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 flex items-center gap-2 text-sm text-white bg-black/50 px-2 py-1 rounded">
-        <span>{isLocal ? 'You' : 'Participant'}</span>
+      <div className="absolute bottom-2 left-2 flex items-center gap-2 text-sm text-white bg-black/50 px-2 py-1 rounded max-w-[calc(100%-1rem)]">
+        <span className="truncate">{isLocal ? 'You' : 'Participant'}</span>
         {!mediaState.audioEnabled && (
-          <MicOff className="h-4 w-4 text-white/75" />
+          <MicOff className="h-4 w-4 text-white/75 flex-shrink-0" />
         )}
       </div>
     </div>

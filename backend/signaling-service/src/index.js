@@ -229,6 +229,18 @@ io.on('connection', (socket) => {
       mediaState: roomStateData,
     });
 
+    // Notify existing participants about new user joining (for sound notification)
+    // Only send to existing participants, not the new joiner
+    if (existingParticipants.length > 0) {
+      console.log(
+        `🔊 [Server] Notifying existing participants about new user ${socket.user.userId} joining`
+      );
+      socket.to(roomId).emit('user-joined', {
+        userId: socket.user.userId,
+        userName: socket.user.name || socket.user.email || 'Unknown User',
+      });
+    }
+
     // Send current screen sharing state to new user
     const currentScreenSharer = screenSharingState.get(roomId);
     if (currentScreenSharer) {

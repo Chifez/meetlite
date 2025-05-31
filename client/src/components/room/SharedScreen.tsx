@@ -1,8 +1,7 @@
-import React from 'react';
-import { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface SharedScreenProps {
-  stream: MediaStream | null;
+  stream: MediaStream;
 }
 
 export const SharedScreen: React.FC<SharedScreenProps> = ({ stream }) => {
@@ -17,7 +16,7 @@ export const SharedScreen: React.FC<SharedScreenProps> = ({ stream }) => {
   if (!stream) return null;
 
   return (
-    <div className="w-full h-[50vh] bg-black">
+    <div className="w-full h-full bg-black rounded-lg overflow-hidden">
       <video
         ref={videoRef}
         autoPlay
