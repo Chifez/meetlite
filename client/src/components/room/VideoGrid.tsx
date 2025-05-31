@@ -103,7 +103,7 @@ export const VideoGrid = () => {
       : null,
   });
 
-  const { mobile, desktop } = getGridLayout();
+  const { desktop } = getGridLayout();
   const { mobile: mobileSize, desktop: desktopSize } = getParticipantSize();
 
   return (

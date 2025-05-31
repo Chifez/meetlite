@@ -1,8 +1,6 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 export const useSound = () => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const playSound = useCallback((soundPath: string, volume: number = 0.5) => {
     try {
       // Create new audio instance for each play to avoid conflicts
@@ -27,7 +25,7 @@ export const useSound = () => {
   }, []);
 
   const playUserJoinSound = useCallback(() => {
-    playSound('/user-join.mp3', 0.6); // You can replace with your sound file name
+    playSound('/user-join.mp3', 0.7); // You can replace with your sound file name
   }, [playSound]);
 
   const playUserLeaveSound = useCallback(() => {
