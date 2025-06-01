@@ -88,7 +88,7 @@ export const VideoParticipant = ({
       />
 
       {(showVideoOff || showError || showLoading) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+        <div className="absolute inset-0 flex items-center justify-center bg-[#26262b]">
           {showLoading ? (
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
