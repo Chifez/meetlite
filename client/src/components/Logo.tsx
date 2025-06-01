@@ -12,7 +12,7 @@ export default function Logo({ size = 'base' }: { size?: 'base' | 'sm' }) {
         alt="MeetLite Logo"
         className={cn(sizeClasses[size])}
       />
-      <h1 className="text-2xl font-bold">MeetLite</h1>
+      <h1 className="text-xl lg:text-2xl font-bold">MeetLite</h1>
     </div>
   );
 }
