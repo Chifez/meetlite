@@ -78,7 +78,7 @@ export const VideoParticipant = ({
   const showLoading = isLoading && !isLocal && !stream;
 
   return (
-    <div className="relative bg-muted rounded-lg overflow-hidden w-full h-full aspect-[4/3] min-w-0 min-h-0">
+    <div className="relative bg-muted rounded-lg overflow-hidden w-full h-full min-w-0 min-h-0">
       <video
         ref={videoRef}
         autoPlay

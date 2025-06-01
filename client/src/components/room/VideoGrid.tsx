@@ -1,7 +1,6 @@
 import { VideoParticipant } from './VideoParticipant';
 import { SharedScreen } from './SharedScreen';
 import { useRoom } from '@/contexts/RoomContext';
-import { PeerConnection } from './types';
 
 export const VideoGrid = () => {
   const {
@@ -19,142 +18,130 @@ export const VideoGrid = () => {
   const sharedScreenStream =
     screenStream ||
     (screenSharingUser &&
-      Array.from(screenPeers.values()).find(
-        (p: PeerConnection) => p.id === screenSharingUser
-      )?.stream) ||
+      Array.from(screenPeers.values()).find((p) => p.id === screenSharingUser)
+        ?.stream) ||
     null;
 
-  // Calculate grid layout based on participant count and screen size
+  // Calculate participant count
   const participantCount = peers.size + 1; // +1 for local user
 
-  const getGridLayout = () => {
-    // Mobile layout (single column)
-    const mobileLayout = {
-      cols: 1, // Always single column on mobile
-      rows: participantCount,
-    };
-
-    // Desktop layout (max 3 per row)
-    const desktopLayout = {
-      cols: participantCount === 1 ? 1 : Math.min(3, participantCount),
-      rows: Math.ceil(participantCount / 3),
-    };
-
-    return { mobile: mobileLayout, desktop: desktopLayout };
-  };
-
-  const getParticipantSize = () => {
-    // Mobile sizing - single column, responsive width
+  // Get dynamic sizing based on participant count and available space
+  const getVideoSize = () => {
+    // Mobile: Single column layout
     const mobileSize = {
       width: '90vw',
-      height: '67.5vw', // Maintaining 4:3 aspect ratio (90vw * 3/4)
+      height: sharedScreenStream ? '30vh' : '50vh', // Smaller when screen sharing
       maxWidth: '400px',
       maxHeight: '300px',
     };
 
-    // Desktop sizing - calculate based on available space and grid (1:1 ratio)
-    const { desktop } = getGridLayout();
-    const availableWidth = 90; // 90vw
-    const containerHeight = sharedScreenStream ? 45 : 80; // 45vh or 80vh
-
-    // Calculate width per column (with gap consideration)
-    const gapSpace = (desktop.cols - 1) * 1; // 1vw per gap
-    const widthPerColumn = (availableWidth - gapSpace) / desktop.cols;
-
-    // Use 1:1 aspect ratio for desktop (square boxes)
-    const calculatedHeight = widthPerColumn; // 1:1 aspect ratio
-
-    // Ensure we don't exceed container height
-    const maxHeightPerRow =
-      (containerHeight - (desktop.rows - 1) * 2) / desktop.rows; // 2vh per gap
-    const finalHeight = Math.min(calculatedHeight, maxHeightPerRow);
-    const finalWidth = finalHeight; // Maintain 1:1 aspect ratio
-
-    const desktopSize = {
-      width: `${finalWidth}vw`,
-      height: `${finalHeight}vh`,
-      maxWidth: '400px',
-      maxHeight: '400px',
-    };
-
-    return { mobile: mobileSize, desktop: desktopSize };
+    // Desktop: Google Meet-style sizing
+    if (participantCount === 1) {
+      // Single participant - take full available space or fixed ratio when screen sharing
+      if (sharedScreenStream) {
+        return {
+          mobile: mobileSize,
+          desktop: {
+            width: '400px',
+            height: '300px', // 4:3 ratio
+            useFixedRatio: true,
+          },
+          layout: { cols: 1, rows: 1 },
+        };
+      }
+      return {
+        mobile: mobileSize,
+        desktop: {
+          width: '100%',
+          height: '100%',
+          useFullScreen: true,
+        },
+        layout: { cols: 1, rows: 1 },
+      };
+    } else if (participantCount === 2) {
+      // Two participants - side by side, fixed ratio when screen sharing
+      if (sharedScreenStream) {
+        return {
+          mobile: mobileSize,
+          desktop: {
+            width: '300px',
+            height: '225px', // 4:3 ratio
+            useFixedRatio: true,
+          },
+          layout: { cols: 2, rows: 1 },
+        };
+      }
+      return {
+        mobile: mobileSize,
+        desktop: {
+          width: 'calc(50% - 0.5rem)', // Half width minus gap
+          height: '100%',
+          useSideBySide: true,
+        },
+        layout: { cols: 2, rows: 1 },
+      };
+    } else {
+      // 3+ participants - always use fixed minimum sizes like Google Meet
+      return {
+        mobile: mobileSize,
+        desktop: {
+          width: sharedScreenStream ? '240px' : '320px', // Smaller when screen sharing
+          height: sharedScreenStream ? '180px' : '240px', // 4:3 ratio maintained
+          minWidth: '200px',
+          minHeight: '150px',
+          maxWidth: '400px',
+          maxHeight: '300px',
+          useFlexWrap: true,
+        },
+        layout: { cols: 3, rows: Math.ceil(participantCount / 3) },
+      };
+    }
   };
 
-  console.log('VideoGrid screen sharing state:', {
-    isLocalSharing: !!screenStream,
-    screenSharingUser,
-    peerScreenStreams: Array.from(screenPeers.entries()).map(([id, peer]) => ({
-      id,
-      hasStream: !!peer.stream,
-      tracks: peer.stream?.getTracks().map((track) => ({
-        kind: track.kind,
-        enabled: track.enabled,
-        muted: track.muted,
-      })),
-    })),
-    finalStream: sharedScreenStream
-      ? {
-          tracks: sharedScreenStream.getTracks().map((track) => ({
-            kind: track.kind,
-            enabled: track.enabled,
-            muted: track.muted,
-          })),
-        }
-      : null,
-  });
+  const { mobile: mobileSize, desktop: desktopSize } = getVideoSize();
 
-  const { desktop } = getGridLayout();
-  const { mobile: mobileSize, desktop: desktopSize } = getParticipantSize();
+  // Create array of all participants (local + peers)
+  const allParticipants = [
+    {
+      id: 'local',
+      stream: localStream,
+      mediaState: { audioEnabled, videoEnabled },
+      isLocal: true,
+      isLoading: false,
+    },
+    ...Array.from(peers.entries()).map(([peerId, peer]) => ({
+      id: peerId,
+      stream: peer.stream || null,
+      mediaState: peerMediaState.get(peer.id) || {
+        audioEnabled: true,
+        videoEnabled: true,
+      },
+      isLocal: false,
+      isLoading: peer.isLoading || false,
+    })),
+  ];
 
   return (
-    <div className="flex flex-col w-full h-full overflow-y-auto scrollbar-hide">
-      {/* Shared Screen - Takes up half height when present */}
+    <div className="flex flex-col w-full h-full overflow-hidden">
+      {/* Shared Screen - Takes up top portion when present */}
       {sharedScreenStream && (
         <div className="w-full h-1/2 mb-2 flex-shrink-0">
           <SharedScreen stream={sharedScreenStream} />
         </div>
       )}
 
-      {/* Participants Grid - Centered with fluid sizing */}
+      {/* Participants Container - Centered flexbox layout */}
       <div
-        className={`flex-1 flex items-center justify-center ${
+        className={`flex-1 flex items-center justify-center overflow-hidden ${
           sharedScreenStream ? 'h-1/2' : 'h-full'
         }`}
       >
-        {/* Mobile Grid */}
-        <div
-          className="md:hidden w-full h-full flex items-start justify-center"
-          style={{
-            maxWidth: '95vw',
-            maxHeight: sharedScreenStream ? '45vh' : '80vh',
-          }}
-        >
-          <div
-            className="flex flex-col items-center gap-2 pt-4 pb-8 px-2 overflow-y-auto scrollbar-hide"
-            style={{
-              width: '100%',
-              maxHeight: '100%',
-            }}
-          >
-            <div
-              className="relative flex-shrink-0"
-              style={{
-                width: mobileSize.width,
-                height: mobileSize.height,
-                maxWidth: mobileSize.maxWidth,
-                maxHeight: mobileSize.maxHeight,
-              }}
-            >
-              <VideoParticipant
-                stream={localStream}
-                mediaState={{ audioEnabled, videoEnabled }}
-                isLocal={true}
-              />
-            </div>
-
-            {Array.from(peers.entries()).map(([peerId, peer]) => (
+        {/* Mobile Layout - Single Column */}
+        <div className="md:hidden w-full h-full overflow-y-auto scrollbar-hide">
+          <div className="flex flex-col items-center justify-center gap-4 py-4 px-2 min-h-full">
+            {allParticipants.map((participant) => (
               <div
-                key={peerId}
+                key={participant.id}
                 className="relative flex-shrink-0"
                 style={{
                   width: mobileSize.width,
@@ -164,76 +151,103 @@ export const VideoGrid = () => {
                 }}
               >
                 <VideoParticipant
-                  stream={peer.stream || null}
-                  mediaState={
-                    peerMediaState.get(peer.id) || {
-                      audioEnabled: true,
-                      videoEnabled: true,
-                    }
-                  }
-                  isLocal={false}
-                  isLoading={peer.isLoading || false}
+                  stream={participant.stream}
+                  mediaState={participant.mediaState}
+                  isLocal={participant.isLocal}
+                  isLoading={participant.isLoading}
                 />
               </div>
             ))}
           </div>
         </div>
 
-        {/* Desktop Grid */}
-        <div
-          className="hidden md:block w-full h-full"
-          style={{
-            maxWidth: '95vw',
-            maxHeight: sharedScreenStream ? '45vh' : '80vh',
-          }}
-        >
-          <div
-            className="grid gap-1 place-items-center place-content-center p-2 min-h-full overflow-hidden"
-            style={{
-              gridTemplateColumns: `repeat(${desktop.cols}, 1fr)`,
-            }}
-          >
-            <div
-              className="relative"
-              style={{
-                width: desktopSize.width,
-                height: desktopSize.height,
-                maxWidth: desktopSize.maxWidth,
-                maxHeight: desktopSize.maxHeight,
-              }}
-            >
-              <VideoParticipant
-                stream={localStream}
-                mediaState={{ audioEnabled, videoEnabled }}
-                isLocal={true}
-              />
-            </div>
-
-            {Array.from(peers.entries()).map(([peerId, peer]) => (
+        {/* Desktop Layout - Google Meet Style */}
+        <div className="hidden md:flex w-full h-full items-center justify-center overflow-hidden">
+          {/* Single Participant - Full Screen or Fixed Ratio */}
+          {participantCount === 1 && (
+            <div className="w-full h-full p-4 flex items-center justify-center">
               <div
-                key={peerId}
-                className="relative"
-                style={{
-                  width: desktopSize.width,
-                  height: desktopSize.height,
-                  maxWidth: desktopSize.maxWidth,
-                  maxHeight: desktopSize.maxHeight,
-                }}
+                className={
+                  sharedScreenStream ? 'flex-shrink-0' : 'w-full h-full'
+                }
+                style={
+                  sharedScreenStream
+                    ? {
+                        width: desktopSize.width,
+                        height: desktopSize.height,
+                      }
+                    : {}
+                }
               >
                 <VideoParticipant
-                  stream={peer.stream || null}
-                  mediaState={
-                    peerMediaState.get(peer.id) || {
-                      audioEnabled: true,
-                      videoEnabled: true,
-                    }
-                  }
-                  isLocal={false}
-                  isLoading={peer.isLoading || false}
+                  stream={allParticipants[0].stream}
+                  mediaState={allParticipants[0].mediaState}
+                  isLocal={allParticipants[0].isLocal}
+                  isLoading={allParticipants[0].isLoading}
                 />
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* Two Participants - Side by Side or Fixed Ratio */}
+          {participantCount === 2 && (
+            <div className="w-full h-full p-4 flex items-center justify-center gap-4">
+              {allParticipants.map((participant) => (
+                <div
+                  key={participant.id}
+                  className={
+                    sharedScreenStream ? 'flex-shrink-0' : 'flex-1 h-full'
+                  }
+                  style={
+                    sharedScreenStream
+                      ? {
+                          width: desktopSize.width,
+                          height: desktopSize.height,
+                        }
+                      : {
+                          maxWidth: 'calc(50% - 0.5rem)',
+                        }
+                  }
+                >
+                  <VideoParticipant
+                    stream={participant.stream}
+                    mediaState={participant.mediaState}
+                    isLocal={participant.isLocal}
+                    isLoading={participant.isLoading}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Three or More Participants - Fixed Size with Flex Wrap */}
+          {participantCount >= 3 && (
+            <div className="w-full h-full overflow-y-auto scrollbar-hide">
+              <div className="flex flex-wrap items-center justify-center gap-4 p-4 min-h-full">
+                {allParticipants.map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="relative flex-shrink-0"
+                    style={{
+                      width: desktopSize.width,
+                      height: desktopSize.height,
+                      minWidth: desktopSize.minWidth,
+                      minHeight: desktopSize.minHeight,
+                      maxWidth: desktopSize.maxWidth,
+                      maxHeight: desktopSize.maxHeight,
+                    }}
+                  >
+                    <VideoParticipant
+                      stream={participant.stream}
+                      mediaState={participant.mediaState}
+                      isLocal={participant.isLocal}
+                      isLoading={participant.isLoading}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
