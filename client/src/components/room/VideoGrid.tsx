@@ -188,7 +188,7 @@ export const VideoGrid = () => {
           }}
         >
           <div
-            className="grid gap-2 place-items-center place-content-center p-2 min-h-full overflow-hidden"
+            className="grid gap-1 place-items-center place-content-center p-2 min-h-full overflow-hidden"
             style={{
               gridTemplateColumns: `repeat(${desktop.cols}, 1fr)`,
             }}

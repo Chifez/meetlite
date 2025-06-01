@@ -22,7 +22,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Video } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 const signupSchema = z
