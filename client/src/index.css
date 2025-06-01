@@ -66,43 +66,6 @@
   }
 }
 
-.video-container {
-  position: relative;
-  aspect-ratio: 16/9;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background-color: hsl(var(--muted));
-}
-
-.video-container video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.video-controls {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 9999px;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.video-label {
-  position: absolute;
-  left: 16px;
-  bottom: 16px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-size: 14px;
-}
-
 /* Hide scrollbar but keep functionality */
 @layer utilities {
   .scrollbar-hide {
