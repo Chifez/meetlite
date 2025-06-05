@@ -71,7 +71,7 @@ export const VideoGrid = () => {
         {/* Participants Container */}
         <div
           className={`flex-1 overflow-hidden ${
-            sharedScreenStream ? 'md:w-[32%]' : 'w-full'
+            sharedScreenStream ? 'md:w-[32%] h-full' : 'w-full h-full'
           }`}
         >
           {/* Mobile Layout - Single Column */}

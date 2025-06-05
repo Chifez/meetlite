@@ -63,7 +63,6 @@ const Login = () => {
       <SEO
         title="Login - MeetLite"
         description="Login to your MeetLite account to continue"
-        keywords="video conferencing, online meetings, web conferencing, video chat, remote collaboration"
       />
       <div className="container max-w-md mx-auto py-16 px-4">
         <div className="flex justify-center mb-8">

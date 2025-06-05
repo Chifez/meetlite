@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { PlusCircle, Users } from 'lucide-react';
 import { env } from '@/config/env';
+import SEO from '@/components/SEO';
 
 const Dashboard = () => {
   const { user, getAuthHeaders } = useAuth();
@@ -56,74 +57,79 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto py-16 px-4 space-y-8">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Welcome, {user?.email}</h1>
-        <p className="text-muted-foreground">
-          Create a new meeting or join an existing one
-        </p>
-      </div>
+    <>
+      <SEO />
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PlusCircle className="h-5 w-5" />
-              Create Meeting
-            </CardTitle>
-            <CardDescription>
-              Start a new meeting and invite others
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm mb-4">
-              Create a new meeting room and share the link or code with
-              participants. All participants will enter a lobby before joining.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button
-              onClick={createRoom}
-              className="w-full"
-              disabled={isCreatingRoom}
-            >
-              {isCreatingRoom ? 'Creating...' : 'Create New Meeting'}
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="container max-w-4xl mx-auto py-16 px-4 space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold">Welcome, {user?.email}</h1>
+          <p className="text-muted-foreground">
+            Create a new meeting or join an existing one
+          </p>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Join Meeting
-            </CardTitle>
-            <CardDescription>
-              Join an existing meeting with a code
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm">
-                Enter the meeting code provided by the meeting organizer.
+        <div className="grid md:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PlusCircle className="h-5 w-5" />
+                Create Meeting
+              </CardTitle>
+              <CardDescription>
+                Start a new meeting and invite others
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm mb-4">
+                Create a new meeting room and share the link or code with
+                participants. All participants will enter a lobby before
+                joining.
               </p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter meeting code"
-                  value={joinRoomId}
-                  onChange={(e) => setJoinRoomId(e.target.value)}
-                />
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={createRoom}
+                className="w-full"
+                disabled={isCreatingRoom}
+              >
+                {isCreatingRoom ? 'Creating...' : 'Create New Meeting'}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Join Meeting
+              </CardTitle>
+              <CardDescription>
+                Join an existing meeting with a code
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm">
+                  Enter the meeting code provided by the meeting organizer.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter meeting code"
+                    value={joinRoomId}
+                    onChange={(e) => setJoinRoomId(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={joinRoom} className="w-full">
-              Join Meeting
-            </Button>
-          </CardFooter>
-        </Card>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={joinRoom} className="w-full">
+                Join Meeting
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

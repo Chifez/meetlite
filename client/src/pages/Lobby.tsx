@@ -20,7 +20,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Mic, MicOff, Video as VideoIcon, VideoOff, Copy } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  Video as VideoIcon,
+  VideoOff,
+  Copy,
+  Loader2,
+} from 'lucide-react';
 import { env } from '@/config/env';
 
 type MediaDeviceInfo = {
@@ -33,18 +40,30 @@ const Lobby = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const { getAuthHeaders } = useAuth();
   const navigate = useNavigate();
-
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Consolidated state
   const [isValidRoom, setIsValidRoom] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedAudio, setSelectedAudio] = useState<string>('');
-  const [selectedVideo, setSelectedVideo] = useState<string>('');
+
+  const [mediaState, setMediaState] = useState({
+    audioEnabled: true,
+    videoEnabled: true,
+  });
+
+  const [devices, setDevices] = useState<{
+    audio: MediaDeviceInfo[];
+    video: MediaDeviceInfo[];
+  }>({
+    audio: [],
+    video: [],
+  });
+
+  const [selectedDevices, setSelectedDevices] = useState({
+    audio: '',
+    video: '',
+  });
 
   // Verify room exists
   useEffect(() => {
@@ -68,7 +87,7 @@ const Lobby = () => {
     if (roomId) {
       checkRoom();
     }
-  }, [roomId, getAuthHeaders, navigate, toast]);
+  }, [roomId, getAuthHeaders, navigate]);
 
   // Get user media and devices
   useEffect(() => {
@@ -89,9 +108,9 @@ const Lobby = () => {
         }
 
         // Enumerate devices
-        const devices = await navigator.mediaDevices.enumerateDevices();
+        const deviceList = await navigator.mediaDevices.enumerateDevices();
 
-        const audioInputs = devices
+        const audioInputs = deviceList
           .filter((device) => device.kind === 'audioinput')
           .map((device) => ({
             deviceId: device.deviceId,
@@ -100,7 +119,7 @@ const Lobby = () => {
               device.label || `Microphone ${device.deviceId.slice(0, 5)}...`,
           }));
 
-        const videoInputs = devices
+        const videoInputs = deviceList
           .filter((device) => device.kind === 'videoinput')
           .map((device) => ({
             deviceId: device.deviceId,
@@ -108,12 +127,15 @@ const Lobby = () => {
             label: device.label || `Camera ${device.deviceId.slice(0, 5)}...`,
           }));
 
-        setAudioDevices(audioInputs);
-        setVideoDevices(videoInputs);
+        setDevices({ audio: audioInputs, video: videoInputs });
 
         // Set default devices
-        if (audioInputs.length) setSelectedAudio(audioInputs[0].deviceId);
-        if (videoInputs.length) setSelectedVideo(videoInputs[0].deviceId);
+        if (audioInputs.length > 0 || videoInputs.length > 0) {
+          setSelectedDevices({
+            audio: audioInputs.length > 0 ? audioInputs[0].deviceId : '',
+            video: videoInputs.length > 0 ? videoInputs[0].deviceId : '',
+          });
+        }
       } catch (error) {
         console.error('Error accessing media devices:', error);
         toast.error('Camera/Microphone Error', {
@@ -131,29 +153,29 @@ const Lobby = () => {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [isValidRoom, toast]);
+  }, [isValidRoom]);
 
-  // Toggle audio
+  // Media control functions
   const toggleAudio = () => {
     if (stream) {
+      const newAudioEnabled = !mediaState.audioEnabled;
       stream.getAudioTracks().forEach((track) => {
-        track.enabled = !audioEnabled;
+        track.enabled = newAudioEnabled;
       });
-      setAudioEnabled(!audioEnabled);
+      setMediaState((prev) => ({ ...prev, audioEnabled: newAudioEnabled }));
     }
   };
 
-  // Toggle video
   const toggleVideo = () => {
     if (stream) {
+      const newVideoEnabled = !mediaState.videoEnabled;
       stream.getVideoTracks().forEach((track) => {
-        track.enabled = !videoEnabled;
+        track.enabled = newVideoEnabled;
       });
-      setVideoEnabled(!videoEnabled);
+      setMediaState((prev) => ({ ...prev, videoEnabled: newVideoEnabled }));
     }
   };
 
-  // Change audio device
   const changeAudioDevice = async (deviceId: string) => {
     try {
       if (stream) {
@@ -167,12 +189,11 @@ const Lobby = () => {
 
         // Add new audio track to existing stream
         const newAudioTrack = newStream.getAudioTracks()[0];
-
         if (newAudioTrack) {
           stream.addTrack(newAudioTrack);
         }
 
-        setSelectedAudio(deviceId);
+        setSelectedDevices((prev) => ({ ...prev, audio: deviceId }));
       }
     } catch (error) {
       console.error('Error changing audio device:', error);
@@ -182,7 +203,6 @@ const Lobby = () => {
     }
   };
 
-  // Change video device
   const changeVideoDevice = async (deviceId: string) => {
     try {
       if (stream) {
@@ -195,16 +215,14 @@ const Lobby = () => {
         });
 
         const newVideoTrack = newStream.getVideoTracks()[0];
-
         if (newVideoTrack) {
           stream.addTrack(newVideoTrack);
-
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
         }
 
-        setSelectedVideo(deviceId);
+        setSelectedDevices((prev) => ({ ...prev, video: deviceId }));
       }
     } catch (error) {
       console.error('Error changing video device:', error);
@@ -214,19 +232,23 @@ const Lobby = () => {
     }
   };
 
-  // Join meeting
   const joinMeeting = () => {
     // Store media settings in session storage
-    sessionStorage.setItem('meetlite_audio_enabled', String(audioEnabled));
-    sessionStorage.setItem('meetlite_video_enabled', String(videoEnabled));
-    sessionStorage.setItem('meetlite_audio_device', selectedAudio);
-    sessionStorage.setItem('meetlite_video_device', selectedVideo);
+    sessionStorage.setItem(
+      'meetlite_audio_enabled',
+      String(mediaState.audioEnabled)
+    );
+    sessionStorage.setItem(
+      'meetlite_video_enabled',
+      String(mediaState.videoEnabled)
+    );
+    sessionStorage.setItem('meetlite_audio_device', selectedDevices.audio);
+    sessionStorage.setItem('meetlite_video_device', selectedDevices.video);
 
     // Navigate to room
     navigate(`/room/${roomId}`);
   };
 
-  // Copy room link
   const copyRoomLink = () => {
     const roomLink = `${window.location.origin}/lobby/${roomId}`;
     navigator.clipboard.writeText(roomLink);
@@ -237,7 +259,8 @@ const Lobby = () => {
 
   if (isLoading) {
     return (
-      <div className="container flex items-center justify-center h-screen">
+      <div className="container flex flex-col items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
         <p>Loading...</p>
       </div>
     );
@@ -261,11 +284,11 @@ const Lobby = () => {
                 muted
                 playsInline
                 className={`w-full h-full object-cover ${
-                  !videoEnabled ? 'hidden' : ''
+                  !mediaState.videoEnabled ? 'hidden' : ''
                 }`}
               />
 
-              {!videoEnabled && (
+              {!mediaState.videoEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted">
                   <VideoOff className="h-12 w-12 text-muted-foreground" />
                 </div>
@@ -276,13 +299,13 @@ const Lobby = () => {
                   variant="ghost"
                   size="icon"
                   className={`rounded-full ${
-                    !audioEnabled
+                    !mediaState.audioEnabled
                       ? 'bg-destructive text-destructive-foreground'
                       : ''
                   }`}
                   onClick={toggleAudio}
                 >
-                  {audioEnabled ? (
+                  {mediaState.audioEnabled ? (
                     <Mic className="h-5 w-5" />
                   ) : (
                     <MicOff className="h-5 w-5" />
@@ -292,13 +315,13 @@ const Lobby = () => {
                   variant="ghost"
                   size="icon"
                   className={`rounded-full ${
-                    !videoEnabled
+                    !mediaState.videoEnabled
                       ? 'bg-destructive text-destructive-foreground'
                       : ''
                   }`}
                   onClick={toggleVideo}
                 >
-                  {videoEnabled ? (
+                  {mediaState.videoEnabled ? (
                     <VideoIcon className="h-5 w-5" />
                   ) : (
                     <VideoOff className="h-5 w-5" />
@@ -311,13 +334,16 @@ const Lobby = () => {
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Camera</label>
-              <Select value={selectedVideo} onValueChange={changeVideoDevice}>
+              <Select
+                value={selectedDevices.video}
+                onValueChange={changeVideoDevice}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select camera" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {videoDevices.map((device) => (
+                    {devices.video.map((device) => (
                       <SelectItem key={device.deviceId} value={device.deviceId}>
                         {device.label}
                       </SelectItem>
@@ -329,13 +355,16 @@ const Lobby = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Microphone</label>
-              <Select value={selectedAudio} onValueChange={changeAudioDevice}>
+              <Select
+                value={selectedDevices.audio}
+                onValueChange={changeAudioDevice}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select microphone" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {audioDevices.map((device) => (
+                    {devices.audio.map((device) => (
                       <SelectItem key={device.deviceId} value={device.deviceId}>
                         {device.label}
                       </SelectItem>

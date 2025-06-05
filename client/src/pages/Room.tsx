@@ -15,24 +15,20 @@ const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const socketRef = useRef<Socket | null>(null);
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(
-    sessionStorage.getItem('meetlite_audio_enabled') !== 'false'
-  );
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(
-    sessionStorage.getItem('meetlite_video_enabled') !== 'false'
-  );
+  const [mediaState, setMediaState] = useState({
+    audioEnabled: sessionStorage.getItem('meetlite_audio_enabled') !== 'false',
+    videoEnabled: sessionStorage.getItem('meetlite_video_enabled') !== 'false',
+  });
 
-  const socketRef = useRef<Socket | null>(null);
-
-  // Screen sharing state
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [screenSharingUser, setScreenSharingUser] = useState<string | null>(
-    null
-  );
+  const [screenShareState, setScreenShareState] = useState({
+    stream: null as MediaStream | null,
+    isSharing: false,
+    sharingUser: null as string | null,
+  });
 
   // Connect to signaling server and set up media
   useEffect(() => {
@@ -100,8 +96,10 @@ const Room = () => {
         });
 
         // Set the state to match the actual track states
-        setAudioEnabled(savedAudioEnabled);
-        setVideoEnabled(savedVideoEnabled);
+        setMediaState({
+          audioEnabled: savedAudioEnabled,
+          videoEnabled: savedVideoEnabled,
+        });
 
         setLocalStream(stream);
 
@@ -137,11 +135,11 @@ const Room = () => {
         localStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [roomId, navigate, toast]);
+  }, [roomId, navigate]);
 
   // Use WebRTC hooks - socket is only set when connected and has ID
   const { peers, peerMediaState } = useWebRTC(socket, localStream);
-  const { screenPeers } = useScreenShareRTC(socket, screenStream);
+  const { screenPeers } = useScreenShareRTC(socket, screenShareState.stream);
 
   // Sound functionality
   const { playUserJoinSound, playUserLeaveSound } = useSound();
@@ -149,21 +147,21 @@ const Room = () => {
   // Toggle audio
   const toggleAudio = () => {
     if (localStream) {
-      const newState = !audioEnabled;
+      const newAudioEnabled = !mediaState.audioEnabled;
       localStream.getAudioTracks().forEach((track) => {
-        track.enabled = newState;
+        track.enabled = newAudioEnabled;
       });
-      setAudioEnabled(newState);
+      setMediaState((prev) => ({ ...prev, audioEnabled: newAudioEnabled }));
 
       // Save to session storage
-      sessionStorage.setItem('meetlite_audio_enabled', String(newState));
+      sessionStorage.setItem('meetlite_audio_enabled', String(newAudioEnabled));
 
-      console.log('[Room] Toggling audio:', newState);
+      console.log('[Room] Toggling audio:', newAudioEnabled);
       // Emit media state change
       socket?.emit('media-state-change', {
         roomId,
-        audioEnabled: newState,
-        videoEnabled,
+        audioEnabled: newAudioEnabled,
+        videoEnabled: mediaState.videoEnabled,
       });
     }
   };
@@ -171,21 +169,21 @@ const Room = () => {
   // Toggle video
   const toggleVideo = () => {
     if (localStream) {
-      const newState = !videoEnabled;
+      const newVideoEnabled = !mediaState.videoEnabled;
       localStream.getVideoTracks().forEach((track) => {
-        track.enabled = newState;
+        track.enabled = newVideoEnabled;
       });
-      setVideoEnabled(newState);
+      setMediaState((prev) => ({ ...prev, videoEnabled: newVideoEnabled }));
 
       // Save to session storage
-      sessionStorage.setItem('meetlite_video_enabled', String(newState));
+      sessionStorage.setItem('meetlite_video_enabled', String(newVideoEnabled));
 
-      console.log('[Room] Toggling video:', newState);
+      console.log('[Room] Toggling video:', newVideoEnabled);
       // Emit media state change
       socket?.emit('media-state-change', {
         roomId,
-        audioEnabled,
-        videoEnabled: newState,
+        audioEnabled: mediaState.audioEnabled,
+        videoEnabled: newVideoEnabled,
       });
     }
   };
@@ -194,10 +192,13 @@ const Room = () => {
   const leaveMeeting = () => {
     console.log('[Room] Leaving meeting, socket state:', socket?.connected);
     // Stop screen sharing if active
-    if (screenStream) {
-      screenStream.getTracks().forEach((track) => track.stop());
-      setScreenStream(null);
-      setIsScreenSharing(false);
+    if (screenShareState.stream) {
+      screenShareState.stream.getTracks().forEach((track) => track.stop());
+      setScreenShareState({
+        stream: null,
+        isSharing: false,
+        sharingUser: null,
+      });
     }
 
     // Close all peer connections locally
@@ -217,7 +218,10 @@ const Room = () => {
   const shareScreen = async () => {
     try {
       // Don't allow screen sharing if someone else is already sharing
-      if (screenSharingUser && screenSharingUser !== socket?.id) {
+      if (
+        screenShareState.sharingUser &&
+        screenShareState.sharingUser !== socket?.id
+      ) {
         toast({
           variant: 'destructive',
           title: 'Screen Sharing Not Available',
@@ -226,12 +230,15 @@ const Room = () => {
         return;
       }
 
-      if (isScreenSharing) {
+      if (screenShareState.isSharing) {
         // Stop screen sharing
-        if (screenStream) {
-          screenStream.getTracks().forEach((track) => track.stop());
-          setScreenStream(null);
-          setIsScreenSharing(false);
+        if (screenShareState.stream) {
+          screenShareState.stream.getTracks().forEach((track) => track.stop());
+          setScreenShareState({
+            stream: null,
+            isSharing: false,
+            sharingUser: null,
+          });
           socket?.emit('screen-share-stopped', { roomId });
         }
       } else {
@@ -244,13 +251,19 @@ const Room = () => {
         // Handle stream stop from browser controls
         stream.getVideoTracks()[0].onended = () => {
           stream.getTracks().forEach((track) => track.stop());
-          setScreenStream(null);
-          setIsScreenSharing(false);
+          setScreenShareState({
+            stream: null,
+            isSharing: false,
+            sharingUser: null,
+          });
           socket?.emit('screen-share-stopped', { roomId });
         };
 
-        setScreenStream(stream);
-        setIsScreenSharing(true);
+        setScreenShareState({
+          stream,
+          isSharing: true,
+          sharingUser: socket?.id || null,
+        });
         socket?.emit('screen-share-started', { roomId });
       }
     } catch (error) {
@@ -268,23 +281,17 @@ const Room = () => {
     if (!socket) return;
 
     const handleScreenShareStarted = (data: { userId: string }) => {
-      setScreenSharingUser(data.userId);
+      setScreenShareState((prev) => ({ ...prev, sharingUser: data.userId }));
     };
 
     const handleScreenShareStopped = () => {
-      setScreenSharingUser(null);
+      setScreenShareState((prev) => ({ ...prev, sharingUser: null }));
     };
 
     // Handle user joining sound
     const handleUserJoined = (data: { userId: string; userName: string }) => {
       console.log('🔊 [Room] User joined, playing sound:', data);
       playUserJoinSound();
-
-      // Optional: Show a toast notification
-      // toast({
-      //   title: 'User Joined',
-      //   description: `${data.userName} joined the meeting`,
-      // });
     };
 
     // Handle user leaving sound
@@ -304,20 +311,20 @@ const Room = () => {
       socket.off('user-joined', handleUserJoined);
       socket.off('user-left', handleUserLeft);
     };
-  }, [socket]);
+  }, [socket, playUserJoinSound, playUserLeaveSound]);
 
   // Create context value
   const contextValue = {
     socket,
     localStream,
-    screenStream,
+    screenStream: screenShareState.stream,
     peers,
     screenPeers,
-    audioEnabled,
-    videoEnabled,
+    audioEnabled: mediaState.audioEnabled,
+    videoEnabled: mediaState.videoEnabled,
     peerMediaState,
-    isScreenSharing,
-    screenSharingUser,
+    isScreenSharing: screenShareState.isSharing,
+    screenSharingUser: screenShareState.sharingUser,
     toggleAudio,
     toggleVideo,
     leaveMeeting,
@@ -330,7 +337,7 @@ const Room = () => {
         title={`Meeting Room - MeetLite`}
         description={`Join your video conference meeting with high-quality audio and video.`}
         keywords={`video conferencing, online meetings, web conferencing, video chat, remote collaboration`}
-        ogUrl={`https://your-domain.com/room/${roomId}`}
+        ogUrl={`https://meetlit.netlify.app/room/${roomId}`}
       />
       <RoomProvider value={contextValue}>
         <div className="flex flex-col h-screen bg-[#121212]">
