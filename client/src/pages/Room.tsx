@@ -6,6 +6,7 @@ import { useScreenShareRTC } from '@/hooks/useScreenShareRTC';
 import { useSocketSetup } from '@/hooks/useSocketSetup';
 import { useScreenShare } from '@/hooks/useScreenShare';
 import { useMediaSetup } from '@/hooks/useMediaSetup';
+import { useParticipantInfo } from '@/hooks/useParticipantInfo';
 import SEO from '@/components/SEO';
 import { RoomProvider } from '@/contexts/RoomContext';
 
@@ -15,6 +16,9 @@ const Room = () => {
 
   // Setup socket connection
   const { socket } = useSocketSetup({ roomId });
+
+  // Setup participant info management
+  const { getParticipantEmail, updateParticipantInfo } = useParticipantInfo();
 
   // Setup screen sharing
   const { screenShareState, shareScreen, cleanupScreenShare } = useScreenShare({
@@ -28,8 +32,12 @@ const Room = () => {
     roomId,
   });
 
-  // Use WebRTC hooks with localStream
-  const { peers, peerMediaState } = useWebRTC(socket, localStream);
+  // Use WebRTC hooks with localStream and participant info callback
+  const { peers, peerMediaState } = useWebRTC(
+    socket,
+    localStream,
+    updateParticipantInfo
+  );
   const { screenPeers } = useScreenShareRTC(socket, screenShareState.stream);
 
   // Leave meeting function
@@ -47,7 +55,7 @@ const Room = () => {
   };
 
   // Create context value
-  const contextValue = {
+  const roomContextValue = {
     socket,
     localStream,
     screenStream: screenShareState.stream,
@@ -58,6 +66,7 @@ const Room = () => {
     peerMediaState,
     isScreenSharing: screenShareState.isSharing,
     screenSharingUser: screenShareState.sharingUser,
+    getParticipantEmail,
     toggleAudio,
     toggleVideo,
     leaveMeeting,
@@ -72,7 +81,7 @@ const Room = () => {
         keywords={`video conferencing, online meetings, web conferencing, video chat, remote collaboration`}
         ogUrl={`https://meetlit.netlify.app/room/${roomId}`}
       />
-      <RoomProvider value={contextValue}>
+      <RoomProvider value={roomContextValue}>
         <div className="flex flex-col h-screen bg-[#121212]">
           <div className="flex-1 overflow-hidden bg-[#121212] p-4">
             <VideoGrid />

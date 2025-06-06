@@ -28,6 +28,7 @@ export const DesktopVideoLayout = ({
                   mediaState={participant.mediaState}
                   isLocal={participant.isLocal}
                   isLoading={participant.isLoading}
+                  userEmail={participant.userEmail}
                 />
               </div>
             ))}
@@ -45,6 +46,7 @@ export const DesktopVideoLayout = ({
                   mediaState={participants[0].mediaState}
                   isLocal={participants[0].isLocal}
                   isLoading={participants[0].isLoading}
+                  userEmail={participants[0].userEmail}
                 />
               </div>
             </div>
@@ -60,6 +62,7 @@ export const DesktopVideoLayout = ({
                     mediaState={participant.mediaState}
                     isLocal={participant.isLocal}
                     isLoading={participant.isLoading}
+                    userEmail={participant.userEmail}
                   />
                 </div>
               ))}
@@ -80,6 +83,7 @@ export const DesktopVideoLayout = ({
                       mediaState={participant.mediaState}
                       isLocal={participant.isLocal}
                       isLoading={participant.isLoading}
+                      userEmail={participant.userEmail}
                     />
                   </div>
                 ))}

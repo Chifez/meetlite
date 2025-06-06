@@ -25,6 +25,8 @@ export const MobileVideoLayout = ({
               mediaState={participant.mediaState}
               isLocal={participant.isLocal}
               isLoading={participant.isLoading}
+              userEmail={participant.userEmail}
+              userName={participant.userName}
             />
           </div>
         ))}

@@ -19,6 +19,7 @@ const userToSocket = new Map();
 const socketToUser = new Map();
 const activeConnections = new Map(); // Track active peer connections
 const screenSharingState = new Map(); // Track screen sharing state per room
+const userInfo = new Map(); // Store user information by userId
 
 // Helper function to determine who should initiate the connection
 const shouldInitiateConnection = (userA, userB) => {
@@ -58,6 +59,12 @@ io.on('connection', (socket) => {
 
   userToSocket.set(socket.user.userId, socket.id);
   socketToUser.set(socket.id, socket.user.userId);
+
+  // Store user information for this session
+  userInfo.set(socket.user.userId, {
+    email: socket.user.email,
+    userId: socket.user.userId,
+  });
 
   socket.on('ready', ({ roomId, mediaState }) => {
     console.log(`User ${socket.user.userId} joining room ${roomId}`);
@@ -145,15 +152,28 @@ io.on('connection', (socket) => {
     const allParticipants = [socket.user.userId, ...existingParticipants];
     const roomStateData = Object.fromEntries(room);
 
+    // Create participant info with user details
+    const participantInfo = {};
+    allParticipants.forEach((participantId) => {
+      const user = userInfo.get(participantId);
+      if (user) {
+        participantInfo[participantId] = {
+          email: user.email,
+          userId: user.userId,
+        };
+      }
+    });
+
     io.to(roomId).emit('room-data', {
       participants: allParticipants,
       mediaState: roomStateData,
+      participantInfo, // Send user information for all participants
     });
 
     if (existingParticipants.length > 0) {
       socket.to(roomId).emit('user-joined', {
         userId: socket.user.userId,
-        userName: socket.user.name || socket.user.email || 'Unknown User',
+        userEmail: socket.user.email,
       });
     }
 
@@ -319,9 +339,10 @@ io.on('connection', (socket) => {
       }
     });
 
-    // Clean up user mappings
+    // Clean up user mappings and info
     userToSocket.delete(socket.user.userId);
     socketToUser.delete(socket.id);
+    userInfo.delete(socket.user.userId);
   });
 });
 

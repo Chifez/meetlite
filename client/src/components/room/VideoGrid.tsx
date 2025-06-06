@@ -13,6 +13,7 @@ export const VideoGrid = () => {
     audioEnabled,
     screenStream,
     screenSharingUser,
+    getParticipantEmail,
   } = useRoom();
 
   // Get the screen sharing stream from peers if we're not the one sharing
@@ -26,7 +27,7 @@ export const VideoGrid = () => {
   // Calculate participant count
   const participantCount = peers.size + 1; // +1 for local user
 
-  // Create array of all participants (local + peers)
+  // Create array of all participants (local + peers) with user info
   const allParticipants = [
     {
       id: 'local',
@@ -34,17 +35,23 @@ export const VideoGrid = () => {
       mediaState: { audioEnabled, videoEnabled },
       isLocal: true,
       isLoading: false,
+      userEmail: undefined,
     },
-    ...Array.from(peers.entries()).map(([peerId, peer]) => ({
-      id: peerId,
-      stream: peer.stream || null,
-      mediaState: peerMediaState.get(peer.id) || {
-        audioEnabled: true,
-        videoEnabled: true,
-      },
-      isLocal: false,
-      isLoading: peer.isLoading || false,
-    })),
+    ...Array.from(peers.entries()).map(([peerId, peer]) => {
+      const participantEmail = getParticipantEmail(peer.id);
+
+      return {
+        id: peerId,
+        stream: peer.stream || null,
+        mediaState: peerMediaState.get(peer.id) || {
+          audioEnabled: true,
+          videoEnabled: true,
+        },
+        isLocal: false,
+        isLoading: peer.isLoading || false,
+        userEmail: participantEmail,
+      };
+    }),
   ];
 
   return (
