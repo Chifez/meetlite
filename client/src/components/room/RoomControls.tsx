@@ -209,7 +209,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
                 size="icon"
                 onClick={shareScreen}
                 disabled={!canShareScreen}
-                className={`rounded-full h-12 w-12 transition-colors ${
+                className={`hidden rounded-full h-12 w-12 transition-colors ${
                   isScreenSharing
                     ? 'bg-accent text-accent-foreground hover:bg-accent/90'
                     : ''

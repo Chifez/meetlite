@@ -50,6 +50,11 @@ export const useScreenShareRTC = (
     new Map()
   );
 
+  // Track pending initiation requests
+  const pendingInitiations = useRef<
+    Array<{ userId: string; isInitiator: boolean }>
+  >([]);
+
   // Clean up a peer connection
   const cleanupPeerConnection = useCallback((connectionId: string) => {
     const peer = peersRef.current.get(connectionId);
@@ -93,16 +98,27 @@ export const useScreenShareRTC = (
   // Create a new peer connection
   const createPeerConnection = useCallback(
     (userId: string, isInitiator: boolean) => {
-      if (!socket || !socket.id || !screenStream) {
+      if (!socket || !socket.id) {
         console.warn(
-          '⚠️ [ScreenShare] Socket or screen stream not available for peer connection'
+          '⚠️ [ScreenShare] Socket not available for peer connection'
         );
+        return null;
+      }
+
+      // For initiators, we need screenStream to send. For receivers, we don't.
+      if (isInitiator && !screenStream) {
+        console.warn(
+          '⚠️ [ScreenShare] Screen stream not available for peer connection'
+        );
+        // Queue the initiation for later processing
+        pendingInitiations.current.push({ userId, isInitiator });
+        console.log(`📋 [ScreenShare] Queued initiation for ${userId}`);
         return null;
       }
 
       const connectionId = createConnectionId(socket.id, userId);
       console.log(
-        `🚀 [ScreenShare] Creating screen peer connection ${connectionId}, isInitiator: ${isInitiator}`
+        `🚀 [ScreenShare] Creating screen peer connection ${connectionId}, isInitiator: ${isInitiator}, hasScreenStream: ${!!screenStream}`
       );
 
       // Clean up existing connection
@@ -117,13 +133,19 @@ export const useScreenShareRTC = (
         `🔧 [ScreenShare] RTCPeerConnection created for ${connectionId}`
       );
 
-      // Add screen sharing tracks
-      screenStream.getTracks().forEach((track) => {
+      // Add screen sharing tracks only if we have a stream (initiator)
+      if (screenStream) {
+        screenStream.getTracks().forEach((track) => {
+          console.log(
+            `📺 [ScreenShare] Adding ${track.kind} track to ${connectionId}`
+          );
+          connection.addTrack(track, screenStream);
+        });
+      } else {
         console.log(
-          `📺 [ScreenShare] Adding ${track.kind} track to ${connectionId}`
+          `📺 [ScreenShare] No tracks to add (receiving-only connection)`
         );
-        connection.addTrack(track, screenStream);
-      });
+      }
 
       // Create peer object
       const peer: ScreenPeerConnection = {
@@ -253,9 +275,37 @@ export const useScreenShareRTC = (
     [socket, screenStream, cleanupPeerConnection]
   );
 
-  // Effect to handle socket events
+  // Expose function to trigger connection initiation
+  const initiateScreenConnection = useCallback(
+    (userId: string, isInitiator: boolean) => {
+      console.log(
+        `🎯 [ScreenShare] Initiate screen connection request for ${userId}, isInitiator: ${isInitiator}`
+      );
+      createPeerConnection(userId, isInitiator);
+    },
+    [createPeerConnection]
+  );
+
+  // Single effect to handle both socket events and pending initiations
   useEffect(() => {
     if (!socket || !socket.id) return;
+
+    // Process pending initiations when screen stream becomes available
+    if (screenStream && pendingInitiations.current.length > 0) {
+      console.log(
+        `🎬 [ScreenShare] Screen stream available, processing ${pendingInitiations.current.length} pending initiations`
+      );
+
+      const toProcess = [...pendingInitiations.current];
+      pendingInitiations.current = [];
+
+      toProcess.forEach(({ userId, isInitiator }) => {
+        console.log(
+          `🔄 [ScreenShare] Processing pending initiation to ${userId}`
+        );
+        createPeerConnection(userId, isInitiator);
+      });
+    }
 
     // Handle incoming screen share call
     const handleScreenShareCall = async (data: {
@@ -444,9 +494,10 @@ export const useScreenShareRTC = (
     socket.on('screen-share-candidate', handleScreenShareCandidate);
     socket.on('user-left', handleUserLeft);
     socket.on('initiate-screen-connection', ({ targetUserId, isInitiator }) => {
-      if (isInitiator && screenStream) {
-        createPeerConnection(targetUserId, true);
-      }
+      console.log(
+        `🎯 [ScreenShare] Received initiate-screen-connection for ${targetUserId}, isInitiator: ${isInitiator}`
+      );
+      initiateScreenConnection(targetUserId, isInitiator);
     });
 
     // Cleanup
@@ -463,15 +514,17 @@ export const useScreenShareRTC = (
       });
       peersRef.current.clear();
       iceCandidatesQueue.current.clear();
+      pendingInitiations.current = [];
       setScreenPeers(new Map());
     };
   }, [
     socket,
+    screenStream,
     createPeerConnection,
     cleanupPeerConnection,
     processIceCandidateQueue,
-    screenStream,
+    initiateScreenConnection,
   ]);
 
-  return { screenPeers };
+  return { screenPeers, initiateScreenConnection };
 };

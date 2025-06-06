@@ -377,6 +377,18 @@ io.on('connection', (socket) => {
     );
     screenSharingState.set(roomId, socket.user.userId);
 
+    // Notify others about screen sharing
+    socket
+      .to(roomId)
+      .emit('screen-share-started', { userId: socket.user.userId });
+  });
+
+  // Handle screen sharing connection initiation when frontend is ready
+  socket.on('screen-share-ready', ({ roomId }) => {
+    console.log(
+      `Screen sharing connections ready for ${socket.user.userId} in room ${roomId}`
+    );
+
     // Get all users in the room except the sharer
     const roomSockets = io.sockets.adapter.rooms.get(roomId);
     if (roomSockets) {
@@ -393,11 +405,6 @@ io.on('connection', (socket) => {
         }
       });
     }
-
-    // Notify others about screen sharing
-    socket
-      .to(roomId)
-      .emit('screen-share-started', { userId: socket.user.userId });
   });
 
   socket.on('screen-share-stopped', ({ roomId }) => {

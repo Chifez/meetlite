@@ -313,6 +313,18 @@ const Room = () => {
     };
   }, [socket, playUserJoinSound, playUserLeaveSound]);
 
+  // Effect to signal server when screen stream is ready for connections
+  useEffect(() => {
+    if (!socket || !roomId) return;
+
+    if (screenShareState.stream && screenShareState.isSharing) {
+      console.log(
+        '🎬 [Room] Screen stream ready, signaling server for connections'
+      );
+      socket.emit('screen-share-ready', { roomId });
+    }
+  }, [socket, roomId, screenShareState.stream, screenShareState.isSharing]);
+
   // Create context value
   const contextValue = {
     socket,
