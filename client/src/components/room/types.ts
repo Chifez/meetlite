@@ -40,3 +40,14 @@ export interface RoomContextType {
   leaveMeeting: () => void;
   shareScreen: () => Promise<void>;
 }
+
+export interface Participant {
+  id: string;
+  stream: MediaStream | null;
+  mediaState: {
+    audioEnabled: boolean;
+    videoEnabled: boolean;
+  };
+  isLocal: boolean;
+  isLoading: boolean;
+}
