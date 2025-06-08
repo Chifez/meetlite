@@ -25,21 +25,15 @@ export const useSound = () => {
   }, []);
 
   const playUserJoinSound = useCallback(() => {
-    playSound('/user-join.mp3', 0.7); // You can replace with your sound file name
+    playSound('/user-join.mp3', 0.7);
   }, [playSound]);
 
   const playUserLeaveSound = useCallback(() => {
-    playSound('/user-leave.mp3', 0.4); // Optional: sound for when users leave
-  }, [playSound]);
-
-  const playNotificationSound = useCallback(() => {
-    playSound('/notification.mp3', 0.5); // Optional: general notification sound
+    playSound('/user-leave.mp3', 0.4);
   }, [playSound]);
 
   return {
-    playSound,
     playUserJoinSound,
     playUserLeaveSound,
-    playNotificationSound,
   };
 };

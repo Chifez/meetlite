@@ -50,11 +50,15 @@ export const useScreenShareRTC = (
     new Map()
   );
 
+  // Track pending initiation requests
+  const pendingInitiations = useRef<
+    Array<{ userId: string; isInitiator: boolean }>
+  >([]);
+
   // Clean up a peer connection
   const cleanupPeerConnection = useCallback((connectionId: string) => {
     const peer = peersRef.current.get(connectionId);
     if (peer) {
-      console.log(`Cleaning up screen sharing connection ${connectionId}`);
       peer.connection.close();
       peersRef.current.delete(connectionId);
       iceCandidatesQueue.current.delete(connectionId);
@@ -93,113 +97,62 @@ export const useScreenShareRTC = (
   // Create a new peer connection
   const createPeerConnection = useCallback(
     (userId: string, isInitiator: boolean) => {
-      if (!socket || !socket.id || !screenStream) {
-        console.warn(
-          '⚠️ [ScreenShare] Socket or screen stream not available for peer connection'
-        );
+      if (!socket || !socket.id) {
+        return null;
+      }
+
+      // For initiators, we need screenStream to send. For receivers, we don't.
+      if (isInitiator && !screenStream) {
+        pendingInitiations.current.push({ userId, isInitiator });
         return null;
       }
 
       const connectionId = createConnectionId(socket.id, userId);
-      console.log(
-        `🚀 [ScreenShare] Creating screen peer connection ${connectionId}, isInitiator: ${isInitiator}`
-      );
-
-      // Clean up existing connection
       cleanupPeerConnection(connectionId);
 
-      // Create new RTCPeerConnection
       const connection = new RTCPeerConnection({
         iceServers: ICE_SERVERS,
       });
 
-      console.log(
-        `🔧 [ScreenShare] RTCPeerConnection created for ${connectionId}`
-      );
+      // Add screen sharing tracks only if we have a stream (initiator)
+      if (screenStream) {
+        screenStream.getTracks().forEach((track) => {
+          connection.addTrack(track, screenStream);
+        });
+      }
 
-      // Add screen sharing tracks
-      screenStream.getTracks().forEach((track) => {
-        console.log(
-          `📺 [ScreenShare] Adding ${track.kind} track to ${connectionId}`
-        );
-        connection.addTrack(track, screenStream);
-      });
-
-      // Create peer object
       const peer: ScreenPeerConnection = {
         id: userId,
         connection,
         isLoading: true,
       };
 
-      // Handle ICE candidates
       connection.onicecandidate = (event) => {
         if (event.candidate && socket) {
-          console.log(
-            `🧊 [ScreenShare] Sending ICE candidate for ${connectionId}:`,
-            event.candidate.candidate
-          );
           socket.emit('screen-share-candidate', {
             to: userId,
             candidate: event.candidate,
           });
-        } else if (!event.candidate) {
-          console.log(
-            `🧊 [ScreenShare] ICE gathering complete for ${connectionId}`
-          );
         }
       };
 
-      // ICE gathering state monitoring
-      connection.onicegatheringstatechange = () => {
-        console.log(
-          `🧊 [ScreenShare] ICE gathering state for ${connectionId}:`,
-          connection.iceGatheringState
-        );
-      };
-
-      // ICE connection state monitoring
-      connection.oniceconnectionstatechange = () => {
-        console.log(
-          `🔗 [ScreenShare] ICE connection state for ${connectionId}:`,
-          connection.iceConnectionState
-        );
-      };
-
-      // Connection state monitoring
       connection.onconnectionstatechange = () => {
         const currentPeer = peersRef.current.get(connectionId);
         if (!currentPeer) return;
 
-        console.log(
-          `🔄 [ScreenShare] Connection state changed for ${connectionId}:`,
-          connection.connectionState
-        );
-
         if (connection.connectionState === 'connected') {
-          console.log(
-            `✅ [ScreenShare] Connection established for ${connectionId}`
-          );
           currentPeer.isLoading = false;
           setScreenPeers(new Map(peersRef.current));
         } else if (connection.connectionState === 'failed') {
-          console.error(
-            `❌ [ScreenShare] Connection failed for ${connectionId}`
-          );
+          console.error(`Screen sharing connection failed for ${connectionId}`);
           cleanupPeerConnection(connectionId);
         }
       };
 
-      // Handle incoming stream
       connection.ontrack = (event) => {
-        console.log(
-          `📺 [ScreenShare] Received track for ${connectionId}:`,
-          event.track.kind
-        );
         if (event.streams && event.streams[0]) {
           const currentPeer = peersRef.current.get(connectionId);
           if (currentPeer) {
-            console.log(`📺 [ScreenShare] Setting stream for ${connectionId}`);
             currentPeer.stream = event.streams[0];
             currentPeer.isLoading = false;
             setScreenPeers(new Map(peersRef.current));
@@ -207,33 +160,19 @@ export const useScreenShareRTC = (
         }
       };
 
-      // Store peer
       peersRef.current.set(connectionId, peer);
       setScreenPeers(new Map(peersRef.current));
 
-      // Create offer if we're the initiator
       if (isInitiator) {
-        console.log(`📞 [ScreenShare] Creating offer for ${connectionId}`);
         connection
           .createOffer()
           .then((offer) => {
             if (!peersRef.current.has(connectionId)) {
               throw new Error('Connection was closed during offer creation');
             }
-            console.log(
-              `📞 [ScreenShare] Offer created for ${connectionId}:`,
-              offer.type
-            );
-            console.log(
-              `📞 [ScreenShare] Setting local description for ${connectionId}`
-            );
             return connection.setLocalDescription(offer);
           })
           .then(() => {
-            console.log(
-              `📞 [ScreenShare] Local description set for ${connectionId}`
-            );
-            console.log(`📞 [ScreenShare] Sending offer to ${userId}`);
             socket.emit('screen-share-call', {
               to: userId,
               offer: connection.localDescription,
@@ -241,7 +180,7 @@ export const useScreenShareRTC = (
           })
           .catch((error) => {
             console.error(
-              `❌ [ScreenShare] Error creating/sending screen offer for ${connectionId}:`,
+              `Error creating screen share offer for ${connectionId}:`,
               error
             );
             cleanupPeerConnection(connectionId);
@@ -253,9 +192,27 @@ export const useScreenShareRTC = (
     [socket, screenStream, cleanupPeerConnection]
   );
 
-  // Effect to handle socket events
+  // Expose function to trigger connection initiation
+  const initiateScreenConnection = useCallback(
+    (userId: string, isInitiator: boolean) => {
+      createPeerConnection(userId, isInitiator);
+    },
+    [createPeerConnection]
+  );
+
+  // Single effect to handle both socket events and pending initiations
   useEffect(() => {
     if (!socket || !socket.id) return;
+
+    // Process pending initiations when screen stream becomes available
+    if (screenStream && pendingInitiations.current.length > 0) {
+      const toProcess = [...pendingInitiations.current];
+      pendingInitiations.current = [];
+
+      toProcess.forEach(({ userId, isInitiator }) => {
+        createPeerConnection(userId, isInitiator);
+      });
+    }
 
     // Handle incoming screen share call
     const handleScreenShareCall = async (data: {
@@ -263,76 +220,32 @@ export const useScreenShareRTC = (
       offer: RTCSessionDescriptionInit;
     }) => {
       if (!socket.id) return;
-      console.log(
-        '📞 [ScreenShare] Received screen share call from:',
-        data.from
-      );
-      console.log('📞 [ScreenShare] Offer type:', data.offer.type);
+
       const peer = createPeerConnection(data.from, false);
       if (!peer) {
         console.error(
-          '❌ [ScreenShare] Failed to create peer connection for incoming screen share call'
+          'Failed to create peer connection for incoming screen share call'
         );
         return;
       }
 
       try {
-        console.log(
-          `📞 [ScreenShare] Setting remote description for ${createConnectionId(
-            socket.id,
-            data.from
-          )}`
-        );
         await peer.connection.setRemoteDescription(
           new RTCSessionDescription(data.offer)
-        );
-        console.log(
-          `✅ [ScreenShare] Remote description set successfully for ${createConnectionId(
-            socket.id,
-            data.from
-          )}`
-        );
-
-        console.log(
-          `📞 [ScreenShare] Processing queued ICE candidates for ${createConnectionId(
-            socket.id,
-            data.from
-          )}`
         );
         await processIceCandidateQueue(
           createConnectionId(socket.id, data.from)
         );
 
-        console.log(
-          `📞 [ScreenShare] Creating answer for ${createConnectionId(
-            socket.id,
-            data.from
-          )}`
-        );
         const answer = await peer.connection.createAnswer();
-        console.log(`📞 [ScreenShare] Answer created:`, answer.type);
-
-        console.log(
-          `📞 [ScreenShare] Setting local description (answer) for ${createConnectionId(
-            socket.id,
-            data.from
-          )}`
-        );
         await peer.connection.setLocalDescription(answer);
-        console.log(
-          `✅ [ScreenShare] Local description (answer) set successfully`
-        );
 
-        console.log(`📞 [ScreenShare] Sending answer to ${data.from}`);
         socket.emit('screen-share-answer', {
           to: data.from,
           answer: peer.connection.localDescription,
         });
       } catch (error) {
-        console.error(
-          '❌ [ScreenShare] Error handling screen share call:',
-          error
-        );
+        console.error('Error handling screen share call:', error);
         cleanupPeerConnection(createConnectionId(socket.id, data.from));
       }
     };
@@ -343,14 +256,10 @@ export const useScreenShareRTC = (
       answer: RTCSessionDescriptionInit;
     }) => {
       if (!socket.id) return;
-      const connectionId = createConnectionId(socket.id, data.from);
-      console.log(
-        '📞 [ScreenShare] Received screen share answer from:',
-        data.from
-      );
-      console.log('📞 [ScreenShare] Answer type:', data.answer.type);
 
+      const connectionId = createConnectionId(socket.id, data.from);
       const peer = peersRef.current.get(connectionId);
+
       if (!peer) {
         console.warn(
           `⚠️ [ScreenShare] No peer connection found for: ${connectionId}`
@@ -359,18 +268,8 @@ export const useScreenShareRTC = (
       }
 
       try {
-        console.log(
-          `📞 [ScreenShare] Setting remote description (answer) for ${connectionId}`
-        );
         await peer.connection.setRemoteDescription(
           new RTCSessionDescription(data.answer)
-        );
-        console.log(
-          `✅ [ScreenShare] Remote description (answer) set successfully for ${connectionId}`
-        );
-
-        console.log(
-          `📞 [ScreenShare] Processing queued ICE candidates for ${connectionId}`
         );
         await processIceCandidateQueue(connectionId);
       } catch (error) {
@@ -388,22 +287,15 @@ export const useScreenShareRTC = (
       candidate: RTCIceCandidateInit;
     }) => {
       if (!socket.id) return;
+
       const connectionId = createConnectionId(socket.id, data.from);
       const peer = peersRef.current.get(connectionId);
-
-      console.log(
-        `🧊 [ScreenShare] Received ICE candidate from ${data.from}:`,
-        data.candidate.candidate
-      );
 
       if (
         !peer ||
         !peer.connection.localDescription ||
         !peer.connection.remoteDescription
       ) {
-        console.log(
-          `🧊 [ScreenShare] Queueing ICE candidate for ${connectionId} (waiting for descriptions)`
-        );
         const queue = iceCandidatesQueue.current.get(connectionId) || [];
         queue.push(data.candidate);
         iceCandidatesQueue.current.set(connectionId, queue);
@@ -411,14 +303,8 @@ export const useScreenShareRTC = (
       }
 
       try {
-        console.log(
-          `🧊 [ScreenShare] Adding ICE candidate immediately for ${connectionId}`
-        );
         await peer.connection.addIceCandidate(
           new RTCIceCandidate(data.candidate)
-        );
-        console.log(
-          `✅ [ScreenShare] ICE candidate added successfully for ${connectionId}`
         );
       } catch (error) {
         console.error(
@@ -444,9 +330,7 @@ export const useScreenShareRTC = (
     socket.on('screen-share-candidate', handleScreenShareCandidate);
     socket.on('user-left', handleUserLeft);
     socket.on('initiate-screen-connection', ({ targetUserId, isInitiator }) => {
-      if (isInitiator && screenStream) {
-        createPeerConnection(targetUserId, true);
-      }
+      initiateScreenConnection(targetUserId, isInitiator);
     });
 
     // Cleanup
@@ -463,14 +347,16 @@ export const useScreenShareRTC = (
       });
       peersRef.current.clear();
       iceCandidatesQueue.current.clear();
+      pendingInitiations.current = [];
       setScreenPeers(new Map());
     };
   }, [
     socket,
+    screenStream,
     createPeerConnection,
     cleanupPeerConnection,
     processIceCandidateQueue,
-    screenStream,
+    initiateScreenConnection,
   ]);
 
   return { screenPeers };

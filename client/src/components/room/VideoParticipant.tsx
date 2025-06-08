@@ -1,12 +1,14 @@
 import { VideoOff, MicOff, Loader2 } from 'lucide-react';
 import { VideoParticipantProps } from './types';
 import { useEffect, useRef, useState } from 'react';
+import { SpeakingIndicator } from './SpeakingIndicator';
 
 export const VideoParticipant = ({
   stream,
   mediaState,
   isLocal,
   isLoading = false,
+  userEmail,
 }: VideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -77,6 +79,19 @@ export const VideoParticipant = ({
   const showError = videoError && !isLocal;
   const showLoading = isLoading && !isLocal && !stream;
 
+  // Determine display name with fallback
+  const getDisplayName = () => {
+    if (isLocal) return 'You';
+
+    if (userEmail) {
+      // Truncate email if too long, show up to 20 characters
+      return userEmail.length > 20
+        ? `${userEmail.substring(0, 20)}...`
+        : userEmail;
+    }
+    return 'Participant';
+  };
+
   return (
     <div className="relative bg-muted rounded-lg overflow-hidden w-full h-full min-w-0 min-h-0">
       <video
@@ -85,6 +100,13 @@ export const VideoParticipant = ({
         playsInline
         muted={isLocal}
         className="w-full h-full object-cover"
+      />
+
+      {/* Speaking Indicator */}
+      <SpeakingIndicator
+        stream={stream}
+        isLocal={isLocal}
+        audioEnabled={mediaState.audioEnabled}
       />
 
       {(showVideoOff || showError || showLoading) && (
@@ -108,7 +130,9 @@ export const VideoParticipant = ({
       )}
 
       <div className="absolute bottom-2 left-2 flex items-center gap-2 text-sm text-white bg-black/50 px-2 py-1 rounded max-w-[calc(100%-1rem)]">
-        <span className="truncate">{isLocal ? 'You' : 'Participant'}</span>
+        <span className="truncate" title={userEmail}>
+          {getDisplayName()}
+        </span>
         {!mediaState.audioEnabled && (
           <MicOff className="h-4 w-4 text-white/75 flex-shrink-0" />
         )}

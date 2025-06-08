@@ -15,6 +15,13 @@ export interface MediaState {
 export interface RoomData {
   participants: string[];
   mediaState: Record<string, MediaState>;
+  participantInfo?: Record<
+    string,
+    {
+      email: string;
+      userId: string;
+    }
+  >;
 }
 
 export interface VideoParticipantProps {
@@ -22,6 +29,8 @@ export interface VideoParticipantProps {
   mediaState: MediaState;
   isLocal: boolean;
   isLoading?: boolean;
+  userEmail?: string;
+  userName?: string;
 }
 
 export interface RoomContextType {
@@ -35,8 +44,29 @@ export interface RoomContextType {
   peerMediaState: Map<string, MediaState>;
   isScreenSharing: boolean;
   screenSharingUser: string | null;
+  getParticipantEmail: (userId: string) => string | undefined;
   toggleAudio: () => void;
   toggleVideo: () => void;
   leaveMeeting: () => void;
   shareScreen: () => Promise<void>;
+}
+
+export interface Participant {
+  id: string;
+  stream: MediaStream | null;
+  mediaState: {
+    audioEnabled: boolean;
+    videoEnabled: boolean;
+  };
+  isLocal: boolean;
+  isLoading: boolean;
+  userEmail?: string;
+  userName?: string;
+}
+
+// For audio visualization
+export interface AudioLevel {
+  userId: string;
+  level: number; // 0-100
+  userEmail?: string;
 }

@@ -56,7 +56,10 @@ interface ExtendedPeerConnection extends PeerConnection {
 
 export const useWebRTC = (
   socket: Socket | null,
-  localStream: MediaStream | null
+  localStream: MediaStream | null,
+  onParticipantInfoUpdate?: (
+    info: Record<string, { email: string; userId: string }>
+  ) => void
 ) => {
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const [peerMediaState, setPeerMediaState] = useState<Map<string, MediaState>>(
@@ -567,9 +570,14 @@ export const useWebRTC = (
     const handleRoomData = (data: {
       participants: string[];
       mediaState: Record<string, MediaState>;
+      participantInfo?: Record<string, { email: string; userId: string }>;
     }) => {
-      console.log('🏠 [WebRTC] Room data received:', data);
       setPeerMediaState(new Map(Object.entries(data.mediaState)));
+
+      // Update participant info if provided
+      if (data.participantInfo && onParticipantInfoUpdate) {
+        onParticipantInfoUpdate(data.participantInfo);
+      }
     };
 
     // Handle initiate connection
