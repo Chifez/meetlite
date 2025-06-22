@@ -7,6 +7,9 @@ import Lobby from './pages/Lobby';
 import Room from './pages/Room';
 import NotFound from './pages/NotFound';
 import Layout from './components/Layout';
+import Meetings from './pages/Meetings';
+import MeetingJoin from './pages/MeetingJoin';
+import Landing from './pages/Landing';
 
 function App() {
   const { isAuthenticated } = useAuth();
@@ -23,6 +26,7 @@ function App() {
           path="/signup"
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <Signup />}
         />
+        <Route path="/meeting/:meetingId/join" element={<MeetingJoin />} />
 
         {/* Protected routes */}
         <Route
@@ -37,11 +41,15 @@ function App() {
           path="/room/:roomId"
           element={isAuthenticated ? <Room /> : <Navigate to="/login" />}
         />
+        <Route
+          path="/meetings"
+          element={isAuthenticated ? <Meetings /> : <Navigate to="/login" />}
+        />
 
         {/* Redirects */}
         <Route
           path="/"
-          element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} />}
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Landing />}
         />
         <Route path="*" element={<NotFound />} />
       </Route>

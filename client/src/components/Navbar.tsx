@@ -19,6 +19,12 @@ const Navbar = () => {
         <div className="flex items-center gap-2">
           <ThemeToggle />
 
+          {isAuthenticated && (
+            <Link to="/meetings">
+              <Button variant="ghost">Meetings</Button>
+            </Link>
+          )}
+
           {isAuthenticated ? (
             <Button variant="ghost" onClick={logout}>
               Logout

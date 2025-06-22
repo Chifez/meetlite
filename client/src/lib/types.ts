@@ -39,3 +39,18 @@ export interface SignalingCandidate {
 export interface RoomData {
   participants: string[];
 }
+
+export interface Meeting {
+  meetingId: string;
+  title: string;
+  description?: string;
+  scheduledTime: string;
+  duration: number;
+  createdBy: string;
+  participants: string[];
+  privacy: 'public' | 'private';
+  status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  createdAt: string;
+  roomId?: string;
+  invites: any[];
+}

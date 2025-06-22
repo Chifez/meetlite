@@ -3,6 +3,7 @@ import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { env } from '@/config/env';
+import Cookies from 'js-cookie';
 
 // Types
 type User = {
@@ -45,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Check for token on mount
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token');
+      const token = Cookies.get('token');
       if (!token) {
         setIsLoading(false);
         return;
@@ -57,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (decodedToken.exp < currentTime) {
           // Token expired
-          localStorage.removeItem('token');
+          Cookies.remove('token');
           setUser(null);
         } else {
           // Valid token
@@ -68,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (error) {
         // Invalid token
-        localStorage.removeItem('token');
+        Cookies.remove('token');
         setUser(null);
       }
 
@@ -87,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       const { token } = response.data;
-      localStorage.setItem('token', token);
+      Cookies.set('token', token, { secure: true, sameSite: 'lax' });
 
       // Decode token
       const decodedToken = jwtDecode<TokenPayload>(token);
@@ -116,7 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       const { token } = response.data;
-      localStorage.setItem('token', token);
+      Cookies.set('token', token, { secure: true, sameSite: 'lax' });
 
       // Decode token
       const decodedToken = jwtDecode<TokenPayload>(token);
@@ -139,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Logout user
   const logout = () => {
-    localStorage.removeItem('token');
+    Cookies.remove('token');
     setUser(null);
     toast.success('Logged out', {
       description: 'You have been logged out successfully',
@@ -148,7 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Get auth headers
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
+    const token = Cookies.get('token');
     return {
       Authorization: `Bearer ${token}`,
     };

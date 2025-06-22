@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { io, Socket } from 'socket.io-client';
 import { env } from '@/config/env';
+import Cookies from 'js-cookie';
 
 interface UseSocketSetupProps {
   roomId: string | undefined;
@@ -15,7 +16,7 @@ export const useSocketSetup = ({ roomId }: UseSocketSetupProps) => {
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = Cookies.get('token');
     if (!token || !roomId) {
       navigate('/dashboard');
       return;

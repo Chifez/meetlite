@@ -98,7 +98,7 @@ export const SpeakingIndicator = ({
       analyserRef.current = null;
       audioContextRef.current = null;
     };
-  }, [stream, audioEnabled, isLocal]);
+  }, [audioEnabled, isLocal]);
 
   if (!isSpeaking || !audioEnabled) {
     return null;
