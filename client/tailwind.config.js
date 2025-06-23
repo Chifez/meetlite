@@ -1,14 +1,29 @@
 /** @type {import('tailwindcss').Config} */
-export default {
-  darkMode: ['class'],
-  content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
-  ],
+const config = {
+  content: ['./src/**/*.{js,ts,jsx,tsx,mdx}', './index.html'],
   theme: {
     extend: {
+      keyframes: {
+        jelly: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '25%': { transform: 'scale(1.1)' },
+          '50%': { transform: 'scale(1.2)' },
+          '75%': { transform: 'scale(1.1)' },
+        },
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+      },
+      animation: {
+        jelly: 'jelly 0.6s ease-in-out',
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
@@ -56,29 +71,9 @@ export default {
           5: 'hsl(var(--chart-5))',
         },
       },
-      keyframes: {
-        'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-        },
-        'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-          to: {
-            height: '0',
-          },
-        },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
-      },
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/typography')],
 };
+
+module.exports = config;

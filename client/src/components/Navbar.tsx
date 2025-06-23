@@ -20,7 +20,7 @@ const Navbar = () => {
           <ThemeToggle />
 
           {isAuthenticated && (
-            <Link to="/meetings">
+            <Link to="/meetings" className="hidden md:block">
               <Button variant="ghost">Meetings</Button>
             </Link>
           )}

@@ -54,3 +54,14 @@ export interface Meeting {
   roomId?: string;
   invites: any[];
 }
+
+export interface MeetingFormData {
+  title: string;
+  description: string;
+  date: Date | undefined;
+  time: string;
+  duration: number;
+  privacy: 'public' | 'private';
+  participants: string[];
+  participantInput: string;
+}

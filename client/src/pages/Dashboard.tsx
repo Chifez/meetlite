@@ -92,7 +92,7 @@ const Dashboard = () => {
   return (
     <>
       <SEO title="Dashboard" />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white py-12 px-4">
+      <div className="min-h-screen bg-page py-12 px-4">
         <div className="max-w-5xl mx-auto space-y-10">
           {/* Welcome */}
           <div className="text-center space-y-2">

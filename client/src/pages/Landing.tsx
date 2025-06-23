@@ -37,7 +37,7 @@ const Landing = () => {
         title="Minimeet - Effortless Meetings"
         description="Schedule, invite, and join meetings with privacy and ease."
       />
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
+      <main className="min-h-screen bg-page flex flex-col">
         {/* Hero Section */}
         <section className="flex-1 flex flex-col justify-center items-center text-center px-4 py-24">
           <h1 className="text-4xl md:text-6xl font-extrabold mb-4 bg-gradient-to-r from-blue-700 to-blue-400 text-transparent bg-clip-text">

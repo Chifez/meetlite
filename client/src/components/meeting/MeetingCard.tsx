@@ -80,6 +80,7 @@ export default function MeetingCard({
         <Button
           variant="destructive"
           onClick={() => onDelete(meeting.meetingId)}
+          className="text-white"
         >
           Delete
         </Button>

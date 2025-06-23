@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { PlusCircle } from 'lucide-react';
 import MeetingForm from '@/components/meeting/MeetingForm';
+import { useMeetingForm } from '@/hooks/useMeetingForm';
 import SEO from '@/components/SEO';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -46,6 +47,23 @@ const Meetings = () => {
     open: boolean;
     meetingId?: string;
   }>({ open: false });
+
+  // Use the custom hook for form state management
+  const {
+    formData,
+    loading: formLoading,
+    handleInputChange,
+    handleDateChange,
+    handleTimeChange,
+    handlePrivacyChange,
+    handleParticipantInput,
+    handleParticipantKeyDown,
+    removeParticipant,
+    submitForm,
+  } = useMeetingForm(() => {
+    setShowForm(false);
+    loadMeetings();
+  });
 
   const loadMeetings = async () => {
     setLoading(true);
@@ -92,52 +110,46 @@ const Meetings = () => {
     }
   };
 
-  // Map meetings to calendar events
-  const events = useMemo(
-    () =>
-      meetings.map((meeting) => ({
-        id: meeting.meetingId,
-        title: meeting.title,
-        start: new Date(meeting.scheduledTime),
-        end: new Date(
-          new Date(meeting.scheduledTime).getTime() + meeting.duration * 60000
-        ),
-        allDay: false,
-        resource: meeting,
-      })),
-    [meetings]
-  );
+  const handleFormSubmit = async () => {
+    const success = await submitForm();
+    if (success) {
+      setShowForm(false);
+    }
+  };
 
   return (
     <>
       <SEO title="My Meetings" />
       {/* Schedule Meeting Modal */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent showCloseButton>
-          <DialogHeader>
+        <DialogContent showCloseButton className="max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Schedule Meeting</DialogTitle>
           </DialogHeader>
-          <MeetingForm
-            onSuccess={() => {
-              setShowForm(false);
-              loadMeetings();
-            }}
-            onCancel={() => setShowForm(false)}
-            hideFooter
-          />
-          <DialogFooter>
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            <MeetingForm
+              formData={formData}
+              loading={formLoading}
+              hideFooter
+              onInputChange={handleInputChange}
+              onDateChange={handleDateChange}
+              onTimeChange={handleTimeChange}
+              onPrivacyChange={handlePrivacyChange}
+              onParticipantInput={handleParticipantInput}
+              onParticipantKeyDown={handleParticipantKeyDown}
+              onRemoveParticipant={removeParticipant}
+              onSubmit={handleFormSubmit}
+              onCancel={() => setShowForm(false)}
+            />
+          </div>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
-              onClick={() => {
-                // Submit the form inside MeetingForm
-                const form = document.querySelector(
-                  'form[action="schedule-meeting"]'
-                ) as HTMLFormElement | null;
-                if (form) form.requestSubmit();
-              }}
+              onClick={handleFormSubmit}
               className="min-w-[120px]"
+              disabled={formLoading}
             >
-              Schedule
+              {formLoading ? 'Scheduling...' : 'Schedule'}
             </Button>
             <DialogClose asChild>
               <Button type="button" variant="secondary">
@@ -147,7 +159,7 @@ const Meetings = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white py-12 px-4">
+      <div className="min-h-screen bg-page py-12 px-4">
         <div className="max-w-4xl mx-auto space-y-10">
           {/* Hero Section */}
           <div className="text-center mb-8">
