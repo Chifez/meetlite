@@ -20,7 +20,7 @@ export const useSound = () => {
           });
       }
     } catch (error) {
-      console.warn('🔇 Error creating audio element:', error);
+      console.warn('Error creating audio element:', error);
     }
   }, []);
 

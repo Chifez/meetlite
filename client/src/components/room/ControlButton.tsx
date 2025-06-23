@@ -24,24 +24,24 @@ export const ControlButton = ({
 
   const getVariantStyles = () => {
     if (isDestructive) {
-      return 'bg-destructive text-destructive-foreground hover:bg-destructive/90';
+      return 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive';
     }
     if (activeState) {
-      return 'bg-accent text-accent-foreground hover:bg-accent/90';
+      return 'bg-primary text-primary-foreground hover:bg-primary/90 border-primary';
     }
     if (!activeState && IconAlt) {
-      return 'bg-destructive text-destructive-foreground hover:bg-destructive/90';
+      return 'bg-muted text-muted-foreground hover:bg-muted/80 border-muted';
     }
-    return '';
+    return 'bg-background text-foreground hover:bg-muted border-border';
   };
 
   return (
     <Button
-      variant={isDestructive ? 'destructive' : 'outline'}
+      variant="outline"
       size="icon"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full h-12 w-12 transition-colors ${getVariantStyles()} ${className}`}
+      className={`rounded-full h-12 w-12 transition-all duration-200 ${getVariantStyles()} ${className}`}
     >
       {IconAlt && !activeState ? (
         <IconAlt className="h-5 w-5" />

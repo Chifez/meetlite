@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMeetings, Meeting } from '@/hooks/useMeetings';
+import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
 import SEO from '@/components/SEO';
+import { Meeting } from '@/lib/types';
 
 const POLL_INTERVAL = 5000;
 

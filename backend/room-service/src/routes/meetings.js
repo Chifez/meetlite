@@ -9,6 +9,21 @@ const router = express.Router();
 
 // Utility to send invite email
 async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
+  // Check if SMTP is properly configured
+  if (
+    !process.env.SMTP_HOST ||
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS
+  ) {
+    throw new Error('SMTP configuration incomplete');
+  }
+
+  // Use hostEmail from request body as the from address
+  const fromEmail = hostEmail || process.env.SMTP_USER;
+  if (!fromEmail) {
+    throw new Error('Host email configuration missing');
+  }
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
@@ -21,23 +36,52 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
 
   const joinUrl = `${process.env.CLIENT_URL}/meeting/${meeting.meetingId}/join?token=${inviteToken}`;
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  const emailContent = {
+    from: fromEmail,
     to,
-    subject: `Invitation: ${meeting.title}`,
+    subject: `You're Invited: ${meeting.title}`,
     html: `
-      <h2>You are invited to a meeting!</h2>
-      <p><strong>Title:</strong> ${meeting.title}</p>
-      <p><strong>Description:</strong> ${meeting.description || ''}</p>
-      <p><strong>When:</strong> ${new Date(
-        meeting.scheduledTime
-      ).toLocaleString()}</p>
-      <p><strong>Duration:</strong> ${meeting.duration} min</p>
-      <p><strong>Host:</strong> ${hostEmail || meeting.createdBy}</p>
-      <p><strong>Join Link:</strong> <a href="${joinUrl}">${joinUrl}</a></p>
-      <p>This link will be active when the host starts the meeting.</p>
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); padding: 0; min-height: 100vh;">
+        <div style="max-width: 480px; margin: 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px rgba(160, 120, 255, 0.10); overflow: hidden;">
+          <div style="background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); padding: 32px 0 16px 0; text-align: center;">
+            <img src='${
+              process.env.CLIENT_URL
+            }/brand.png' alt='Brand Logo' style='height: 48px; margin-bottom: 12px;' />
+            <h2 style="color: #fff; font-size: 2rem; margin: 0; font-weight: 800; letter-spacing: -1px;">You're Invited!</h2>
+            <p style="color: #ede9fe; font-size: 1.1rem; margin: 8px 0 0 0;">Join a meeting on MeetLite</p>
+          </div>
+          <div style="padding: 32px 28px 24px 28px;">
+            <h3 style="color: #7c3aed; margin-bottom: 8px; font-size: 1.3rem;">${
+              meeting.title
+            }</h3>
+            <p style="color: #444; margin: 0 0 12px 0; font-size: 1.05rem;">${
+              meeting.description || 'No description provided.'
+            }</p>
+            <ul style="list-style: none; padding: 0; margin: 0 0 18px 0;">
+              <li><strong>🗓️ When:</strong> <span style="color: #7c3aed;">${new Date(
+                meeting.scheduledTime
+              ).toLocaleString()}</span></li>
+              <li><strong>⏰ Duration:</strong> ${meeting.duration} min</li>
+              <li><strong>👤 Host:</strong> ${
+                hostEmail || meeting.createdBy
+              }</li>
+            </ul>
+            <a href="${joinUrl}" style="display: inline-block; background: linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%); color: #fff; font-weight: 600; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 1.1rem; margin: 18px 0 0 0; box-shadow: 0 2px 8px rgba(124,58,237,0.10); transition: background 0.2s;">Join Meeting</a>
+            <p style="color: #888; font-size: 0.98rem; margin-top: 24px;">This link will be active when the host starts the meeting.<br>If you have questions, reply to this email.</p>
+          </div>
+          <div style="background: #ede9fe; color: #7c3aed; text-align: center; padding: 14px 0; font-size: 0.98rem; border-top: 1px solid #e0e7ff;">
+            <span>Made with <span style="color: #a78bfa;">♥</span> by MeetLite</span>
+          </div>
+        </div>
+      </div>
     `,
-  });
+  };
+
+  try {
+    await transporter.sendMail(emailContent);
+  } catch (error) {
+    throw error;
+  }
 }
 
 // Create meeting
@@ -80,13 +124,19 @@ router.post('/', async (req, res) => {
     await meeting.save();
 
     // Send invites
-    for (const invite of invites) {
-      await sendInviteEmail({
-        to: invite.email,
-        meeting,
-        inviteToken: invite.inviteToken,
-        hostEmail,
-      });
+    if (invites.length > 0) {
+      for (const invite of invites) {
+        try {
+          await sendInviteEmail({
+            to: invite.email,
+            meeting,
+            inviteToken: invite.inviteToken,
+            hostEmail,
+          });
+        } catch (error) {
+          // Continue with other invites even if one fails
+        }
+      }
     }
 
     res.status(201).json({ meetingId });

@@ -57,9 +57,9 @@ const Meetings = () => {
     handleTimeChange,
     handlePrivacyChange,
     handleParticipantInput,
-    handleParticipantKeyDown,
+    handleKeyPress: handleParticipantKeyDown,
     removeParticipant,
-    submitForm,
+    handleSubmit: submitForm,
   } = useMeetingForm(() => {
     setShowForm(false);
     loadMeetings();
@@ -111,10 +111,7 @@ const Meetings = () => {
   };
 
   const handleFormSubmit = async () => {
-    const success = await submitForm();
-    if (success) {
-      setShowForm(false);
-    }
+    await submitForm();
   };
 
   return (

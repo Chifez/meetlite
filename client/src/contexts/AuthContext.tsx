@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: 'Account created successfully',
       });
     } catch (error) {
-      toast.success('Registration Failed', {
+      toast.error('Registration Failed', {
         description: 'Could not create account. Please try again.',
       });
       console.log('error', error);

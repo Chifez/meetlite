@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useMeetings } from '@/hooks/useMeetings';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import axios from 'axios';
+import { env } from '@/config/env';
 
 interface MeetingFormData {
   title: string;
@@ -25,9 +26,8 @@ const initialFormData: MeetingFormData = {
   participantInput: '',
 };
 
-export const useMeetingForm = (onSuccess?: () => void) => {
-  const { createMeeting } = useMeetings();
-  const { user } = useAuth();
+export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
+  const { user, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
 
@@ -65,29 +65,26 @@ export const useMeetingForm = (onSuccess?: () => void) => {
     updateField('participantInput', e.target.value);
   };
 
-  const handleParticipantKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (['Enter', ','].includes(e.key)) {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      const value = formData.participantInput.trim();
+      const value = e.currentTarget.value.trim();
+
       if (value && !formData.participants.includes(value)) {
         setFormData((prev) => ({
           ...prev,
           participants: [...prev.participants, value],
-          participantInput: '',
         }));
+        e.currentTarget.value = '';
       }
-    } else if (
-      e.key === 'Backspace' &&
-      !formData.participantInput &&
-      formData.participants.length > 0
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        participants: prev.participants.slice(0, -1),
-      }));
     }
+  };
+
+  const removeLastParticipant = () => {
+    setFormData((prev) => ({
+      ...prev,
+      participants: prev.participants.slice(0, -1),
+    }));
   };
 
   const removeParticipant = (value: string) => {
@@ -97,44 +94,48 @@ export const useMeetingForm = (onSuccess?: () => void) => {
     }));
   };
 
-  const submitForm = async () => {
-    if (
-      !formData.title ||
-      !formData.date ||
-      !formData.time ||
-      !formData.duration
-    ) {
-      toast.error('Please fill in all required fields');
-      return false;
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      toast.error('Title is required');
+      return;
     }
 
+    const scheduledTime =
+      formData.date && formData.time
+        ? new Date(
+            formData.date.toISOString().split('T')[0] + 'T' + formData.time
+          ).toISOString()
+        : undefined;
+
+    if (!scheduledTime) {
+      toast.error('Please select a meeting time');
+      return;
+    }
     setLoading(true);
+    const meetingData = {
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      scheduledTime,
+      duration: formData.duration,
+      participants: formData.participants,
+      privacy: formData.privacy,
+      inviteEmails: formData.participants,
+      hostEmail: user?.email,
+    };
+
     try {
-      // Combine date and time into ISO string
-      const [hours, minutes] = formData.time.split(':');
-      const scheduledDate = new Date(formData.date);
-      scheduledDate.setHours(Number(hours));
-      scheduledDate.setMinutes(Number(minutes));
-      scheduledDate.setSeconds(0);
-      scheduledDate.setMilliseconds(0);
+      const response = await axios.post(
+        `${env.ROOM_API_URL}/meetings`,
+        meetingData,
+        { headers: getAuthHeaders() }
+      );
 
-      await createMeeting({
-        title: formData.title,
-        description: formData.description,
-        scheduledTime: scheduledDate.toISOString(),
-        duration: Number(formData.duration),
-        privacy: formData.privacy,
-        participants: formData.participants,
-        hostEmail: user?.email,
-      });
-
-      toast.success('Meeting scheduled');
+      toast.success('Meeting created successfully!');
+      onSuccess?.(response.data.meetingId);
       resetForm();
-      onSuccess?.();
-      return true;
-    } catch (e) {
-      toast.error('Failed to schedule meeting');
-      return false;
+    } catch (error) {
+      toast.error('Failed to create meeting');
+      console.error('Create meeting error:', error);
     } finally {
       setLoading(false);
     }
@@ -150,8 +151,9 @@ export const useMeetingForm = (onSuccess?: () => void) => {
     handleTimeChange,
     handlePrivacyChange,
     handleParticipantInput,
-    handleParticipantKeyDown,
+    handleKeyPress,
+    removeLastParticipant,
     removeParticipant,
-    submitForm,
+    handleSubmit,
   };
 };

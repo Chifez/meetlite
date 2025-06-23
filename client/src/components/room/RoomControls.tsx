@@ -36,7 +36,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
       <ParticipantCount count={participantCount} variant="mobile" />
 
       {/* Main Controls Bar */}
-      <div className="bg-background border-t py-4 relative bg-[#121212]">
+      <div className="bg-background border-t py-4 relative">
         <div className="container max-w-6xl mx-auto px-4">
           {/* Desktop Layout */}
           <div className="hidden md:flex items-center justify-between">
