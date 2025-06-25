@@ -41,39 +41,117 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
     to,
     subject: `You're Invited: ${meeting.title}`,
     html: `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); padding: 0; min-height: 100vh;">
-        <div style="max-width: 480px; margin: 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px rgba(160, 120, 255, 0.10); overflow: hidden;">
-          <div style="background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); padding: 32px 0 16px 0; text-align: center;">
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Meeting Invitation</title>
+        <style>
+          @media only screen and (max-width: 480px) {
+            .email-container {
+              margin: 8px !important;
+              max-width: calc(100% - 16px) !important;
+            }
+            .header-padding {
+              padding: 16px 12px 8px 12px !important;
+            }
+            .content-padding {
+              padding: 16px 12px 12px 12px !important;
+            }
+            .title-size {
+              font-size: 1.2rem !important;
+            }
+            .subtitle-size {
+              font-size: 0.85rem !important;
+            }
+            .details-padding {
+              padding: 10px !important;
+              margin-bottom: 12px !important;
+            }
+            .button-padding {
+              padding: 8px 16px !important;
+              font-size: 0.85rem !important;
+            }
+            .footer-note {
+              margin-top: 12px !important;
+              font-size: 0.8rem !important;
+            }
+            .bottom-footer {
+              padding: 8px 0 !important;
+              font-size: 0.8rem !important;
+            }
+            .detail-item {
+              margin-bottom: 6px !important;
+            }
+            .detail-label {
+              font-size: 0.85rem !important;
+            }
+            .detail-value {
+              font-size: 0.85rem !important;
+              margin-left: 16px !important;
+            }
+          }
+        </style>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); min-height: 100vh;">
+        <div class="email-container" style="max-width: 480px; margin: 12px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(160, 120, 255, 0.15); overflow: hidden;">
+          <!-- Header -->
+          <div class="header-padding" style="background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); padding: 16px 12px 8px 12px; text-align: center;">
             <img src='${
               process.env.CLIENT_URL
-            }/brand.png' alt='Brand Logo' style='height: 48px; margin-bottom: 12px;' />
-            <h2 style="color: #fff; font-size: 2rem; margin: 0; font-weight: 800; letter-spacing: -1px;">You're Invited!</h2>
-            <p style="color: #ede9fe; font-size: 1.1rem; margin: 8px 0 0 0;">Join a meeting on MeetLite</p>
+            }/brand.png' alt='Brand Logo' style='height: 28px; margin-bottom: 4px; max-width: 100%;' />
+            <h2 class="title-size" style="color: #fff; font-size: 1.3rem; margin: 0; font-weight: 700; letter-spacing: -0.5px;">You're Invited!</h2>
+            <p class="subtitle-size" style="color: #ede9fe; font-size: 0.85rem; margin: 2px 0 0 0;">Join a meeting on MeetLite</p>
           </div>
-          <div style="padding: 32px 28px 24px 28px;">
-            <h3 style="color: #7c3aed; margin-bottom: 8px; font-size: 1.3rem;">${
+          
+          <!-- Content -->
+          <div class="content-padding" style="padding: 16px 12px 12px 12px;">
+            <h3 style="color: #7c3aed; margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; word-wrap: break-word;">${
               meeting.title
             }</h3>
-            <p style="color: #444; margin: 0 0 12px 0; font-size: 1.05rem;">${
+            <p style="color: #555; margin: 0 0 10px 0; font-size: 0.85rem; line-height: 1.2; word-wrap: break-word;">${
               meeting.description || 'No description provided.'
             }</p>
-            <ul style="list-style: none; padding: 0; margin: 0 0 18px 0;">
-              <li><strong>🗓️ When:</strong> <span style="color: #7c3aed;">${new Date(
-                meeting.scheduledTime
-              ).toLocaleString()}</span></li>
-              <li><strong>⏰ Duration:</strong> ${meeting.duration} min</li>
-              <li><strong>👤 Host:</strong> ${
-                hostEmail || meeting.createdBy
-              }</li>
-            </ul>
-            <a href="${joinUrl}" style="display: inline-block; background: linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%); color: #fff; font-weight: 600; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 1.1rem; margin: 18px 0 0 0; box-shadow: 0 2px 8px rgba(124,58,237,0.10); transition: background 0.2s;">Join Meeting</a>
-            <p style="color: #888; font-size: 0.98rem; margin-top: 24px;">This link will be active when the host starts the meeting.<br>If you have questions, reply to this email.</p>
+            
+            <!-- Meeting Details -->
+            <div class="details-padding" style="background: #f8f7ff; border-radius: 6px; padding: 10px; margin-bottom: 12px;">
+              <div class="detail-item" style="margin-bottom: 4px;">
+                <strong class="detail-label" style="color: #7c3aed; font-size: 0.8rem;">🗓️ When:</strong>
+                <span class="detail-value" style="color: #555; font-size: 0.8rem; display: block; margin-left: 16px; word-wrap: break-word;">${new Date(
+                  meeting.scheduledTime
+                ).toLocaleString()}</span>
+              </div>
+              <div class="detail-item" style="margin-bottom: 4px;">
+                <strong class="detail-label" style="color: #7c3aed; font-size: 0.8rem;">⏰ Duration:</strong>
+                <span class="detail-value" style="color: #555; font-size: 0.8rem; display: block; margin-left: 16px;">${
+                  meeting.duration
+                } minutes</span>
+              </div>
+              <div class="detail-item" style="margin-bottom: 0;">
+                <strong class="detail-label" style="color: #7c3aed; font-size: 0.8rem;">👤 Host:</strong>
+                <span class="detail-value" style="color: #555; font-size: 0.8rem; display: block; margin-left: 16px; word-break: break-all; overflow-wrap: break-word;">${
+                  hostEmail || meeting.createdBy
+                }</span>
+              </div>
+            </div>
+            
+            <!-- Join Button -->
+            <div style="text-align: center;">
+              <a href="${joinUrl}" class="button-padding" style="display: inline-block; background: linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%); color: #fff; font-weight: 600; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; box-shadow: 0 2px 8px rgba(124,58,237,0.2); transition: all 0.2s; min-width: 90px; max-width: 100%;">Join Meeting</a>
+            </div>
+            
+            <!-- Footer Note -->
+            <p class="footer-note" style="color: #888; font-size: 0.75rem; margin-top: 12px; line-height: 1.2; text-align: center; word-wrap: break-word;">This link will be active when the host starts the meeting.<br>If you have questions, reply to this email.</p>
           </div>
-          <div style="background: #ede9fe; color: #7c3aed; text-align: center; padding: 14px 0; font-size: 0.98rem; border-top: 1px solid #e0e7ff;">
+          
+          <!-- Bottom Footer -->
+          <div class="bottom-footer" style="background: #ede9fe; color: #7c3aed; text-align: center; padding: 8px 0; font-size: 0.75rem; border-top: 1px solid #e0e7ff;">
             <span>Made with <span style="color: #a78bfa;">♥</span> by MeetLite</span>
           </div>
         </div>
-      </div>
+      </body>
+      </html>
     `,
   };
 
