@@ -27,6 +27,7 @@ import {
   Star,
   Play,
 } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 const features = [
   {
@@ -449,14 +450,7 @@ const Landing = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-4 gap-8">
               <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <Video className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-lg font-semibold text-foreground">
-                    meetlite
-                  </span>
-                </div>
+                <Logo />
                 <p className="text-muted-foreground text-sm">
                   The future of video conferencing, designed for modern teams.
                 </p>

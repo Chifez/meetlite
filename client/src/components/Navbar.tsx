@@ -21,10 +21,8 @@ const Navbar = () => {
   const { isAuthenticated, logout } = useAuth();
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
-  const isDashboard = location.pathname.startsWith('/dashboard');
+  const isLandingPage = location.pathname === '/';
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const showNavLinks = !isDashboard;
 
   return (
     <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
@@ -33,7 +31,7 @@ const Navbar = () => {
           <Logo size="sm" />
         </Link>
         {/* Desktop Nav */}
-        {showNavLinks && (
+        {isLandingPage && (
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             {NAV_LINKS.map((link) => (
               <a
@@ -71,8 +69,7 @@ const Navbar = () => {
             </Link>
           )}
         </div>
-        {/* Hamburger for mobile */}
-
+        {/* Hamburger for mobile (always available except in /room/*) */}
         <button
           className="md:hidden ml-2 p-2 rounded hover:bg-muted focus:outline-none"
           onClick={() => setMenuOpen((m) => !m)}
@@ -84,7 +81,7 @@ const Navbar = () => {
       {/* Mobile Menu Overlay */}
       {menuOpen && (
         <div className="fixed inset-0 z-40 top-16 min-h-screen bg-background/95 flex flex-col items-center justify-center md:hidden fade-in fade-out">
-          {showNavLinks && (
+          {isLandingPage && (
             <nav className="flex flex-col gap-8 items-center text-lg font-semibold mb-8">
               {NAV_LINKS.map((link) => (
                 <a
