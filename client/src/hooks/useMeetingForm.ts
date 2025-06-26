@@ -62,7 +62,16 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
   };
 
   const handleParticipantInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateField('participantInput', e.target.value);
+    const value = e.target.value.trim();
+    if (value && !formData.participants.includes(value)) {
+      setFormData((prev) => ({
+        ...prev,
+        participants: [...prev.participants, value],
+        participantInput: '',
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, participantInput: '' }));
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {

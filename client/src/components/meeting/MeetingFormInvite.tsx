@@ -31,6 +31,7 @@ export default function MeetingFormInvite({
           {invitees.map((item: string, idx: number) => (
             <Badge
               key={item + idx}
+              variant="light"
               className="rounded-full px-3 py-1 text-xs flex items-center gap-1"
             >
               {item}
