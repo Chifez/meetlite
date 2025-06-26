@@ -18,6 +18,7 @@ import { env } from '@/config/env';
 import SEO from '@/components/SEO';
 import { useMeetings } from '@/hooks/useMeetings';
 import { Meeting } from '@/lib/types';
+import MeetingCard from '@/components/meeting/MeetingCard';
 
 const Dashboard = () => {
   const { user, getAuthHeaders } = useAuth();
@@ -179,26 +180,14 @@ const Dashboard = () => {
                 <div className="text-gray-500">No upcoming meetings.</div>
               ) : (
                 upcoming.map((meeting) => (
-                  <Card key={meeting.meetingId} className="border-blue-100">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CalendarDays className="h-5 w-5 text-blue-600" />
-                        {meeting.title}
-                      </CardTitle>
-                      <CardDescription>
-                        {new Date(meeting.scheduledTime).toLocaleString()}{' '}
-                        &bull; {meeting.duration} min &bull; {meeting.privacy}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-gray-700">{meeting.description}</div>
-                    </CardContent>
-                    <CardFooter>
-                      <Link to="/meetings">
-                        <Button variant="outline">View Details</Button>
-                      </Link>
-                    </CardFooter>
-                  </Card>
+                  <MeetingCard
+                    key={meeting.meetingId}
+                    meeting={meeting}
+                    userId={user?.id}
+                    onStart={() => {}}
+                    onDelete={() => {}}
+                    showJoinButton={true}
+                  />
                 ))
               )}
             </div>

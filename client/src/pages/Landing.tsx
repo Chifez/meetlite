@@ -437,7 +437,7 @@ const Landing = () => {
                 size="lg"
                 variant="outline"
                 onClick={handleEmailSubmit}
-                className="border-2 border-white text-white hover:bg-white hover:text-purple-600 font-medium px-8 py-6 transition-all duration-300"
+                className=" text-black dark:text-white hover:text-purple-600 font-medium px-8 py-6 transition-all duration-300"
               >
                 Schedule a Demo
               </Button>

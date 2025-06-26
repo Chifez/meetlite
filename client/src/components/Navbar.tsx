@@ -72,39 +72,36 @@ const Navbar = () => {
           )}
         </div>
         {/* Hamburger for mobile */}
-        {showNavLinks && (
-          <button
-            className="md:hidden ml-2 p-2 rounded hover:bg-muted focus:outline-none"
-            onClick={() => setMenuOpen((m) => !m)}
-            aria-label="Open menu"
-          >
-            {menuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-        )}
+
+        <button
+          className="md:hidden ml-2 p-2 rounded hover:bg-muted focus:outline-none"
+          onClick={() => setMenuOpen((m) => !m)}
+          aria-label="Open menu"
+        >
+          {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
       </div>
       {/* Mobile Menu Overlay */}
-      {showNavLinks && menuOpen && (
+      {menuOpen && (
         <div className="fixed inset-0 z-40 top-16 min-h-screen bg-background/95 flex flex-col items-center justify-center md:hidden fade-in fade-out">
-          <nav className="flex flex-col gap-8 items-center text-lg font-semibold mb-8">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="hover:text-primary transition-colors cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToSection(link.href.replace('#', ''));
-                  setMenuOpen(false);
-                }}
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
+          {showNavLinks && (
+            <nav className="flex flex-col gap-8 items-center text-lg font-semibold mb-8">
+              {NAV_LINKS.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="hover:text-primary transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToSection(link.href.replace('#', ''));
+                    setMenuOpen(false);
+                  }}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </nav>
+          )}
           <div className="flex flex-col gap-4 items-center w-full max-w-xs">
             <ThemeToggle />
             {isAuthenticated && (

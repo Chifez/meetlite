@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
   Views,
+  type View,
 } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay, isToday, isAfter } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import './MeetingCalendar.css';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -68,8 +70,35 @@ export default function MeetingCalendar({
     [meetings]
   );
 
+  // Responsive view mode
+  const [calendarView, setCalendarView] = useState<View>(Views.WEEK);
+  useEffect(() => {
+    const checkView = () => {
+      if (window.matchMedia('(max-width: 768px)').matches) {
+        setCalendarView(Views.DAY);
+      } else {
+        setCalendarView(Views.WEEK);
+      }
+    };
+    checkView();
+    window.addEventListener('resize', checkView);
+    return () => window.removeEventListener('resize', checkView);
+  }, []);
+
   // Dialog state for event details
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+
+  // Custom day/column styling for highlight
+  function customDayPropGetter(date: Date) {
+    if (isToday(date)) {
+      return {
+        style: {
+          backgroundColor: 'rgba(99, 102, 241, 0.08)', // indigo-500/10 as a light theme color
+        },
+      };
+    }
+    return {};
+  }
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
@@ -79,7 +108,8 @@ export default function MeetingCalendar({
         startAccessor="start"
         endAccessor="end"
         defaultView={Views.WEEK}
-        views={[Views.WEEK]}
+        view={calendarView}
+        views={{ week: true, day: true }}
         style={{ height: 600 }}
         popup
         components={{
@@ -98,6 +128,7 @@ export default function MeetingCalendar({
             boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
           },
         })}
+        dayPropGetter={customDayPropGetter}
         onSelectEvent={(event) => setSelectedEvent(event)}
       />
       {/* Event Details Dialog */}
@@ -122,14 +153,20 @@ export default function MeetingCalendar({
           <div className="mb-2 text-sm text-gray-500 flex items-center gap-2">
             <CalendarDays className="inline h-4 w-4 mr-1 text-blue-400" />
             {selectedEvent?.start
-              ? format(selectedEvent.start, 'PPpp')
-              : ''}{' '}
+              ? format(selectedEvent.start, 'MMM,dd yyyy hh:mm a')
+              : ''}
             &bull; {selectedEvent?.resource?.duration} min
             <Badge variant="secondary" className="ml-2 capitalize">
               {selectedEvent?.resource?.privacy}
             </Badge>
             <Badge className="ml-2 capitalize">
-              {selectedEvent?.resource?.status}
+              {(() => {
+                const end = selectedEvent?.end;
+                if (end && isAfter(new Date(), end)) return 'Completed';
+                return selectedEvent?.resource?.status == 'scheduled'
+                  ? 'Upcoming'
+                  : 'Ongoing';
+              })()}
             </Badge>
           </div>
           {selectedEvent?.resource?.participants?.length > 0 && (

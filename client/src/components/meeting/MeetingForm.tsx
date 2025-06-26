@@ -65,10 +65,10 @@ const MeetingForm = ({
   return (
     <Card>
       <form onSubmit={handleSubmit}>
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle>Schedule a Meeting</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </CardHeader> */}
+        <CardContent className="space-y-4 my-2">
           <div>
             <label className="block mb-1 font-medium">Title *</label>
             <Input

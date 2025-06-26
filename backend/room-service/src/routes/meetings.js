@@ -94,7 +94,7 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
           }
         </style>
       </head>
-      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); min-height: 100vh;">
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); height:max-content;">
         <div class="email-container" style="max-width: 480px; margin: 12px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(160, 120, 255, 0.15); overflow: hidden;">
           <!-- Header -->
           <div class="header-padding" style="background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); padding: 16px 12px 8px 12px; text-align: center;">
@@ -116,24 +116,21 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
             
             <!-- Meeting Details -->
             <div class="details-padding" style="background: #f8f7ff; border-radius: 6px; padding: 10px; margin-bottom: 12px;">
-              <div class="detail-item" style="margin-bottom: 4px;">
-                <strong class="detail-label" style="color: #7c3aed; font-size: 0.8rem;">🗓️ When:</strong>
-                <span class="detail-value" style="color: #555; font-size: 0.8rem; display: block; margin-left: 16px; word-wrap: break-word;">${new Date(
+              <ul style="list-style: none; padding: 0; margin: 0 0 18px 0;">
+                <li><strong>Date:</strong> <span style="color: #7c3aed;">${new Date(
                   meeting.scheduledTime
-                ).toLocaleString()}</span>
-              </div>
-              <div class="detail-item" style="margin-bottom: 4px;">
-                <strong class="detail-label" style="color: #7c3aed; font-size: 0.8rem;">⏰ Duration:</strong>
-                <span class="detail-value" style="color: #555; font-size: 0.8rem; display: block; margin-left: 16px;">${
-                  meeting.duration
-                } minutes</span>
-              </div>
-              <div class="detail-item" style="margin-bottom: 0;">
-                <strong class="detail-label" style="color: #7c3aed; font-size: 0.8rem;">👤 Host:</strong>
-                <span class="detail-value" style="color: #555; font-size: 0.8rem; display: block; margin-left: 16px; word-break: break-all; overflow-wrap: break-word;">${
+                )
+                  .toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: '2-digit',
+                    year: 'numeric',
+                  })
+                  .replace(',', ',')}</span></li>
+                <li><strong>⏰ Duration:</strong> ${meeting.duration} min</li>
+                <li><strong>👤 Host:</strong> ${
                   hostEmail || meeting.createdBy
-                }</span>
-              </div>
+                }</li>
+              </ul>
             </div>
             
             <!-- Join Button -->

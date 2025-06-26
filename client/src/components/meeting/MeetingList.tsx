@@ -1,3 +1,4 @@
+import { Meeting } from '@/lib/types';
 import MeetingCard from './MeetingCard';
 import { Loader2, CalendarDays } from 'lucide-react';
 
@@ -14,6 +15,10 @@ export default function MeetingList({
   onStartMeeting: (meetingId: string) => void;
   onDelete: (meetingId: string) => void;
 }) {
+  const now = new Date();
+  const showJoin = (m: Meeting) => {
+    return new Date(m.scheduledTime) > now;
+  };
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -40,6 +45,7 @@ export default function MeetingList({
           userId={userId}
           onStart={onStartMeeting}
           onDelete={onDelete}
+          showJoinButton={showJoin(meeting)}
         />
       ))}
     </div>

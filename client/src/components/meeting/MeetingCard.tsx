@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Card,
   CardHeader,
@@ -8,83 +9,185 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Users, CalendarDays } from 'lucide-react';
+import {
+  Lock,
+  Users,
+  CalendarDays,
+  Calendar,
+  Clock,
+  Video,
+  Trash2,
+} from 'lucide-react';
 import { format } from 'date-fns';
+import type { Meeting } from '@/lib/types';
 
-export default function MeetingCard({
+interface MeetingCardProps {
+  meeting: Meeting;
+  userId?: string;
+  onStart: (meetingId: string) => void;
+  onDelete: (meetingId: string) => void;
+  onJoin?: (meetingId: string) => void;
+  showJoinButton?: boolean;
+}
+
+const MeetingCard: React.FC<MeetingCardProps> = ({
   meeting,
   userId,
   onStart,
   onDelete,
-}: {
-  meeting: any;
-  userId?: string;
-  onStart: (meetingId: string) => void;
-  onDelete: (meetingId: string) => void;
-}) {
-  const statusColors: Record<string, string> = {
-    scheduled: 'bg-blue-100 text-blue-700',
-    ongoing: 'bg-green-100 text-green-700',
-    completed: 'bg-gray-100 text-gray-700',
-    cancelled: 'bg-red-100 text-red-700',
+  onJoin,
+  showJoinButton,
+}) => {
+  // Compute display status
+  const getDisplayStatus = () => {
+    const now = new Date();
+    const start = new Date(meeting.scheduledTime);
+    const end = new Date(start.getTime() + (meeting.duration || 0) * 60000);
+    if (
+      meeting.status === 'ongoing' ||
+      (meeting.status === 'scheduled' && now >= start && now <= end)
+    ) {
+      return {
+        label: 'Ongoing',
+        color:
+          'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
+      };
+    }
+    if (meeting.status === 'completed' || now > end) {
+      return {
+        label: 'Completed',
+        color:
+          'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300',
+      };
+    }
+    if (meeting.status === 'cancelled') {
+      return {
+        label: 'Cancelled',
+        color: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
+      };
+    }
+    // Default: upcoming
+    return {
+      label: 'Upcoming',
+      color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+    };
   };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'private':
+        return '🔒';
+      case 'public':
+        return '🌐';
+      default:
+        return '📅';
+    }
+  };
+
+  const status = getDisplayStatus();
+  const maxParticipantsToShow = 3;
+  const participants = meeting.participants || [];
+  const visibleParticipants = participants.slice(0, maxParticipantsToShow);
+  const overflowCount = participants.length - maxParticipantsToShow;
+
   return (
-    <Card className="border-blue-100 shadow-sm hover:shadow-lg transition-shadow">
-      <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <div>
-          <CardTitle className="flex items-center gap-2 mb-2 capitalize">
-            {meeting.privacy === 'private' ? (
-              <Lock className="h-5 w-5 text-blue-600" />
-            ) : (
-              <Users className="h-5 w-5 text-blue-600" />
+    <Card className="group hover:shadow-md transition-all duration-300 border-l-4 border-l-indigo-500">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
+          <div className="space-y-2 min-w-0 flex-1">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm flex-shrink-0">
+                {getTypeIcon(meeting.privacy)}
+              </span>
+              <h4 className="font-medium text-foreground group-hover:text-indigo-600 transition-colors text-sm sm:text-base truncate">
+                {meeting.title}
+              </h4>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex items-center space-x-1">
+                <Calendar className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">
+                  {format(new Date(meeting.scheduledTime), 'MMM,dd yyyy')}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock className="h-3 w-3 flex-shrink-0" />
+                <span>
+                  {new Date(meeting.scheduledTime).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Users className="h-3 w-3 flex-shrink-0" />
+                <span>{participants.length}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock className="h-3 w-3 flex-shrink-0" />
+                <span>{meeting.duration} min</span>
+              </div>
+            </div>
+            {/* Participants badges */}
+            {participants.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                <span className="text-[14px] font-semibold">participants:</span>{' '}
+                {visibleParticipants.map((p, idx) => (
+                  <Badge
+                    key={p + idx}
+                    variant="secondary"
+                    className="truncate max-w-[300px]"
+                  >
+                    {p}
+                  </Badge>
+                ))}
+                {overflowCount > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-muted text-muted-foreground"
+                  >
+                    +{overflowCount} more
+                  </Badge>
+                )}
+              </div>
             )}
-            {meeting.title}
-          </CardTitle>
-          <CardDescription>
-            <span className="inline-block mr-2">
-              <CalendarDays className="inline h-4 w-4 mr-1 text-blue-400" />
-              {format(new Date(meeting.scheduledTime), 'PPpp')}
-            </span>
-            <span className="inline-block mr-2">{meeting.duration} min</span>
-            <span
-              className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${
-                statusColors[meeting.status] || 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {meeting.status}
-            </span>
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-gray-700 mb-2">{meeting.description}</div>
-        {meeting.participants?.length > 0 && (
-          <div className="text-xs text-gray-500 mt-2">
-            Participants:{' '}
-            {meeting.participants.map((p: string) => (
-              <Badge key={p} variant="secondary" className="mr-1">
-                {p}
-              </Badge>
-            ))}
+            {meeting.description && (
+              <div className="text-xs text-muted-foreground line-clamp-2">
+                {meeting.description}
+              </div>
+            )}
           </div>
-        )}
+          {/* Status, Join button, and Delete icon column */}
+          <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start space-x-2 sm:space-x-0 sm:space-y-2">
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
+            >
+              {status.label}
+            </span>
+            <span className="flex items-center gap-1">
+              {onDelete && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => onDelete(meeting.meetingId)}
+                  aria-label="Delete meeting"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+              {showJoinButton && status.label === 'Upcoming' && (
+                <Button size="sm" onClick={() => onJoin?.(meeting.meetingId)}>
+                  <Video className="h-3 w-3 mr-1" />
+                  Join
+                </Button>
+              )}
+            </span>
+          </div>
+        </div>
       </CardContent>
-      <CardFooter className="flex gap-2 flex-wrap">
-        {meeting.status === 'scheduled' &&
-          !meeting.roomId &&
-          meeting.createdBy === userId && (
-            <Button onClick={() => onStart(meeting.meetingId)}>
-              Start Meeting
-            </Button>
-          )}
-        <Button
-          variant="destructive"
-          onClick={() => onDelete(meeting.meetingId)}
-          className="text-white"
-        >
-          Delete
-        </Button>
-      </CardFooter>
     </Card>
   );
-}
+};
+
+export default MeetingCard;
