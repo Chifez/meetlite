@@ -36,6 +36,20 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
 
   const joinUrl = `${process.env.CLIENT_URL}/meeting/${meeting.meetingId}/join?token=${inviteToken}`;
 
+  // Format the meeting time with timezone
+  const meetingDate = new Date(meeting.scheduledTime);
+  const timeString = meetingDate.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const dateString = meetingDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
   const emailContent = {
     from: fromEmail,
     to,
@@ -48,102 +62,208 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Meeting Invitation</title>
         <style>
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .email-container {
+            max-width: 480px;
+            width: 100%;
+            margin: 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(160, 120, 255, 0.2);
+            overflow: hidden;
+          }
+          .header-padding {
+            background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%);
+            padding: 24px 20px 16px 20px;
+            text-align: center;
+          }
+          .content-padding {
+            padding: 24px 20px 20px 20px;
+          }
+          .title-size {
+            color: #fff;
+            font-size: 1.4rem;
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+          }
+          .subtitle-size {
+            color: #ede9fe;
+            font-size: 0.9rem;
+            margin: 4px 0 0 0;
+          }
+          .meeting-title {
+            color: #7c3aed;
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            word-wrap: break-word;
+          }
+          .meeting-description {
+            color: #555;
+            margin: 0 0 16px 0;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+          }
+          .details-padding {
+            background: #f8f7ff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-left: 4px solid #7c3aed;
+          }
+          .detail-item {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+          }
+          .detail-label {
+            font-weight: 600;
+            color: #374151;
+            min-width: 80px;
+            font-size: 0.9rem;
+          }
+          .detail-value {
+            color: #7c3aed;
+            margin-left: 12px;
+            font-size: 0.9rem;
+            flex: 1;
+          }
+          .join-button {
+            display: inline-block;
+            background: linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%);
+            color: #fff;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(124,58,237,0.3);
+            transition: all 0.2s;
+            min-width: 120px;
+            text-align: center;
+          }
+          .join-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(124,58,237,0.4);
+          }
+          .footer-note {
+            color: #888;
+            font-size: 0.8rem;
+            margin-top: 16px;
+            line-height: 1.4;
+            text-align: center;
+            word-wrap: break-word;
+          }
+          .bottom-footer {
+            background: #ede9fe;
+            color: #7c3aed;
+            text-align: center;
+            padding: 12px 0;
+            font-size: 0.8rem;
+            border-top: 1px solid #e0e7ff;
+          }
           @media only screen and (max-width: 480px) {
             .email-container {
-              margin: 8px !important;
-              max-width: calc(100% - 16px) !important;
+              margin: 12px;
+              max-width: calc(100% - 24px);
             }
             .header-padding {
-              padding: 16px 12px 8px 12px !important;
+              padding: 20px 16px 12px 16px;
             }
             .content-padding {
-              padding: 16px 12px 12px 12px !important;
+              padding: 20px 16px 16px 16px;
             }
             .title-size {
-              font-size: 1.2rem !important;
+              font-size: 1.2rem;
             }
             .subtitle-size {
-              font-size: 0.85rem !important;
+              font-size: 0.85rem;
             }
             .details-padding {
-              padding: 10px !important;
-              margin-bottom: 12px !important;
+              padding: 12px;
+              margin-bottom: 16px;
             }
-            .button-padding {
-              padding: 8px 16px !important;
-              font-size: 0.85rem !important;
-            }
-            .footer-note {
-              margin-top: 12px !important;
-              font-size: 0.8rem !important;
-            }
-            .bottom-footer {
-              padding: 8px 0 !important;
-              font-size: 0.8rem !important;
+            .join-button {
+              padding: 10px 20px;
+              font-size: 0.9rem;
             }
             .detail-item {
-              margin-bottom: 6px !important;
+              margin-bottom: 6px;
             }
             .detail-label {
-              font-size: 0.85rem !important;
+              font-size: 0.85rem;
             }
             .detail-value {
-              font-size: 0.85rem !important;
-              margin-left: 16px !important;
+              font-size: 0.85rem;
             }
           }
         </style>
       </head>
-      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); height:max-content;">
-        <div class="email-container" style="max-width: 480px; margin: 12px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(160, 120, 255, 0.15); overflow: hidden;">
+      <body>
+        <div class="email-container">
           <!-- Header -->
-          <div class="header-padding" style="background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); padding: 16px 12px 8px 12px; text-align: center;">
+          <div class="header-padding">
             <img src='${
               process.env.CLIENT_URL
-            }/brand.png' alt='Brand Logo' style='height: 28px; margin-bottom: 4px; max-width: 100%;' />
-            <h2 class="title-size" style="color: #fff; font-size: 1.3rem; margin: 0; font-weight: 700; letter-spacing: -0.5px;">You're Invited!</h2>
-            <p class="subtitle-size" style="color: #ede9fe; font-size: 0.85rem; margin: 2px 0 0 0;">Join a meeting on MeetLite</p>
+            }/brand.png' alt='Brand Logo' style='height: 32px; margin-bottom: 8px; max-width: 100%;' />
+            <h2 class="title-size">You're Invited!</h2>
+            <p class="subtitle-size">Join a meeting on MeetLite</p>
           </div>
           
           <!-- Content -->
-          <div class="content-padding" style="padding: 16px 12px 12px 12px;">
-            <h3 style="color: #7c3aed; margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; word-wrap: break-word;">${
-              meeting.title
-            }</h3>
-            <p style="color: #555; margin: 0 0 10px 0; font-size: 0.85rem; line-height: 1.2; word-wrap: break-word;">${
+          <div class="content-padding">
+            <h3 class="meeting-title">${meeting.title}</h3>
+            <p class="meeting-description">${
               meeting.description || 'No description provided.'
             }</p>
             
             <!-- Meeting Details -->
-            <div class="details-padding" style="background: #f8f7ff; border-radius: 6px; padding: 10px; margin-bottom: 12px;">
-              <ul style="list-style: none; padding: 0; margin: 0 0 18px 0;">
-                <li><strong>Date:</strong> <span style="color: #7c3aed;">${new Date(
-                  meeting.scheduledTime
-                )
-                  .toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: '2-digit',
-                    year: 'numeric',
-                  })
-                  .replace(',', ',')}</span></li>
-                <li><strong>⏰ Duration:</strong> ${meeting.duration} min</li>
-                <li><strong>👤 Host:</strong> ${
+            <div class="details-padding">
+              <div class="detail-item">
+                <span class="detail-label">📅 Date:</span>
+                <span class="detail-value">${dateString}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">⏰ Time:</span>
+                <span class="detail-value">${timeString} (UTC)</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">⏱️ Duration:</span>
+                <span class="detail-value">${meeting.duration} minutes</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">👤 Host:</span>
+                <span class="detail-value">${
                   hostEmail || meeting.createdBy
-                }</li>
-              </ul>
+                }</span>
+              </div>
             </div>
             
             <!-- Join Button -->
             <div style="text-align: center;">
-              <a href="${joinUrl}" class="button-padding" style="display: inline-block; background: linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%); color: #fff; font-weight: 600; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; box-shadow: 0 2px 8px rgba(124,58,237,0.2); transition: all 0.2s; min-width: 90px; max-width: 100%;">Join Meeting</a>
+              <a href="${joinUrl}" class="join-button">Join Meeting</a>
             </div>
             
             <!-- Footer Note -->
-            <p class="footer-note" style="color: #888; font-size: 0.75rem; margin-top: 12px; line-height: 1.2; text-align: center; word-wrap: break-word;">This link will be active when the host starts the meeting.<br>If you have questions, reply to this email.</p>
+            <p class="footer-note">
+              This link will be active when the host starts the meeting.<br>
+              If you have questions, reply to this email.
+            </p>
           </div>
           
           <!-- Bottom Footer -->
-          <div class="bottom-footer" style="background: #ede9fe; color: #7c3aed; text-align: center; padding: 8px 0; font-size: 0.75rem; border-top: 1px solid #e0e7ff;">
+          <div class="bottom-footer">
             <span>Made with <span style="color: #a78bfa;">♥</span> by MeetLite</span>
           </div>
         </div>
@@ -225,7 +345,11 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const meetings = await Meeting.find({
-      $or: [{ createdBy: req.user.userId }, { participants: req.user.userId }],
+      $or: [
+        { createdBy: req.user.userId },
+        { participants: req.user.userId },
+        { 'invites.email': req.user.email },
+      ],
     }).sort({ scheduledTime: 1 });
     res.json(meetings);
   } catch (error) {
@@ -234,14 +358,87 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get meeting details
+// Validate invite token for private meeting access
+router.post('/:meetingId/validate-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    const meeting = await Meeting.findOne({ meetingId: req.params.meetingId });
+
+    if (!meeting) {
+      return res.status(404).json({ message: 'Meeting not found' });
+    }
+
+    // If meeting is public, no token needed
+    if (meeting.privacy === 'public') {
+      return res.json({ valid: true, meeting });
+    }
+
+    // For private meetings, validate token
+    if (!token) {
+      return res
+        .status(401)
+        .json({ message: 'Invite token required for private meeting' });
+    }
+
+    // Check if user is the creator
+    if (meeting.createdBy === req.user.userId) {
+      return res.json({ valid: true, meeting });
+    }
+
+    // Check if token matches any invite
+    const validInvite = meeting.invites.find(
+      (invite) => invite.inviteToken === token
+    );
+    if (!validInvite) {
+      return res
+        .status(403)
+        .json({ message: 'Invalid or expired invite token' });
+    }
+
+    // Update invite status to accepted if it was pending
+    if (validInvite.status === 'pending') {
+      validInvite.status = 'accepted';
+      await meeting.save();
+    }
+
+    res.json({ valid: true, meeting });
+  } catch (error) {
+    console.error('Validate token error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get meeting details (updated to check access)
 router.get('/:meetingId', async (req, res) => {
   try {
     const meeting = await Meeting.findOne({ meetingId: req.params.meetingId });
     if (!meeting) {
       return res.status(404).json({ message: 'Meeting not found' });
     }
-    res.json(meeting);
+
+    // If meeting is public, allow access
+    if (meeting.privacy === 'public') {
+      return res.json(meeting);
+    }
+
+    // For private meetings, check if user is creator or has valid invite
+    if (meeting.createdBy === req.user.userId) {
+      return res.json(meeting);
+    }
+
+    // Check if user has a valid invite
+    const userInvite = meeting.invites.find(
+      (invite) => invite.email === req.user.email
+    );
+    if (userInvite && userInvite.status !== 'declined') {
+      return res.json(meeting);
+    }
+
+    // User doesn't have access
+    return res.status(403).json({
+      message:
+        'Access denied. You need an invite to join this private meeting.',
+    });
   } catch (error) {
     console.error('Get meeting error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -315,6 +512,34 @@ router.post('/:meetingId/start', async (req, res) => {
     res.json({ roomId });
   } catch (error) {
     console.error('Start meeting error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Complete meeting (only creator can complete)
+router.post('/:meetingId/complete', async (req, res) => {
+  try {
+    const meeting = await Meeting.findOne({ meetingId: req.params.meetingId });
+    if (!meeting) {
+      return res.status(404).json({ message: 'Meeting not found' });
+    }
+    if (meeting.createdBy !== req.user.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (meeting.status === 'completed') {
+      return res.status(400).json({ message: 'Meeting already completed' });
+    }
+    if (meeting.status === 'cancelled') {
+      return res
+        .status(400)
+        .json({ message: 'Cannot complete a cancelled meeting' });
+    }
+
+    meeting.status = 'completed';
+    await meeting.save();
+    res.json({ message: 'Meeting completed successfully' });
+  } catch (error) {
+    console.error('Complete meeting error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

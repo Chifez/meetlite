@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import axios from 'axios';
+import api from '@/lib/axios';
 import { env } from '@/config/env';
 
 interface MeetingFormData {
@@ -27,7 +27,7 @@ const initialFormData: MeetingFormData = {
 };
 
 export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
-  const { user, getAuthHeaders } = useAuth();
+  const { user } = useAuth();
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
 
@@ -133,10 +133,9 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
     };
 
     try {
-      const response = await axios.post(
+      const response = await api.post(
         `${env.ROOM_API_URL}/meetings`,
-        meetingData,
-        { headers: getAuthHeaders() }
+        meetingData
       );
 
       toast.success('Meeting created successfully!');

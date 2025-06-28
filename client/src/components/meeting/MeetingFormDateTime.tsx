@@ -30,6 +30,7 @@ export default function MeetingFormDateTime({
   setTimezone,
   handleTimeBoxChange,
   handleTimeConfirm,
+  displayTime,
 }: any) {
   return (
     <div className="flex gap-4">
@@ -71,11 +72,20 @@ export default function MeetingFormDateTime({
               variant="outline"
               className={
                 'w-full justify-start text-left font-normal' +
-                (formData.time ? '' : ' text-muted-foreground')
+                (displayTime || formData.time ? '' : ' text-muted-foreground')
               }
               type="button"
             >
-              {formData.time ? formData.time : <span>Pick a time</span>}
+              {displayTime || formData.time ? (
+                <div className="flex flex-row items-center gap-2">
+                  <span>{displayTime || formData.time}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({timezone})
+                  </span>
+                </div>
+              ) : (
+                <span>Pick a time</span>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-84 p-4" align="end">

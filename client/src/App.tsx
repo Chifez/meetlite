@@ -12,7 +12,7 @@ import MeetingJoin from './pages/MeetingJoin';
 import Landing from './pages/Landing';
 
 function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, redirectTo } = useAuth();
 
   return (
     <Routes>
@@ -20,11 +20,23 @@ function App() {
         {/* Public routes */}
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />}
+          element={
+            isAuthenticated ? (
+              <Navigate to={redirectTo || '/dashboard'} />
+            ) : (
+              <Login />
+            )
+          }
         />
         <Route
           path="/signup"
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Signup />}
+          element={
+            isAuthenticated ? (
+              <Navigate to={redirectTo || '/dashboard'} />
+            ) : (
+              <Signup />
+            )
+          }
         />
         <Route path="/meeting/:meetingId/join" element={<MeetingJoin />} />
 
@@ -49,7 +61,13 @@ function App() {
         {/* Redirects */}
         <Route
           path="/"
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Landing />}
+          element={
+            isAuthenticated ? (
+              <Navigate to={redirectTo || '/dashboard'} />
+            ) : (
+              <Landing />
+            )
+          }
         />
         <Route path="*" element={<NotFound />} />
       </Route>

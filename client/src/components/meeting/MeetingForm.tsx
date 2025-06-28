@@ -1,32 +1,7 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { MeetingFormData } from '@/lib/types';
 import { useState } from 'react';
-import timezones from '@/lib/timezones'; // Assume you have a list of IANA timezones
+import { toast } from 'sonner';
 import MeetingFormTitle from './MeetingFormTitle';
 import MeetingFormDateTime from './MeetingFormDateTime';
 import MeetingFormDurationPrivacy from './MeetingFormDurationPrivacy';
@@ -44,7 +19,6 @@ interface MeetingFormProps {
   onTimeChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPrivacyChange: (value: 'public' | 'private') => void;
   onParticipantInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onParticipantKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onRemoveParticipant: (value: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -52,7 +26,7 @@ interface MeetingFormProps {
 
 const INVITE_METHODS = [
   { value: 'email', label: 'Email' },
-  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'whatsapp', label: 'WhatsApp', disabled: true },
   { value: 'twitter', label: 'Twitter', disabled: true },
 ];
 
@@ -65,40 +39,21 @@ const MeetingForm = ({
   onTimeChange,
   onPrivacyChange,
   onParticipantInput,
-  onParticipantKeyDown,
   onRemoveParticipant,
   onSubmit,
   onCancel,
 }: MeetingFormProps) => {
   const [inviteMethod, setInviteMethod] = useState('email');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [timezone, setTimezone] = useState('Africa/Lagos');
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
   const [hour, setHour] = useState('');
   const [minute, setMinute] = useState('');
   const [ampm, setAmPm] = useState<'AM' | 'PM'>('AM');
   const [inviteInput, setInviteInput] = useState('');
+  const [displayTime, setDisplayTime] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inviteMethod === 'whatsapp') {
-      // WhatsApp invite logic
-      if (!/^\d{7,15}$/.test(whatsappNumber.replace(/\D/g, ''))) {
-        alert('Please enter a valid WhatsApp number.');
-        return;
-      }
-      const dateStr = formData.date ? format(formData.date, 'MMM,dd yyyy') : '';
-      const timeStr = formData.time || '';
-      const msg = encodeURIComponent(
-        `You're invited to a meeting: ${formData.title}\nDate: ${dateStr} ${timeStr} (${timezone})`
-      );
-      const link = `https://wa.me/${whatsappNumber.replace(
-        /\D/g,
-        ''
-      )}?text=${msg}`;
-      window.open(link, '_blank');
-      return;
-    }
     onSubmit();
   };
 
@@ -125,7 +80,10 @@ const MeetingForm = ({
       2,
       '0'
     )}`;
+    const displayFormatted = `${hour}:${minute.padStart(2, '0')} ${ampm}`;
+
     onTimeChange({ target: { name: 'time', value: formatted } } as any);
+    setDisplayTime(displayFormatted);
     setTimePopoverOpen(false);
   };
 
@@ -136,6 +94,12 @@ const MeetingForm = ({
     if (e.key === 'Enter' && inviteInput.trim()) {
       e.preventDefault();
       if (inviteMethod === 'email') {
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(inviteInput.trim())) {
+          toast.error('Please enter a valid email address');
+          return;
+        }
         onParticipantInput({
           target: { name: 'participantInput', value: inviteInput },
         } as any);
@@ -144,6 +108,9 @@ const MeetingForm = ({
           onParticipantInput({
             target: { name: 'participantInput', value: inviteInput },
           } as any);
+        } else {
+          toast.error('Please enter a valid WhatsApp number');
+          return;
         }
       }
       setInviteInput('');
@@ -174,6 +141,7 @@ const MeetingForm = ({
             onTimeChange={onTimeChange}
             handleTimeBoxChange={handleTimeBoxChange}
             handleTimeConfirm={handleTimeConfirm}
+            displayTime={displayTime}
           />
           <MeetingFormDurationPrivacy
             formData={formData}

@@ -43,7 +43,7 @@ const signupSchema = z
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 const Signup = () => {
-  const { signup } = useAuth();
+  const { signup, redirectTo, setRedirectTo } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -60,7 +60,14 @@ const Signup = () => {
     setIsLoading(true);
     try {
       await signup(data.email, data.password);
-      navigate('/dashboard');
+
+      // Navigate to redirect URL if available, otherwise to dashboard
+      if (redirectTo) {
+        navigate(redirectTo);
+        setRedirectTo(null); // Clear the redirect URL
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Signup failed:', error);
     } finally {

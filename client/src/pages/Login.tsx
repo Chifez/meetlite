@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/form';
 import SEO from '@/components/SEO';
 import Logo from '@/components/Logo';
+
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
   password: z
@@ -34,7 +35,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, redirectTo, setRedirectTo } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -50,7 +51,14 @@ const Login = () => {
     setIsLoading(true);
     try {
       await login(data.email, data.password);
-      navigate('/dashboard');
+
+      // Navigate to redirect URL if available, otherwise to dashboard
+      if (redirectTo) {
+        navigate(redirectTo);
+        setRedirectTo(null); // Clear the redirect URL
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Login failed:', error);
     } finally {

@@ -52,7 +52,11 @@ export interface Meeting {
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   createdAt: string;
   roomId?: string;
-  invites: any[];
+  invites: {
+    email: string;
+    status: 'pending' | 'accepted' | 'declined';
+    inviteToken: string;
+  }[];
 }
 
 export interface MeetingFormData {
@@ -64,4 +68,9 @@ export interface MeetingFormData {
   privacy: 'public' | 'private';
   participants: string[];
   participantInput: string;
+}
+
+export interface InviteValidationResponse {
+  valid: boolean;
+  meeting: Meeting;
 }

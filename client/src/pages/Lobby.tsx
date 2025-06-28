@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,7 +38,7 @@ type MediaDeviceInfo = {
 
 const Lobby = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const { getAuthHeaders } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -65,19 +65,28 @@ const Lobby = () => {
     video: '',
   });
 
-  // Verify room exists
+  // Verify room exists and user has access
   useEffect(() => {
     const checkRoom = async () => {
       try {
-        await axios.get(`${env.ROOM_API_URL}/rooms/${roomId}`, {
-          headers: getAuthHeaders(),
-        });
+        const response = await api.get(`${env.ROOM_API_URL}/rooms/${roomId}`);
+
+        // Additional check: verify user has access to the meeting
+        // This is a basic check - in a real implementation, you might want to
+        // store meeting-room associations and check against those
         setIsValidRoom(true);
-      } catch (error) {
-        toast.info('Room not found', {
-          description:
-            "The meeting room does not exist or you don't have access",
-        });
+      } catch (error: any) {
+        if (error.response?.status === 403) {
+          toast.error('Access Denied', {
+            description:
+              'You do not have permission to join this meeting room.',
+          });
+        } else {
+          toast.info('Room not found', {
+            description:
+              "The meeting room does not exist or you don't have access",
+          });
+        }
         navigate('/dashboard');
       } finally {
         setIsLoading(false);
@@ -87,7 +96,7 @@ const Lobby = () => {
     if (roomId) {
       checkRoom();
     }
-  }, [roomId, getAuthHeaders, navigate]);
+  }, [roomId, navigate]);
 
   // Get user media and devices
   useEffect(() => {

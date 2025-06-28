@@ -1,22 +1,15 @@
 import React from 'react';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Lock,
   Users,
-  CalendarDays,
   Calendar,
   Clock,
   Video,
   Trash2,
+  Play,
+  Square,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Meeting } from '@/lib/types';
@@ -27,6 +20,7 @@ interface MeetingCardProps {
   onStart: (meetingId: string) => void;
   onDelete: (meetingId: string) => void;
   onJoin?: (meetingId: string) => void;
+  onEnd?: (meetingId: string) => void;
   showJoinButton?: boolean;
 }
 
@@ -36,6 +30,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   onStart,
   onDelete,
   onJoin,
+  onEnd,
   showJoinButton,
 }) => {
   // Compute display status
@@ -84,11 +79,60 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     }
   };
 
+  // Determine button state based on user role and meeting status
+  const getButtonState = () => {
+    const isCreator = meeting.createdBy === userId;
+    const isOngoing =
+      meeting.status === 'ongoing' ||
+      (meeting.status === 'scheduled' &&
+        new Date() >= new Date(meeting.scheduledTime));
+    const isCompleted =
+      meeting.status === 'completed' ||
+      new Date() >
+        new Date(
+          new Date(meeting.scheduledTime).getTime() +
+            (meeting.duration || 0) * 60000
+        );
+    const isCancelled = meeting.status === 'cancelled';
+
+    if (isCompleted || isCancelled) {
+      return { type: 'disabled', text: 'Meeting Ended', disabled: true };
+    }
+
+    if (isCreator) {
+      if (isOngoing) {
+        return { type: 'end', text: 'End Meeting', disabled: false };
+      } else {
+        return { type: 'start', text: 'Start', disabled: false };
+      }
+    } else {
+      // Not creator (invited user)
+      if (isOngoing) {
+        return { type: 'join', text: 'Join', disabled: false };
+      } else {
+        return { type: 'disabled', text: 'Waiting for Host', disabled: true };
+      }
+    }
+  };
+
   const status = getDisplayStatus();
+  const buttonState = getButtonState();
   const maxParticipantsToShow = 3;
   const participants = meeting.participants || [];
   const visibleParticipants = participants.slice(0, maxParticipantsToShow);
   const overflowCount = participants.length - maxParticipantsToShow;
+
+  const handleButtonClick = () => {
+    if (buttonState.disabled) return;
+
+    if (buttonState.type === 'start') {
+      onStart(meeting.meetingId);
+    } else if (buttonState.type === 'join') {
+      onJoin?.(meeting.meetingId);
+    } else if (buttonState.type === 'end') {
+      onEnd?.(meeting.meetingId);
+    }
+  };
 
   return (
     <Card className="group hover:shadow-md transition-all duration-300 border-l-4 border-l-indigo-500">
@@ -157,15 +201,15 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               </div>
             )}
           </div>
-          {/* Status, Join button, and Delete icon column */}
-          <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start space-x-2 sm:space-x-0 sm:space-y-2">
+          {/* Status, Action button, and Delete icon column */}
+          <div className="flex flex-col items-end gap-2">
             <span
               className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
             >
               {status.label}
             </span>
             <span className="flex items-center gap-1">
-              {onDelete && (
+              {onDelete && meeting.createdBy === userId && (
                 <Button
                   size="icon"
                   variant="ghost"
@@ -176,10 +220,27 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                   <Trash2 className="w-4 h-4" />
                 </Button>
               )}
-              {showJoinButton && status.label === 'Upcoming' && (
-                <Button size="sm" onClick={() => onJoin?.(meeting.meetingId)}>
-                  <Video className="h-3 w-3 mr-1" />
-                  Join
+              {showJoinButton && (
+                <Button
+                  size="sm"
+                  onClick={handleButtonClick}
+                  disabled={buttonState.disabled}
+                  variant={
+                    buttonState.disabled
+                      ? 'secondary'
+                      : buttonState.type === 'end'
+                      ? 'destructive'
+                      : 'default'
+                  }
+                >
+                  {buttonState.type === 'start' ? (
+                    <Play className="h-3 w-3 mr-1" />
+                  ) : buttonState.type === 'end' ? (
+                    <Square className="h-3 w-3 mr-1" />
+                  ) : (
+                    <Video className="h-3 w-3 mr-1" />
+                  )}
+                  {buttonState.text}
                 </Button>
               )}
             </span>

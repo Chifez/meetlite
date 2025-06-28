@@ -19,30 +19,46 @@ import SEO from '@/components/SEO';
 import { useMeetings } from '@/hooks/useMeetings';
 import { Meeting } from '@/lib/types';
 import MeetingCard from '@/components/meeting/MeetingCard';
+import api from '@/lib/axios';
 
 const Dashboard = () => {
-  const { user, getAuthHeaders } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { fetchMeetings } = useMeetings();
+  const { fetchMeetings, startMeeting, completeMeeting, deleteMeeting } =
+    useMeetings();
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   // State for join room
   const [joinRoomId, setJoinRoomId] = useState('');
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  // State for upcoming meetings
-  const [upcoming, setUpcoming] = useState<Meeting[]>([]);
-  const [loadingMeetings, setLoadingMeetings] = useState(true);
 
   // Fetch upcoming meetings
   useEffect(() => {
     const loadMeetings = async () => {
-      setLoadingMeetings(true);
+      setLoading(true);
       try {
         const meetings = await fetchMeetings();
-        // Show only meetings scheduled for the future, sorted by time
+        // Show active meetings + completed meetings only for creators
         const now = new Date();
-        setUpcoming(
+        setMeetings(
           meetings
-            .filter((m) => new Date(m.scheduledTime) > now)
+            .filter((m) => {
+              const meetingEnd = new Date(
+                new Date(m.scheduledTime).getTime() + (m.duration || 0) * 60000
+              );
+              const isCreator = m.createdBy === user?.id;
+
+              // Show if:
+              // 1. Not cancelled AND
+              // 2. Either not completed OR (completed but user is creator) AND
+              // 3. Meeting hasn't ended yet OR (ended but user is creator)
+              return (
+                m.status !== 'cancelled' &&
+                m.status !== 'completed' &&
+                meetingEnd > now
+              );
+            })
             .sort(
               (a, b) =>
                 new Date(a.scheduledTime).getTime() -
@@ -51,24 +67,20 @@ const Dashboard = () => {
             .slice(0, 3)
         );
       } catch {
-        setUpcoming([]);
+        setMeetings([]);
       } finally {
-        setLoadingMeetings(false);
+        setLoading(false);
       }
     };
     loadMeetings();
     // eslint-disable-next-line
-  }, []);
+  }, [user?.id]);
 
   // Handlers
-  const createRoom = async () => {
+  const handleQuickMeeting = async () => {
     try {
       setIsCreatingRoom(true);
-      const response = await axios.post(
-        `${env.ROOM_API_URL}/rooms`,
-        {},
-        { headers: getAuthHeaders() }
-      );
+      const response = await api.post(`${env.ROOM_API_URL}/rooms`, {});
       const { roomId } = response.data;
       navigate(`/lobby/${roomId}`);
     } catch (error) {
@@ -88,6 +100,65 @@ const Dashboard = () => {
       return;
     }
     navigate(`/lobby/${joinRoomId.trim()}`);
+  };
+
+  const handleJoinMeeting = async (meetingId: string) => {
+    console.log('Joining meeting:', meetingId);
+    try {
+      // Try to start the meeting (this will work if you're the host)
+      console.log('Attempting to start meeting...');
+      const roomId = await startMeeting(meetingId);
+      console.log('Meeting started, roomId:', roomId);
+      navigate(`/lobby/${roomId}`);
+    } catch (error: any) {
+      console.log('Failed to start meeting, navigating to join page:', error);
+      // If you're not the host or meeting isn't started, navigate to join page
+      navigate(`/meeting/${meetingId}/join`);
+    }
+  };
+
+  const handleStartMeeting = async (meetingId: string) => {
+    try {
+      const roomId = await startMeeting(meetingId);
+      navigate(`/room/${roomId}`);
+    } catch (error) {
+      console.error('Failed to start meeting:', error);
+      toast.error('Error', {
+        description: 'Failed to start meeting. Please try again.',
+      });
+    }
+  };
+
+  const handleEndMeeting = async (meetingId: string) => {
+    try {
+      await completeMeeting(meetingId);
+      toast.success('Meeting completed successfully');
+      // Update local state immediately
+      setMeetings((prevMeetings) =>
+        prevMeetings.map((meeting) =>
+          meeting.meetingId === meetingId
+            ? { ...meeting, status: 'completed' }
+            : meeting
+        )
+      );
+    } catch (error) {
+      console.error('Failed to complete meeting:', error);
+      toast.error('Failed to complete meeting. Please try again.');
+    }
+  };
+
+  const handleDeleteMeeting = async (meetingId: string) => {
+    try {
+      await deleteMeeting(meetingId);
+      toast.success('Meeting deleted successfully');
+      // Update local state immediately
+      setMeetings((prevMeetings) =>
+        prevMeetings.filter((meeting) => meeting.meetingId !== meetingId)
+      );
+    } catch (error) {
+      console.error('Failed to delete meeting:', error);
+      toast.error('Failed to delete meeting. Please try again.');
+    }
   };
 
   return (
@@ -158,11 +229,11 @@ const Dashboard = () => {
               </CardHeader>
               <CardFooter>
                 <Button
-                  onClick={createRoom}
+                  onClick={handleQuickMeeting}
                   className="w-full"
                   disabled={isCreatingRoom}
                 >
-                  {isCreatingRoom ? 'Creating...' : 'Start Now'}
+                  Start Quick Meeting
                 </Button>
               </CardFooter>
             </Card>
@@ -174,18 +245,20 @@ const Dashboard = () => {
               <List className="h-6 w-6 text-blue-600" /> Upcoming Meetings
             </h2>
             <div className="space-y-4">
-              {loadingMeetings ? (
+              {loading ? (
                 <div>Loading meetings...</div>
-              ) : upcoming.length === 0 ? (
+              ) : meetings.length === 0 ? (
                 <div className="text-gray-500">No upcoming meetings.</div>
               ) : (
-                upcoming.map((meeting) => (
+                meetings.map((meeting) => (
                   <MeetingCard
                     key={meeting.meetingId}
                     meeting={meeting}
                     userId={user?.id}
-                    onStart={() => {}}
-                    onDelete={() => {}}
+                    onStart={handleStartMeeting}
+                    onDelete={handleDeleteMeeting}
+                    onJoin={handleJoinMeeting}
+                    onEnd={handleEndMeeting}
                     showJoinButton={true}
                   />
                 ))

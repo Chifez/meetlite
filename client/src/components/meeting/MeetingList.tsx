@@ -7,18 +7,36 @@ export default function MeetingList({
   loading,
   userId,
   onStartMeeting,
+  onJoin,
   onDelete,
+  onEnd,
 }: {
   meetings: any[];
   loading: boolean;
   userId?: string;
   onStartMeeting: (meetingId: string) => void;
+  onJoin?: (meetingId: string) => void;
   onDelete: (meetingId: string) => void;
+  onEnd?: (meetingId: string) => void;
 }) {
-  const now = new Date();
+  // Show join button for active meetings + completed meetings only for creators
   const showJoin = (m: Meeting) => {
-    return new Date(m.scheduledTime) > now;
+    const meetingEnd = new Date(
+      new Date(m.scheduledTime).getTime() + (m.duration || 0) * 60000
+    );
+    const isCreator = m.createdBy === userId;
+
+    // Show join button if:
+    // 1. Not cancelled AND
+    // 2. Either not completed OR (completed but user is creator) AND
+    // 3. Meeting hasn't ended yet OR (ended but user is creator)
+    return (
+      m.status !== 'cancelled' &&
+      (m.status !== 'completed' || isCreator) &&
+      (meetingEnd > new Date() || isCreator)
+    );
   };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -45,6 +63,8 @@ export default function MeetingList({
           userId={userId}
           onStart={onStartMeeting}
           onDelete={onDelete}
+          onJoin={onJoin}
+          onEnd={onEnd}
           showJoinButton={showJoin(meeting)}
         />
       ))}

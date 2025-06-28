@@ -37,7 +37,8 @@ import {
 const Meetings = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { fetchMeetings, deleteMeeting, startMeeting } = useMeetings();
+  const { fetchMeetings, deleteMeeting, startMeeting, completeMeeting } =
+    useMeetings();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,26 @@ const Meetings = () => {
     setLoading(true);
     try {
       const data = await fetchMeetings();
-      setMeetings(data);
+      // Show active meetings + completed meetings only for creators
+      const now = new Date();
+      const activeMeetings = data.filter((meeting) => {
+        const meetingEnd = new Date(
+          new Date(meeting.scheduledTime).getTime() +
+            (meeting.duration || 0) * 60000
+        );
+        const isCreator = meeting.createdBy === user?.id;
+
+        // Show if:
+        // 1. Not cancelled AND
+        // 2. Either not completed OR (completed but user is creator) AND
+        // 3. Meeting hasn't ended yet OR (ended but user is creator)
+        return (
+          meeting.status !== 'cancelled' &&
+          (meeting.status !== 'completed' || isCreator) &&
+          (meetingEnd > now || isCreator)
+        );
+      });
+      setMeetings(activeMeetings);
     } catch (e) {
       toast.error('Failed to load meetings');
     } finally {
@@ -80,14 +100,19 @@ const Meetings = () => {
   useEffect(() => {
     loadMeetings();
     // eslint-disable-next-line
-  }, []);
+  }, [user?.id]);
 
   const handleDelete = async () => {
     if (!deleteDialog.meetingId) return;
     try {
       await deleteMeeting(deleteDialog.meetingId);
       toast.success('Meeting deleted');
-      loadMeetings();
+      // Update local state immediately
+      setMeetings((prevMeetings) =>
+        prevMeetings.filter(
+          (meeting) => meeting.meetingId !== deleteDialog.meetingId
+        )
+      );
     } catch (e) {
       toast.error('Failed to delete meeting');
     } finally {
@@ -107,6 +132,35 @@ const Meetings = () => {
       } else {
         toast.error('Failed to start meeting');
       }
+    }
+  };
+
+  const handleEndMeeting = async (meetingId: string) => {
+    try {
+      await completeMeeting(meetingId);
+      toast.success('Meeting completed successfully');
+      // Update local state immediately
+      setMeetings((prevMeetings) =>
+        prevMeetings.map((meeting) =>
+          meeting.meetingId === meetingId
+            ? { ...meeting, status: 'completed' }
+            : meeting
+        )
+      );
+    } catch (error) {
+      console.error('Failed to complete meeting:', error);
+      toast.error('Failed to complete meeting. Please try again.');
+    }
+  };
+
+  const handleJoinMeeting = async (meetingId: string) => {
+    try {
+      // Try to start the meeting (this will work if you're the host)
+      const roomId = await startMeeting(meetingId);
+      navigate(`/lobby/${roomId}`);
+    } catch (error: any) {
+      // If you're not the host or meeting isn't started, navigate to join page
+      navigate(`/meeting/${meetingId}/join`);
     }
   };
 
@@ -200,9 +254,11 @@ const Meetings = () => {
               loading={loading}
               userId={user?.id}
               onStartMeeting={handleStartMeeting}
+              onJoin={handleJoinMeeting}
               onDelete={(meetingId) =>
                 setDeleteDialog({ open: true, meetingId })
               }
+              onEnd={handleEndMeeting}
             />
           ) : (
             <MeetingCalendar

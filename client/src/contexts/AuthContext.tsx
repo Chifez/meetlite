@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import axios from 'axios';
+import api from '@/lib/axios';
 import { toast } from 'sonner';
 import { env } from '@/config/env';
 import Cookies from 'js-cookie';
@@ -18,7 +18,9 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  getAuthHeaders: () => { Authorization: string };
+  validateToken: () => Promise<boolean>;
+  redirectTo: string | null;
+  setRedirectTo: (url: string | null) => void;
 };
 
 type TokenPayload = {
@@ -35,17 +37,40 @@ export const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   signup: async () => {},
   logout: () => {},
-  getAuthHeaders: () => ({ Authorization: '' }),
+  validateToken: async () => false,
+  redirectTo: null,
+  setRedirectTo: () => {},
 });
 
 // Provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  // Validate token with server
+  const validateToken = async (): Promise<boolean> => {
+    const token = Cookies.get('token');
+    if (!token) return false;
+
+    try {
+      const response = await api.post(`${env.AUTH_API_URL}/auth/validate`, {
+        token,
+      });
+      if (response.data.valid) {
+        setUser(response.data.user);
+        return true;
+      }
+    } catch (error) {
+      console.error('Token validation failed:', error);
+    }
+
+    return false;
+  };
 
   // Check for token on mount
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const token = Cookies.get('token');
       if (!token) {
         setIsLoading(false);
@@ -57,9 +82,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const currentTime = Date.now() / 1000;
 
         if (decodedToken.exp < currentTime) {
-          // Token expired
-          Cookies.remove('token');
-          setUser(null);
+          // Token expired, try to refresh
+          const isValid = await validateToken();
+          if (!isValid) {
+            Cookies.remove('token');
+            setUser(null);
+          }
         } else {
           // Valid token
           setUser({
@@ -82,7 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login user
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${env.AUTH_API_URL}/auth/login`, {
+      const response = await api.post(`${env.AUTH_API_URL}/auth/login`, {
         email,
         password,
       });
@@ -111,7 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Register user
   const signup = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${env.AUTH_API_URL}/auth/signup`, {
+      const response = await api.post(`${env.AUTH_API_URL}/auth/signup`, {
         email,
         password,
       });
@@ -142,17 +170,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     Cookies.remove('token');
     setUser(null);
+    setRedirectTo(null); // Clear redirect URL on logout
     toast.success('Logged out', {
       description: 'You have been logged out successfully',
     });
-  };
-
-  // Get auth headers
-  const getAuthHeaders = () => {
-    const token = Cookies.get('token');
-    return {
-      Authorization: `Bearer ${token}`,
-    };
   };
 
   return (
@@ -164,7 +185,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         signup,
         logout,
-        getAuthHeaders,
+        validateToken,
+        redirectTo,
+        setRedirectTo,
       }}
     >
       {children}
