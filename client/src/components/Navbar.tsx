@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import ThemeToggle from './ThemeToggle';
 import Logo from './Logo';
-import { ArrowRight, ArrowRightIcon, Menu, X, Video } from 'lucide-react';
+import { ArrowRight, ArrowRightIcon, Menu, X } from 'lucide-react';
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -36,14 +36,7 @@ const Navbar = () => {
     return (
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
         <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <Video className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              meetlite
-            </span>
-          </div>
+          <Logo variant="gradient" />
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -126,7 +119,7 @@ const Navbar = () => {
     <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <Logo size="sm" />
+          <Logo />
         </Link>
 
         {/* Desktop actions */}

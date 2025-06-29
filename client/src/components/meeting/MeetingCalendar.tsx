@@ -21,22 +21,41 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Lock, Users, CalendarDays } from 'lucide-react';
 
-function CustomToolbar({ label, onNavigate }: any) {
+function CustomToolbar({ label, onNavigate, onView, view }: any) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex gap-2">
+    <div className="flex items-center justify-between p-6 pb-4 bg-gray-50 border-b border-gray-200">
+      <div className="flex items-center gap-2 md:gap-3">
         <Button size="sm" variant="outline" onClick={() => onNavigate('PREV')}>
-          Prev
+          ←
         </Button>
         <Button size="sm" variant="outline" onClick={() => onNavigate('TODAY')}>
           Today
         </Button>
         <Button size="sm" variant="outline" onClick={() => onNavigate('NEXT')}>
-          Next
+          →
         </Button>
       </div>
-      <span className="text-lg font-semibold text-gray-700">{label}</span>
-      <div />
+      <h2 className="text-base md:text-xl font-semibold text-gray-900 dark:text-gray-100">
+        {label}
+      </h2>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant={view === 'week' ? 'default' : 'outline'}
+          onClick={() => onView('week')}
+          className="hidden md:block"
+        >
+          Week
+        </Button>
+        <Button
+          size="sm"
+          variant={view === 'day' ? 'default' : 'outline'}
+          onClick={() => onView('day')}
+          className="hidden md:block"
+        >
+          Day
+        </Button>
+      </div>
     </div>
   );
 }
@@ -101,7 +120,7 @@ export default function MeetingCalendar({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div>
       <BigCalendar
         localizer={localizer}
         events={events}
@@ -110,10 +129,16 @@ export default function MeetingCalendar({
         defaultView={Views.WEEK}
         view={calendarView}
         views={{ week: true, day: true }}
-        style={{ height: 600 }}
+        style={{ height: '70vh', minHeight: 500 }}
         popup
         components={{
-          toolbar: CustomToolbar,
+          toolbar: (props) => (
+            <CustomToolbar
+              {...props}
+              view={calendarView}
+              onView={setCalendarView}
+            />
+          ),
         }}
         eventPropGetter={(event) => ({
           style: {
@@ -127,6 +152,7 @@ export default function MeetingCalendar({
             fontSize: '0.95rem',
             boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
           },
+          'data-privacy': event.resource.privacy,
         })}
         dayPropGetter={customDayPropGetter}
         onSelectEvent={(event) => setSelectedEvent(event)}

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -12,18 +13,36 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { PlusCircle, Users, CalendarDays, List } from 'lucide-react';
+import {
+  PlusCircle,
+  Users,
+  CalendarDays,
+  List,
+  Zap,
+  Calendar,
+} from 'lucide-react';
 import { env } from '@/config/env';
 import SEO from '@/components/SEO';
 import { useMeetings } from '@/hooks/useMeetings';
+import { useMeetingForm } from '@/hooks/useMeetingForm';
 import { Meeting } from '@/lib/types';
 import MeetingCard from '@/components/meeting/MeetingCard';
+import MeetingForm from '@/components/meeting/MeetingForm';
 import api from '@/lib/axios';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { fetchMeetings, startMeeting, completeMeeting, deleteMeeting } =
     useMeetings();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -33,45 +52,74 @@ const Dashboard = () => {
   // State for join room
   const [joinRoomId, setJoinRoomId] = useState('');
 
-  // Fetch upcoming meetings
-  useEffect(() => {
-    const loadMeetings = async () => {
-      setLoading(true);
-      try {
-        const meetings = await fetchMeetings();
-        // Show active meetings + completed meetings only for creators
-        const now = new Date();
-        setMeetings(
-          meetings
-            .filter((m) => {
-              const meetingEnd = new Date(
-                new Date(m.scheduledTime).getTime() + (m.duration || 0) * 60000
-              );
-              const isCreator = m.createdBy === user?.id;
+  // URL-based modal state
+  const showScheduleModal = searchParams.get('modal') === 'schedule';
 
-              // Show if:
-              // 1. Not cancelled AND
-              // 2. Either not completed OR (completed but user is creator) AND
-              // 3. Meeting hasn't ended yet OR (ended but user is creator)
-              return (
-                m.status !== 'cancelled' &&
-                m.status !== 'completed' &&
-                meetingEnd > now
-              );
-            })
-            .sort(
-              (a, b) =>
-                new Date(a.scheduledTime).getTime() -
-                new Date(b.scheduledTime).getTime()
-            )
-            .slice(0, 3)
-        );
-      } catch {
-        setMeetings([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Use the custom hook for form state management
+  const {
+    formData,
+    loading: formLoading,
+    handleInputChange,
+    handleDateChange,
+    handleTimeChange,
+    handlePrivacyChange,
+    handleParticipantInput,
+    removeParticipant,
+    handleSubmit: submitForm,
+  } = useMeetingForm(() => {
+    // Close modal and refresh meetings
+    setSearchParams({});
+    loadMeetings();
+  });
+
+  const openScheduleModal = () => {
+    setSearchParams({ modal: 'schedule' });
+  };
+
+  const closeScheduleModal = () => {
+    setSearchParams({});
+  };
+
+  // Fetch upcoming meetings
+  const loadMeetings = async () => {
+    setLoading(true);
+    try {
+      const meetings = await fetchMeetings();
+      // Show active meetings + completed meetings only for creators
+      const now = new Date();
+      setMeetings(
+        meetings
+          .filter((m) => {
+            const meetingEnd = new Date(
+              new Date(m.scheduledTime).getTime() + (m.duration || 0) * 60000
+            );
+            const isCreator = m.createdBy === user?.id;
+
+            // Show if:
+            // 1. Not cancelled AND
+            // 2. Either not completed OR (completed but user is creator) AND
+            // 3. Meeting hasn't ended yet OR (ended but user is creator)
+            return (
+              m.status !== 'cancelled' &&
+              m.status !== 'completed' &&
+              meetingEnd > now
+            );
+          })
+          .sort(
+            (a, b) =>
+              new Date(a.scheduledTime).getTime() -
+              new Date(b.scheduledTime).getTime()
+          )
+          .slice(0, 3)
+      );
+    } catch {
+      setMeetings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadMeetings();
     // eslint-disable-next-line
   }, [user?.id]);
@@ -164,15 +212,65 @@ const Dashboard = () => {
   return (
     <>
       <SEO title="Dashboard" />
+
+      {/* Schedule Meeting Modal */}
+      <Dialog
+        open={showScheduleModal}
+        onOpenChange={(open) => !open && closeScheduleModal()}
+      >
+        <DialogContent showCloseButton className="max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Schedule Meeting</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            <MeetingForm
+              formData={formData}
+              loading={formLoading}
+              hideFooter
+              onInputChange={handleInputChange}
+              onDateChange={handleDateChange}
+              onTimeChange={handleTimeChange}
+              onPrivacyChange={handlePrivacyChange}
+              onParticipantInput={handleParticipantInput}
+              onRemoveParticipant={removeParticipant}
+              onSubmit={submitForm}
+              onCancel={closeScheduleModal}
+            />
+          </div>
+          <DialogFooter className="flex-shrink-0">
+            <Button
+              type="button"
+              onClick={submitForm}
+              className="min-w-[120px]"
+              disabled={formLoading}
+            >
+              {formLoading ? 'Scheduling...' : 'Schedule'}
+            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                Cancel
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="min-h-screen bg-page py-12 px-4">
         <div className="max-w-5xl mx-auto space-y-10">
           {/* Welcome */}
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-blue-400 text-transparent bg-clip-text mb-2">
-              Welcome, {user?.email?.split('@')[0] || 'User'}
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
+              <span className="text-gray-900 dark:text-gray-100">Welcome,</span>
+              <span className="bg-primary bg-clip-text text-transparent">
+                {user?.email?.split('@')[0] || 'User'}
+              </span>
             </h1>
-            <p className="text-lg text-gray-600">
-              Effortlessly schedule, join, and manage your meetings.
+            {/* <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-600 text-transparent bg-clip-text mb-2">
+              Welcome, {user?.email?.split('@')[0] || 'User'}
+            </h1> */}
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Ready to connect and collaborate? Start a meeting, join your team,
+              or schedule for later.
             </p>
           </div>
 
@@ -246,9 +344,33 @@ const Dashboard = () => {
             </h2>
             <div className="space-y-4">
               {loading ? (
-                <div>Loading meetings...</div>
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-muted-foreground mt-2">
+                    Loading meetings...
+                  </p>
+                </div>
               ) : meetings.length === 0 ? (
-                <div className="text-gray-500">No upcoming meetings.</div>
+                <Card className="text-center py-12">
+                  <CardContent className="space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                      <Calendar className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        No upcoming meetings
+                      </h3>
+                      <p className="text-muted-foreground max-w-md mx-auto">
+                        Schedule your first meeting to get started with your
+                        team collaboration.
+                      </p>
+                    </div>
+                    <Button onClick={openScheduleModal} className="mt-4">
+                      <PlusCircle className="w-4 h-4 mr-2" />
+                      Schedule Meeting
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : (
                 meetings.map((meeting) => (
                   <MeetingCard

@@ -8,7 +8,7 @@ import MeetingForm from '@/components/meeting/MeetingForm';
 import { useMeetingForm } from '@/hooks/useMeetingForm';
 import SEO from '@/components/SEO';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Meeting } from '@/lib/types';
 import {
   Dialog,
@@ -37,10 +37,10 @@ import {
 const Meetings = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { fetchMeetings, deleteMeeting, startMeeting, completeMeeting } =
     useMeetings();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [view, setView] = useState<'list' | 'calendar'>('list');
@@ -48,6 +48,9 @@ const Meetings = () => {
     open: boolean;
     meetingId?: string;
   }>({ open: false });
+
+  // URL-based modal state
+  const showScheduleModal = searchParams.get('modal') === 'schedule';
 
   // Use the custom hook for form state management
   const {
@@ -58,13 +61,21 @@ const Meetings = () => {
     handleTimeChange,
     handlePrivacyChange,
     handleParticipantInput,
-    handleKeyPress: handleParticipantKeyDown,
     removeParticipant,
     handleSubmit: submitForm,
   } = useMeetingForm(() => {
-    setShowForm(false);
+    // Close modal and refresh meetings
+    setSearchParams({});
     loadMeetings();
   });
+
+  const openScheduleModal = () => {
+    setSearchParams({ modal: 'schedule' });
+  };
+
+  const closeScheduleModal = () => {
+    setSearchParams({});
+  };
 
   const loadMeetings = async () => {
     setLoading(true);
@@ -172,7 +183,10 @@ const Meetings = () => {
     <>
       <SEO title="My Meetings" />
       {/* Schedule Meeting Modal */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog
+        open={showScheduleModal}
+        onOpenChange={(open) => !open && closeScheduleModal()}
+      >
         <DialogContent showCloseButton className="max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Schedule Meeting</DialogTitle>
@@ -187,10 +201,9 @@ const Meetings = () => {
               onTimeChange={handleTimeChange}
               onPrivacyChange={handlePrivacyChange}
               onParticipantInput={handleParticipantInput}
-              onParticipantKeyDown={handleParticipantKeyDown}
               onRemoveParticipant={removeParticipant}
               onSubmit={handleFormSubmit}
-              onCancel={() => setShowForm(false)}
+              onCancel={closeScheduleModal}
             />
           </div>
           <DialogFooter className="flex-shrink-0">
@@ -214,19 +227,15 @@ const Meetings = () => {
         <div className="max-w-4xl mx-auto space-y-10">
           {/* Hero Section */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-700 to-blue-400 text-transparent bg-clip-text mb-2">
+            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-600 text-transparent bg-clip-text mb-4">
               My Meetings
             </h1>
-            <p className="text-lg text-gray-600 max-w-xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
               View, schedule, and manage all your meetings in one place. Start
               meetings, invite participants, and keep track of your schedule
               effortlessly.
             </p>
-            <Button
-              size="lg"
-              className="mt-6"
-              onClick={() => setShowForm(true)}
-            >
+            <Button size="lg" className="mt-6" onClick={openScheduleModal}>
               <PlusCircle className="h-5 w-5 mr-2" /> Schedule Meeting
             </Button>
           </div>

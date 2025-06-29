@@ -83,7 +83,7 @@ const Signup = () => {
       />
       <div className="container max-w-md mx-auto py-16 px-4">
         <div className="flex justify-center mb-8">
-          <Logo size="sm" />
+          <Logo />
         </div>
         <Card>
           <CardHeader>

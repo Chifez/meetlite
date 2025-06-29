@@ -1,4 +1,5 @@
 import { Video } from 'lucide-react';
+import Logo from '../Logo';
 
 const Footer = () => {
   return (
@@ -6,12 +7,7 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Video className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">meetlite</span>
-            </div>
+            <Logo variant="white" />
             <p className="text-gray-400 dark:text-gray-500 leading-relaxed">
               The future of video conferencing, designed for modern teams.
             </p>
