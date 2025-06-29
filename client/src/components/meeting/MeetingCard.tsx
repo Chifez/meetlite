@@ -139,18 +139,25 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
       <CardContent className="p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
           <div className="space-y-2 min-w-0 flex-1">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm flex-shrink-0">
-                {getTypeIcon(meeting.privacy)}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm flex-shrink-0">
+                  {getTypeIcon(meeting.privacy)}
+                </span>
+                <h4 className="font-medium text-foreground group-hover:text-indigo-600 transition-colors text-sm sm:text-base truncate">
+                  {meeting.title}
+                </h4>
+              </div>
+              <span
+                className={`md:hidden px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
+              >
+                {status.label}
               </span>
-              <h4 className="font-medium text-foreground group-hover:text-indigo-600 transition-colors text-sm sm:text-base truncate">
-                {meeting.title}
-              </h4>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-center justify-between md:grid md:grid-cols-4 gap-1 md:gap-2 text-xs sm:text-sm text-muted-foreground">
               <div className="flex items-center space-x-1">
                 <Calendar className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">
+                <span className="text-nowrap">
                   {format(new Date(meeting.scheduledTime), 'MMM,dd yyyy')}
                 </span>
               </div>
@@ -204,7 +211,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
           {/* Status, Action button, and Delete icon column */}
           <div className="flex flex-col items-end gap-2">
             <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
+              className={`hidden md:block px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
             >
               {status.label}
             </span>
