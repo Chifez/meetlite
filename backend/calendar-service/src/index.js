@@ -75,7 +75,7 @@ app.get('/api/calendar/google/callback', async (req, res) => {
 
 app.post('/api/calendar/import', verifyToken, async (req, res) => {
   try {
-    const { calendarType, startDate, endDate } = req.body;
+    const { calendarType, startDate, endDate, accessToken } = req.body;
 
     if (calendarType === 'google') {
       const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
@@ -100,6 +100,43 @@ app.post('/api/calendar/import', verifyToken, async (req, res) => {
       }));
 
       res.json(events);
+    } else if (calendarType === 'outlook') {
+      if (!accessToken) {
+        return res.status(400).json({ error: 'Missing Outlook access token' });
+      }
+      const client = Client.init({
+        authProvider: (done) => done(null, accessToken),
+      });
+      const events = [];
+      try {
+        const response = await client
+          .api('/me/events')
+          .filter(
+            `start/dateTime ge '${startDate}' and end/dateTime le '${endDate}'`
+          )
+          .select('id,subject,bodyPreview,start,end,attendees,location')
+          .orderby('start/dateTime')
+          .get();
+        if (response.value && Array.isArray(response.value)) {
+          response.value.forEach((event) => {
+            events.push({
+              id: event.id,
+              title: event.subject,
+              description: event.bodyPreview,
+              start: event.start.dateTime,
+              end: event.end.dateTime,
+              attendees:
+                event.attendees?.map((a) => a.emailAddress?.address) || [],
+              location: event.location?.displayName,
+              source: 'outlook',
+            });
+          });
+        }
+        res.json(events);
+      } catch (err) {
+        console.error('Outlook import error:', err);
+        res.status(500).json({ error: 'Failed to import Outlook events' });
+      }
     } else {
       res.status(400).json({ error: 'Unsupported calendar type' });
     }

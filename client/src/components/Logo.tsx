@@ -24,13 +24,13 @@ export default function Logo({
 
   const variantClasses = {
     default: {
-      text: 'text-black',
+      text: 'text-black dark:text-white',
     },
     gradient: {
       text: 'bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent',
     },
     white: {
-      text: 'text-white',
+      text: 'text-white dark:text-black',
     },
   };
 

@@ -33,14 +33,22 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   onEnd,
   showJoinButton,
 }) => {
+  // Fallbacks for imported events
+  const scheduledTime = meeting.scheduledTime || '';
+  const duration = meeting.duration || 60;
+  const privacy = meeting.privacy || 'public';
+  const statusValue = meeting.status || 'scheduled';
+  const createdBy = meeting.createdBy || '';
+  const participants = meeting.participants || [];
+
   // Compute display status
   const getDisplayStatus = () => {
     const now = new Date();
-    const start = new Date(meeting.scheduledTime);
-    const end = new Date(start.getTime() + (meeting.duration || 0) * 60000);
+    const start = new Date(scheduledTime);
+    const end = new Date(start.getTime() + duration * 60000);
     if (
-      meeting.status === 'ongoing' ||
-      (meeting.status === 'scheduled' && now >= start && now <= end)
+      statusValue === 'ongoing' ||
+      (statusValue === 'scheduled' && now >= start && now <= end)
     ) {
       return {
         label: 'Ongoing',
@@ -48,14 +56,14 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
           'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
       };
     }
-    if (meeting.status === 'completed' || now > end) {
+    if (statusValue === 'completed' || now > end) {
       return {
         label: 'Completed',
         color:
           'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300',
       };
     }
-    if (meeting.status === 'cancelled') {
+    if (statusValue === 'cancelled') {
       return {
         label: 'Cancelled',
         color: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
@@ -81,19 +89,15 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
 
   // Determine button state based on user role and meeting status
   const getButtonState = () => {
-    const isCreator = meeting.createdBy === userId;
+    const isCreator = createdBy === userId;
     const isOngoing =
-      meeting.status === 'ongoing' ||
-      (meeting.status === 'scheduled' &&
-        new Date() >= new Date(meeting.scheduledTime));
+      statusValue === 'ongoing' ||
+      (statusValue === 'scheduled' && new Date() >= new Date(scheduledTime));
     const isCompleted =
-      meeting.status === 'completed' ||
+      statusValue === 'completed' ||
       new Date() >
-        new Date(
-          new Date(meeting.scheduledTime).getTime() +
-            (meeting.duration || 0) * 60000
-        );
-    const isCancelled = meeting.status === 'cancelled';
+        new Date(new Date(scheduledTime).getTime() + duration * 60000);
+    const isCancelled = statusValue === 'cancelled';
 
     if (isCompleted || isCancelled) {
       return { type: 'disabled', text: 'Meeting Ended', disabled: true };
@@ -115,10 +119,9 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     }
   };
 
-  const status = getDisplayStatus();
+  const statusObj = getDisplayStatus();
   const buttonState = getButtonState();
   const maxParticipantsToShow = 3;
-  const participants = meeting.participants || [];
   const visibleParticipants = participants.slice(0, maxParticipantsToShow);
   const overflowCount = participants.length - maxParticipantsToShow;
 
@@ -142,29 +145,39 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span className="text-sm flex-shrink-0">
-                  {getTypeIcon(meeting.privacy)}
+                  {getTypeIcon(privacy)}
                 </span>
                 <h4 className="font-medium text-foreground group-hover:text-indigo-600 transition-colors text-sm sm:text-base truncate">
                   {meeting.title}
                 </h4>
+                {meeting.source === 'google' && (
+                  <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100">
+                    Google
+                  </span>
+                )}
+                {meeting.source === 'outlook' && (
+                  <span className="ml-2 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium border border-green-100">
+                    Outlook
+                  </span>
+                )}
               </div>
               <span
-                className={`md:hidden px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
+                className={`md:hidden px-2 py-1 rounded-full text-xs font-medium ${statusObj.color}`}
               >
-                {status.label}
+                {statusObj.label}
               </span>
             </div>
             <div className="flex items-center justify-between md:grid md:grid-cols-4 gap-1 md:gap-2 text-xs sm:text-sm text-muted-foreground">
               <div className="flex items-center space-x-1">
                 <Calendar className="h-3 w-3 flex-shrink-0" />
                 <span className="text-nowrap">
-                  {format(new Date(meeting.scheduledTime), 'MMM,dd yyyy')}
+                  {format(new Date(scheduledTime), 'MMM,dd yyyy')}
                 </span>
               </div>
               <div className="flex items-center space-x-1">
                 <Clock className="h-3 w-3 flex-shrink-0" />
                 <span>
-                  {new Date(meeting.scheduledTime).toLocaleTimeString([], {
+                  {new Date(scheduledTime).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -176,7 +189,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               </div>
               <div className="flex items-center space-x-1">
                 <Clock className="h-3 w-3 flex-shrink-0" />
-                <span>{meeting.duration} min</span>
+                <span>{duration} min</span>
               </div>
             </div>
             {/* Participants badges */}
@@ -211,12 +224,12 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
           {/* Status, Action button, and Delete icon column */}
           <div className="flex flex-col items-end gap-2">
             <span
-              className={`hidden md:block px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
+              className={`hidden md:block px-2 py-1 rounded-full text-xs font-medium ${statusObj.color}`}
             >
-              {status.label}
+              {statusObj.label}
             </span>
             <span className="flex items-center gap-1">
-              {onDelete && meeting.createdBy === userId && (
+              {onDelete && createdBy === userId && (
                 <Button
                   size="icon"
                   variant="ghost"

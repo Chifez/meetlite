@@ -44,19 +44,20 @@ export interface Meeting {
   meetingId: string;
   title: string;
   description?: string;
-  scheduledTime: string;
+  scheduledTime: string | Date;
   duration: number;
-  createdBy: string;
+  createdBy?: string;
   participants: string[];
-  privacy: 'public' | 'private';
-  status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
-  createdAt: string;
+  privacy?: 'public' | 'private';
+  status?: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  createdAt?: string;
   roomId?: string;
-  invites: {
+  invites?: {
     email: string;
     status: 'pending' | 'accepted' | 'declined';
     inviteToken: string;
   }[];
+  source?: 'google' | 'outlook';
 }
 
 export interface MeetingFormData {

@@ -1,28 +1,15 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useMeetings } from '@/hooks/useMeetings';
-import { Button } from '@/components/ui/button';
 
 import { toast } from 'sonner';
-import { PlusCircle } from 'lucide-react';
-import MeetingForm from '@/components/meeting/MeetingForm';
+
 import { useMeetingForm } from '@/hooks/useMeetingForm';
 import SEO from '@/components/SEO';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Meeting } from '@/lib/types';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { format } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-import MeetingList from '@/components/meeting/MeetingList';
-import MeetingCalendar from '@/components/meeting/MeetingCalendar';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -34,12 +21,23 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 
+import MeetingListSection from '@/components/meeting/MeetingListSection';
+import MeetingCalendarSection from '@/components/meeting/MeetingCalendarSection';
+import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
+import ImportModal from '@/components/meeting/ImportModal';
+import MeetingsLayout from '@/components/meetings/MeetingsLayout';
+import ScheduleMeetingModal from '@/components/dashboard/ScheduleMeetingModal';
+
+import MeetingViewToggle from '@/components/meetings/MeetingViewToggle';
+import MeetingsWelcomeHeader from '@/components/meetings/MeetingsWelcomeHeader';
+
 const Meetings = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { fetchMeetings, deleteMeeting, startMeeting, completeMeeting } =
     useMeetings();
+  const { importCalendarEvents } = useCalendarIntegration();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,6 +46,11 @@ const Meetings = () => {
     open: boolean;
     meetingId?: string;
   }>({ open: false });
+
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importedEvents, setImportedEvents] = useState<any[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
@@ -111,7 +114,11 @@ const Meetings = () => {
   useEffect(() => {
     loadMeetings();
     // eslint-disable-next-line
-  }, [user?.id]);
+  }, []);
+
+  const handleDeleteClick = (meetingId: string) => {
+    setDeleteDialog({ open: true, meetingId });
+  };
 
   const handleDelete = async () => {
     if (!deleteDialog.meetingId) return;
@@ -179,132 +186,132 @@ const Meetings = () => {
     await submitForm();
   };
 
+  // Import handler
+  const handleImport = async (calendarType: 'google' | 'outlook') => {
+    setImportLoading(true);
+    setImportError(null);
+    setImportedEvents([]);
+    try {
+      // Import events for the next 30 days
+      const now = new Date();
+      const in30 = new Date();
+      in30.setDate(now.getDate() + 30);
+      const events = await importCalendarEvents(calendarType, now, in30);
+      // Tag imported events with their source
+      const taggedEvents = events.map((e) => ({ ...e, source: calendarType }));
+      // Avoid duplicates: filter out imported events that match local meetings by title+start time
+      setMeetings((prev) => {
+        const all = [...prev];
+        taggedEvents.forEach((ev) => {
+          if (
+            !all.some(
+              (m) => m.title === ev.title && m.scheduledTime === ev.start
+            )
+          ) {
+            all.push({
+              ...ev,
+              scheduledTime: ev.start,
+              duration:
+                (new Date(ev.end).getTime() - new Date(ev.start).getTime()) /
+                60000,
+              meetingId: ev.id || `${ev.source}-${ev.id}`,
+              participants: ev.attendees || [],
+              privacy: 'public', // fallback
+              status: 'scheduled', // fallback
+            });
+          }
+        });
+        return all;
+      });
+      setImportedEvents(taggedEvents);
+    } catch (err: any) {
+      setImportError('Failed to import events.');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   return (
     <>
-      <SEO title="My Meetings" />
-      {/* Schedule Meeting Modal */}
-      <Dialog
+      <SEO title="Meetings" />
+      <ScheduleMeetingModal
         open={showScheduleModal}
         onOpenChange={(open) => !open && closeScheduleModal()}
-      >
-        <DialogContent showCloseButton className="max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>Schedule Meeting</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
-            <MeetingForm
-              formData={formData}
-              loading={formLoading}
-              hideFooter
-              onInputChange={handleInputChange}
-              onDateChange={handleDateChange}
-              onTimeChange={handleTimeChange}
-              onPrivacyChange={handlePrivacyChange}
-              onParticipantInput={handleParticipantInput}
-              onRemoveParticipant={removeParticipant}
-              onSubmit={handleFormSubmit}
-              onCancel={closeScheduleModal}
-            />
-          </div>
-          <DialogFooter className="flex-shrink-0">
-            <Button
-              type="button"
-              onClick={handleFormSubmit}
-              className="min-w-[120px]"
-              disabled={formLoading}
-            >
-              {formLoading ? 'Scheduling...' : 'Schedule'}
-            </Button>
-            <DialogClose asChild>
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <div className="min-h-screen bg-page py-12 px-4">
-        <div className="max-w-4xl mx-auto space-y-10">
-          {/* Hero Section */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-600 text-transparent bg-clip-text mb-4">
-              My Meetings
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
-              View, schedule, and manage all your meetings in one place. Start
-              meetings, invite participants, and keep track of your schedule
-              effortlessly.
-            </p>
-            <Button size="lg" className="mt-6" onClick={openScheduleModal}>
-              <PlusCircle className="h-5 w-5 mr-2" /> Schedule Meeting
-            </Button>
-          </div>
+        formData={formData}
+        formLoading={formLoading}
+        onInputChange={handleInputChange}
+        onDateChange={handleDateChange}
+        onTimeChange={handleTimeChange}
+        onPrivacyChange={handlePrivacyChange}
+        onParticipantInput={handleParticipantInput}
+        onRemoveParticipant={removeParticipant}
+        onSubmit={handleFormSubmit}
+        onCancel={closeScheduleModal}
+      />
+      <MeetingsLayout>
+        <div className="min-h-screen bg-page py-12 px-4">
+          <div className="max-w-4xl mx-auto space-y-10">
+            {/* Hero Section */}
+            <MeetingsWelcomeHeader onSchedule={openScheduleModal} />
 
-          {/* View Toggle */}
-          <div className="flex justify-end mb-4 gap-2">
-            <Button
-              variant={view === 'list' ? 'default' : 'outline'}
-              onClick={() => setView('list')}
+            {/* View Toggle */}
+            <MeetingViewToggle
+              view={view}
+              setView={setView}
+              setShowImportModal={setShowImportModal}
+            />
+
+            {/* Meetings List or Calendar */}
+            {view === 'list' ? (
+              <MeetingListSection
+                meetings={meetings}
+                loading={loading}
+                onStartMeeting={handleStartMeeting}
+                onDeleteMeeting={handleDeleteClick}
+                onJoinMeeting={handleJoinMeeting}
+                onEndMeeting={handleEndMeeting}
+                userId={user?.id}
+              />
+            ) : (
+              <MeetingCalendarSection
+                meetings={meetings}
+                loading={loading}
+                userId={user?.id}
+              />
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog
+              open={deleteDialog.open}
+              onOpenChange={(open) => setDeleteDialog((d) => ({ ...d, open }))}
             >
-              List View
-            </Button>
-            <Button
-              variant={view === 'calendar' ? 'default' : 'outline'}
-              onClick={() => setView('calendar')}
-            >
-              Calendar View
-            </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this meeting? This action
+                    cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
-
-          {/* Meetings List or Calendar */}
-          {view === 'list' ? (
-            <MeetingList
-              meetings={meetings}
-              loading={loading}
-              userId={user?.id}
-              onStartMeeting={handleStartMeeting}
-              onJoin={handleJoinMeeting}
-              onDelete={(meetingId) =>
-                setDeleteDialog({ open: true, meetingId })
-              }
-              onEnd={handleEndMeeting}
-            />
-          ) : (
-            <MeetingCalendar
-              meetings={meetings}
-              onEventClick={(event) => {
-                toast.info(event.title, {
-                  description: `${format(event.start, 'PPpp')} - ${
-                    event.resource.duration
-                  } min\n${event.resource.description || ''}`,
-                });
-              }}
-            />
-          )}
-
-          {/* Delete Confirmation Dialog */}
-          <AlertDialog
-            open={deleteDialog.open}
-            onOpenChange={(open) => setDeleteDialog((d) => ({ ...d, open }))}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete this meeting? This action
-                  cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
-      </div>
+        <ImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          importLoading={importLoading}
+          importError={importError}
+          importedEvents={importedEvents}
+          onImport={handleImport}
+        />
+      </MeetingsLayout>
     </>
   );
 };

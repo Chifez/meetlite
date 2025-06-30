@@ -20,7 +20,7 @@ interface MeetingFormProps {
   onPrivacyChange: (value: 'public' | 'private') => void;
   onParticipantInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveParticipant: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -52,9 +52,9 @@ const MeetingForm = ({
   const [inviteInput, setInviteInput] = useState('');
   const [displayTime, setDisplayTime] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit();
+    await onSubmit();
   };
 
   const handleTimeBoxChange = (type: 'hour' | 'minute', value: string) => {
