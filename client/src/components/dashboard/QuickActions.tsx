@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Card,
   CardHeader,
@@ -9,22 +10,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Users, CalendarDays } from 'lucide-react';
+import { useUIStore } from '@/stores';
 
 export default function QuickActions({
   onSchedule,
   onJoin,
   onQuickMeeting,
-  joinRoomId,
-  setJoinRoomId,
-  isCreatingRoom,
 }: {
   onSchedule: () => void;
-  onJoin: () => void;
+  onJoin: (joinRoomId: string) => void;
   onQuickMeeting: () => void;
-  joinRoomId: string;
-  setJoinRoomId: (v: string) => void;
-  isCreatingRoom: boolean;
 }) {
+  const [joinRoomId, setJoinRoomId] = useState('');
+  const { globalLoading } = useUIStore();
+
+  const handleJoin = () => {
+    onJoin(joinRoomId);
+  };
+
   return (
     <div className="grid md:grid-cols-3 gap-8">
       <Card className="hover:shadow-lg transition-shadow">
@@ -56,10 +59,15 @@ export default function QuickActions({
             placeholder="Enter meeting code"
             value={joinRoomId}
             onChange={(e) => setJoinRoomId(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleJoin();
+              }
+            }}
           />
         </CardContent>
         <CardFooter>
-          <Button onClick={onJoin} className="w-full">
+          <Button onClick={handleJoin} className="w-full">
             Join
           </Button>
         </CardFooter>
@@ -78,9 +86,9 @@ export default function QuickActions({
           <Button
             onClick={onQuickMeeting}
             className="w-full"
-            disabled={isCreatingRoom}
+            disabled={globalLoading}
           >
-            Start Quick Meeting
+            {globalLoading ? 'Creating...' : 'Start Quick Meeting'}
           </Button>
         </CardFooter>
       </Card>

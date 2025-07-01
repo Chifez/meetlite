@@ -5,19 +5,9 @@ import { Meeting } from '@/lib/types';
 export default function MeetingListSection({
   meetings,
   loading,
-  onStartMeeting,
-  onDeleteMeeting,
-  onJoinMeeting,
-  onEndMeeting,
-  userId,
 }: {
   meetings: Meeting[];
   loading: boolean;
-  onStartMeeting: (id: string) => void;
-  onDeleteMeeting: (id: string) => void;
-  onJoinMeeting: (id: string) => void;
-  onEndMeeting: (id: string) => void;
-  userId?: string;
 }) {
   if (loading) {
     return (
@@ -50,11 +40,6 @@ export default function MeetingListSection({
         <MeetingCard
           key={meeting.meetingId}
           meeting={meeting}
-          userId={userId}
-          onStart={onStartMeeting}
-          onDelete={onDeleteMeeting}
-          onJoin={onJoinMeeting}
-          onEnd={onEndMeeting}
           showJoinButton={true}
         />
       ))}

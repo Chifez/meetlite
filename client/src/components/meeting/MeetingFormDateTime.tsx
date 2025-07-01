@@ -59,7 +59,20 @@ export default function MeetingFormDateTime({
               selected={formData.date}
               onSelect={onDateChange}
               captionLayout="dropdown"
-              disabled={(date) => date < new Date()}
+              disabled={(date) => {
+                const today = new Date();
+                const todayOnly = new Date(
+                  today.getFullYear(),
+                  today.getMonth(),
+                  today.getDate()
+                );
+                const dateOnly = new Date(
+                  date.getFullYear(),
+                  date.getMonth(),
+                  date.getDate()
+                );
+                return dateOnly < todayOnly;
+              }}
             />
           </PopoverContent>
         </Popover>

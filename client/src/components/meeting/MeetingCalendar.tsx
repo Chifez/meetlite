@@ -23,7 +23,7 @@ import { Lock, Users, CalendarDays } from 'lucide-react';
 
 function CustomToolbar({ label, onNavigate, onView, view }: any) {
   return (
-    <div className="flex items-center justify-between p-6 pb-4 bg-gray-50 border-b border-gray-200">
+    <div className="flex items-center justify-between p-6 pb-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-2 md:gap-3">
         <Button size="sm" variant="outline" onClick={() => onNavigate('PREV')}>
           ←
@@ -112,7 +112,7 @@ export default function MeetingCalendar({
     if (isToday(date)) {
       return {
         style: {
-          backgroundColor: 'rgba(99, 102, 241, 0.08)', // indigo-500/10 as a light theme color
+          backgroundColor: 'var(--today-highlight, rgba(99, 102, 241, 0.08))',
         },
       };
     }
@@ -181,7 +181,7 @@ export default function MeetingCalendar({
             {selectedEvent?.start
               ? format(selectedEvent.start, 'MMM,dd yyyy hh:mm a')
               : ''}
-            &bull; {selectedEvent?.resource?.duration} min
+            {''} &bull; {selectedEvent?.resource?.duration} min
             <Badge variant="secondary" className="ml-2 capitalize">
               {selectedEvent?.resource?.privacy}
             </Badge>

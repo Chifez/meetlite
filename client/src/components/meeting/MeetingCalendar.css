@@ -7,18 +7,51 @@
   overflow: hidden;
 }
 
+/* Dark mode support */
+.dark .rbc-calendar {
+  background: #1f2937;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* CSS Custom Properties for theme switching */
+:root {
+  --today-highlight: rgba(99, 102, 241, 0.08);
+  --calendar-bg: white;
+  --calendar-border: #e5e7eb;
+  --calendar-text: #1f2937;
+  --calendar-muted: #6b7280;
+  --calendar-light-bg: #f9fafb;
+  --calendar-lighter-bg: #fafafa;
+  --calendar-highlight: #eff6ff;
+  --calendar-highlight-text: #1d4ed8;
+  --calendar-slot-border: #f3f4f6;
+}
+
+.dark {
+  --today-highlight: rgba(99, 102, 241, 0.2);
+  --calendar-bg: #1f2937;
+  --calendar-border: #374151;
+  --calendar-text: #f9fafb;
+  --calendar-muted: #9ca3af;
+  --calendar-light-bg: #374151;
+  --calendar-lighter-bg: #111827;
+  --calendar-highlight: rgba(59, 130, 246, 0.2);
+  --calendar-highlight-text: #60a5fa;
+  --calendar-slot-border: #374151;
+}
+
 /* Time labels - make them much more readable */
 .rbc-time-header-gutter,
 .rbc-timeslot-group {
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: #9ca3af !important;
+  color: var(--calendar-muted) !important;
   padding: 8px 12px !important;
 }
 
 .rbc-time-header-gutter {
-  background: #f9fafb !important;
-  border-right: 1px solid #e5e7eb !important;
+  background: var(--calendar-light-bg) !important;
+  border-right: 1px solid var(--calendar-border) !important;
   min-width: 60px !important;
   text-align: center !important;
 }
@@ -65,15 +98,15 @@
 /* Toolbar styling */
 .rbc-toolbar {
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafafa;
+  border-bottom: 1px solid var(--calendar-border);
+  background: var(--calendar-lighter-bg);
   margin-bottom: 16px;
 }
 
 .rbc-toolbar-label {
   font-size: 20px !important;
   font-weight: 500 !important;
-  color: #1f2937 !important;
+  color: var(--calendar-text) !important;
   margin: 0 !important;
   padding: 8px 0;
 }
@@ -83,9 +116,9 @@
   padding: 12px 8px !important;
   font-weight: 600 !important;
   font-size: 13px !important;
-  color: #6b7280 !important;
-  background: #f9fafb !important;
-  border-bottom: 1px solid #e5e7eb !important;
+  color: var(--calendar-muted) !important;
+  background: var(--calendar-light-bg) !important;
+  border-bottom: 1px solid var(--calendar-border) !important;
   text-align: center !important;
   min-height: 48px !important;
   display: flex !important;
@@ -95,8 +128,8 @@
 
 /* Today header highlight */
 .rbc-header.rbc-today {
-  background: #eff6ff !important;
-  color: #1d4ed8 !important;
+  background: var(--calendar-highlight) !important;
+  color: var(--calendar-highlight-text) !important;
   font-weight: 700 !important;
 }
 
@@ -116,7 +149,7 @@
 /* Time slots */
 .rbc-timeslot-group {
   min-height: 60px !important;
-  border-bottom: 1px solid #f3f4f6 !important;
+  border-bottom: 1px solid var(--calendar-slot-border) !important;
 }
 
 .rbc-timeslot-group:last-child {
@@ -125,11 +158,11 @@
 
 /* Day columns */
 .rbc-time-header-content {
-  border-left: 1px solid #e5e7eb !important;
+  border-left: 1px solid var(--calendar-border) !important;
 }
 
 .rbc-day-slot {
-  border-right: 1px solid #f3f4f6 !important;
+  border-right: 1px solid var(--calendar-slot-border) !important;
 }
 
 .rbc-day-slot:last-child {
@@ -138,7 +171,7 @@
 
 /* Today column highlight */
 .rbc-day-slot.rbc-today {
-  background: rgba(59, 130, 246, 0.04) !important;
+  background: var(--today-highlight) !important;
 }
 
 /* Current time indicator */

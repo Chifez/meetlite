@@ -111,15 +111,30 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
 
     const scheduledTime =
       formData.date && formData.time
-        ? new Date(
-            formData.date.toISOString().split('T')[0] + 'T' + formData.time
-          ).toISOString()
+        ? (() => {
+            // Create date in local timezone
+            const [year, month, day] = [
+              formData.date.getFullYear(),
+              formData.date.getMonth(),
+              formData.date.getDate(),
+            ];
+            const [hours, minutes] = formData.time.split(':').map(Number);
+            const localDate = new Date(year, month, day, hours, minutes);
+            return localDate.toISOString();
+          })()
         : undefined;
 
     if (!scheduledTime) {
       toast.error('Please select a meeting time');
       return;
     }
+
+    // Check if the scheduled time is in the past
+    if (new Date(scheduledTime) <= new Date()) {
+      toast.error('Meeting time cannot be in the past');
+      return;
+    }
+
     setLoading(true);
     const meetingData = {
       title: formData.title.trim(),

@@ -1,24 +1,17 @@
 import { Meeting } from '@/lib/types';
 import MeetingCard from './MeetingCard';
 import { Loader2, CalendarDays } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function MeetingList({
   meetings,
   loading,
-  userId,
-  onStartMeeting,
-  onJoin,
-  onDelete,
-  onEnd,
 }: {
   meetings: any[];
   loading: boolean;
-  userId?: string;
-  onStartMeeting: (meetingId: string) => void;
-  onJoin?: (meetingId: string) => void;
-  onDelete: (meetingId: string) => void;
-  onEnd?: (meetingId: string) => void;
 }) {
+  const { user } = useAuth();
+  const userId = user?.id;
   // Show join button for active meetings + completed meetings only for creators
   const showJoin = (m: Meeting) => {
     const meetingEnd = new Date(
@@ -60,11 +53,6 @@ export default function MeetingList({
         <MeetingCard
           key={meeting.meetingId}
           meeting={meeting}
-          userId={userId}
-          onStart={onStartMeeting}
-          onDelete={onDelete}
-          onJoin={onJoin}
-          onEnd={onEnd}
           showJoinButton={showJoin(meeting)}
         />
       ))}

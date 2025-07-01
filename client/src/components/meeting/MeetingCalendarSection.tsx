@@ -4,7 +4,6 @@ import { Meeting } from '@/lib/types';
 export default function MeetingCalendarSection({
   meetings,
   loading,
-  userId,
 }: {
   meetings: Meeting[];
   loading: boolean;

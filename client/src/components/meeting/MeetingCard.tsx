@@ -13,26 +13,23 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Meeting } from '@/lib/types';
+import { useMeetingsStore } from '@/stores/meetingsStore';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface MeetingCardProps {
   meeting: Meeting;
-  userId?: string;
-  onStart: (meetingId: string) => void;
-  onDelete: (meetingId: string) => void;
-  onJoin?: (meetingId: string) => void;
-  onEnd?: (meetingId: string) => void;
   showJoinButton?: boolean;
 }
 
 const MeetingCard: React.FC<MeetingCardProps> = ({
   meeting,
-  userId,
-  onStart,
-  onDelete,
-  onJoin,
-  onEnd,
   showJoinButton,
 }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { startMeeting, completeMeeting, openDeleteDialog } =
+    useMeetingsStore();
   // Fallbacks for imported events
   const scheduledTime = meeting.scheduledTime || '';
   const duration = meeting.duration || 60;
@@ -40,6 +37,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   const statusValue = meeting.status || 'scheduled';
   const createdBy = meeting.createdBy || '';
   const participants = meeting.participants || [];
+  const userId = user?.id;
 
   // Compute display status
   const getDisplayStatus = () => {
@@ -125,15 +123,27 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   const visibleParticipants = participants.slice(0, maxParticipantsToShow);
   const overflowCount = participants.length - maxParticipantsToShow;
 
-  const handleButtonClick = () => {
+  const handleButtonClick = async () => {
     if (buttonState.disabled) return;
 
-    if (buttonState.type === 'start') {
-      onStart(meeting.meetingId);
-    } else if (buttonState.type === 'join') {
-      onJoin?.(meeting.meetingId);
-    } else if (buttonState.type === 'end') {
-      onEnd?.(meeting.meetingId);
+    try {
+      if (buttonState.type === 'start') {
+        const roomId = await startMeeting(meeting.meetingId);
+        navigate(`/lobby/${roomId}`);
+      } else if (buttonState.type === 'join') {
+        // Try to start the meeting (this will work if you're the host)
+        try {
+          const roomId = await startMeeting(meeting.meetingId);
+          navigate(`/lobby/${roomId}`);
+        } catch (error: any) {
+          // If you're not the host or meeting isn't started, navigate to join page
+          navigate(`/meeting/${meeting.meetingId}/join`);
+        }
+      } else if (buttonState.type === 'end') {
+        await completeMeeting(meeting.meetingId);
+      }
+    } catch (error) {
+      console.error('Meeting action failed:', error);
     }
   };
 
@@ -229,12 +239,12 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               {statusObj.label}
             </span>
             <span className="flex items-center gap-1">
-              {onDelete && createdBy === userId && (
+              {createdBy === userId && (
                 <Button
                   size="icon"
                   variant="ghost"
                   className="text-destructive hover:bg-destructive/10"
-                  onClick={() => onDelete(meeting.meetingId)}
+                  onClick={() => openDeleteDialog(meeting.meetingId)}
                   aria-label="Delete meeting"
                 >
                   <Trash2 className="w-4 h-4" />
