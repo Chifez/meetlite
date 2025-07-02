@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import { OpenAI } from 'openai';
 import { SpeechClient } from '@google-cloud/speech';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import { request as undiciRequest } from 'undici';
 
 dotenv.config();
 
@@ -25,11 +25,6 @@ app.use((err, req, res, next) => {
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
-// Initialize AI clients
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 const speechClient = new SpeechClient({
   keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
@@ -75,31 +70,36 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      const { meetingId } = req.body;
-      const audioFile = req.files?.audio?.[0];
-      const videoFile = req.files?.video?.[0];
-
-      const summary = {
-        id: `summary_${Date.now()}`,
-        meetingId,
-        summary:
-          'This is an AI-generated summary of the meeting. Key topics discussed included project planning, team coordination, and upcoming deadlines.',
-        actionItems: [
-          'Schedule follow-up meeting for next week',
-          'Assign tasks to team members',
-          'Review project timeline',
-        ],
-        keyPoints: [
-          'Project deadline moved to end of month',
-          'New team member joining next week',
-          'Budget approval received',
-        ],
-        participants: ['user1@example.com', 'user2@example.com'],
-        duration: 60,
-        createdAt: new Date().toISOString(),
-      };
-
-      res.json(summary);
+      const { meetingId, transcript, notes } = req.body;
+      // You can use transcript or notes as context for the summary
+      const context = transcript || notes || '';
+      const prompt = `Summarize the following meeting transcript or notes in a concise way. Include key topics, action items, and participants if possible.\n\n${context}`;
+      const openRouterRes = await undiciRequest(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'deepseek/deepseek-r1:free',
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a helpful assistant that summarizes meetings.',
+              },
+              { role: 'user', content: prompt },
+            ],
+            max_tokens: 256,
+            temperature: 0.5,
+          }),
+        }
+      );
+      const data = await openRouterRes.body.json();
+      const summary = data.choices?.[0]?.message?.content?.trim() || '';
+      res.json({ summary });
     } catch (error) {
       console.error('Summarization error:', error);
       res.status(500).json({ error: 'Failed to generate summary' });
@@ -158,29 +158,33 @@ app.post(
 app.post('/api/ai/suggest', verifyToken, async (req, res) => {
   try {
     const { participants, duration, topic } = req.body;
-
-    const suggestions = [
+    const prompt = `Given the following meeting context, suggest improvements for time, duration, and participants.\nParticipants: ${participants}\nDuration: ${duration}\nTopic: ${topic}`;
+    const openRouterRes = await undiciRequest(
+      'https://openrouter.ai/api/v1/chat/completions',
       {
-        type: 'time',
-        suggestion: 'Schedule for 2:00 PM tomorrow',
-        confidence: 0.85,
-        reasoning: 'Based on participant availability patterns',
-      },
-      {
-        type: 'duration',
-        suggestion: '45 minutes instead of 30',
-        confidence: 0.72,
-        reasoning: 'Topic complexity suggests longer meeting needed',
-      },
-      {
-        type: 'participant',
-        suggestion: 'Add john@example.com to the meeting',
-        confidence: 0.68,
-        reasoning: 'Frequently attends similar meetings',
-      },
-    ];
-
-    res.json(suggestions);
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-r1:free',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful assistant that suggests meeting improvements.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 128,
+          temperature: 0.7,
+        }),
+      }
+    );
+    const data = await openRouterRes.body.json();
+    const suggestions = data.choices?.[0]?.message?.content?.trim() || '';
+    res.json({ suggestions });
   } catch (error) {
     console.error('Suggestion error:', error);
     res.status(500).json({ error: 'Failed to get suggestions' });
@@ -190,26 +194,89 @@ app.post('/api/ai/suggest', verifyToken, async (req, res) => {
 app.get('/api/ai/insights/:meetingId', verifyToken, async (req, res) => {
   try {
     const { meetingId } = req.params;
-
-    const insights = {
-      engagement: 85,
-      participation: {
-        'user1@example.com': 75,
-        'user2@example.com': 90,
-      },
-      topics: ['Project Planning', 'Team Coordination', 'Deadlines'],
-      sentiment: 'positive',
-      recommendations: [
-        'Schedule shorter meetings for better engagement',
-        'Include more interactive elements',
-        'Follow up on action items promptly',
-      ],
-    };
-
-    res.json(insights);
+    // In a real app, fetch meeting transcript/notes by meetingId
+    const prompt = `Given the transcript or notes for meeting ID ${meetingId}, provide insights such as engagement, participation, topics, sentiment, and recommendations.`;
+    const openRouterRes = await undiciRequest(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-r1:free',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful assistant that analyzes meetings and provides insights.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 256,
+          temperature: 0.6,
+        }),
+      }
+    );
+    const data = await openRouterRes.body.json();
+    const insights = data.choices?.[0]?.message?.content?.trim() || '';
+    res.json({ insights });
   } catch (error) {
     console.error('Insights error:', error);
     res.status(500).json({ error: 'Failed to get insights' });
+  }
+});
+
+// AI-generated meeting description endpoint (streaming)
+app.post('/api/ai/description', verifyToken, async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ error: 'Meeting title is required.' });
+    }
+
+    const prompt = `Generate a short meeting description for: "${title}".`;
+
+    // Prepare OpenRouter streaming request
+    const openRouterRes = await undiciRequest(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-r1:free',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful assistant. Provide direct, concise responses without internal reasoning. Output only the requested content.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+          // stream: true,
+        }),
+      }
+    );
+
+    const data = await openRouterRes.body.json();
+    const description = data.choices?.[0]?.message?.content?.trim() || '';
+    if (!description) {
+      return res.status(500).json({ error: 'Failed to generate description.' });
+    }
+    res.json({ description });
+  } catch (error) {
+    console.error('Description generation (stream) error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate description.' });
+    } else {
+      res.end();
+    }
   }
 });
 

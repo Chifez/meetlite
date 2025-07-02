@@ -7,6 +7,8 @@ import MeetingFormDateTime from './MeetingFormDateTime';
 import MeetingFormDurationPrivacy from './MeetingFormDurationPrivacy';
 import MeetingFormInvite from './MeetingFormInvite';
 import MeetingFormFooter from './MeetingFormFooter';
+import { env } from '@/config/env';
+import api from '@/lib/axios';
 
 interface MeetingFormProps {
   formData: MeetingFormData;
@@ -51,6 +53,7 @@ const MeetingForm = ({
   const [ampm, setAmPm] = useState<'AM' | 'PM'>('AM');
   const [inviteInput, setInviteInput] = useState('');
   const [displayTime, setDisplayTime] = useState('');
+  const [generatingDescription, setGeneratingDescription] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +120,31 @@ const MeetingForm = ({
     }
   };
 
+  const handleGenerateDescription = async () => {
+    if (!formData.title || !formData.title.trim()) {
+      toast.error('Please enter a meeting title first.');
+      return;
+    }
+    setGeneratingDescription(true);
+    try {
+      const response = await api.post(`${env.AI_SERVICE_URL}/description`, {
+        title: formData.title,
+      });
+      const description = response.data?.description;
+      if (description) {
+        onInputChange({
+          target: { name: 'description', value: description },
+        } as any);
+      } else {
+        toast.error('No description returned from AI.');
+      }
+    } catch (err) {
+      toast.error(`Failed to generate description. ${err}`);
+    } finally {
+      setGeneratingDescription(false);
+    }
+  };
+
   return (
     <Card>
       <form onSubmit={handleSubmit}>
@@ -124,7 +152,12 @@ const MeetingForm = ({
           <CardTitle>Schedule a Meeting</CardTitle>
         </CardHeader> */}
         <CardContent className="space-y-4 my-2">
-          <MeetingFormTitle formData={formData} onInputChange={onInputChange} />
+          <MeetingFormTitle
+            formData={formData}
+            onInputChange={onInputChange}
+            onGenerateDescription={handleGenerateDescription}
+            generatingDescription={generatingDescription}
+          />
           <MeetingFormDateTime
             formData={formData}
             onDateChange={onDateChange}
