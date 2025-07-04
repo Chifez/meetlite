@@ -1,6 +1,6 @@
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { MeetingFormData } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import MeetingFormTitle from './MeetingFormTitle';
 import MeetingFormDateTime from './MeetingFormDateTime';
@@ -24,6 +24,8 @@ interface MeetingFormProps {
   onRemoveParticipant: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onCancel: () => void;
+  timezone?: string;
+  setTimezone?: (tz: string) => void;
 }
 
 const INVITE_METHODS = [
@@ -44,9 +46,11 @@ const MeetingForm = ({
   onRemoveParticipant,
   onSubmit,
   onCancel,
+  timezone: propTimezone,
+  setTimezone: propSetTimezone,
 }: MeetingFormProps) => {
   const [inviteMethod, setInviteMethod] = useState('email');
-  const [timezone, setTimezone] = useState('Africa/Lagos');
+  const [timezone, setTimezone] = useState(propTimezone || 'Africa/Lagos');
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
   const [hour, setHour] = useState('');
   const [minute, setMinute] = useState('');
@@ -54,6 +58,10 @@ const MeetingForm = ({
   const [inviteInput, setInviteInput] = useState('');
   const [displayTime, setDisplayTime] = useState('');
   const [generatingDescription, setGeneratingDescription] = useState(false);
+
+  useEffect(() => {
+    if (propTimezone && propTimezone !== timezone) setTimezone(propTimezone);
+  }, [propTimezone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +178,7 @@ const MeetingForm = ({
             timePopoverOpen={timePopoverOpen}
             setTimePopoverOpen={setTimePopoverOpen}
             timezone={timezone}
-            setTimezone={setTimezone}
+            setTimezone={propSetTimezone || setTimezone}
             onTimeChange={onTimeChange}
             handleTimeBoxChange={handleTimeBoxChange}
             handleTimeConfirm={handleTimeConfirm}

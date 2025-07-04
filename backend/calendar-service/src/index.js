@@ -36,7 +36,18 @@ const verifyToken = (req, res, next) => {
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
+  'http://localhost:5004/api/calendar/google/callback' // Hardcode for now to ensure it's correct
+);
+
+// Debug: Log the redirect URI being used
+console.log('OAuth2 Client configured with:');
+console.log('- Client ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'NOT SET');
+console.log(
+  '- Client Secret:',
+  process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'NOT SET'
+);
+console.log(
+  '- Redirect URI: http://localhost:5004/api/calendar/google/callback'
 );
 
 // Routes
@@ -53,22 +64,90 @@ app.get('/api/calendar/google/auth', (req, res) => {
   res.json({ authUrl });
 });
 
+// Store user tokens (in production, use a database)
+const userTokens = new Map();
+
+// Update callback to store tokens
 app.get('/api/calendar/google/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state: userId } = req.query;
+
+  console.log('OAuth callback received:', {
+    code: !!code,
+    userId,
+    hasState: !!req.query.state,
+  });
 
   try {
     const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
 
-    // Store tokens in database for the user
-    // This is a simplified version - you'd want to store this securely
-
-    res.json({
-      success: true,
-      message: 'Google Calendar connected successfully',
+    console.log('Tokens received:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
     });
+
+    // Store tokens for the user (in production, save to database)
+    userTokens.set(userId, tokens);
+
+    console.log('Tokens stored for user:', userId);
+    console.log('Current userTokens size:', userTokens.size);
+
+    // Redirect back to frontend with success message
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+    res.redirect(`${frontendUrl}/dashboard?oauth=success&provider=google`);
   } catch (error) {
     console.error('Google OAuth error:', error);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+    res.redirect(`${frontendUrl}/dashboard?oauth=error&provider=google`);
+  }
+});
+
+// Connect Google Calendar
+app.post('/api/calendar/connect/google', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id; // From JWT token
+
+    // Debug: Check if user is properly authenticated
+    console.log('req.user:', req.user);
+    console.log('req.user.id:', req.user?.id);
+    console.log('User ID for OAuth state:', userId);
+
+    // Debug: Log the OAuth2 client configuration
+    console.log('OAuth2 Client details:');
+    console.log('- Redirect URI:', oauth2Client.redirectUri);
+    console.log('- Client ID:', oauth2Client._clientId);
+
+    // Generate OAuth URL for Google Calendar
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: [
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/calendar.events',
+      ],
+      prompt: 'consent',
+      state: userId, // Pass user ID in state for callback
+    });
+
+    // Debug: Log the generated auth URL
+    console.log('Generated OAuth URL:', authUrl);
+
+    // Validate the URL
+    try {
+      new URL(authUrl);
+      console.log('URL is valid');
+    } catch (urlError) {
+      console.error('Generated URL is invalid:', urlError);
+      throw new Error('Invalid OAuth URL generated');
+    }
+
+    // In a real app, you'd store the pending connection in database
+    // For now, return the auth URL for the frontend to redirect to
+    res.json({
+      success: true,
+      authUrl,
+      message: 'Google Calendar connection initiated',
+    });
+  } catch (error) {
+    console.error('Google connection error:', error);
     res.status(500).json({ error: 'Failed to connect Google Calendar' });
   }
 });
@@ -76,9 +155,29 @@ app.get('/api/calendar/google/callback', async (req, res) => {
 app.post('/api/calendar/import', verifyToken, async (req, res) => {
   try {
     const { calendarType, startDate, endDate, accessToken } = req.body;
+    const userId = req.user.id; // From JWT token
 
     if (calendarType === 'google') {
-      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+      // Get user's stored tokens
+      const userToken = userTokens.get(userId);
+      if (!userToken) {
+        return res.status(401).json({
+          error: 'Google Calendar not connected. Please connect first.',
+        });
+      }
+
+      // Create new OAuth client with user's tokens
+      const userOAuth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'http://localhost:5004/api/calendar/google/callback'
+      );
+      userOAuth2Client.setCredentials(userToken);
+
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: userOAuth2Client,
+      });
 
       const response = await calendar.events.list({
         calendarId: 'primary',
@@ -98,7 +197,7 @@ app.post('/api/calendar/import', verifyToken, async (req, res) => {
         location: event.location,
         source: 'google',
       }));
-
+      console.log('events', events);
       res.json(events);
     } else if (calendarType === 'outlook') {
       if (!accessToken) {
@@ -214,6 +313,62 @@ app.post('/api/calendar/conflicts', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Conflict check error:', error);
     res.status(500).json({ error: 'Failed to check calendar conflicts' });
+  }
+});
+
+// Get connected calendars
+app.get('/api/calendar/connected', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    console.log('Checking connected calendars for user:', userId);
+
+    // Check if user has stored tokens
+    const hasGoogleToken = userTokens.has(userId);
+
+    console.log('Has Google token:', hasGoogleToken);
+    console.log('Current userTokens size:', userTokens.size);
+    console.log('UserTokens keys:', Array.from(userTokens.keys()));
+
+    // This would typically fetch from database
+    // For now, return mock connected calendars
+    const connectedCalendars = [
+      {
+        id: 'google',
+        type: 'google',
+        name: 'Google Calendar',
+        isConnected: hasGoogleToken,
+        lastSync: hasGoogleToken ? new Date() : null,
+      },
+    ];
+    console.log('Returning connected calendars:', connectedCalendars);
+    res.json(connectedCalendars);
+  } catch (error) {
+    console.error('Get connected calendars error:', error);
+    res.status(500).json({ error: 'Failed to get connected calendars' });
+  }
+});
+
+// Disconnect calendar
+app.post('/api/calendar/disconnect', verifyToken, async (req, res) => {
+  try {
+    const { calendarType } = req.body;
+    const userId = req.user.id;
+
+    if (calendarType === 'google') {
+      // Remove user's stored tokens
+      userTokens.delete(userId);
+    }
+
+    // This would typically remove from database
+    // For now, return success
+    res.json({
+      success: true,
+      message: `${calendarType} calendar disconnected`,
+    });
+  } catch (error) {
+    console.error('Calendar disconnect error:', error);
+    res.status(500).json({ error: 'Failed to disconnect calendar' });
   }
 });
 

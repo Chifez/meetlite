@@ -7,7 +7,7 @@ const calendarIntegrationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['google', 'outlook', 'ical'],
+    enum: ['google'],
     required: true,
   },
   connected: {

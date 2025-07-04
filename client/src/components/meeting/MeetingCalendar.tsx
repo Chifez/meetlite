@@ -199,11 +199,6 @@ export default function MeetingCalendar({
                 Google
               </span>
             )}
-            {selectedEvent?.resource?.source === 'outlook' && (
-              <span className="ml-2 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium border border-green-100">
-                Outlook
-              </span>
-            )}
           </div>
           {selectedEvent?.resource?.participants?.length > 0 && (
             <div className="text-xs text-gray-500 mt-2">

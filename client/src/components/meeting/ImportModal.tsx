@@ -17,13 +17,19 @@ export default function ImportModal({
   importError,
   importedEvents,
   onImport,
+  isConnected,
+  refreshConnectionStatus,
+  isPolling,
 }: {
   open: boolean;
   onClose: () => void;
   importLoading: boolean;
   importError: string | null;
   importedEvents: any[];
-  onImport: (type: 'google' | 'outlook') => void;
+  onImport: (type: 'google') => void;
+  isConnected?: (type: 'google') => boolean;
+  refreshConnectionStatus?: () => void;
+  isPolling?: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -33,23 +39,66 @@ export default function ImportModal({
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex gap-4 justify-center">
-            <Button onClick={() => onImport('google')} disabled={importLoading}>
-              Import from Google
+            <Button
+              onClick={() => onImport('google')}
+              disabled={importLoading || isPolling}
+              className="flex items-center gap-2"
+            >
+              {isConnected?.('google')
+                ? 'Import from Google'
+                : 'Connect & Import from Google'}
+              {isConnected?.('google') && (
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                  Connected
+                </span>
+              )}
             </Button>
             <Button
-              onClick={() => onImport('outlook')}
-              disabled={importLoading}
+              disabled
+              className="flex items-center gap-2 opacity-60 cursor-not-allowed"
             >
-              Import from Outlook
+              Import from Outlook (Coming soon)
+            </Button>
+            <Button
+              disabled
+              className="flex items-center gap-2 opacity-60 cursor-not-allowed"
+            >
+              Import from iCal (Coming soon)
             </Button>
           </div>
-          {importLoading && (
+          <div className="text-sm text-muted-foreground text-center">
+            {!isConnected?.('google') &&
+              "You'll be prompted to connect your Google calendar first, then import your events."}
+            {isConnected?.('google') && 'Google Calendar is connected.'}
+          </div>
+          {refreshConnectionStatus && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshConnectionStatus}
+                className="text-xs"
+              >
+                Refresh Connection Status
+              </Button>
+            </div>
+          )}
+          {isPolling && (
             <div className="flex items-center gap-2 justify-center text-muted-foreground">
-              <Loader2 className="animate-spin w-4 h-4" /> Importing...
+              <Loader2 className="animate-spin w-4 h-4" />
+              Waiting for Google authorization to complete...
             </div>
           )}
           {importError && (
-            <div className="text-red-500 text-center">{importError}</div>
+            <div className="text-red-500 text-center text-sm">
+              {importError}
+              {importError.includes('OAuth') && (
+                <div className="mt-2 text-xs">
+                  After completing the OAuth flow, click "Refresh Connection
+                  Status" above.
+                </div>
+              )}
+            </div>
           )}
           {importedEvents.length > 0 && (
             <div className="max-h-64 overflow-y-auto mt-2">

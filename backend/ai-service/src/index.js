@@ -280,6 +280,171 @@ app.post('/api/ai/description', verifyToken, async (req, res) => {
   }
 });
 
+// Natural language meeting parsing endpoint
+app.post('/api/ai/parse-meeting', verifyToken, async (req, res) => {
+  try {
+    const { input, timezone = 'UTC' } = req.body;
+    console.log('Parse meeting request:', { input, timezone });
+
+    if (!input || typeof input !== 'string' || !input.trim()) {
+      return res
+        .status(400)
+        .json({ error: 'Meeting description is required.' });
+    }
+
+    // Check if OPENROUTER_API_KEY is available
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY not found in environment variables');
+      return res
+        .status(500)
+        .json({ error: 'AI service not configured properly.' });
+    }
+
+    const prompt = `Parse this meeting description into JSON: "${input}" (timezone: ${timezone})
+
+Fill in this exact JSON structure:
+{
+  "title": "meeting title/purpose",
+  "date": "YYYY-MM-DD (convert relative dates like 'tomorrow' to actual date)",
+  "time": "HH:MM (24-hour format, e.g., '18:00' for 6pm, '09:00' for 9am)",
+  "timezone": "${timezone}",
+  "privacy": "public",
+  "description": "brief description",
+  "participants": ["email1@example.com", "email2@example.com"],
+  "duration": 30,
+  "confidence": 0.8
+}
+
+Rules:
+- Convert "tomorrow" to actual date (YYYY-MM-DD)
+- Convert "6pm" to "18:00", "9am" to "09:00" (24-hour format)
+- Extract any email addresses into participants array
+- Set privacy to "private" if input contains "private", "confidential", "internal"
+- Default duration is 30 minutes
+
+Return ONLY the JSON object, no other text.`;
+
+    console.log('Calling OpenRouter API...');
+    const openRouterRes = await undiciRequest(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-r1:free',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful assistant. Provide direct, concise responses without internal reasoning. Output only the requested content.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 1500,
+          reasoning: {
+            enable: false,
+            max_tokens: 300,
+            exclude: true,
+          },
+          temperature: 0,
+        }),
+      }
+    );
+
+    const data = await openRouterRes.body.json();
+    console.log('OpenRouter response:', JSON.stringify(data, null, 2));
+
+    if (!data.choices || !data.choices[0]) {
+      console.error('No choices in OpenRouter response');
+      return res
+        .status(500)
+        .json({ error: 'Invalid response from AI service.' });
+    }
+
+    const choice = data.choices[0];
+    console.log('Choice:', JSON.stringify(choice, null, 2));
+
+    if (choice.finish_reason === 'length') {
+      console.error('Response was cut off due to token limit');
+      return res.status(500).json({
+        error: 'AI response was too long. Please try a shorter description.',
+      });
+    }
+
+    const responseText = choice.message?.content?.trim() || '';
+    console.log('Response text:', responseText);
+
+    if (!responseText) {
+      console.error('No response text from OpenRouter');
+      return res
+        .status(500)
+        .json({ error: 'Failed to parse meeting description.' });
+    }
+
+    // Extract JSON from response
+    let parsedData;
+    try {
+      // Try to find JSON in the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedData = JSON.parse(jsonMatch[0]);
+      } else {
+        parsedData = JSON.parse(responseText);
+      }
+      console.log('Parsed data:', parsedData);
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      console.error('Raw response:', responseText);
+      return res.status(500).json({
+        error: 'Failed to parse AI response.',
+        rawResponse: responseText,
+      });
+    }
+
+    // Validate required fields
+    if (!parsedData.title || !parsedData.date || !parsedData.time) {
+      console.error('Missing required fields:', parsedData);
+      return res.status(400).json({
+        error: 'Could not extract required meeting information.',
+        parsedData,
+      });
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(parsedData.date)) {
+      console.error('Invalid date format:', parsedData.date);
+      return res.status(400).json({
+        error: 'Invalid date format.',
+        parsedData,
+      });
+    }
+
+    // Validate time format
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(parsedData.time)) {
+      console.error('Invalid time format:', parsedData.time);
+      return res.status(400).json({
+        error: 'Invalid time format.',
+        parsedData,
+      });
+    }
+
+    console.log('Successfully parsed meeting data');
+    res.json({
+      success: true,
+      data: parsedData,
+      confidence: parsedData.confidence || 0.8,
+    });
+  } catch (error) {
+    console.error('Meeting parsing error:', error);
+    res.status(500).json({ error: 'Failed to parse meeting description.' });
+  }
+});
+
 // MongoDB connection options
 const mongoOptions = {
   maxPoolSize: 10,
@@ -311,8 +476,11 @@ const connectDB = async () => {
       console.log('🔄 MongoDB reconnected');
     });
   } catch (error) {
-    console.error('❌ Failed to connect to MongoDB:', error.message);
-    process.exit(1);
+    console.error(
+      '⚠️ Failed to connect to MongoDB (continuing without DB):',
+      error.message
+    );
+    // Don't exit the process, continue without MongoDB
   }
 };
 

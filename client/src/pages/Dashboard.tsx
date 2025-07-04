@@ -10,10 +10,11 @@ import WelcomeHeader from '@/components/dashboard/WelcomeHeader';
 import QuickActions from '@/components/dashboard/QuickActions';
 import UpcomingMeetingsSection from '@/components/dashboard/UpcomingMeetingsSection';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import ScheduleMeetingModal from '@/components/dashboard/ScheduleMeetingModal';
+import SmartSchedulingModal from '@/components/dashboard/SmartSchedulingModal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 
 import { useMeetingsStore, useUIStore } from '@/stores';
+import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -29,8 +30,29 @@ const Dashboard = () => {
 
   const { setGlobalLoading } = useUIStore();
 
+  // Calendar integration for OAuth handling
+  const { refreshConnectionStatus } = useCalendarIntegration();
+
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const oauthStatus = searchParams.get('oauth');
+    const provider = searchParams.get('provider');
+
+    if (oauthStatus === 'success' && provider === 'google') {
+      toast.success('Google Calendar connected successfully!');
+      // Refresh connection status
+      refreshConnectionStatus();
+      // Clear the OAuth params from URL
+      setSearchParams({});
+    } else if (oauthStatus === 'error' && provider === 'google') {
+      toast.error('Failed to connect Google Calendar. Please try again.');
+      // Clear the OAuth params from URL
+      setSearchParams({});
+    }
+  }, [searchParams, refreshConnectionStatus, setSearchParams]);
 
   // Use the custom hook for form state management
   const {
@@ -109,7 +131,7 @@ const Dashboard = () => {
   return (
     <>
       <SEO title="Dashboard" />
-      <ScheduleMeetingModal
+      <SmartSchedulingModal
         open={showScheduleModal}
         onOpenChange={(open) => !open && closeScheduleModal()}
         formData={formData}

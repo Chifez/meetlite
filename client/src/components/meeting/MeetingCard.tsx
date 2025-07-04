@@ -165,11 +165,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                     Google
                   </span>
                 )}
-                {meeting.source === 'outlook' && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-medium border border-green-100">
-                    Outlook
-                  </span>
-                )}
               </div>
               <span
                 className={`md:hidden px-2 py-1 rounded-full text-xs font-medium ${statusObj.color}`}

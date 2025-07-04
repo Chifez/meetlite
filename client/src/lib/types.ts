@@ -57,7 +57,7 @@ export interface Meeting {
     status: 'pending' | 'accepted' | 'declined';
     inviteToken: string;
   }[];
-  source?: 'google' | 'outlook';
+  source?: 'google';
 }
 
 export interface MeetingFormData {

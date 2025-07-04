@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { OAuth2Client } from 'google-auth-library';
 
 const router = express.Router();
 
@@ -33,6 +34,18 @@ const validateLoginInput = (req, res, next) => {
 
   next();
 };
+
+// Google OAuth config
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
+const FRONTEND_URL = process.env.FRONTEND_URL;
+
+const googleClient = new OAuth2Client(
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI
+);
 
 // Signup
 router.post('/signup', async (req, res) => {
@@ -199,6 +212,58 @@ router.post('/validate', async (req, res) => {
 
     console.error('Token validation error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Step 1: Redirect to Google
+router.get('/google', (req, res) => {
+  const url = googleClient.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: ['profile', 'email'],
+  });
+  res.redirect(url);
+});
+
+// Step 2: Google callback
+router.get('/google/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).send('No code provided');
+  try {
+    // Exchange code for tokens
+    const { tokens } = await googleClient.getToken(code);
+    googleClient.setCredentials(tokens);
+    // Get user info from Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = payload.email;
+    // Find or create user
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      // If user with this email exists, link Google account
+      user = await User.findOne({ email });
+      if (user) {
+        user.googleId = googleId;
+        await user.save();
+      } else {
+        user = await User.create({ email, googleId });
+      }
+    }
+    // Issue JWT
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    // Redirect to frontend with token (as query param)
+    res.redirect(`${FRONTEND_URL}/login?token=${token}`);
+  } catch (err) {
+    console.error('Google OAuth error:', err);
+    res.redirect(`${FRONTEND_URL}/login?error=google_oauth_failed`);
   }
 });
 

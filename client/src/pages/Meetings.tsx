@@ -11,7 +11,7 @@ import MeetingCalendarSection from '@/components/meeting/MeetingCalendarSection'
 import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import ImportModal from '@/components/meeting/ImportModal';
 import MeetingsLayout from '@/components/meetings/MeetingsLayout';
-import ScheduleMeetingModal from '@/components/dashboard/ScheduleMeetingModal';
+import SmartSchedulingModal from '@/components/dashboard/SmartSchedulingModal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import MeetingViewToggle from '@/components/meetings/MeetingViewToggle';
 import MeetingsWelcomeHeader from '@/components/meetings/MeetingsWelcomeHeader';
@@ -19,27 +19,48 @@ import MeetingsWelcomeHeader from '@/components/meetings/MeetingsWelcomeHeader';
 const Meetings = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { importCalendarEvents } = useCalendarIntegration();
+  const {
+    importCalendarEvents,
+    showImportModal,
+    setShowImportModal,
+    importLoading,
+    importedEvents,
+    importError,
+    handleCalendarImport,
+    isConnected,
+    refreshConnectionStatus,
+    connectGoogleCalendar,
+    isPolling,
+  } = useCalendarIntegration();
 
   const {
     meetings,
     loading,
     view,
     setView,
-    showImportModal,
-    importLoading,
-    importedEvents,
-    importError,
     fetchMeetings: fetchMeetingsFromStore,
-    setShowImportModal,
-    setImportLoading,
-    setImportedEvents,
-    setImportError,
-    importCalendarEvents: importCalendarEventsFromStore,
   } = useMeetingsStore();
 
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const oauthStatus = searchParams.get('oauth');
+    const provider = searchParams.get('provider');
+
+    if (oauthStatus === 'success' && provider === 'google') {
+      toast.success('Google Calendar connected successfully!');
+      // Refresh connection status
+      refreshConnectionStatus();
+      // Clear the OAuth params from URL
+      setSearchParams({});
+    } else if (oauthStatus === 'error' && provider === 'google') {
+      toast.error('Failed to connect Google Calendar. Please try again.');
+      // Clear the OAuth params from URL
+      setSearchParams({});
+    }
+  }, [searchParams, refreshConnectionStatus, setSearchParams]);
 
   // Use the custom hook for form state management
   const {
@@ -84,32 +105,27 @@ const Meetings = () => {
   };
 
   // Import handler
-  const handleImport = async (calendarType: 'google' | 'outlook') => {
-    setImportLoading(true);
-    setImportError(null);
-    setImportedEvents([]);
-    try {
-      // Import events for the next 30 days
+  const handleImport = async (calendarType: 'google') => {
+    if (!isConnected('google')) {
+      // Start OAuth and polling, then auto-import when connected
+      await connectGoogleCalendar(async () => {
+        // Import events for the next 30 days after connection
+        const now = new Date();
+        const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        await importCalendarEvents('google', now, in30);
+      });
+    } else {
+      // Already connected, import directly
       const now = new Date();
-      const in30 = new Date();
-      in30.setDate(now.getDate() + 30);
-      const events = await importCalendarEvents(calendarType, now, in30);
-      // Tag imported events with their source
-      const taggedEvents = events.map((e) => ({ ...e, source: calendarType }));
-      // Use store method to add imported events
-      await importCalendarEventsFromStore(calendarType, now, in30);
-      setImportedEvents(taggedEvents);
-    } catch (err: any) {
-      setImportError('Failed to import events.');
-    } finally {
-      setImportLoading(false);
+      const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      await importCalendarEvents('google', now, in30);
     }
   };
 
   return (
     <>
       <SEO title="Meetings" />
-      <ScheduleMeetingModal
+      <SmartSchedulingModal
         open={showScheduleModal}
         onOpenChange={(open) => !open && closeScheduleModal()}
         formData={formData}
@@ -154,6 +170,9 @@ const Meetings = () => {
           importError={importError}
           importedEvents={importedEvents}
           onImport={handleImport}
+          isConnected={isConnected}
+          refreshConnectionStatus={refreshConnectionStatus}
+          isPolling={isPolling}
         />
       </MeetingsLayout>
     </>

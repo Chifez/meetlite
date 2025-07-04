@@ -15,10 +15,6 @@ interface MeetingsState {
     open: boolean;
     meetingId?: string;
   };
-  showImportModal: boolean;
-  importLoading: boolean;
-  importedEvents: any[];
-  importError: string | null;
 
   // Actions
   setMeetings: (meetings: Meeting[]) => void;
@@ -35,17 +31,6 @@ interface MeetingsState {
   // Modal actions
   openDeleteDialog: (meetingId: string) => void;
   closeDeleteDialog: () => void;
-  setShowImportModal: (show: boolean) => void;
-  setImportLoading: (loading: boolean) => void;
-  setImportedEvents: (events: any[]) => void;
-  setImportError: (error: string | null) => void;
-
-  // Import actions
-  importCalendarEvents: (
-    calendarType: 'google' | 'outlook',
-    startDate: Date,
-    endDate: Date
-  ) => Promise<void>;
 }
 
 export const useMeetingsStore = create<MeetingsState>((set, get) => ({
@@ -54,10 +39,6 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   loading: false,
   view: 'list',
   deleteDialog: { open: false },
-  showImportModal: false,
-  importLoading: false,
-  importedEvents: [],
-  importError: null,
 
   // State setters
   setMeetings: (meetings) => set({ meetings }),
@@ -195,59 +176,4 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   openDeleteDialog: (meetingId) =>
     set({ deleteDialog: { open: true, meetingId } }),
   closeDeleteDialog: () => set({ deleteDialog: { open: false } }),
-  setShowImportModal: (show) => set({ showImportModal: show }),
-  setImportLoading: (loading) => set({ importLoading: loading }),
-  setImportedEvents: (events) => set({ importedEvents: events }),
-  setImportError: (error) => set({ importError: error }),
-
-  // Import actions
-  importCalendarEvents: async (calendarType, startDate, endDate) => {
-    set({ importLoading: true, importError: null, importedEvents: [] });
-
-    try {
-      const response = await api.get(`${env.CALENDAR_API_URL}/import`, {
-        params: {
-          type: calendarType,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        },
-      });
-
-      const events = response.data;
-      const taggedEvents = events.map((e: any) => ({
-        ...e,
-        source: calendarType,
-      }));
-
-      // Add imported events to meetings (avoiding duplicates)
-      set((state) => {
-        const all = [...state.meetings];
-        taggedEvents.forEach((ev: any) => {
-          if (
-            !all.some(
-              (m) => m.title === ev.title && m.scheduledTime === ev.start
-            )
-          ) {
-            all.push({
-              ...ev,
-              scheduledTime: ev.start,
-              duration:
-                (new Date(ev.end).getTime() - new Date(ev.start).getTime()) /
-                60000,
-              meetingId: ev.id || `${ev.source}-${ev.id}`,
-              participants: ev.attendees || [],
-              privacy: 'public',
-              status: 'scheduled',
-            });
-          }
-        });
-        return { meetings: all, importedEvents: taggedEvents };
-      });
-    } catch (error) {
-      set({ importError: 'Failed to import events.' });
-      console.error('Import error:', error);
-    } finally {
-      set({ importLoading: false });
-    }
-  },
 }));
