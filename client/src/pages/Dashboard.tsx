@@ -37,22 +37,22 @@ const Dashboard = () => {
   const showScheduleModal = searchParams.get('modal') === 'schedule';
 
   // Handle OAuth callback
-  useEffect(() => {
-    const oauthStatus = searchParams.get('oauth');
-    const provider = searchParams.get('provider');
+  // useEffect(() => {
+  //   const oauthStatus = searchParams.get('oauth');
+  //   const provider = searchParams.get('provider');
 
-    if (oauthStatus === 'success' && provider === 'google') {
-      toast.success('Google Calendar connected successfully!');
-      // Refresh connection status
-      refreshConnectionStatus();
-      // Clear the OAuth params from URL
-      setSearchParams({});
-    } else if (oauthStatus === 'error' && provider === 'google') {
-      toast.error('Failed to connect Google Calendar. Please try again.');
-      // Clear the OAuth params from URL
-      setSearchParams({});
-    }
-  }, [searchParams, refreshConnectionStatus, setSearchParams]);
+  //   if (oauthStatus === 'success' && provider === 'google') {
+  //     toast.success('Google Calendar connected successfully!');
+  //     // Refresh connection status
+  //     refreshConnectionStatus();
+  //     // Clear the OAuth params from URL
+  //     setSearchParams({});
+  //   } else if (oauthStatus === 'error' && provider === 'google') {
+  //     toast.error('Failed to connect Google Calendar. Please try again.');
+  //     // Clear the OAuth params from URL
+  //     setSearchParams({});
+  //   }
+  // }, [searchParams, refreshConnectionStatus, setSearchParams]);
 
   // Use the custom hook for form state management
   const {

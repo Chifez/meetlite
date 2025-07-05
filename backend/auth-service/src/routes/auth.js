@@ -2,9 +2,11 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { OAuth2Client } from 'google-auth-library';
-
+import { google } from 'googleapis';
 const router = express.Router();
+
+// Google OAuth config
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
 
 // Input validation middleware
 const validateLoginInput = (req, res, next) => {
@@ -35,17 +37,15 @@ const validateLoginInput = (req, res, next) => {
   next();
 };
 
-// Google OAuth config
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
-const FRONTEND_URL = process.env.FRONTEND_URL;
-
-const googleClient = new OAuth2Client(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  GOOGLE_REDIRECT_URI
-);
+// Helper function to create Google OAuth client
+const createGoogleClient = () => {
+  return new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI ||
+      'http://localhost:5000/api/auth/google/callback'
+  );
+};
 
 // Signup
 router.post('/signup', async (req, res) => {
@@ -217,6 +217,7 @@ router.post('/validate', async (req, res) => {
 
 // Step 1: Redirect to Google
 router.get('/google', (req, res) => {
+  const googleClient = createGoogleClient();
   const url = googleClient.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -230,13 +231,14 @@ router.get('/google/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send('No code provided');
   try {
+    const googleClient = createGoogleClient();
     // Exchange code for tokens
     const { tokens } = await googleClient.getToken(code);
     googleClient.setCredentials(tokens);
     // Get user info from Google
     const ticket = await googleClient.verifyIdToken({
       idToken: tokens.id_token,
-      audience: GOOGLE_CLIENT_ID,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
     const googleId = payload.sub;

@@ -15,7 +15,7 @@ export default function MeetingFormDurationPrivacy({
   return (
     <div className="flex gap-4">
       <div className="flex-1">
-        <label className="block mb-1 font-medium">Duration (minutes)</label>
+        <label className="block mb-1 font-medium">Duration (mins)</label>
         <Input
           name="duration"
           type="number"

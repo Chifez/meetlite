@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/axios';
 import { env } from '@/config/env';
 import { useMeetingsStore } from '@/stores';
+import { toast } from 'sonner';
 
 interface CalendarEvent {
   id: string;
@@ -139,7 +140,7 @@ export const useCalendarIntegration = () => {
           source: calendarType,
         }));
 
-        // Add imported events to meetings store (avoiding duplicates)
+        // Convert to meeting format and add to local store (avoiding duplicates)
         const allMeetings = [...meetings];
         taggedEvents.forEach((ev: any) => {
           if (
@@ -157,12 +158,22 @@ export const useCalendarIntegration = () => {
               participants: ev.attendees || [],
               privacy: 'public',
               status: 'scheduled',
+              source: calendarType,
+              externalId: ev.id, // Store original calendar event ID
             });
           }
         });
 
         setMeetings(allMeetings);
         setImportedEvents(taggedEvents);
+
+        // Show success message
+        if (taggedEvents.length > 0) {
+          toast.success(
+            `Successfully imported ${taggedEvents.length} meetings from Google Calendar!`
+          );
+        }
+
         return taggedEvents;
       } catch (error) {
         console.error('Calendar import error:', error);

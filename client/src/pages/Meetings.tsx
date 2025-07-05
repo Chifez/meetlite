@@ -31,6 +31,7 @@ const Meetings = () => {
     refreshConnectionStatus,
     connectGoogleCalendar,
     isPolling,
+    disconnectCalendar,
   } = useCalendarIntegration();
 
   const {
@@ -140,7 +141,7 @@ const Meetings = () => {
         onCancel={closeScheduleModal}
       />
       <MeetingsLayout>
-        <div className="min-h-screen bg-page py-12 px-4">
+        <div className="min-h-screen bg-page md:px-4">
           <div className="max-w-4xl mx-auto space-y-10">
             {/* Hero Section */}
             <MeetingsWelcomeHeader onSchedule={openScheduleModal} />
@@ -172,6 +173,7 @@ const Meetings = () => {
           onImport={handleImport}
           isConnected={isConnected}
           refreshConnectionStatus={refreshConnectionStatus}
+          disconnectCalendar={disconnectCalendar}
           isPolling={isPolling}
         />
       </MeetingsLayout>

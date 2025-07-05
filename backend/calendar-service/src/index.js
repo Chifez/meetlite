@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { google } from 'googleapis';
 import { Client } from '@microsoft/microsoft-graph-client';
 import jwt from 'jsonwebtoken';
+import { oauthTemplates } from './templates/oauthPage.js';
 import mongoose from 'mongoose';
 
 dotenv.config();
@@ -91,13 +92,12 @@ app.get('/api/calendar/google/callback', async (req, res) => {
     console.log('Tokens stored for user:', userId);
     console.log('Current userTokens size:', userTokens.size);
 
-    // Redirect back to frontend with success message
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-    res.redirect(`${frontendUrl}/dashboard?oauth=success&provider=google`);
+    // Send success page that closes the popup
+    res.send(oauthTemplates.googleSuccess());
   } catch (error) {
     console.error('Google OAuth error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-    res.redirect(`${frontendUrl}/dashboard?oauth=error&provider=google`);
+    // Send error page
+    res.send(oauthTemplates.googleError());
   }
 });
 

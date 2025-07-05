@@ -58,6 +58,7 @@ export interface Meeting {
     inviteToken: string;
   }[];
   source?: 'google';
+  externalId?: string;
 }
 
 export interface MeetingFormData {

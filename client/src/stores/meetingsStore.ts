@@ -27,6 +27,7 @@ interface MeetingsState {
   deleteMeeting: (meetingId: string) => Promise<void>;
   startMeeting: (meetingId: string) => Promise<string>;
   completeMeeting: (meetingId: string) => Promise<void>;
+  refreshGoogleCalendarEvents: () => Promise<void>;
 
   // Modal actions
   openDeleteDialog: (meetingId: string) => void;
@@ -77,7 +78,75 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
             meetingEnd > now
           );
         });
-        set({ meetings: userMeetings });
+
+        // Check if user is connected to Google Calendar and fetch events
+        try {
+          const calendarResponse = await api.get(
+            `${env.CALENDAR_API_URL}/api/calendar/connected`
+          );
+          const connectedCalendars = calendarResponse.data;
+          const isGoogleConnected = connectedCalendars.some(
+            (cal: any) => cal.type === 'google' && cal.isConnected
+          );
+
+          if (isGoogleConnected) {
+            // Fetch Google Calendar events for the next 30 days
+            const now = new Date();
+            const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const googleResponse = await api.post(
+              `${env.CALENDAR_API_URL}/api/calendar/import`,
+              {
+                calendarType: 'google',
+                startDate: now.toISOString(),
+                endDate: in30.toISOString(),
+              }
+            );
+
+            const googleEvents = googleResponse.data.map((event: any) => ({
+              ...event,
+              scheduledTime: event.start,
+              duration: Math.round(
+                (new Date(event.end).getTime() -
+                  new Date(event.start).getTime()) /
+                  60000
+              ),
+              meetingId: `google-${event.id}`,
+              participants: event.attendees || [],
+              privacy: 'public',
+              status: 'scheduled',
+              source: 'google',
+              externalId: event.id,
+              title: event.title,
+              description: event.description || '',
+            }));
+
+            // Merge Google events with user meetings, avoiding duplicates
+            const allMeetings = [...userMeetings];
+            googleEvents.forEach((googleEvent: any) => {
+              const isDuplicate = allMeetings.some(
+                (meeting) =>
+                  meeting.externalId === googleEvent.externalId ||
+                  (meeting.title === googleEvent.title &&
+                    meeting.scheduledTime === googleEvent.scheduledTime)
+              );
+
+              if (!isDuplicate) {
+                allMeetings.push(googleEvent);
+              }
+            });
+
+            set({ meetings: allMeetings });
+          } else {
+            set({ meetings: userMeetings });
+          }
+        } catch (calendarError) {
+          console.error(
+            'Failed to fetch Google Calendar events:',
+            calendarError
+          );
+          set({ meetings: userMeetings });
+        }
       } else {
         set({ meetings: data });
       }
@@ -169,6 +238,76 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       toast.error('Failed to complete meeting');
       console.error('Complete meeting error:', error);
       throw error;
+    }
+  },
+
+  refreshGoogleCalendarEvents: async () => {
+    try {
+      // Check if user is connected to Google Calendar
+      const calendarResponse = await api.get(
+        `${env.CALENDAR_API_URL}/api/calendar/connected`
+      );
+      const connectedCalendars = calendarResponse.data;
+      const isGoogleConnected = connectedCalendars.some(
+        (cal: any) => cal.type === 'google' && cal.isConnected
+      );
+
+      if (isGoogleConnected) {
+        // Fetch latest Google Calendar events for the next 30 days
+        const now = new Date();
+        const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        const googleResponse = await api.post(
+          `${env.CALENDAR_API_URL}/api/calendar/import`,
+          {
+            calendarType: 'google',
+            startDate: now.toISOString(),
+            endDate: in30.toISOString(),
+          }
+        );
+
+        const googleEvents = googleResponse.data.map((event: any) => ({
+          ...event,
+          scheduledTime: event.start,
+          duration: Math.round(
+            (new Date(event.end).getTime() - new Date(event.start).getTime()) /
+              60000
+          ),
+          meetingId: `google-${event.id}`,
+          participants: event.attendees || [],
+          privacy: 'public',
+          status: 'scheduled',
+          source: 'google',
+          externalId: event.id,
+          title: event.title,
+          description: event.description || '',
+        }));
+
+        // Get current meetings and merge with Google events
+        const currentMeetings = get().meetings.filter(
+          (m) => m.source !== 'google'
+        );
+        const allMeetings = [...currentMeetings];
+
+        googleEvents.forEach((googleEvent: any) => {
+          const isDuplicate = allMeetings.some(
+            (meeting) =>
+              meeting.externalId === googleEvent.externalId ||
+              (meeting.title === googleEvent.title &&
+                meeting.scheduledTime === googleEvent.scheduledTime)
+          );
+
+          if (!isDuplicate) {
+            allMeetings.push(googleEvent);
+          }
+        });
+
+        set({ meetings: allMeetings });
+        toast.success('Google Calendar events refreshed successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to refresh Google Calendar events:', error);
+      toast.error('Failed to refresh Google Calendar events');
     }
   },
 

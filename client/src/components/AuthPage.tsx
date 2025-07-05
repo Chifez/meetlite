@@ -16,7 +16,7 @@ import {
 import AuthWrapper from './AuthWrapper';
 import Cookies from 'js-cookie';
 import { env } from '@/config/env';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface AuthPageProps {
@@ -54,6 +54,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   const isLogin = mode === 'login';
   const { login, signup, redirectTo, setRedirectTo } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(isLogin ? loginSchema : signupSchema),
@@ -77,10 +78,10 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         );
       }
       if (redirectTo) {
-        window.location.href = redirectTo;
+        navigate(redirectTo);
         setRedirectTo(null);
       } else {
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       }
     } catch (error) {
       // Error handled in context
@@ -95,13 +96,13 @@ const AuthPage = ({ mode }: AuthPageProps) => {
     const error = params.get('error');
     if (token) {
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } else if (error === 'google_oauth_failed') {
       toast.error(
         `Google ${isLogin ? 'sign-in' : 'sign-up'} failed. Please try again.`
       );
     }
-  }, [isLogin]);
+  }, [isLogin, navigate]);
 
   return (
     <AuthWrapper

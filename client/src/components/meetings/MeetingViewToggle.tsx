@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
 
 interface MeetingViewToggleProps {
   view: 'list' | 'calendar';
@@ -25,8 +26,13 @@ export default function MeetingViewToggle({
       >
         Calendar View
       </Button>
-      <Button variant="outline" onClick={() => setShowImportModal(true)}>
-        Import Meetings
+      <Button
+        variant="outline"
+        onClick={() => setShowImportModal(true)}
+        className="flex items-center gap-2"
+      >
+        <PlusCircle className="w-4 h-4" />
+        Import
       </Button>
     </div>
   );
