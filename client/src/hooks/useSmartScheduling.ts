@@ -113,7 +113,7 @@ export const useSmartScheduling = () => {
   );
 
   const suggestAlternatives = useCallback(
-    (parsedData: ParsedMeetingData, conflicts: any[]): ParsedMeetingData[] => {
+    (parsedData: ParsedMeetingData): ParsedMeetingData[] => {
       const alternatives: ParsedMeetingData[] = [];
       const baseDate = new Date(`${parsedData.date}T${parsedData.time}`);
 

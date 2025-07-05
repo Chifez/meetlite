@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Download, Share2, Copy, Check } from 'lucide-react';
+import { Loader2, Share2, Copy, Check } from 'lucide-react';
 import { useAIFeatures } from '@/hooks/useAIFeatures';
 import { toast } from 'sonner';
 
@@ -25,7 +25,6 @@ interface SummaryData {
 
 export const MeetingSummary: React.FC<MeetingSummaryProps> = ({
   meetingId,
-  onClose,
 }) => {
   const { generateMeetingSummary, isProcessing } = useAIFeatures();
   const [summary, setSummary] = useState<SummaryData | null>(null);

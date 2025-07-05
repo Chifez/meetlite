@@ -1,4 +1,3 @@
-import { Video } from 'lucide-react';
 import Logo from '../Logo';
 
 const Footer = () => {

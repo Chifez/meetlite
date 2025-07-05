@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+
 import { env } from '@/config/env';
 
 // Create axios instance

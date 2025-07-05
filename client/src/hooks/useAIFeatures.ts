@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/axios';
 import { env } from '@/config/env';
 
@@ -30,7 +29,6 @@ interface SmartSuggestion {
 }
 
 export const useAIFeatures = () => {
-  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Generate meeting summary from audio/video recording

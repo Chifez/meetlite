@@ -12,9 +12,7 @@ import UpcomingMeetingsSection from '@/components/dashboard/UpcomingMeetingsSect
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import SmartSchedulingModal from '@/components/dashboard/SmartSchedulingModal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
-
 import { useMeetingsStore, useUIStore } from '@/stores';
-import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -29,9 +27,6 @@ const Dashboard = () => {
   } = useMeetingsStore();
 
   const { setGlobalLoading } = useUIStore();
-
-  // Calendar integration for OAuth handling
-  const { refreshConnectionStatus } = useCalendarIntegration();
 
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';

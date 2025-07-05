@@ -20,7 +20,6 @@ const MeetingJoin = () => {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [tokenValidated, setTokenValidated] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -43,7 +42,6 @@ const MeetingJoin = () => {
             );
             console.log('Token validation result:', validationResult);
             setMeeting(validationResult.meeting);
-            setTokenValidated(true);
 
             // Check if meeting has roomId after setting it
             if (validationResult.meeting?.roomId) {

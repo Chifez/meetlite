@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/axios';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -38,7 +37,6 @@ type MediaDeviceInfo = {
 
 const Lobby = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -69,7 +67,7 @@ const Lobby = () => {
   useEffect(() => {
     const checkRoom = async () => {
       try {
-        const response = await api.get(`${env.ROOM_API_URL}/rooms/${roomId}`);
+        await api.get(`${env.ROOM_API_URL}/rooms/${roomId}`);
 
         // Additional check: verify user has access to the meeting
         // This is a basic check - in a real implementation, you might want to

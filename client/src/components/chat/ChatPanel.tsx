@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { X, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Badge } from '@/components/ui/badge';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';

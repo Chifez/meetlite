@@ -26,7 +26,6 @@ const Meetings = () => {
     importLoading,
     importedEvents,
     importError,
-    handleCalendarImport,
     isConnected,
     refreshConnectionStatus,
     connectGoogleCalendar,
@@ -106,7 +105,7 @@ const Meetings = () => {
   };
 
   // Import handler
-  const handleImport = async (calendarType: 'google') => {
+  const handleImport = async () => {
     if (!isConnected('google')) {
       // Start OAuth and polling, then auto-import when connected
       await connectGoogleCalendar(async () => {

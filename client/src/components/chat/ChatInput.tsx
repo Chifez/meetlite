@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Smile } from 'lucide-react';
 import { ChatInputProps } from '@/types/chat';
-import { cn } from '@/lib/utils';
 
 // Common emojis for quick access
 const QUICK_EMOJIS = ['👍', '👎', '😂', '❤️', '😮', '😢', '😡', '👏'];
