@@ -37,7 +37,7 @@ const verifyToken = (req, res, next) => {
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  'http://localhost:5004/api/calendar/google/callback' // Hardcode for now to ensure it's correct
+  process.env.GOOGLE_REDIRECT_URI // Hardcode for now to ensure it's correct
 );
 
 // Debug: Log the redirect URI being used
