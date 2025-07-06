@@ -13,8 +13,8 @@ const httpServer = createServer((req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      connections: io.engine.clientsCount,
-      rooms: io.sockets.adapter.rooms.size,
+      connections: io?.engine?.clientsCount || 0,
+      rooms: io?.sockets?.adapter?.rooms?.size || 0,
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(health));
