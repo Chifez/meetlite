@@ -1,14 +1,13 @@
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { MeetingFormData } from '@/lib/types';
-import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import MeetingFormTitle from './MeetingFormTitle';
 import MeetingFormDateTime from './MeetingFormDateTime';
 import MeetingFormDurationPrivacy from './MeetingFormDurationPrivacy';
 import MeetingFormInvite from './MeetingFormInvite';
 import MeetingFormFooter from './MeetingFormFooter';
-import { env } from '@/config/env';
-import api from '@/lib/axios';
+import { useStreamingAI } from '@/hooks/useStreamingAI';
 
 interface MeetingFormProps {
   formData: MeetingFormData;
@@ -57,7 +56,10 @@ const MeetingForm = ({
   const [ampm, setAmPm] = useState<'AM' | 'PM'>('AM');
   const [inviteInput, setInviteInput] = useState('');
   const [displayTime, setDisplayTime] = useState('');
-  const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [currentDescription, setCurrentDescription] = useState('');
+
+  const { streamDescription, generateDescriptionNonStreaming } =
+    useStreamingAI();
 
   useEffect(() => {
     if (propTimezone && propTimezone !== timezone) setTimezone(propTimezone);
@@ -133,23 +135,58 @@ const MeetingForm = ({
       toast.error('Please enter a meeting title first.');
       return;
     }
-    setGeneratingDescription(true);
+
+    setCurrentDescription('');
+
     try {
-      const response = await api.post(`${env.AI_SERVICE_URL}/description`, {
-        title: formData.title,
-      });
-      const description = response.data?.description;
-      if (description) {
-        onInputChange({
-          target: { name: 'description', value: description },
-        } as any);
-      } else {
-        toast.error('No description returned from AI.');
-      }
-    } catch (err) {
-      toast.error(`Failed to generate description. ${err}`);
-    } finally {
-      setGeneratingDescription(false);
+      // Try streaming first, fallback to non-streaming
+      await streamDescription(
+        formData.title,
+        // onContent callback - called for each chunk
+        (content: string) => {
+          setCurrentDescription((prev) => prev + content);
+          // Update the form field in real-time
+          onInputChange({
+            target: {
+              name: 'description',
+              value: currentDescription + content,
+            },
+          } as any);
+        },
+        // onComplete callback - called when streaming is done
+        (fullContent: string) => {
+          setCurrentDescription(fullContent);
+          onInputChange({
+            target: { name: 'description', value: fullContent },
+          } as any);
+          toast.success('Description generated successfully!');
+        },
+        // onError callback - fallback to non-streaming
+        async (error: string) => {
+          console.warn(
+            'Streaming failed, falling back to non-streaming:',
+            error
+          );
+          try {
+            const description = await generateDescriptionNonStreaming(
+              formData.title
+            );
+            if (description) {
+              setCurrentDescription(description);
+              onInputChange({
+                target: { name: 'description', value: description },
+              } as any);
+              toast.success('Description generated successfully!');
+            } else {
+              toast.error('No description returned from AI.');
+            }
+          } catch (fallbackError) {
+            toast.error(`Failed to generate description: ${fallbackError}`);
+          }
+        }
+      );
+    } catch (error) {
+      toast.error(`Failed to generate description: ${error}`);
     }
   };
 
@@ -164,7 +201,6 @@ const MeetingForm = ({
             formData={formData}
             onInputChange={onInputChange}
             onGenerateDescription={handleGenerateDescription}
-            generatingDescription={generatingDescription}
           />
           <MeetingFormDateTime
             formData={formData}
