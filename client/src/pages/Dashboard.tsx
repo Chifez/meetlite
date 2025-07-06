@@ -1,134 +1,161 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { toast } from 'sonner';
-import { PlusCircle, Users } from 'lucide-react';
 import { env } from '@/config/env';
 import SEO from '@/components/SEO';
+import { useMeetingForm } from '@/hooks/useMeetingForm';
+import api from '@/lib/axios';
+import WelcomeHeader from '@/components/dashboard/WelcomeHeader';
+import QuickActions from '@/components/dashboard/QuickActions';
+import UpcomingMeetingsSection from '@/components/dashboard/UpcomingMeetingsSection';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import SmartSchedulingModal from '@/components/dashboard/SmartSchedulingModal';
+import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
+import { useMeetingsStore, useUIStore } from '@/stores';
 
 const Dashboard = () => {
-  const { user, getAuthHeaders } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [joinRoomId, setJoinRoomId] = useState('');
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  // Use stores instead of local state
+  const {
+    meetings,
+    loading,
+    fetchMeetings: fetchMeetingsFromStore,
+  } = useMeetingsStore();
 
-  const createRoom = async () => {
+  const { setGlobalLoading } = useUIStore();
+
+  // URL-based modal state
+  const showScheduleModal = searchParams.get('modal') === 'schedule';
+
+  // Handle OAuth callback
+  // useEffect(() => {
+  //   const oauthStatus = searchParams.get('oauth');
+  //   const provider = searchParams.get('provider');
+
+  //   if (oauthStatus === 'success' && provider === 'google') {
+  //     toast.success('Google Calendar connected successfully!');
+  //     // Refresh connection status
+  //     refreshConnectionStatus();
+  //     // Clear the OAuth params from URL
+  //     setSearchParams({});
+  //   } else if (oauthStatus === 'error' && provider === 'google') {
+  //     toast.error('Failed to connect Google Calendar. Please try again.');
+  //     // Clear the OAuth params from URL
+  //     setSearchParams({});
+  //   }
+  // }, [searchParams, refreshConnectionStatus, setSearchParams]);
+
+  // Use the custom hook for form state management
+  const {
+    formData,
+    loading: formLoading,
+    handleInputChange,
+    handleDateChange,
+    handleTimeChange,
+    handlePrivacyChange,
+    handleParticipantInput,
+    removeParticipant,
+    handleSubmit: submitForm,
+  } = useMeetingForm(() => {
+    // Close modal and refresh meetings
+    setSearchParams({});
+    loadMeetings();
+  });
+
+  const openScheduleModal = () => {
+    setSearchParams({ modal: 'schedule' });
+  };
+
+  const closeScheduleModal = () => {
+    setSearchParams({});
+  };
+
+  // Fetch upcoming meetings
+  const loadMeetings = async () => {
     try {
-      setIsCreatingRoom(true);
-      const response = await axios.post(
-        `${env.ROOM_API_URL}/rooms`,
-        {},
-        { headers: getAuthHeaders() }
-      );
+      await fetchMeetingsFromStore(user?.id);
+    } catch {
+      // Error handling is done in the store
+    }
+  };
 
+  useEffect(() => {
+    loadMeetings();
+    // eslint-disable-next-line
+  }, []);
+
+  // Handlers
+  const handleQuickMeeting = async () => {
+    try {
+      setGlobalLoading(true);
+      const response = await api.post(`${env.ROOM_API_URL}/rooms`, {});
       const { roomId } = response.data;
       navigate(`/lobby/${roomId}`);
     } catch (error) {
       toast.error('Error', {
         description: 'Failed to create room. Please try again.',
       });
-      console.error('Error creating room:', error);
     } finally {
-      setIsCreatingRoom(false);
+      setGlobalLoading(false);
     }
   };
 
-  const joinRoom = () => {
+  const joinRoom = (joinRoomId: string) => {
     if (!joinRoomId.trim()) {
       toast.info('Error', {
         description: 'Please enter a room code',
       });
       return;
     }
-
     navigate(`/lobby/${joinRoomId.trim()}`);
   };
 
+  // Get upcoming meetings (first 3)
+  const upcomingMeetings = meetings
+    .sort(
+      (a, b) =>
+        new Date(a.scheduledTime).getTime() -
+        new Date(b.scheduledTime).getTime()
+    )
+    .slice(0, 3);
+
   return (
     <>
-      <SEO />
+      <SEO title="Dashboard" />
+      <SmartSchedulingModal
+        open={showScheduleModal}
+        onOpenChange={(open) => !open && closeScheduleModal()}
+        formData={formData}
+        formLoading={formLoading}
+        onInputChange={handleInputChange}
+        onDateChange={handleDateChange}
+        onTimeChange={handleTimeChange}
+        onPrivacyChange={handlePrivacyChange}
+        onParticipantInput={handleParticipantInput}
+        onRemoveParticipant={removeParticipant}
+        onSubmit={submitForm}
+        onCancel={closeScheduleModal}
+      />
+      <DashboardLayout>
+        <WelcomeHeader user={user ?? undefined} />
+        <QuickActions
+          onSchedule={openScheduleModal}
+          onJoin={joinRoom}
+          onQuickMeeting={handleQuickMeeting}
+        />
+        <UpcomingMeetingsSection
+          meetings={upcomingMeetings}
+          loading={loading}
+          onSchedule={openScheduleModal}
+        />
+      </DashboardLayout>
 
-      <div className="container max-w-4xl mx-auto py-16 px-4 space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Welcome, {user?.email}</h1>
-          <p className="text-muted-foreground">
-            Create a new meeting or join an existing one
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PlusCircle className="h-5 w-5" />
-                Create Meeting
-              </CardTitle>
-              <CardDescription>
-                Start a new meeting and invite others
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm mb-4">
-                Create a new meeting room and share the link or code with
-                participants. All participants will enter a lobby before
-                joining.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button
-                onClick={createRoom}
-                className="w-full"
-                disabled={isCreatingRoom}
-              >
-                {isCreatingRoom ? 'Creating...' : 'Create New Meeting'}
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Join Meeting
-              </CardTitle>
-              <CardDescription>
-                Join an existing meeting with a code
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm">
-                  Enter the meeting code provided by the meeting organizer.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter meeting code"
-                    value={joinRoomId}
-                    onChange={(e) => setJoinRoomId(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={joinRoom} className="w-full">
-                Join Meeting
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
+      {/* Delete Confirmation Dialog */}
+      <DeleteMeetingDialog />
     </>
   );
 };

@@ -1,4 +1,5 @@
 import { Socket } from 'socket.io-client';
+import { ChatState } from '@/types/chat';
 
 export interface PeerConnection {
   id: string;
@@ -49,6 +50,13 @@ export interface RoomContextType {
   toggleVideo: () => void;
   leaveMeeting: () => void;
   shareScreen: () => Promise<void>;
+  // Chat functionality
+  chatState: ChatState;
+  sendMessage: (message: string) => void;
+  toggleChatPanel: () => void;
+  markChatAsRead: () => void;
+  startTyping: () => void;
+  stopTyping: () => void;
 }
 
 export interface Participant {

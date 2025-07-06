@@ -1,0 +1,214 @@
+.rbc-calendar {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* Dark mode support */
+.dark .rbc-calendar {
+  background: #1f2937;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* CSS Custom Properties for theme switching */
+:root {
+  --today-highlight: rgba(99, 102, 241, 0.08);
+  --calendar-bg: white;
+  --calendar-border: #e5e7eb;
+  --calendar-text: #1f2937;
+  --calendar-muted: #6b7280;
+  --calendar-light-bg: #f9fafb;
+  --calendar-lighter-bg: #fafafa;
+  --calendar-highlight: #eff6ff;
+  --calendar-highlight-text: #1d4ed8;
+  --calendar-slot-border: #f3f4f6;
+}
+
+.dark {
+  --today-highlight: rgba(99, 102, 241, 0.2);
+  --calendar-bg: #1f2937;
+  --calendar-border: #374151;
+  --calendar-text: #f9fafb;
+  --calendar-muted: #9ca3af;
+  --calendar-light-bg: #374151;
+  --calendar-lighter-bg: #111827;
+  --calendar-highlight: rgba(59, 130, 246, 0.2);
+  --calendar-highlight-text: #60a5fa;
+  --calendar-slot-border: #374151;
+}
+
+/* Time labels - make them much more readable */
+.rbc-time-header-gutter,
+.rbc-timeslot-group {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--calendar-muted) !important;
+  padding: 8px 12px !important;
+}
+
+.rbc-time-header-gutter {
+  background: var(--calendar-light-bg) !important;
+  border-right: 1px solid var(--calendar-border) !important;
+  min-width: 60px !important;
+  text-align: center !important;
+}
+
+/* Events styling - Google Calendar-like */
+.rbc-event {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  min-height: 24px !important;
+  padding: 2px 6px !important;
+  margin: 1px 2px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  overflow: hidden !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  line-height: 1.3 !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+.rbc-event:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Event colors based on privacy */
+.rbc-event[data-privacy='private'] {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  color: white !important;
+}
+
+.rbc-event[data-privacy='public'] {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: white !important;
+}
+
+/* Toolbar styling */
+.rbc-toolbar {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--calendar-border);
+  background: var(--calendar-lighter-bg);
+  margin-bottom: 16px;
+}
+
+.rbc-toolbar-label {
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  color: var(--calendar-text) !important;
+  margin: 0 !important;
+  padding: 8px 0;
+}
+
+/* Header styling */
+.rbc-header {
+  padding: 12px 8px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: var(--calendar-muted) !important;
+  background: var(--calendar-light-bg) !important;
+  border-bottom: 1px solid var(--calendar-border) !important;
+  text-align: center !important;
+  min-height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Today header highlight */
+.rbc-header.rbc-today {
+  background: var(--calendar-highlight) !important;
+  color: var(--calendar-highlight-text) !important;
+  font-weight: 700 !important;
+}
+
+/* Time grid styling */
+.rbc-time-view {
+  border: none !important;
+}
+
+.rbc-time-header {
+  border: none !important;
+}
+
+.rbc-time-content {
+  border: none !important;
+}
+
+/* Time slots */
+.rbc-timeslot-group {
+  min-height: 60px !important;
+  border-bottom: 1px solid var(--calendar-slot-border) !important;
+}
+
+.rbc-timeslot-group:last-child {
+  border-bottom: none !important;
+}
+
+/* Day columns */
+.rbc-time-header-content {
+  border-left: 1px solid var(--calendar-border) !important;
+}
+
+.rbc-day-slot {
+  border-right: 1px solid var(--calendar-slot-border) !important;
+}
+
+.rbc-day-slot:last-child {
+  border-right: none !important;
+}
+
+/* Today column highlight */
+.rbc-day-slot.rbc-today {
+  background: var(--today-highlight) !important;
+}
+
+/* Current time indicator */
+.rbc-current-time-indicator {
+  background: #ef4444 !important;
+  height: 2px !important;
+  z-index: 10 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rbc-time-header-gutter,
+  .rbc-timeslot-group {
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+  }
+
+  .rbc-event {
+    font-size: 11px !important;
+    padding: 1px 4px !important;
+    margin: 1px !important;
+    white-space: wrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    flex-direction: col !important;
+    align-items: start !important;
+  }
+}
+
+/* Desktop event styling for better text wrapping */
+@media (min-width: 769px) {
+  .rbc-event {
+    min-height: auto !important;
+    max-height: none !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+  }
+}

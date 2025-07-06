@@ -92,8 +92,6 @@ export const useWebRTC = (
     (connectionId: string) => {
       const peer = peersRef.current.get(connectionId);
       if (peer) {
-        console.log(`Cleaning up connection ${connectionId}`);
-
         // Clear timeout
         if (peer.timeoutId) {
           clearTimeout(peer.timeoutId);
@@ -127,15 +125,8 @@ export const useWebRTC = (
       !peer.connection.localDescription ||
       !peer.connection.remoteDescription
     ) {
-      console.log(
-        `Waiting for descriptions before processing candidates for ${connectionId}`
-      );
       return;
     }
-
-    console.log(
-      `Processing ${queuedCandidates.length} queued candidates for ${connectionId}`
-    );
 
     // Process candidates one by one with error handling
     for (const candidate of queuedCandidates) {
@@ -165,15 +156,10 @@ export const useWebRTC = (
 
       // Prevent concurrent creation of the same connection
       if (isProcessingRef.current.has(connectionId)) {
-        console.log(`Already processing connection ${connectionId}`);
         return peersRef.current.get(connectionId) || null;
       }
 
       isProcessingRef.current.add(connectionId);
-
-      console.log(
-        `🚀 [WebRTC] Creating peer connection ${connectionId}, isInitiator: ${isInitiator}`
-      );
 
       // Clean up existing connection
       cleanupPeerConnection(connectionId);
@@ -184,20 +170,13 @@ export const useWebRTC = (
         iceTransportPolicy: 'all',
       });
 
-      console.log(`🔧 [WebRTC] RTCPeerConnection created for ${connectionId}`);
-
       // Add local stream tracks
       if (localStream) {
         localStream.getTracks().forEach((track) => {
-          console.log(
-            `📹 [WebRTC] Adding track ${track.kind} to ${connectionId}`
-          );
           connection.addTrack(track, localStream);
         });
       } else {
-        console.warn(
-          `⚠️ [WebRTC] No local stream available for ${connectionId}`
-        );
+        console.warn(`No local stream available for ${connectionId}`);
       }
 
       // Create extended peer object
@@ -213,7 +192,7 @@ export const useWebRTC = (
       // Set connection timeout
       peer.timeoutId = setTimeout(() => {
         if (peer.isLoading && peersRef.current.has(connectionId)) {
-          console.warn(`⏰ [WebRTC] Connection timeout for ${connectionId}`);
+          console.warn(`Connection timeout for ${connectionId}`);
           cleanupPeerConnection(connectionId);
         }
       }, CONNECTION_TIMEOUT);
@@ -221,33 +200,21 @@ export const useWebRTC = (
       // Handle ICE candidates
       connection.onicecandidate = (event) => {
         if (event.candidate && socket) {
-          console.log(
-            `🧊 [WebRTC] Sending ICE candidate for ${connectionId}:`,
-            event.candidate.candidate
-          );
           socket.emit('ice-candidate', {
             to: userId,
             candidate: event.candidate,
           });
-        } else if (!event.candidate) {
-          console.log(`🧊 [WebRTC] ICE gathering complete for ${connectionId}`);
         }
       };
 
       // ICE gathering state monitoring
       connection.onicegatheringstatechange = () => {
-        console.log(
-          `🧊 [WebRTC] ICE gathering state for ${connectionId}:`,
-          connection.iceGatheringState
-        );
+        // ICE gathering state changed
       };
 
       // ICE connection state monitoring
       connection.oniceconnectionstatechange = () => {
-        console.log(
-          `🔗 [WebRTC] ICE connection state for ${connectionId}:`,
-          connection.iceConnectionState
-        );
+        // ICE connection state changed
       };
 
       // Connection state monitoring
@@ -255,13 +222,7 @@ export const useWebRTC = (
         const currentPeer = peersRef.current.get(connectionId);
         if (!currentPeer) return;
 
-        console.log(
-          `🔄 [WebRTC] Connection state changed for ${connectionId}:`,
-          connection.connectionState
-        );
-
         if (connection.connectionState === 'connected') {
-          console.log(`✅ [WebRTC] Connection established for ${connectionId}`);
           currentPeer.isLoading = false;
           currentPeer.signalState = ConnectionState.CONNECTED;
           if (currentPeer.timeoutId) {
@@ -270,13 +231,12 @@ export const useWebRTC = (
           }
           updatePeersState();
         } else if (connection.connectionState === 'failed') {
-          console.error(`❌ [WebRTC] Connection failed for ${connectionId}`);
+          console.error(`Connection failed for ${connectionId}`);
           cleanupPeerConnection(connectionId);
 
           // Retry connection after delay
           setTimeout(() => {
             if (!peersRef.current.has(connectionId) && socket && socket.id) {
-              console.log(`🔄 [WebRTC] Retrying connection for ${userId}`);
               createPeerConnection(userId, true);
             }
           }, RECONNECTION_DELAY);
@@ -375,67 +335,38 @@ export const useWebRTC = (
       return;
     }
 
-    console.log(
-      `🎧 [WebRTC] Setting up event listeners for socket ${socket.id}`
-    );
-
     // Handle call from another user
     const handleCallUser = async (data: {
       from: string;
       offer: RTCSessionDescriptionInit;
     }) => {
-      console.log('📞 [WebRTC] Received call from:', data.from);
-      console.log('📞 [WebRTC] Offer type:', data.offer.type);
       const peer = createPeerConnection(data.from, false);
       if (!peer) {
-        console.error(
-          '❌ [WebRTC] Failed to create peer connection for incoming call'
-        );
+        console.error('Failed to create peer connection for incoming call');
         return;
       }
 
       try {
-        console.log(
-          `📞 [WebRTC] Setting remote description for ${peer.connectionId}`
-        );
         await peer.connection.setRemoteDescription(
           new RTCSessionDescription(data.offer)
-        );
-        console.log(
-          `✅ [WebRTC] Remote description set successfully for ${peer.connectionId}`
         );
 
         peer.signalState = ConnectionState.CREATING_OFFER;
 
-        console.log(
-          `📞 [WebRTC] Processing queued ICE candidates for ${peer.connectionId}`
-        );
         await processIceCandidateQueue(peer.connectionId);
 
-        console.log(`📞 [WebRTC] Creating answer for ${peer.connectionId}`);
         const answer = await peer.connection.createAnswer();
-        console.log(
-          `📞 [WebRTC] Answer created for ${peer.connectionId}:`,
-          answer.type
-        );
 
-        console.log(
-          `📞 [WebRTC] Setting local description (answer) for ${peer.connectionId}`
-        );
         await peer.connection.setLocalDescription(answer);
-        console.log(
-          `✅ [WebRTC] Local description (answer) set for ${peer.connectionId}`
-        );
 
         peer.signalState = ConnectionState.ANSWER_SENT;
 
-        console.log(`📞 [WebRTC] Sending answer to ${data.from}`);
         socket.emit('make-answer', {
           to: data.from,
           answer: peer.connection.localDescription,
         });
       } catch (error) {
-        console.error('❌ [WebRTC] Error handling call:', error);
+        console.error('Error handling call:', error);
         if (peer.connectionId) {
           cleanupPeerConnection(peer.connectionId);
         }
@@ -449,43 +380,30 @@ export const useWebRTC = (
     }) => {
       if (!socket.id) return;
       const connectionId = createConnectionId(socket.id, data.from);
-      console.log('📞 [WebRTC] Received answer from:', data.from);
-      console.log('📞 [WebRTC] Answer type:', data.answer.type);
 
       const peer = peersRef.current.get(connectionId);
       if (!peer) {
-        console.warn(
-          `⚠️ [WebRTC] No peer connection found for: ${connectionId}`
-        );
+        console.warn(`No peer connection found for: ${connectionId}`);
         return;
       }
 
       if (peer.signalState !== ConnectionState.OFFER_SENT) {
         console.warn(
-          `⚠️ [WebRTC] Received answer in wrong state (${peer.signalState}) for ${connectionId}`
+          `Received answer in wrong state (${peer.signalState}) for ${connectionId}`
         );
         return;
       }
 
       try {
-        console.log(
-          `📞 [WebRTC] Setting remote description (answer) for ${connectionId}`
-        );
         await peer.connection.setRemoteDescription(
           new RTCSessionDescription(data.answer)
-        );
-        console.log(
-          `✅ [WebRTC] Remote description (answer) set successfully for ${connectionId}`
         );
 
         peer.signalState = ConnectionState.ANSWER_RECEIVED;
 
-        console.log(
-          `📞 [WebRTC] Processing queued ICE candidates for ${connectionId}`
-        );
         await processIceCandidateQueue(connectionId);
       } catch (error) {
-        console.error('❌ [WebRTC] Error setting remote description:', error);
+        console.error('Error setting remote description:', error);
         cleanupPeerConnection(connectionId);
       }
     };
@@ -499,15 +417,7 @@ export const useWebRTC = (
       const connectionId = createConnectionId(socket.id, data.from);
       const peer = peersRef.current.get(connectionId);
 
-      console.log(
-        `🧊 [WebRTC] Received ICE candidate from ${data.from}:`,
-        data.candidate.candidate
-      );
-
       if (!peer) {
-        console.log(
-          `🧊 [WebRTC] Queueing ICE candidate for ${connectionId} (no peer yet)`
-        );
         const queue = iceCandidatesQueue.current.get(connectionId) || [];
         queue.push(data.candidate);
         iceCandidatesQueue.current.set(connectionId, queue);
@@ -518,9 +428,6 @@ export const useWebRTC = (
         !peer.connection.localDescription ||
         !peer.connection.remoteDescription
       ) {
-        console.log(
-          `🧊 [WebRTC] Queueing ICE candidate for ${connectionId} (waiting for descriptions)`
-        );
         const queue = iceCandidatesQueue.current.get(connectionId) || [];
         queue.push(data.candidate);
         iceCandidatesQueue.current.set(connectionId, queue);
@@ -528,24 +435,17 @@ export const useWebRTC = (
       }
 
       try {
-        console.log(
-          `🧊 [WebRTC] Adding ICE candidate immediately for ${connectionId}`
-        );
         await peer.connection.addIceCandidate(
           new RTCIceCandidate(data.candidate)
         );
-        console.log(
-          `✅ [WebRTC] ICE candidate added successfully for ${connectionId}`
-        );
       } catch (error) {
-        console.error('❌ [WebRTC] Error adding ICE candidate:', error);
+        console.error('Error adding ICE candidate:', error);
       }
     };
 
     // Handle user left
     const handleUserLeft = (userId: string) => {
       if (!socket.id) return;
-      console.log('👋 [WebRTC] User left, cleaning up connection:', userId);
       cleanupPeerConnection(createConnectionId(socket.id, userId));
     };
 
@@ -555,7 +455,6 @@ export const useWebRTC = (
       audioEnabled: boolean;
       videoEnabled: boolean;
     }) => {
-      console.log('🎙️ [WebRTC] Media state update:', data);
       setPeerMediaState((prev) => {
         const next = new Map(prev);
         next.set(data.userId, {
@@ -588,9 +487,6 @@ export const useWebRTC = (
       targetUserId: string;
       isInitiator: boolean;
     }) => {
-      console.log(
-        `🚀 [WebRTC] Initiating connection with ${targetUserId}, isInitiator: ${isInitiator}`
-      );
       if (isInitiator) {
         createPeerConnection(targetUserId, true);
       }
@@ -613,16 +509,12 @@ export const useWebRTC = (
     socket.on('room-data', handleRoomData);
     socket.on('initiate-connection', handleInitiateConnection);
 
-    console.log(
-      `✅ [WebRTC] Event listeners registered for socket ${socket.id}`
-    );
-
     // Cleanup
     return () => {
       console.log(
         `🧹 [WebRTC] Cleaning up event listeners for socket ${socket.id}`
       );
-      socket.offAny(handleAnyEvent);
+      // socket.offAny(handleAnyEvent);
       socket.off('call-user', handleCallUser);
       socket.off('answer-made', handleAnswerMade);
       socket.off('ice-candidate', handleIceCandidate);

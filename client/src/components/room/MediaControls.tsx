@@ -7,8 +7,11 @@ import {
   MonitorOff,
   Monitor,
   Phone,
+  MessageCircle,
 } from 'lucide-react';
 import { ControlButton } from './ControlButton';
+import { useRoom } from '@/contexts/RoomContext';
+import { Badge } from '@/components/ui/badge';
 
 interface MediaControlsProps {
   audioEnabled: boolean;
@@ -33,6 +36,8 @@ export const MediaControls = ({
   onLeaveMeeting,
   showScreenShare = true,
 }: MediaControlsProps) => {
+  const { chatState, toggleChatPanel } = useRoom();
+
   return (
     <div className="flex items-center gap-3 justify-center">
       <ControlButton
@@ -61,6 +66,22 @@ export const MediaControls = ({
           className="hidden md:inline-flex"
         />
       )}
+
+      <div className="relative">
+        <ControlButton
+          icon={MessageCircle}
+          onClick={toggleChatPanel}
+          isActive={chatState.isOpen}
+        />
+        {chatState.unreadCount > 0 && !chatState.isOpen && (
+          <Badge
+            variant="destructive"
+            className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 items-center justify-center text-xs flex"
+          >
+            {chatState.unreadCount > 9 ? '9+' : chatState.unreadCount}
+          </Badge>
+        )}
+      </div>
     </div>
   );
 };

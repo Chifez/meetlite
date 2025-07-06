@@ -1,12 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useMemo, useCallback } from 'react';
 import { VideoGrid } from '@/components/room/VideoGrid';
 import { RoomControls } from '@/components/room/RoomControls';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useScreenShareRTC } from '@/hooks/useScreenShareRTC';
 import { useSocketSetup } from '@/hooks/useSocketSetup';
 import { useScreenShare } from '@/hooks/useScreenShare';
 import { useMediaSetup } from '@/hooks/useMediaSetup';
 import { useParticipantInfo } from '@/hooks/useParticipantInfo';
+import { useChat } from '@/hooks/useChat';
 import SEO from '@/components/SEO';
 import { RoomProvider } from '@/contexts/RoomContext';
 
@@ -32,6 +35,16 @@ const Room = () => {
     roomId,
   });
 
+  // Setup chat functionality
+  const {
+    chatState,
+    sendMessage,
+    toggleChatPanel,
+    markAsRead,
+    startTyping,
+    stopTyping,
+  } = useChat({ socket, roomId });
+
   // Use WebRTC hooks with localStream and participant info callback
   const { peers, peerMediaState } = useWebRTC(
     socket,
@@ -40,8 +53,8 @@ const Room = () => {
   );
   const { screenPeers } = useScreenShareRTC(socket, screenShareState.stream);
 
-  // Leave meeting function
-  const leaveMeeting = () => {
+  // Memoized leave meeting function to prevent unnecessary re-renders
+  const leaveMeeting = useCallback(() => {
     cleanupScreenShare();
 
     peers.forEach((peer) => {
@@ -52,44 +65,104 @@ const Room = () => {
       socket.emit('user-left', { roomId });
     }
     navigate('/dashboard');
-  };
+  }, [cleanupScreenShare, peers, socket, roomId, navigate]);
 
-  // Create context value
-  const roomContextValue = {
-    socket,
-    localStream,
-    screenStream: screenShareState.stream,
-    peers,
-    screenPeers,
-    audioEnabled: mediaState.audioEnabled,
-    videoEnabled: mediaState.videoEnabled,
-    peerMediaState,
-    isScreenSharing: screenShareState.isSharing,
-    screenSharingUser: screenShareState.sharingUser,
-    getParticipantEmail,
-    toggleAudio,
-    toggleVideo,
-    leaveMeeting,
-    shareScreen,
-  };
+  // Memoized navigation callbacks
+  const handleRefreshConnection = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  const handleReturnToLobby = useCallback(() => {
+    navigate(`/lobby/${roomId}`);
+  }, [navigate, roomId]);
+
+  // Memoized context value to prevent unnecessary re-renders
+  const roomContextValue = useMemo(
+    () => ({
+      socket,
+      localStream,
+      screenStream: screenShareState.stream,
+      peers,
+      screenPeers,
+      audioEnabled: mediaState.audioEnabled,
+      videoEnabled: mediaState.videoEnabled,
+      peerMediaState,
+      isScreenSharing: screenShareState.isSharing,
+      screenSharingUser: screenShareState.sharingUser,
+      getParticipantEmail,
+      toggleAudio,
+      toggleVideo,
+      leaveMeeting,
+      shareScreen,
+      // Chat functionality
+      chatState,
+      sendMessage,
+      toggleChatPanel,
+      markChatAsRead: markAsRead,
+      startTyping,
+      stopTyping,
+    }),
+    [
+      socket,
+      localStream,
+      screenShareState.stream,
+      screenShareState.isSharing,
+      screenShareState.sharingUser,
+      peers,
+      screenPeers,
+      mediaState.audioEnabled,
+      mediaState.videoEnabled,
+      peerMediaState,
+      getParticipantEmail,
+      toggleAudio,
+      toggleVideo,
+      leaveMeeting,
+      shareScreen,
+      chatState,
+      sendMessage,
+      toggleChatPanel,
+      markAsRead,
+      startTyping,
+      stopTyping,
+    ]
+  );
+
+  // Memoized SEO props
+  const seoProps = useMemo(
+    () => ({
+      title: `Meeting Room - MeetLite`,
+      description: `Join your video conference meeting with high-quality audio and video.`,
+      keywords: `video conferencing, online meetings, web conferencing, video chat, remote collaboration`,
+      ogUrl: `https://meetlit.netlify.app/room/${roomId}`,
+    }),
+    [roomId]
+  );
 
   return (
     <>
-      <SEO
-        title={`Meeting Room - MeetLite`}
-        description={`Join your video conference meeting with high-quality audio and video.`}
-        keywords={`video conferencing, online meetings, web conferencing, video chat, remote collaboration`}
-        ogUrl={`https://meetlit.netlify.app/room/${roomId}`}
-      />
+      <SEO {...seoProps} />
       <RoomProvider value={roomContextValue}>
-        <div className="flex flex-col h-screen bg-[#121212]">
-          <div className="flex-1 overflow-hidden bg-[#121212] p-4">
-            <VideoGrid />
+        <div className="flex h-screen bg-[#121212]">
+          {/* Main content area */}
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden bg-[#121212] p-4">
+              <VideoGrid />
+            </div>
+
+            <RoomControls
+              onRefreshConnection={handleRefreshConnection}
+              onReturnToLobby={handleReturnToLobby}
+            />
           </div>
 
-          <RoomControls
-            onRefreshConnection={() => window.location.reload()}
-            onReturnToLobby={() => navigate(`/lobby/${roomId}`)}
+          {/* Chat Panel */}
+          <ChatPanel
+            chatState={chatState}
+            onSendMessage={sendMessage}
+            onTogglePanel={toggleChatPanel}
+            onMarkAsRead={markAsRead}
+            onTypingStart={startTyping}
+            onTypingStop={stopTyping}
           />
         </div>
       </RoomProvider>

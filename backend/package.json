@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "description": "Backend services for MeetLite video meeting application",
   "scripts": {
+    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:signaling\" \"npm run dev:ai\"",
     "dev:auth": "cd auth-service && npm run dev",
     "dev:room": "cd room-service && npm run dev",
+    "dev:ai": "cd ai-service && npm run dev",
     "dev:signaling": "cd signaling-service && npm run dev",
-    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:signaling\"",
-    "install:all": "npm install && cd auth-service && npm install && cd ../room-service && npm install && cd ../signaling-service && npm install"
+    "dev:no-watch": "concurrently \"npm run dev:auth:no-watch\" \"npm run dev:room:no-watch\" \"npm run dev:signaling:no-watch\" \"npm run dev:ai:no-watch\"",
+    "dev:auth:no-watch": "cd auth-service && npm run dev:no-watch",
+    "dev:room:no-watch": "cd room-service && npm run dev:no-watch",
+    "dev:ai:no-watch": "cd ai-service && npm run dev:no-watch",
+    "dev:signaling:no-watch": "cd signaling-service && npm run dev:no-watch",
+    "install:all": "npm install && cd auth-service && npm install && cd ../room-service && npm install && cd ../ai-service && npm install && cd ../signaling-service && npm install",
+    "health": "echo 'Checking service health...' && curl -s http://localhost:5000/health && echo '' && curl -s http://localhost:5001/health && echo '' && curl -s http://localhost:5003/health"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

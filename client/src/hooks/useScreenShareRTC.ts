@@ -317,10 +317,6 @@ export const useScreenShareRTC = (
     // Handle user left
     const handleUserLeft = (userId: string) => {
       if (!socket.id) return;
-      console.log(
-        '👋 [ScreenShare] User left, cleaning up screen connection:',
-        userId
-      );
       cleanupPeerConnection(createConnectionId(socket.id, userId));
     };
 

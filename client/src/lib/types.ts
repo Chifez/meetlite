@@ -39,3 +39,40 @@ export interface SignalingCandidate {
 export interface RoomData {
   participants: string[];
 }
+
+export interface Meeting {
+  meetingId: string;
+  title: string;
+  description?: string;
+  scheduledTime: string | Date;
+  duration: number;
+  createdBy?: string;
+  participants: string[];
+  privacy?: 'public' | 'private';
+  status?: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  createdAt?: string;
+  roomId?: string;
+  invites?: {
+    email: string;
+    status: 'pending' | 'accepted' | 'declined';
+    inviteToken: string;
+  }[];
+  source?: 'google';
+  externalId?: string;
+}
+
+export interface MeetingFormData {
+  title: string;
+  description: string;
+  date: Date | undefined;
+  time: string;
+  duration: number;
+  privacy: 'public' | 'private';
+  participants: string[];
+  participantInput: string;
+}
+
+export interface InviteValidationResponse {
+  valid: boolean;
+  meeting: Meeting;
+}

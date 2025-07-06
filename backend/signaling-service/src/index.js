@@ -322,6 +322,57 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Chat functionality
+  socket.on('chat:message', (data) => {
+    const { roomId, userId, userEmail, message, timestamp, type } = data;
+
+    // Validate the message
+    if (!roomId || !message || message.trim().length === 0) {
+      return;
+    }
+
+    // Verify user is in the room
+    if (!socket.rooms.has(roomId)) {
+      return;
+    }
+
+    // Broadcast message to all users in the room (including sender for confirmation)
+    io.to(roomId).emit('chat:message', {
+      userId,
+      userEmail,
+      message: message.trim(),
+      timestamp,
+      type: type || 'text',
+    });
+  });
+
+  socket.on('chat:typing-start', (data) => {
+    const { roomId, userId, userEmail } = data;
+
+    if (!roomId || !socket.rooms.has(roomId)) {
+      return;
+    }
+
+    // Broadcast typing indicator to others in the room (not to sender)
+    socket.to(roomId).emit('chat:typing-start', {
+      userId,
+      userEmail,
+    });
+  });
+
+  socket.on('chat:typing-stop', (data) => {
+    const { roomId, userId } = data;
+
+    if (!roomId || !socket.rooms.has(roomId)) {
+      return;
+    }
+
+    // Broadcast stop typing to others in the room (not to sender)
+    socket.to(roomId).emit('chat:typing-stop', {
+      userId,
+    });
+  });
+
   // Enhanced user leaving handling
   socket.on('user-left', ({ roomId }) => {
     handleUserLeaving(socket, roomId);
