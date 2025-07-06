@@ -5,7 +5,27 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const httpServer = createServer();
+const httpServer = createServer((req, res) => {
+  // Health check endpoint
+  if (req.url === '/health' && req.method === 'GET') {
+    const health = {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      connections: io.engine.clientsCount,
+      rooms: io.sockets.adapter.rooms.size,
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(health));
+    return;
+  }
+
+  // Default response for other routes
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Not found' }));
+});
+
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.CORS_ORIGIN,

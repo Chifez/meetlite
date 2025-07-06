@@ -51,6 +51,19 @@ console.log(
   '- Redirect URI: http://localhost:5004/api/calendar/google/callback'
 );
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const health = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    database:
+      mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  };
+  res.json(health);
+});
+
 // Routes
 app.get('/api/calendar/google/auth', (req, res) => {
   const authUrl = oauth2Client.generateAuthUrl({
