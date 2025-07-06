@@ -54,8 +54,6 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    database:
-      mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
   };
   res.json(health);
 });
