@@ -72,16 +72,16 @@ app.post(
       // You can use transcript or notes as context for the summary
       const context = transcript || notes || '';
       const prompt = `Summarize the following meeting transcript or notes in a concise way. Include key topics, action items, and participants if possible.\n\n${context}`;
-      const openRouterRes = await undiciRequest(
-        'https://openrouter.ai/api/v1/chat/completions',
+      const openAIRes = await undiciRequest(
+        'https://api.openai.com/v1/chat/completions',
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-r1:free',
+            model: 'gpt-3.5-turbo',
             messages: [
               {
                 role: 'system',
@@ -95,7 +95,7 @@ app.post(
           }),
         }
       );
-      const data = await openRouterRes.body.json();
+      const data = await openAIRes.body.json();
       const summary = data.choices?.[0]?.message?.content?.trim() || '';
       res.json({ summary });
     } catch (error) {
@@ -157,16 +157,16 @@ app.post('/api/ai/suggest', verifyToken, async (req, res) => {
   try {
     const { participants, duration, topic } = req.body;
     const prompt = `Given the following meeting context, suggest improvements for time, duration, and participants.\nParticipants: ${participants}\nDuration: ${duration}\nTopic: ${topic}`;
-    const openRouterRes = await undiciRequest(
-      'https://openrouter.ai/api/v1/chat/completions',
+    const openAIRes = await undiciRequest(
+      'https://api.openai.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-r1:free',
+          model: 'gpt-3.5-turbo',
           messages: [
             {
               role: 'system',
@@ -180,7 +180,7 @@ app.post('/api/ai/suggest', verifyToken, async (req, res) => {
         }),
       }
     );
-    const data = await openRouterRes.body.json();
+    const data = await openAIRes.body.json();
     const suggestions = data.choices?.[0]?.message?.content?.trim() || '';
     res.json({ suggestions });
   } catch (error) {
@@ -194,16 +194,16 @@ app.get('/api/ai/insights/:meetingId', verifyToken, async (req, res) => {
     const { meetingId } = req.params;
     // In a real app, fetch meeting transcript/notes by meetingId
     const prompt = `Given the transcript or notes for meeting ID ${meetingId}, provide insights such as engagement, participation, topics, sentiment, and recommendations.`;
-    const openRouterRes = await undiciRequest(
-      'https://openrouter.ai/api/v1/chat/completions',
+    const openAIRes = await undiciRequest(
+      'https://api.openai.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-r1:free',
+          model: 'gpt-3.5-turbo',
           messages: [
             {
               role: 'system',
@@ -217,7 +217,7 @@ app.get('/api/ai/insights/:meetingId', verifyToken, async (req, res) => {
         }),
       }
     );
-    const data = await openRouterRes.body.json();
+    const data = await openAIRes.body.json();
     const insights = data.choices?.[0]?.message?.content?.trim() || '';
     res.json({ insights });
   } catch (error) {
@@ -234,42 +234,140 @@ app.post('/api/ai/description', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Meeting title is required.' });
     }
 
-    const prompt = `Generate a short meeting description for: "${title}".`;
+    const prompt = `Generate a short meeting description for: "${title}".
 
-    // Prepare OpenRouter streaming request
-    const openRouterRes = await undiciRequest(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'deepseek/deepseek-r1:free',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a helpful assistant. Provide direct, concise responses without internal reasoning. Output only the requested content.',
+Rules:
+- Write a brief, professional description
+- Do not use hyphens or bullet points
+- Keep it to 1-2 sentences maximum
+- Focus on the meeting purpose and key topics`;
+
+    // Check if client accepts streaming
+    const acceptHeader = req.headers.accept || '';
+    const wantsStreaming =
+      acceptHeader.includes('text/event-stream') || req.query.stream === 'true';
+
+    if (wantsStreaming) {
+      // Set up streaming response
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
+      });
+
+      // Send initial connection message
+      res.write('data: {"type": "connected"}\n\n');
+
+      try {
+        const openAIRes = await undiciRequest(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
             },
-            { role: 'user', content: prompt },
-          ],
-          max_tokens: 200,
-          temperature: 0.7,
-          // stream: true,
-        }),
-      }
-    );
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are a helpful assistant. Provide direct, concise responses without internal reasoning. Output only the requested content.',
+                },
+                { role: 'user', content: prompt },
+              ],
+              max_tokens: 200,
+              temperature: 0.7,
+              stream: true,
+            }),
+          }
+        );
 
-    const data = await openRouterRes.body.json();
-    const description = data.choices?.[0]?.message?.content?.trim() || '';
-    if (!description) {
-      return res.status(500).json({ error: 'Failed to generate description.' });
+        if (!openAIRes.body) {
+          res.write(
+            'data: {"type": "error", "message": "No response body"}\n\n'
+          );
+          res.end();
+          return;
+        }
+
+        // Stream the response
+        for await (const chunk of openAIRes.body) {
+          const lines = chunk.toString().split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                res.write('data: {"type": "done"}\n\n');
+                res.end();
+                return;
+              }
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.choices && parsed.choices[0]?.delta?.content) {
+                  const content = parsed.choices[0].delta.content;
+                  res.write(
+                    `data: {"type": "content", "content": ${JSON.stringify(
+                      content
+                    )}}\n\n`
+                  );
+                }
+              } catch (parseError) {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+
+        res.write('data: {"type": "done"}\n\n');
+        res.end();
+      } catch (streamError) {
+        console.error('Streaming error:', streamError);
+        res.write(`data: {"type": "error", "message": "Streaming failed"}\n\n`);
+        res.end();
+      }
+    } else {
+      // Non-streaming response (fallback)
+      const openAIRes = await undiciRequest(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a helpful assistant. Provide direct, concise responses without internal reasoning. Output only the requested content.',
+              },
+              { role: 'user', content: prompt },
+            ],
+            max_tokens: 200,
+            temperature: 0.7,
+          }),
+        }
+      );
+
+      const data = await openAIRes.body.json();
+      const description = data.choices?.[0]?.message?.content?.trim() || '';
+      if (!description) {
+        return res
+          .status(500)
+          .json({ error: 'Failed to generate description.' });
+      }
+      res.json({ description });
     }
-    res.json({ description });
   } catch (error) {
-    console.error('Description generation (stream) error:', error);
+    console.error('Description generation error:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to generate description.' });
     } else {
@@ -290,49 +388,74 @@ app.post('/api/ai/parse-meeting', verifyToken, async (req, res) => {
         .json({ error: 'Meeting description is required.' });
     }
 
-    // Check if OPENROUTER_API_KEY is available
-    if (!process.env.OPENROUTER_API_KEY) {
-      console.error('OPENROUTER_API_KEY not found in environment variables');
+    // Check if OPENAI_API_KEY is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY not found in environment variables');
       return res
         .status(500)
         .json({ error: 'AI service not configured properly.' });
     }
 
+    // Get current date in user's timezone
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     const prompt = `Parse this meeting description into JSON: "${input}" (timezone: ${timezone})
+
+Current date: ${currentDate}
 
 Fill in this exact JSON structure:
 {
-  "title": "meeting title/purpose",
-  "date": "YYYY-MM-DD (convert relative dates like 'tomorrow' to actual date)",
+  "title": "concise meeting title (e.g., 'Team Standup', 'Project Review', 'Client Meeting')",
+  "date": "actual date in YYYY-MM-DD format",
   "time": "HH:MM (24-hour format, e.g., '18:00' for 6pm, '09:00' for 9am)",
   "timezone": "${timezone}",
   "privacy": "public",
-  "description": "brief description",
+  "description": "brief meeting description explaining purpose and key topics",
   "participants": ["email1@example.com", "email2@example.com"],
   "duration": 30,
   "confidence": 0.8
 }
 
 Rules:
-- Convert "tomorrow" to actual date (YYYY-MM-DD)
+- Use the current date (${currentDate}) as reference for calculating relative dates
+- Convert "Monday" to the next Monday from current date
+- Convert "next Monday" to the Monday after the next Monday
+- Convert "tomorrow" to ${
+      new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    }
+- Convert "today" to ${currentDate}
+- If no specific date is mentioned, use today's date (${currentDate})
 - Convert "6pm" to "18:00", "9am" to "09:00" (24-hour format)
 - Extract any email addresses into participants array
-- Set privacy to "private" if input contains "private", "confidential", "internal"
+- Set privacy to "private" if input contains "private", "confidential", "internal" etc.
 - Default duration is 30 minutes
+- NEVER return "YYYY-MM-DD" as literal text - always provide an actual date
+
+Title vs Description:
+- Title: Short, clear meeting name (e.g., "Team Standup", "Project Review")
+- Description: Brief explanation of meeting purpose and key topics (keep it concise)
+- DO NOT put "invite [email]" in description - that goes in participants array
+- DO NOT put "invite [email]" in title - create a proper meeting title
+
+Examples:
+- Input: "Standup for developers and designers and also project managers"
+- Title: "Team Standup"
+- Description: "Daily standup for dev team to discuss progress and blockers"
 
 Return ONLY the JSON object, no other text.`;
 
-    console.log('Calling OpenRouter API...');
-    const openRouterRes = await undiciRequest(
-      'https://openrouter.ai/api/v1/chat/completions',
+    console.log('Calling OpenAI API...');
+    const openAIRes = await undiciRequest(
+      'https://api.openai.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-r1:free',
+          model: 'gpt-3.5-turbo',
           messages: [
             {
               role: 'system',
@@ -342,21 +465,16 @@ Return ONLY the JSON object, no other text.`;
             { role: 'user', content: prompt },
           ],
           max_tokens: 1500,
-          reasoning: {
-            enable: false,
-            max_tokens: 300,
-            exclude: true,
-          },
           temperature: 0,
         }),
       }
     );
 
-    const data = await openRouterRes.body.json();
-    console.log('OpenRouter response:', JSON.stringify(data, null, 2));
+    const data = await openAIRes.body.json();
+    console.log('OpenAI response:', JSON.stringify(data, null, 2));
 
     if (!data.choices || !data.choices[0]) {
-      console.error('No choices in OpenRouter response');
+      console.error('No choices in OpenAI response');
       return res
         .status(500)
         .json({ error: 'Invalid response from AI service.' });
@@ -376,7 +494,7 @@ Return ONLY the JSON object, no other text.`;
     console.log('Response text:', responseText);
 
     if (!responseText) {
-      console.error('No response text from OpenRouter');
+      console.error('No response text from OpenAI');
       return res
         .status(500)
         .json({ error: 'Failed to parse meeting description.' });
