@@ -13,13 +13,13 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
   if (
     !process.env.SMTP_HOST ||
     !process.env.SMTP_USER ||
-    !process.env.SMTP_PASS
+    !process.env.SMTP_PASS ||
+    !process.env.SMTP_FROM
   ) {
     throw new Error('SMTP configuration incomplete');
   }
 
-  // Use hostEmail from request body as the from address
-  const fromEmail = hostEmail || process.env.SMTP_USER;
+  const fromEmail = process.env.SMTP_FROM;
   if (!fromEmail) {
     throw new Error('Host email configuration missing');
   }
@@ -214,9 +214,9 @@ async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
         <div class="email-container">
           <!-- Header -->
           <div class="header-padding">
-            <img src='${
-              process.env.CLIENT_URL
-            }/brand.png' alt='Brand Logo' style='height: 32px; margin-bottom: 8px; max-width: 100%;' />
+            <img src=${
+              process.env.LOGO_URL
+            } alt='Brand Logo' style='height: 32px; margin-bottom: 8px; max-width: 100%;' />
             <h2 class="title-size">You're Invited!</h2>
             <p class="subtitle-size">Join a meeting on MeetLite</p>
           </div>
