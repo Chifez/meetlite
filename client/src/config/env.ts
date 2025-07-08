@@ -9,6 +9,7 @@ export const env = {
   AI_SERVICE_URL: import.meta.env.VITE_AI_SERVICE_URL || '/api/ai',
 
   CALENDAR_API_URL: import.meta.env.VITE_CALENDAR_SERVICE_URL,
+  BASE_URL: import.meta.env.VITE_BASE_URL,
 } as const;
 
 // Type-safe environment variables
