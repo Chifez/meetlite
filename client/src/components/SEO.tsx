@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { env } from '../config/env';
 
 interface SEOProps {
   title?: string;
@@ -12,8 +13,8 @@ export default function SEO({
   title = 'MeetLite - Video Conferencing Made Simple',
   description = 'High-quality video conferencing solution for seamless online meetings and collaboration.',
   keywords = 'video conferencing, online meetings, web conferencing, video chat, remote collaboration',
-  ogImage = '/og-image.png', //
-  ogUrl = 'https://meetlit.netlify.app',
+  ogImage = `${env.BASE_URL}/og-image.png`, //
+  ogUrl = 'https://meetlite.app',
 }: SEOProps) {
   return (
     <Helmet>

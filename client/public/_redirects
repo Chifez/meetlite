@@ -1,1 +1,12 @@
-/* /index.html 200 
+# Prerender bot forwarding rules first
+/*  https://service.prerender.io/https://meetlite.app/:splat 200
+  User-Agent=googlebot
+  User-Agent=bingbot
+  User-Agent=twitterbot
+  User-Agent=linkedinbot
+  User-Agent=slackbot
+  User-Agent=facebookexternalhit
+  User-Agent=whatsapp
+
+# SPA fallback rule for everyone else
+/* /index.html 200
