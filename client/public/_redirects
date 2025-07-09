@@ -1,12 +1,6 @@
-# Prerender bot forwarding rules first
-/*  https://service.prerender.io/https://meetlite.app/:splat 200
-  User-Agent=googlebot
-  User-Agent=bingbot
-  User-Agent=twitterbot
-  User-Agent=linkedinbot
-  User-Agent=slackbot
-  User-Agent=facebookexternalhit
-  User-Agent=whatsapp
+# Prerender.io for bots
+/*  https://service.prerender.io/https://yourdomain.com/:splat  200!  User-Agent: *googlebot*,*bingbot*,*yandex*,*baiduspider*,*facebookexternalhit*,*twitterbot*,*rogerbot*,*linkedinbot*,*embedly*,*quora*,*shouyoubot*,*outbrain*,*pinterest*,*slackbot*,*vkShare*,*W3C_Validator*,*redditbot*,*applebot*,*WhatsApp*
+  X-Prerender-Token: elwxrVHUq7vtEeu820K0
 
 # SPA fallback rule for everyone else
 /* /index.html 200
