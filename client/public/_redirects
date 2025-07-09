@@ -1,6 +1,7 @@
 # Prerender.io for bots
-/*  https://service.prerender.io/https://meetlite.app/:splat  200!  User-Agent: *googlebot*,*bingbot*,*yandex*,*baiduspider*,*facebookexternalhit*,*twitterbot*,*rogerbot*,*linkedinbot*,*embedly*,*quora*,*shouyoubot*,*outbrain*,*pinterest*,*slackbot*,*vkShare*,*W3C_Validator*,*redditbot*,*applebot*,*WhatsApp*
-  X-Prerender-Token: elwxrVHUq7vtEeu820K0
+
+/* https://service.prerender.io/https://meetlite.app/:splat?token=elwxrVHUq7vtEeu820K0 200! User-Agent: *googlebot*,*bingbot*,*yandex*,*baiduspider*,*facebookexternalhit*,*twitterbot*,*rogerbot*,*linkedinbot*,*embedly*,*quora*,*shouyoubot*,*outbrain*,*pinterest*,*slackbot*,*vkShare*,*W3C_Validator*,*redditbot*,*applebot*,*WhatsApp\*
 
 # SPA fallback rule for everyone else
-/* /index.html 200
+
+/\* /index.html 200
