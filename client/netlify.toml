@@ -1,11 +1,4 @@
 [[redirects]]
   from = "/*"
-  to = "https://service.prerender.io/https://meetlite.app/:splat?token=elwxrVHUq7vtEeu820K0"
-  status = 200
-  force = true
-  conditions = {User-Agent = ["*bot*", "*crawler*", "*spider*", "*facebook*", "*twitter*", "*linkedin*"]}
-
-[[redirects]]
-  from = "/*"
   to = "/index.html"
   status = 200
