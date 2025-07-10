@@ -3,6 +3,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { google } from 'googleapis';
+import {
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+  generateResetToken,
+} from '../services/emailService.js';
 const router = express.Router();
 
 // Google OAuth config
@@ -76,6 +81,15 @@ router.post('/signup', async (req, res) => {
     });
 
     await user.save();
+
+    // Send welcome email
+    try {
+      await sendWelcomeEmail(user.email, user.name);
+    } catch (emailError) {
+      console.error('Welcome email error:', emailError);
+      // Log error but don't fail signup - user account is created successfully
+      // The welcome email is a nice-to-have, not critical for account creation
+    }
 
     // Generate token with longer expiration (7 days)
     const token = jwt.sign(
@@ -199,6 +213,8 @@ router.post('/validate', async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
+        name: user.name,
+        useNameInMeetings: user.useNameInMeetings,
       },
       expiresAt: decoded.exp,
     });
@@ -266,6 +282,183 @@ router.get('/google/callback', async (req, res) => {
   } catch (err) {
     console.error('Google OAuth error:', err);
     res.redirect(`${FRONTEND_URL}/login?error=google_oauth_failed`);
+  }
+});
+
+// Forgot password endpoint
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        message:
+          'If an account with that email exists, a password reset link has been sent.',
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateResetToken();
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Save reset token to user
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = resetTokenExpiry;
+    await user.save();
+
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(email, resetToken, user.name);
+    } catch (emailError) {
+      console.error('Password reset email error:', emailError);
+      // Return error if email fails, but don't reveal if user exists
+      return res.status(500).json({
+        message: 'Failed to send password reset email. Please try again later.',
+        error: 'EMAIL_SEND_FAILED',
+      });
+    }
+
+    res.json({
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reset password endpoint
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: 'Token and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    // Find user with valid reset token
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user password and clear reset token
+    user.password = hashedPassword;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update profile endpoint (requires authentication)
+router.put('/profile', async (req, res) => {
+  try {
+    const { name, useNameInMeetings } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user fields
+    if (name !== undefined) {
+      user.name = name.trim();
+    }
+    if (useNameInMeetings !== undefined) {
+      user.useNameInMeetings = useNameInMeetings;
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        useNameInMeetings: user.useNameInMeetings,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get user profile endpoint
+router.get('/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        useNameInMeetings: user.useNameInMeetings,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    console.error('Get profile error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

@@ -19,6 +19,23 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
+  name: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  useNameInMeetings: {
+    type: Boolean,
+    default: false,
+  },
+  resetToken: {
+    type: String,
+    default: null,
+  },
+  resetTokenExpiry: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -1,10 +1,11 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import ThemeToggle from './ThemeToggle';
 import Logo from './Logo';
-import { ArrowRight, ArrowRightIcon, Menu, X } from 'lucide-react';
+import { ArrowRight, Menu, X } from 'lucide-react';
+import UserMenu from './ui/UserMenu';
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -18,11 +19,11 @@ const scrollToSection = (id: string) => {
 };
 
 const Navbar = () => {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isLoginPage = location.pathname === '/login';
   const isLandingPage = location.pathname === '/';
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // Landing page specific state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -33,10 +34,6 @@ const Navbar = () => {
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
-  };
-
-  const closeMainMenu = () => {
-    setMenuOpen(false);
   };
 
   // Landing page navbar design
@@ -131,89 +128,24 @@ const Navbar = () => {
   }
 
   // Main app navbar design
-  return (
-    <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <Logo />
-        </Link>
-
-        {/* Desktop actions */}
-        <div className="hidden md:flex items-center gap-2">
-          <ThemeToggle variant="default" />
-          {isAuthenticated && (
-            <Link to="/meetings">
-              <Button variant="ghost">Meetings</Button>
-            </Link>
-          )}
-          {isAuthenticated ? (
-            <Button variant="ghost" onClick={logout}>
-              Logout
-            </Button>
-          ) : (
-            <Link to={isLoginPage ? '/signup' : '/login'}>
-              <Button className="flex items-center gap-2">
-                {isLoginPage ? 'Sign Up' : 'Login'}
-                <ArrowRightIcon className="w-4 h-4" />
-              </Button>
-            </Link>
-          )}
+  if (isAuthenticated) {
+    return (
+      <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <Logo />
+          </Link>
+          <div className="flex items-center gap-2">
+            <UserMenu
+              onOpenSettings={() =>
+                navigate('?settings=true', { replace: false })
+              }
+            />
+          </div>
         </div>
-
-        {/* Hamburger for mobile */}
-        <button
-          className="md:hidden ml-2 p-2 rounded hover:bg-muted focus:outline-none"
-          onClick={() => setMenuOpen((m) => !m)}
-          aria-label="Open menu"
-        >
-          {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      <div
-        className={`fixed inset-0 z-40 top-16 min-h-screen bg-background/95 flex flex-col items-center justify-center md:hidden transition-all duration-300 ease-in-out ${
-          menuOpen
-            ? 'opacity-100 transform translate-y-0'
-            : 'opacity-0 transform translate-y-4 pointer-events-none'
-        }`}
-      >
-        <div className="flex flex-col gap-4 items-center w-full max-w-xs">
-          <ThemeToggle variant="default" />
-          {isAuthenticated && (
-            <Link to="/meetings" className="w-full" onClick={closeMainMenu}>
-              <Button variant="ghost" className="w-full">
-                Meetings
-              </Button>
-            </Link>
-          )}
-          {isAuthenticated ? (
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                logout();
-                closeMainMenu();
-              }}
-            >
-              Logout
-            </Button>
-          ) : (
-            <Link
-              to={isLoginPage ? '/signup' : '/login'}
-              className="w-full"
-              onClick={closeMainMenu}
-            >
-              <Button className="flex items-center gap-2 w-full">
-                {isLoginPage ? 'Sign Up' : 'Login'}
-                <ArrowRightIcon className="w-4 h-4" />
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
-    </header>
-  );
+      </header>
+    );
+  }
 };
 
 export default Navbar;

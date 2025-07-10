@@ -2,13 +2,19 @@ import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { ReactNode } from 'react';
 
 interface ThemeToggleProps {
   variant?: 'default' | 'landing';
   className?: string;
+  children?: ReactNode;
 }
 
-const ThemeToggle = ({ variant = 'default', className }: ThemeToggleProps) => {
+const ThemeToggle = ({
+  variant = 'default',
+  className,
+  children,
+}: ThemeToggleProps) => {
   const { setTheme, theme } = useTheme();
 
   // Toggle between light and dark
@@ -48,6 +54,7 @@ const ThemeToggle = ({ variant = 'default', className }: ThemeToggleProps) => {
     >
       <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
       <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      {children}
       <span className="sr-only">Toggle theme</span>
     </Button>
   );

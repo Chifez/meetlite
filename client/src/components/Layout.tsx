@@ -5,7 +5,10 @@ const Layout = () => {
   const location = useLocation();
   const isRoomPage = location.pathname.startsWith('/room/');
   const isAuthPage =
-    location.pathname === '/login' || location.pathname === '/signup';
+    location.pathname === '/login' ||
+    location.pathname === '/signup' ||
+    location.pathname === '/forgot-password' ||
+    location.pathname === '/reset-password';
   const shouldShowNavbar = !isRoomPage && !isAuthPage;
 
   return (

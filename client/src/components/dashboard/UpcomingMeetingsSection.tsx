@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { List, Calendar, PlusCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,9 +16,14 @@ export default function UpcomingMeetingsSection({
 }) {
   return (
     <div className="mt-12">
-      <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <List className="h-6 w-6 text-blue-600" /> Upcoming Meetings
-      </h2>
+      <div className="flex justify-between">
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          <List className="h-6 w-6 text-blue-600" /> Upcoming Meetings
+        </h2>
+        <Link to="/meetings" className="underline text-primary">
+          <p>See all</p>
+        </Link>
+      </div>
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8">

@@ -9,6 +9,8 @@ import Cookies from 'js-cookie';
 type User = {
   id: string;
   email: string;
+  name?: string;
+  useNameInMeetings?: boolean;
 };
 
 type AuthContextType = {
@@ -19,6 +21,7 @@ type AuthContextType = {
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
   validateToken: () => Promise<boolean>;
+  updateUser: (userData: Partial<User>) => void;
   redirectTo: string | null;
   setRedirectTo: (url: string | null) => void;
 };
@@ -26,6 +29,8 @@ type AuthContextType = {
 type TokenPayload = {
   userId: string;
   email: string;
+  name?: string;
+  useNameInMeetings?: boolean;
   exp: number;
 };
 
@@ -38,6 +43,7 @@ export const AuthContext = createContext<AuthContextType>({
   signup: async () => {},
   logout: () => {},
   validateToken: async () => false,
+  updateUser: () => {},
   redirectTo: null,
   setRedirectTo: () => {},
 });
@@ -47,6 +53,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  // Update user function
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...userData });
+    }
+  };
 
   // Validate token with server
   const validateToken = async (): Promise<boolean> => {
@@ -58,7 +71,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         token,
       });
       if (response.data.valid) {
-        setUser(response.data.user);
+        setUser({
+          id: response.data.user.id,
+          email: response.data.user.email,
+          name: response.data.user.name,
+          useNameInMeetings: response.data.user.useNameInMeetings,
+        });
         return true;
       }
     } catch (error) {
@@ -93,6 +111,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser({
             id: decodedToken.userId,
             email: decodedToken.email,
+            name: decodedToken.name,
+            useNameInMeetings: decodedToken.useNameInMeetings,
           });
         }
       } catch (error) {
@@ -123,6 +143,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser({
         id: decodedToken.userId,
         email: decodedToken.email,
+        name: decodedToken.name,
+        useNameInMeetings: decodedToken.useNameInMeetings,
       });
 
       toast.success('Success', {
@@ -152,6 +174,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser({
         id: decodedToken.userId,
         email: decodedToken.email,
+        name: decodedToken.name,
+        useNameInMeetings: decodedToken.useNameInMeetings,
       });
 
       toast.success('Success', {
@@ -186,6 +210,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signup,
         logout,
         validateToken,
+        updateUser,
         redirectTo,
         setRedirectTo,
       }}

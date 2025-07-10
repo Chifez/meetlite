@@ -11,6 +11,7 @@ import QuickActions from '@/components/dashboard/QuickActions';
 import UpcomingMeetingsSection from '@/components/dashboard/UpcomingMeetingsSection';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import SmartSchedulingModal from '@/components/dashboard/SmartSchedulingModal';
+import SettingsModal from '@/components/dashboard/SettingsModal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import { useMeetingsStore, useUIStore } from '@/stores';
 
@@ -30,6 +31,7 @@ const Dashboard = () => {
 
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
+  const showSettingsModal = searchParams.get('settings') === 'true';
 
   // Handle OAuth callback
   // useEffect(() => {
@@ -71,6 +73,10 @@ const Dashboard = () => {
   };
 
   const closeScheduleModal = () => {
+    setSearchParams({});
+  };
+
+  const closeSettingsModal = () => {
     setSearchParams({});
   };
 
@@ -139,6 +145,10 @@ const Dashboard = () => {
         onRemoveParticipant={removeParticipant}
         onSubmit={submitForm}
         onCancel={closeScheduleModal}
+      />
+      <SettingsModal
+        open={showSettingsModal}
+        onOpenChange={(open) => !open && closeSettingsModal()}
       />
       <DashboardLayout>
         <WelcomeHeader user={user ?? undefined} />
