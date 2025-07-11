@@ -116,12 +116,11 @@ export const useChat = ({ socket, roomId }: UseChatProps) => {
 
     const handleTypingStart = (data: { userId: string; userEmail: string }) => {
       if (data.userId === currentUser.id) return;
-
       setChatState((prev) => ({
         ...prev,
         isTyping: {
           ...prev.isTyping,
-          [data.userId]: true,
+          [data.userId]: data.userEmail,
         },
       }));
     };
@@ -131,7 +130,7 @@ export const useChat = ({ socket, roomId }: UseChatProps) => {
         ...prev,
         isTyping: {
           ...prev.isTyping,
-          [data.userId]: false,
+          [data.userId]: undefined,
         },
       }));
     };
@@ -141,7 +140,7 @@ export const useChat = ({ socket, roomId }: UseChatProps) => {
         ...prev,
         isTyping: {
           ...prev.isTyping,
-          [userId]: false,
+          [userId]: undefined,
         },
       }));
     };

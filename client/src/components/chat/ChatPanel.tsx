@@ -36,8 +36,8 @@ export const ChatPanel = ({
   const memoizedValues = useMemo(() => {
     // Get typing users (exclude current user)
     const typingUsers = Object.entries(chatState.isTyping)
-      .filter(([userId, isTyping]) => isTyping && userId !== user?.id)
-      .map(([userId]) => userId);
+      .filter(([userId, email]) => email && userId !== user?.id)
+      .map(([_, email]) => email as string);
 
     // Group consecutive messages from the same user
     const groupedMessages: Array<{

@@ -11,7 +11,7 @@ export interface ChatState {
   messages: ChatMessage[];
   isOpen: boolean;
   unreadCount: number;
-  isTyping: Record<string, boolean>; // userId -> isTyping
+  isTyping: Record<string, string | undefined>; // userId -> userEmail (if typing)
 }
 
 export interface ChatContextType {
