@@ -61,6 +61,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Helper to fetch latest user profile
+  const fetchUserProfile = async (token: string) => {
+    try {
+      const response = await api.get(`${env.AUTH_API_URL}/auth/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const profile = response.data.user;
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        useNameInMeetings: profile.useNameInMeetings,
+      });
+    } catch (error) {
+      // fallback: clear user if profile fetch fails
+      setUser(null);
+    }
+  };
+
   // Validate token with server
   const validateToken = async (): Promise<boolean> => {
     const token = Cookies.get('token');
@@ -71,12 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         token,
       });
       if (response.data.valid) {
-        setUser({
-          id: response.data.user.id,
-          email: response.data.user.email,
-          name: response.data.user.name,
-          useNameInMeetings: response.data.user.useNameInMeetings,
-        });
+        // Fetch latest profile after validation
+        await fetchUserProfile(token);
         return true;
       }
     } catch (error) {
@@ -107,13 +122,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(null);
           }
         } else {
-          // Valid token
-          setUser({
-            id: decodedToken.userId,
-            email: decodedToken.email,
-            name: decodedToken.name,
-            useNameInMeetings: decodedToken.useNameInMeetings,
-          });
+          // Valid token, fetch latest profile
+          await fetchUserProfile(token);
         }
       } catch (error) {
         // Invalid token
@@ -138,14 +148,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { token } = response.data;
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
 
-      // Decode token
-      const decodedToken = jwtDecode<TokenPayload>(token);
-      setUser({
-        id: decodedToken.userId,
-        email: decodedToken.email,
-        name: decodedToken.name,
-        useNameInMeetings: decodedToken.useNameInMeetings,
-      });
+      // Fetch latest profile after login
+      await fetchUserProfile(token);
 
       toast.success('Success', {
         description: 'You have successfully logged in',
@@ -169,14 +173,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { token } = response.data;
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
 
-      // Decode token
-      const decodedToken = jwtDecode<TokenPayload>(token);
-      setUser({
-        id: decodedToken.userId,
-        email: decodedToken.email,
-        name: decodedToken.name,
-        useNameInMeetings: decodedToken.useNameInMeetings,
-      });
+      // Fetch latest profile after signup
+      await fetchUserProfile(token);
 
       toast.success('Success', {
         description: 'Account created successfully',
