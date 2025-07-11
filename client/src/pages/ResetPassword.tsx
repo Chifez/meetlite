@@ -87,7 +87,7 @@ const ResetPassword = () => {
     try {
       await api.post(`${env.AUTH_API_URL}/auth/reset-password`, {
         token,
-        password: data.password,
+        newPassword: data.password,
       });
 
       toast.success('Password reset successfully', {

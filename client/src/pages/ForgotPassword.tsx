@@ -16,7 +16,7 @@ import AuthWrapper from '@/components/AuthWrapper';
 import { env } from '@/config/env';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import api from '@/lib/axios';
 
 const forgotPasswordSchema = z.object({
@@ -65,12 +65,13 @@ const ForgotPassword = () => {
             <p className="text-sm text-muted-foreground">
               Didn't receive the email? Check your spam folder
             </p>
-            <div className="flex items-between">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-sm text-primary">
+                <ArrowLeft strokeWidth={1.75} size={16} />
                 <Link to="/login" className="text-primary font-medium">
                   Back to sign in
                 </Link>
-              </p>
+              </div>
 
               <Button
                 variant="link"

@@ -231,6 +231,31 @@ router.post('/validate', async (req, res) => {
   }
 });
 
+// Validate reset token endpoint
+router.post('/validate-reset-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res
+        .status(400)
+        .json({ valid: false, message: 'Token is required' });
+    }
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() },
+    });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ valid: false, message: 'Invalid or expired reset token' });
+    }
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('Validate reset token error:', error);
+    res.status(500).json({ valid: false, message: 'Server error' });
+  }
+});
+
 // Step 1: Redirect to Google
 router.get('/google', (req, res) => {
   const googleClient = createGoogleClient();
