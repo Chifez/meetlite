@@ -32,13 +32,18 @@ router.get('/:roomId', async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
-    // Check if user is the room creator
+    // If the user is the room creator, allow access
     if (room.createdBy === req.user.userId) {
       return res.json(room);
     }
 
-    // Check if user has access through a meeting
+    // If the room is not associated with a Meeting, allow any authenticated user to join (instant meeting)
     const meeting = await Meeting.findOne({ roomId: req.params.roomId });
+    if (!meeting) {
+      return res.json(room);
+    }
+
+    // Check if user has access through a meeting
     if (meeting) {
       // If meeting is public, allow access
       if (meeting.privacy === 'public') {
