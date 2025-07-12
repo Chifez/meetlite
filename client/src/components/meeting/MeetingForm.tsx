@@ -65,6 +65,24 @@ const MeetingForm = ({
     if (propTimezone && propTimezone !== timezone) setTimezone(propTimezone);
   }, [propTimezone]);
 
+  // Parse 24-hour time from formData.time and update display state
+  useEffect(() => {
+    if (formData.time && formData.time.match(/^\d{2}:\d{2}$/)) {
+      const [hours, minutes] = formData.time.split(':').map(Number);
+      const isPM = hours >= 12;
+      const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+
+      setHour(displayHour.toString());
+      setMinute(minutes.toString().padStart(2, '0'));
+      setAmPm(isPM ? 'PM' : 'AM');
+      setDisplayTime(
+        `${displayHour}:${minutes.toString().padStart(2, '0')} ${
+          isPM ? 'PM' : 'AM'
+        }`
+      );
+    }
+  }, [formData.time]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit();

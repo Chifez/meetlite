@@ -6,6 +6,7 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import jwt from 'jsonwebtoken';
 import { oauthTemplates } from './templates/oauthPage.js';
 import mongoose from 'mongoose';
+import { SMART_SCHEDULING_CONFIG } from './config/smartScheduling.js';
 
 dotenv.config();
 
@@ -40,16 +41,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI // Hardcode for now to ensure it's correct
 );
 
-// Debug: Log the redirect URI being used
-console.log('OAuth2 Client configured with:');
-console.log('- Client ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'NOT SET');
-console.log(
-  '- Client Secret:',
-  process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'NOT SET'
-);
-console.log(
-  '- Redirect URI: http://localhost:5004/api/calendar/google/callback'
-);
+// OAuth2 Client configured
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -85,25 +77,11 @@ const userTokens = new Map();
 app.get('/api/calendar/google/callback', async (req, res) => {
   const { code, state: userId } = req.query;
 
-  console.log('OAuth callback received:', {
-    code: !!code,
-    userId,
-    hasState: !!req.query.state,
-  });
-
   try {
     const { tokens } = await oauth2Client.getToken(code);
 
-    console.log('Tokens received:', {
-      hasAccessToken: !!tokens.access_token,
-      hasRefreshToken: !!tokens.refresh_token,
-    });
-
     // Store tokens for the user (in production, save to database)
     userTokens.set(userId, tokens);
-
-    console.log('Tokens stored for user:', userId);
-    console.log('Current userTokens size:', userTokens.size);
 
     // Send success page that closes the popup
     res.send(oauthTemplates.googleSuccess());
@@ -119,16 +97,6 @@ app.post('/api/calendar/connect/google', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id; // From JWT token
 
-    // Debug: Check if user is properly authenticated
-    console.log('req.user:', req.user);
-    console.log('req.user.id:', req.user?.id);
-    console.log('User ID for OAuth state:', userId);
-
-    // Debug: Log the OAuth2 client configuration
-    console.log('OAuth2 Client details:');
-    console.log('- Redirect URI:', oauth2Client.redirectUri);
-    console.log('- Client ID:', oauth2Client._clientId);
-
     // Generate OAuth URL for Google Calendar
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -140,13 +108,9 @@ app.post('/api/calendar/connect/google', verifyToken, async (req, res) => {
       state: userId, // Pass user ID in state for callback
     });
 
-    // Debug: Log the generated auth URL
-    console.log('Generated OAuth URL:', authUrl);
-
     // Validate the URL
     try {
       new URL(authUrl);
-      console.log('URL is valid');
     } catch (urlError) {
       console.error('Generated URL is invalid:', urlError);
       throw new Error('Invalid OAuth URL generated');
@@ -210,7 +174,6 @@ app.post('/api/calendar/import', verifyToken, async (req, res) => {
         location: event.location,
         source: 'google',
       }));
-      console.log('events', events);
       res.json(events);
     } else if (calendarType === 'outlook') {
       if (!accessToken) {
@@ -313,18 +276,114 @@ app.post('/api/calendar/export', verifyToken, async (req, res) => {
 app.post('/api/calendar/conflicts', verifyToken, async (req, res) => {
   try {
     const { startDate, endDate, attendees } = req.body;
+    const userId = req.user.id;
 
-    // Check for conflicts in connected calendars
-    // This is a simplified version - you'd want to check all connected calendars
+    // Check if user has Google Calendar connected
+    const hasGoogleToken = userTokens.has(userId);
 
+    if (!hasGoogleToken) {
+      return res.json({
+        conflicts: [],
+        availableSlots: [
+          { start: new Date(startDate), end: new Date(endDate) },
+        ],
+      });
+    }
+
+    // Get Google Calendar events for the time range
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+
+    const tokens = userTokens.get(userId);
+    oauth2Client.setCredentials(tokens);
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    // Fetch events from Google Calendar
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startDate,
+      timeMax: endDate,
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    const events = response.data.items || [];
+
+    // Check for conflicts
     const conflicts = [];
-    const availableSlots = [
-      { start: new Date(startDate), end: new Date(endDate) },
-    ];
+    const requestedStart = new Date(startDate);
+    const requestedEnd = new Date(endDate);
+
+    events.forEach((event) => {
+      const eventStart = new Date(event.start.dateTime || event.start.date);
+      const eventEnd = new Date(event.end.dateTime || event.end.date);
+
+      // Check for overlap
+      const hasConflict =
+        (requestedStart < eventEnd && requestedEnd > eventStart) ||
+        (eventStart < requestedEnd && eventEnd > requestedStart);
+
+      if (hasConflict) {
+        conflicts.push({
+          id: event.id,
+          title: event.summary || 'Untitled Event',
+          start: eventStart,
+          end: eventEnd,
+          description: event.description,
+          attendees: event.attendees?.map((a) => a.email) || [],
+          location: event.location,
+          source: 'google',
+        });
+      }
+    });
+
+    // Generate available slots (simplified - just suggest the original time if no conflicts)
+    const availableSlots =
+      conflicts.length === 0
+        ? [{ start: requestedStart, end: requestedEnd }]
+        : [];
+
+    // Generate alternative slots if there are conflicts
+    if (conflicts.length > 0) {
+      const alternatives = [];
+      const baseTime = requestedStart;
+
+      // Suggest alternatives using configured offsets
+      const timeOffsets = [
+        SMART_SCHEDULING_CONFIG.ALTERNATIVE_OFFSETS.SHORT,
+        SMART_SCHEDULING_CONFIG.ALTERNATIVE_OFFSETS.MEDIUM,
+        SMART_SCHEDULING_CONFIG.ALTERNATIVE_OFFSETS.LONG,
+      ];
+
+      timeOffsets.forEach((offsetMinutes) => {
+        const newTime = new Date(
+          baseTime.getTime() + offsetMinutes * 60 * 1000
+        );
+        const newEnd = new Date(
+          newTime.getTime() +
+            (requestedEnd.getTime() - requestedStart.getTime())
+        );
+
+        // Only add if it's within business hours
+        const hour = newTime.getHours();
+        if (SMART_SCHEDULING_CONFIG.isBusinessHours(hour)) {
+          alternatives.push({
+            start: newTime,
+            end: newEnd,
+          });
+        }
+      });
+
+      availableSlots.push(...alternatives);
+    }
 
     res.json({ conflicts, availableSlots });
   } catch (error) {
-    console.error('Conflict check error:', error);
+    console.error('❌ Calendar conflict check error:', error);
     res.status(500).json({ error: 'Failed to check calendar conflicts' });
   }
 });
@@ -334,14 +393,8 @@ app.get('/api/calendar/connected', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    console.log('Checking connected calendars for user:', userId);
-
     // Check if user has stored tokens
     const hasGoogleToken = userTokens.has(userId);
-
-    console.log('Has Google token:', hasGoogleToken);
-    console.log('Current userTokens size:', userTokens.size);
-    console.log('UserTokens keys:', Array.from(userTokens.keys()));
 
     // This would typically fetch from database
     // For now, return mock connected calendars
@@ -354,7 +407,6 @@ app.get('/api/calendar/connected', verifyToken, async (req, res) => {
         lastSync: hasGoogleToken ? new Date() : null,
       },
     ];
-    console.log('Returning connected calendars:', connectedCalendars);
     res.json(connectedCalendars);
   } catch (error) {
     console.error('Get connected calendars error:', error);

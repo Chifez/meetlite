@@ -44,10 +44,11 @@ export const useCalendarIntegration = () => {
   // Check if user is connected to a specific calendar
   const isConnected = useCallback(
     (calendarType: 'google') => {
-      return integrations.some(
+      const connected = integrations.some(
         (integration) =>
           integration.type === calendarType && integration.isConnected
       );
+      return connected;
     },
     [integrations]
   );
@@ -72,7 +73,6 @@ export const useCalendarIntegration = () => {
       setIntegrations(response.data);
       return response.data;
     } catch (error) {
-      console.error('Get connected calendars error:', error);
       return [];
     }
   }, []);
@@ -124,7 +124,6 @@ export const useCalendarIntegration = () => {
         setImportError(null);
         setImportedEvents([]);
 
-        console.log('url', env.CALENDAR_API_URL);
         const response = await api.post(
           `${env.CALENDAR_API_URL}/api/calendar/import`,
           {

@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
-import { Loader2, Sparkles, Calendar } from 'lucide-react';
+import { Loader2, Sparkles, Calendar, AlertTriangle } from 'lucide-react';
 import MeetingForm from '@/components/meeting/MeetingForm';
 import { MeetingFormData } from '@/lib/types';
-import { useSmartScheduling } from '@/hooks/useSmartScheduling';
+import { useEnhancedSmartScheduling } from '@/hooks/useEnhancedSmartScheduling';
+import ConflictResolutionModal from '@/components/scheduling/ConflictResolutionModal';
 
 interface SmartSchedulingModalProps {
   open: boolean;
@@ -47,75 +48,120 @@ export default function SmartSchedulingModal({
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('');
   const [parseConfidence, setParseConfidence] = useState<number | null>(null);
   const [timezone, setTimezone] = useState('Africa/Lagos');
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictData, setConflictData] = useState<{
+    parsedData: any;
+    conflictCheck: any;
+  } | null>(null);
 
   const {
     isProcessing,
-    parsingError,
-    setParsingError,
-    parseNaturalLanguage,
+    error: parsingError,
+    result: conflictResult,
+    smartSchedule,
     populateFormData,
-  } = useSmartScheduling();
+    clearResult,
+  } = useEnhancedSmartScheduling();
 
   const handleSmartProcessing = async () => {
     if (!naturalLanguageInput.trim()) {
-      setParsingError('Please describe your meeting');
       return;
     }
 
-    setParsingError(null);
     setParseConfidence(null);
+    clearResult();
 
     try {
-      // Parse natural language
-      const parsedData = await parseNaturalLanguage(naturalLanguageInput);
+      console.log('🚀 Starting enhanced smart scheduling...');
+
+      // Use enhanced smart scheduling
+      const { parsedData, conflictCheck } = await smartSchedule(
+        naturalLanguageInput
+      );
+
       if (!parsedData) return;
+
       setParseConfidence(parsedData.confidence);
 
-      // Pre-populate form data
-      const formDataUpdate = populateFormData(parsedData);
-
-      // Update form fields
-      Object.entries(formDataUpdate).forEach(([key, value]) => {
-        if (key === 'date' && value) {
-          onDateChange(value);
-        } else if (key === 'time' && typeof value === 'string') {
-          // Set the time in 24-hour format (what the form expects)
-          onTimeChange({ target: { name: 'time', value } } as any);
-        } else if (key === 'privacy' && value) {
-          onPrivacyChange(value);
-        } else if (key === 'participants' && Array.isArray(value)) {
-          value.forEach((email) => {
-            onParticipantInput({
-              target: { name: 'participantInput', value: email },
-            } as any);
-          });
-        } else if (key !== 'participants') {
-          onInputChange({ target: { name: key, value } } as any);
-        }
-      });
-      if (parsedData.timezone) {
-        setTimezone(parsedData.timezone);
+      // Check if there are conflicts
+      if (conflictCheck && !conflictCheck.isAvailable) {
+        console.log('⚠️ Conflicts detected, showing conflict modal');
+        setConflictData({ parsedData, conflictCheck });
+        setShowConflictModal(true);
+        return;
       }
-      setActiveTab('manual');
+
+      // No conflicts, proceed with form population
+      console.log('✅ No conflicts, populating form');
+      await populateFormWithData(parsedData);
     } catch (error) {
       console.error('Smart processing error:', error);
-      setParsingError(
-        'Failed to process your request. Please try again or use manual input.'
-      );
     }
+  };
+
+  const populateFormWithData = async (parsedData: any) => {
+    // Pre-populate form data
+    const formDataUpdate = populateFormData(parsedData);
+
+    // Update form fields
+    Object.entries(formDataUpdate).forEach(([key, value]) => {
+      if (key === 'date' && value) {
+        onDateChange(value);
+      } else if (key === 'time' && typeof value === 'string') {
+        // Set the time in 24-hour format (what the form expects)
+        onTimeChange({ target: { name: 'time', value } } as any);
+      } else if (key === 'privacy' && value) {
+        onPrivacyChange(value);
+      } else if (key === 'participants' && Array.isArray(value)) {
+        value.forEach((email) => {
+          onParticipantInput({
+            target: { name: 'participantInput', value: email },
+          } as any);
+        });
+      } else if (key !== 'participants') {
+        onInputChange({ target: { name: key, value } } as any);
+      }
+    });
+
+    if (parsedData.timezone) {
+      setTimezone(parsedData.timezone);
+    }
+    setActiveTab('manual');
+  };
+
+  const handleSelectAlternative = async (slot: any) => {
+    if (!conflictData) return;
+
+    // Create new parsed data with alternative time
+    const updatedParsedData = {
+      ...conflictData.parsedData,
+      date: slot.date,
+      time: slot.time,
+    };
+
+    await populateFormWithData(updatedParsedData);
+    setShowConflictModal(false);
+    setConflictData(null);
+  };
+
+  const handleProceedAnyway = async () => {
+    if (!conflictData) return;
+
+    await populateFormWithData(conflictData.parsedData);
+    setShowConflictModal(false);
+    setConflictData(null);
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setParsingError(null);
   };
 
   const resetModal = () => {
     setActiveTab('smart');
     setNaturalLanguageInput('');
     setParseConfidence(null);
-    setParsingError(null);
     setTimezone('Africa/Lagos');
+    clearResult();
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -253,6 +299,27 @@ export default function SmartSchedulingModal({
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Conflict Resolution Modal */}
+      {conflictData && (
+        <ConflictResolutionModal
+          open={showConflictModal}
+          onOpenChange={setShowConflictModal}
+          conflictCheck={conflictData.conflictCheck}
+          originalMeeting={{
+            title: conflictData.parsedData.title,
+            date: conflictData.parsedData.date,
+            time: conflictData.parsedData.time,
+            duration: conflictData.parsedData.duration,
+          }}
+          onSelectAlternative={handleSelectAlternative}
+          onProceedAnyway={handleProceedAnyway}
+          onCancel={() => {
+            setShowConflictModal(false);
+            setConflictData(null);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
