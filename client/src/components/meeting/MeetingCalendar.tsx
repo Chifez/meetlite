@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Lock, Users, CalendarDays } from 'lucide-react';
+import useResponsiveCalendar from '@/hooks/useReponsiveCalendar';
 
 function CustomToolbar({ label, onNavigate, onView, view }: any) {
   return (
@@ -89,20 +90,7 @@ export default function MeetingCalendar({
     [meetings]
   );
 
-  // Responsive view mode
-  const [calendarView, setCalendarView] = useState<View>(Views.WEEK);
-  useEffect(() => {
-    const checkView = () => {
-      if (window.matchMedia('(max-width: 768px)').matches) {
-        setCalendarView(Views.DAY);
-      } else {
-        setCalendarView(Views.WEEK);
-      }
-    };
-    checkView();
-    window.addEventListener('resize', checkView);
-    return () => window.removeEventListener('resize', checkView);
-  }, []);
+  const { calendarView, setCalendarView } = useResponsiveCalendar();
 
   // Dialog state for event details
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
@@ -176,7 +164,7 @@ export default function MeetingCalendar({
           <div className="mb-2 text-gray-700">
             {selectedEvent?.resource?.description}
           </div>
-          <div className="mb-2 text-sm text-gray-500 flex items-center gap-2">
+          <div className="mb-2 text-sm text-gray-500 flex flex-wrap items-center gap-2">
             <CalendarDays className="inline h-4 w-4 mr-1 text-blue-400" />
             {selectedEvent?.start
               ? format(selectedEvent.start, 'MMM,dd yyyy hh:mm a')

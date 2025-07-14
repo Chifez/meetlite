@@ -20,7 +20,7 @@ export const ChatInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const handleSendMessage = useCallback(() => {
+  const handleSendMessage = () => {
     if (!message.trim() || disabled) return;
 
     onSendMessage(message);
@@ -36,69 +36,53 @@ export const ChatInput = ({
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-  }, [message, disabled, onSendMessage, onTypingStop, isTyping]);
+  };
 
-  const handleInputChange = useCallback(
-    (value: string) => {
-      setMessage(value);
+  const handleInputChange = (value: string) => {
+    setMessage(value);
 
-      // Handle typing indicators
-      if (value.trim() && !isTyping) {
-        setIsTyping(true);
-        onTypingStart();
-      }
+    // Handle typing indicators
+    if (value.trim() && !isTyping) {
+      setIsTyping(true);
+      onTypingStart();
+    }
 
-      // Clear existing timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
-      // Set new timeout to stop typing
-      if (value.trim()) {
-        typingTimeoutRef.current = setTimeout(() => {
-          setIsTyping(false);
-          onTypingStop();
-        }, 1000);
-      } else if (isTyping) {
+    // Set new timeout to stop typing
+    if (value.trim()) {
+      typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
         onTypingStop();
-      }
-    },
-    [isTyping, onTypingStart, onTypingStop]
-  );
+      }, 1000);
+    } else if (isTyping) {
+      setIsTyping(false);
+      onTypingStop();
+    }
+  };
 
-  const handleKeyPress = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
-    },
-    [handleSendMessage]
-  );
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
-  const addEmoji = useCallback(
-    (emoji: string) => {
-      const newMessage = message + emoji;
-      setMessage(newMessage);
-      setShowEmojiPicker(false);
-      inputRef.current?.focus();
-    },
-    [message]
-  );
+  const addEmoji = (emoji: string) => {
+    const newMessage = message + emoji;
+    setMessage(newMessage);
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
+  };
 
-  const handleEmojiToggle = useCallback(() => {
+  const handleEmojiToggle = () => {
     setShowEmojiPicker((prev) => !prev);
-  }, []);
+  };
 
   // Cleanup typing timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div className="relative border-t bg-background p-4">

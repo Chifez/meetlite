@@ -57,16 +57,6 @@ export default function SettingsModal({
     },
   });
 
-  // Update form when user data changes
-  useEffect(() => {
-    if (user) {
-      form.reset({
-        name: user.name || '',
-        useNameInMeetings: user.useNameInMeetings || false,
-      });
-    }
-  }, [user, form]);
-
   const onSubmit = async (data: SettingsFormValues) => {
     setIsLoading(true);
     try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { MeetingFormData } from '@/lib/types';
 import { toast } from 'sonner';
@@ -33,6 +33,31 @@ const INVITE_METHODS = [
   { value: 'twitter', label: 'Twitter', disabled: true },
 ];
 
+// Utility function to parse 24-hour time to 12-hour format
+const parseTimeTo12Hour = (timeString: string) => {
+  if (!timeString || !timeString.match(/^\d{2}:\d{2}$/)) {
+    return {
+      hour: '',
+      minute: '',
+      ampm: 'AM' as 'AM' | 'PM',
+      displayTime: '',
+    };
+  }
+
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const isPM = hours >= 12;
+  const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+
+  return {
+    hour: displayHour.toString(),
+    minute: minutes.toString().padStart(2, '0'),
+    ampm: (isPM ? 'PM' : 'AM') as 'AM' | 'PM',
+    displayTime: `${displayHour}:${minutes.toString().padStart(2, '0')} ${
+      isPM ? 'PM' : 'AM'
+    }`,
+  };
+};
+
 const MeetingForm = ({
   formData,
   loading,
@@ -51,37 +76,35 @@ const MeetingForm = ({
   const [inviteMethod, setInviteMethod] = useState('email');
   const [timezone, setTimezone] = useState(propTimezone || 'Africa/Lagos');
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
-  const [hour, setHour] = useState('');
-  const [minute, setMinute] = useState('');
-  const [ampm, setAmPm] = useState<'AM' | 'PM'>('AM');
   const [inviteInput, setInviteInput] = useState('');
-  const [displayTime, setDisplayTime] = useState('');
-  const [currentDescription, setCurrentDescription] = useState('');
-
+  const [editingTime, setEditingTime] = useState({
+    hour: '',
+    minute: '',
+    ampm: 'AM' as 'AM' | 'PM',
+  });
   const { streamDescription, generateDescriptionNonStreaming } =
     useStreamingAI();
 
-  useEffect(() => {
-    if (propTimezone && propTimezone !== timezone) setTimezone(propTimezone);
-  }, [propTimezone]);
-
-  // Parse 24-hour time from formData.time and update display state
-  useEffect(() => {
-    if (formData.time && formData.time.match(/^\d{2}:\d{2}$/)) {
-      const [hours, minutes] = formData.time.split(':').map(Number);
-      const isPM = hours >= 12;
-      const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-
-      setHour(displayHour.toString());
-      setMinute(minutes.toString().padStart(2, '0'));
-      setAmPm(isPM ? 'PM' : 'AM');
-      setDisplayTime(
-        `${displayHour}:${minutes.toString().padStart(2, '0')} ${
-          isPM ? 'PM' : 'AM'
-        }`
-      );
-    }
+  // Derived state for time parsing - replaces the useEffect
+  const timeData = useMemo(() => {
+    return parseTimeTo12Hour(formData.time);
   }, [formData.time]);
+
+  const { hour, minute, ampm, displayTime } = timeData;
+
+  // Local state for time input - only used during editing
+
+  // Update editing time when popover opens - this is the proper pattern
+  const handleTimePopoverOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        // Sync editing state with current form data when popover opens
+        setEditingTime({ hour, minute, ampm });
+      }
+      setTimePopoverOpen(open);
+    },
+    [hour, minute, ampm]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,127 +116,140 @@ const MeetingForm = ({
       if (
         /^\d{0,2}$/.test(value) &&
         ((+value >= 1 && +value <= 12) || value === '')
-      )
-        setHour(value);
+      ) {
+        setEditingTime((prev) => ({ ...prev, hour: value }));
+      }
     } else {
       if (
         /^\d{0,2}$/.test(value) &&
         ((+value >= 0 && +value <= 59) || value === '')
-      )
-        setMinute(value);
+      ) {
+        setEditingTime((prev) => ({ ...prev, minute: value }));
+      }
     }
   };
 
-  const handleTimeConfirm = () => {
-    if (!hour || !minute) return;
-    const h = ampm === 'PM' ? (parseInt(hour) % 12) + 12 : parseInt(hour) % 12;
-    const formatted = `${h.toString().padStart(2, '0')}:${minute.padStart(
+  const handleTimeConfirm = useCallback(() => {
+    const { hour: editHour, minute: editMinute, ampm: editAmpm } = editingTime;
+
+    if (!editHour || !editMinute) return;
+
+    const h =
+      editAmpm === 'PM'
+        ? (parseInt(editHour) % 12) + 12
+        : parseInt(editHour) % 12;
+    const formatted = `${h.toString().padStart(2, '0')}:${editMinute.padStart(
       2,
       '0'
     )}`;
-    const displayFormatted = `${hour}:${minute.padStart(2, '0')} ${ampm}`;
 
     onTimeChange({ target: { name: 'time', value: formatted } } as any);
-    setDisplayTime(displayFormatted);
     setTimePopoverOpen(false);
+  }, [editingTime, onTimeChange]);
+
+  const handleInviteInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInviteInput(e.target.value);
   };
 
-  const handleInviteInput = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setInviteInput(e.target.value);
-
-  const handleInviteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && inviteInput.trim()) {
-      e.preventDefault();
-      if (inviteMethod === 'email') {
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(inviteInput.trim())) {
-          toast.error('Please enter a valid email address');
-          return;
-        }
-        onParticipantInput({
-          target: { name: 'participantInput', value: inviteInput },
-        } as any);
-      } else if (inviteMethod === 'whatsapp') {
-        if (/^\d{7,15}$/.test(inviteInput.replace(/\D/g, ''))) {
+  const handleInviteKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && inviteInput.trim()) {
+        e.preventDefault();
+        if (inviteMethod === 'email') {
+          // Email validation
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(inviteInput.trim())) {
+            toast.error('Please enter a valid email address');
+            return;
+          }
           onParticipantInput({
             target: { name: 'participantInput', value: inviteInput },
           } as any);
-        } else {
-          toast.error('Please enter a valid WhatsApp number');
-          return;
+        } else if (inviteMethod === 'whatsapp') {
+          if (/^\d{7,15}$/.test(inviteInput.replace(/\D/g, ''))) {
+            onParticipantInput({
+              target: { name: 'participantInput', value: inviteInput },
+            } as any);
+          } else {
+            toast.error('Please enter a valid WhatsApp number');
+            return;
+          }
         }
+        setInviteInput('');
       }
-      setInviteInput('');
-    }
-  };
+    },
+    [inviteInput, inviteMethod, onParticipantInput]
+  );
 
-  const handleGenerateDescription = async () => {
+  const handleGenerateDescription = useCallback(async () => {
     if (!formData.title || !formData.title.trim()) {
       toast.error('Please enter a meeting title first.');
       return;
     }
 
-    setCurrentDescription('');
+    let accumulatedContent = '';
+
+    const updateDescription = (content: string) => {
+      onInputChange({
+        target: { name: 'description', value: content },
+      } as any);
+    };
+
+    const handleContent = (content: string) => {
+      accumulatedContent += content;
+      updateDescription(accumulatedContent);
+    };
+
+    const handleComplete = (fullContent: string) => {
+      accumulatedContent = fullContent;
+      updateDescription(fullContent);
+      toast.success('Description generated successfully!');
+    };
+
+    const handleError = async (error: string) => {
+      console.warn('Streaming failed, falling back to non-streaming:', error);
+      try {
+        const description = await generateDescriptionNonStreaming(
+          formData.title
+        );
+        if (description) {
+          accumulatedContent = description;
+          updateDescription(description);
+          toast.success('Description generated successfully!');
+        } else {
+          toast.error('No description returned from AI.');
+        }
+      } catch (fallbackError) {
+        toast.error(`Failed to generate description: ${fallbackError}`);
+      }
+    };
 
     try {
-      // Try streaming first, fallback to non-streaming
       await streamDescription(
         formData.title,
-        // onContent callback - called for each chunk
-        (content: string) => {
-          setCurrentDescription((prev) => prev + content);
-          // Update the form field in real-time
-          onInputChange({
-            target: {
-              name: 'description',
-              value: currentDescription + content,
-            },
-          } as any);
-        },
-        // onComplete callback - called when streaming is done
-        (fullContent: string) => {
-          setCurrentDescription(fullContent);
-          onInputChange({
-            target: { name: 'description', value: fullContent },
-          } as any);
-          toast.success('Description generated successfully!');
-        },
-        // onError callback - fallback to non-streaming
-        async (error: string) => {
-          console.warn(
-            'Streaming failed, falling back to non-streaming:',
-            error
-          );
-          try {
-            const description = await generateDescriptionNonStreaming(
-              formData.title
-            );
-            if (description) {
-              setCurrentDescription(description);
-              onInputChange({
-                target: { name: 'description', value: description },
-              } as any);
-              toast.success('Description generated successfully!');
-            } else {
-              toast.error('No description returned from AI.');
-            }
-          } catch (fallbackError) {
-            toast.error(`Failed to generate description: ${fallbackError}`);
-          }
-        }
+        handleContent,
+        handleComplete,
+        handleError
       );
     } catch (error) {
       toast.error(`Failed to generate description: ${error}`);
     }
-  };
+  }, [
+    formData.title,
+    onInputChange,
+    streamDescription,
+    generateDescriptionNonStreaming,
+  ]);
+
+  useEffect(() => {
+    if (propTimezone && propTimezone !== timezone) {
+      setTimezone(propTimezone);
+    }
+  }, [propTimezone, timezone]);
 
   return (
     <Card>
       <form onSubmit={handleSubmit}>
-        {/* <CardHeader>
-          <CardTitle>Schedule a Meeting</CardTitle>
-        </CardHeader> */}
         <CardContent className="space-y-4 my-2">
           <MeetingFormTitle
             formData={formData}
@@ -223,14 +259,20 @@ const MeetingForm = ({
           <MeetingFormDateTime
             formData={formData}
             onDateChange={onDateChange}
-            hour={hour}
-            minute={minute}
-            ampm={ampm}
-            setHour={setHour}
-            setMinute={setMinute}
-            setAmPm={setAmPm}
+            hour={editingTime.hour}
+            minute={editingTime.minute}
+            ampm={editingTime.ampm}
+            setHour={(value: any) =>
+              setEditingTime((prev) => ({ ...prev, hour: value }))
+            }
+            setMinute={(value: any) =>
+              setEditingTime((prev) => ({ ...prev, minute: value }))
+            }
+            setAmPm={(value: any) =>
+              setEditingTime((prev) => ({ ...prev, ampm: value }))
+            }
             timePopoverOpen={timePopoverOpen}
-            setTimePopoverOpen={setTimePopoverOpen}
+            setTimePopoverOpen={handleTimePopoverOpen}
             timezone={timezone}
             setTimezone={propSetTimezone || setTimezone}
             onTimeChange={onTimeChange}

@@ -8,119 +8,18 @@ import { Meeting } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, AlertCircle } from 'lucide-react';
-
-const POLL_INTERVAL = 5000;
+import { useMeetingJoin } from '@/hooks/useMeetingJoin';
 
 const MeetingJoin = () => {
   const { meetingId } = useParams<{ meetingId: string }>();
-  const [searchParams] = useSearchParams();
-  const { getMeeting, validateInviteToken } = useMeetings();
-  const { isAuthenticated, setRedirectTo } = useAuth();
   const navigate = useNavigate();
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [accessDenied, setAccessDenied] = useState(false);
+  const { loading, meeting, accessDenied, startPolling, cleanup } =
+    useMeetingJoin(meetingId);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    const fetchMeeting = async () => {
-      setLoading(true);
-      console.log('Fetching meeting:', meetingId);
-      try {
-        if (!meetingId) return;
-
-        const token = searchParams.get('token');
-        console.log('Token from URL:', token);
-
-        // For private meetings, validate token first
-        if (token) {
-          try {
-            console.log('Validating token for private meeting...');
-            const validationResult = await validateInviteToken(
-              meetingId,
-              token
-            );
-            console.log('Token validation result:', validationResult);
-            setMeeting(validationResult.meeting);
-
-            // Check if meeting has roomId after setting it
-            if (validationResult.meeting?.roomId) {
-              console.log(
-                'Meeting has roomId, navigating to lobby:',
-                validationResult.meeting.roomId
-              );
-              navigate(`/lobby/${validationResult.meeting.roomId}`);
-              return;
-            }
-          } catch (error: any) {
-            console.error('Token validation error:', error);
-            if (error.response?.status === 403) {
-              setAccessDenied(true);
-              toast.error('Invalid or expired invite link');
-            } else {
-              toast.error('Failed to validate invite');
-            }
-            return;
-          }
-        } else {
-          // Try to get meeting directly (for public meetings or authenticated users)
-          try {
-            console.log('Getting meeting directly...');
-            const data = await getMeeting(meetingId);
-            console.log('Meeting data:', data);
-            setMeeting(data);
-
-            // Check if meeting has roomId after setting it
-            if (data?.roomId) {
-              console.log(
-                'Meeting has roomId, navigating to lobby:',
-                data.roomId
-              );
-              navigate(`/lobby/${data.roomId}`);
-              return;
-            }
-          } catch (error: any) {
-            console.error('Get meeting error:', error);
-            if (error.response?.status === 403) {
-              // This is a private meeting and user is not authenticated
-              if (!isAuthenticated) {
-                // Set redirect URL and navigate to login
-                const currentUrl =
-                  window.location.pathname + window.location.search;
-                setRedirectTo(currentUrl);
-                navigate('/login');
-                return;
-              } else {
-                setAccessDenied(true);
-                toast.error(
-                  'This is a private meeting. You need an invite to join.'
-                );
-              }
-            } else {
-              toast.error('Meeting not found');
-            }
-            return;
-          }
-        }
-
-        // If we get here, the meeting doesn't have a roomId yet, so poll
-        if (meeting) {
-          console.log('Meeting found but no roomId, polling...');
-          interval = setTimeout(fetchMeeting, POLL_INTERVAL);
-        }
-      } catch (e) {
-        console.error('General error in fetchMeeting:', e);
-        toast.error('Failed to load meeting');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMeeting();
-    return () => {
-      if (interval) clearTimeout(interval);
-    };
-    // eslint-disable-next-line
-  }, [meetingId, searchParams, isAuthenticated, setRedirectTo, navigate]);
+    startPolling();
+    return cleanup;
+  }, [startPolling, cleanup]);
 
   if (loading) return <div className="p-8 text-center">Loading meeting...</div>;
 

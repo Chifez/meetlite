@@ -130,7 +130,7 @@ export default function ConflictResolutionModal({
 
           {/* Conflicts Section */}
           <div>
-            <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+            <h3 className="font-medium mb-3 flex items-center gap-2">
               <XCircle className="h-4 w-4 text-red-500" />
               Conflicts Found ({conflictCheck.conflicts.length})
             </h3>
@@ -172,7 +172,7 @@ export default function ConflictResolutionModal({
           {/* Alternatives Section */}
           {conflictCheck.alternatives.length > 0 && (
             <div>
-              <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <h3 className="font-medium mb-3 flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 Suggested Alternative Times
               </h3>

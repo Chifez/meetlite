@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
@@ -63,58 +63,23 @@ const Lobby = () => {
     video: '',
   });
 
-  // Verify room exists and user has access
-  useEffect(() => {
-    const checkRoom = async () => {
+  const initializeLobby = useCallback(async () => {
+    if (!roomId) return;
+
+    try {
+      await api.get(`${env.ROOM_API_URL}/rooms/${roomId}`);
+
+      // Additional check: verify user has access to the meeting
+      // This is a basic check - in a real implementation, you might want to
+      // store meeting-room associations and check against those
+      setIsValidRoom(true);
+
       try {
-        await api.get(`${env.ROOM_API_URL}/rooms/${roomId}`);
-
-        // Additional check: verify user has access to the meeting
-        // This is a basic check - in a real implementation, you might want to
-        // store meeting-room associations and check against those
-        setIsValidRoom(true);
-      } catch (error: any) {
-        if (error.response?.status === 403) {
-          toast.error('Access Denied', {
-            description:
-              'You do not have permission to join this meeting room.',
-          });
-        } else {
-          toast.info('Room not found', {
-            description:
-              "The meeting room does not exist or you don't have access",
-          });
-        }
-        navigate('/dashboard');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (roomId) {
-      checkRoom();
-    }
-  }, [roomId, navigate]);
-
-  // Get user media and devices
-  useEffect(() => {
-    if (!isValidRoom) return;
-
-    const getMediaDevices = async () => {
-      try {
-        // Request permission to access media devices
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         });
 
-        setStream(mediaStream);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-
-        // Enumerate devices
         const deviceList = await navigator.mediaDevices.enumerateDevices();
 
         const audioInputs = deviceList
@@ -134,74 +99,92 @@ const Lobby = () => {
             label: device.label || `Camera ${device.deviceId.slice(0, 5)}...`,
           }));
 
-        setDevices({ audio: audioInputs, video: videoInputs });
+        const defaultAudio =
+          audioInputs.length > 0 ? audioInputs[0].deviceId : '';
+        const defaultVideo =
+          videoInputs.length > 0 ? videoInputs[0].deviceId : '';
 
-        // Set default devices
-        if (audioInputs.length > 0 || videoInputs.length > 0) {
-          setSelectedDevices({
-            audio: audioInputs.length > 0 ? audioInputs[0].deviceId : '',
-            video: videoInputs.length > 0 ? videoInputs[0].deviceId : '',
-          });
+        setStream(mediaStream);
+        setDevices({ audio: audioInputs, video: videoInputs });
+        setSelectedDevices({ audio: defaultAudio, video: defaultVideo });
+
+        // Set video element source
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
         }
-      } catch (error) {
-        console.error('Error accessing media devices:', error);
+      } catch (mediaError) {
+        console.error('Error accessing media devices:', mediaError);
         toast.error('Camera/Microphone Error', {
           description:
             'Could not access your camera or microphone. Please check permissions.',
         });
       }
-    };
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        toast.error('Access Denied', {
+          description: 'You do not have permission to join this meeting room.',
+        });
+      } else {
+        toast.info('Room not found', {
+          description:
+            "The meeting room does not exist or you don't have access",
+        });
+      }
+      navigate('/dashboard');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-    getMediaDevices();
+  useEffect(() => {
+    initializeLobby();
+  }, [initializeLobby]);
 
-    // Cleanup
+  useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [isValidRoom]);
+  }, [stream]);
 
   // Media control functions
   const toggleAudio = () => {
-    if (stream) {
-      const newAudioEnabled = !mediaState.audioEnabled;
-      stream.getAudioTracks().forEach((track) => {
-        track.enabled = newAudioEnabled;
-      });
-      setMediaState((prev) => ({ ...prev, audioEnabled: newAudioEnabled }));
-    }
+    if (!stream) return;
+    const newAudioEnabled = !mediaState.audioEnabled;
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = newAudioEnabled;
+    });
+    setMediaState((prev) => ({ ...prev, audioEnabled: newAudioEnabled }));
   };
 
   const toggleVideo = () => {
-    if (stream) {
-      const newVideoEnabled = !mediaState.videoEnabled;
-      stream.getVideoTracks().forEach((track) => {
-        track.enabled = newVideoEnabled;
-      });
-      setMediaState((prev) => ({ ...prev, videoEnabled: newVideoEnabled }));
-    }
+    if (!stream) return;
+    const newVideoEnabled = !mediaState.videoEnabled;
+    stream.getVideoTracks().forEach((track) => {
+      track.enabled = newVideoEnabled;
+    });
+    setMediaState((prev) => ({ ...prev, videoEnabled: newVideoEnabled }));
   };
 
   const changeAudioDevice = async (deviceId: string) => {
+    if (!stream) return;
     try {
-      if (stream) {
-        // Stop current audio tracks
-        stream.getAudioTracks().forEach((track) => track.stop());
+      // Stop current audio tracks
+      stream.getAudioTracks().forEach((track) => track.stop());
 
-        // Get new audio track
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: deviceId } },
-        });
+      // Get new audio track
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } },
+      });
 
-        // Add new audio track to existing stream
-        const newAudioTrack = newStream.getAudioTracks()[0];
-        if (newAudioTrack) {
-          stream.addTrack(newAudioTrack);
-        }
-
-        setSelectedDevices((prev) => ({ ...prev, audio: deviceId }));
+      // Add new audio track to existing stream
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (newAudioTrack) {
+        stream.addTrack(newAudioTrack);
       }
+
+      setSelectedDevices((prev) => ({ ...prev, audio: deviceId }));
     } catch (error) {
       console.error('Error changing audio device:', error);
       toast.error('Device Error', {
@@ -211,26 +194,25 @@ const Lobby = () => {
   };
 
   const changeVideoDevice = async (deviceId: string) => {
+    if (!stream) return;
     try {
-      if (stream) {
-        // Stop current video tracks
-        stream.getVideoTracks().forEach((track) => track.stop());
+      // Stop current video tracks
+      stream.getVideoTracks().forEach((track) => track.stop());
 
-        // Get new video track
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: deviceId } },
-        });
+      // Get new video track
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+      });
 
-        const newVideoTrack = newStream.getVideoTracks()[0];
-        if (newVideoTrack) {
-          stream.addTrack(newVideoTrack);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (newVideoTrack) {
+        stream.addTrack(newVideoTrack);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
         }
-
-        setSelectedDevices((prev) => ({ ...prev, video: deviceId }));
       }
+
+      setSelectedDevices((prev) => ({ ...prev, video: deviceId }));
     } catch (error) {
       console.error('Error changing video device:', error);
       toast.error('Device Error', {

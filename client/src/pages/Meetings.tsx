@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useMeetingForm } from '@/hooks/useMeetingForm';
 import SEO from '@/components/SEO';
@@ -45,10 +45,10 @@ const Meetings = () => {
   const showScheduleModal = searchParams.get('modal') === 'schedule';
 
   // Handle OAuth callback
-  useEffect(() => {
-    const oauthStatus = searchParams.get('oauth');
-    const provider = searchParams.get('provider');
+  const oauthStatus = searchParams.get('oauth');
+  const provider = searchParams.get('provider');
 
+  useMemo(() => {
     if (oauthStatus === 'success' && provider === 'google') {
       toast.success('Google Calendar connected successfully!');
       // Refresh connection status
@@ -60,7 +60,7 @@ const Meetings = () => {
       // Clear the OAuth params from URL
       setSearchParams({});
     }
-  }, [searchParams, refreshConnectionStatus, setSearchParams]);
+  }, [setSearchParams, refreshConnectionStatus, oauthStatus, provider]);
 
   // Use the custom hook for form state management
   const {
@@ -95,11 +95,6 @@ const Meetings = () => {
     }
   };
 
-  useEffect(() => {
-    loadMeetings();
-    // eslint-disable-next-line
-  }, []);
-
   const handleFormSubmit = async () => {
     await submitForm();
   };
@@ -121,6 +116,12 @@ const Meetings = () => {
       await importCalendarEvents('google', now, in30);
     }
   };
+
+  useEffect(() => {
+    if (user?.id) {
+      loadMeetings();
+    }
+  }, [user?.id, fetchMeetingsFromStore]);
 
   return (
     <>

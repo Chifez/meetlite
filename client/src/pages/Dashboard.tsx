@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -21,11 +21,7 @@ const Dashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Use stores instead of local state
-  const {
-    meetings,
-    loading,
-    fetchMeetings: fetchMeetingsFromStore,
-  } = useMeetingsStore();
+  const { meetings, loading, fetchMeetings } = useMeetingsStore();
 
   const { setGlobalLoading } = useUIStore();
 
@@ -65,7 +61,6 @@ const Dashboard = () => {
   } = useMeetingForm(() => {
     // Close modal and refresh meetings
     setSearchParams({});
-    loadMeetings();
   });
 
   const openScheduleModal = () => {
@@ -81,18 +76,15 @@ const Dashboard = () => {
   };
 
   // Fetch upcoming meetings
-  const loadMeetings = async () => {
-    try {
-      await fetchMeetingsFromStore(user?.id);
-    } catch {
-      // Error handling is done in the store
+  const initializeDashboard = useCallback(async () => {
+    if (user?.id) {
+      await fetchMeetings(user.id);
     }
-  };
+  }, [user?.id, fetchMeetings]);
 
   useEffect(() => {
-    loadMeetings();
-    // eslint-disable-next-line
-  }, []);
+    initializeDashboard();
+  }, [initializeDashboard]);
 
   // Handlers
   const handleQuickMeeting = async () => {
@@ -147,6 +139,7 @@ const Dashboard = () => {
         onCancel={closeScheduleModal}
       />
       <SettingsModal
+        key={showSettingsModal ? 'open' : 'close'}
         open={showSettingsModal}
         onOpenChange={(open) => !open && closeSettingsModal()}
       />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -58,6 +58,9 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const error = params.get('error');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(isLogin ? loginSchema : signupSchema),
@@ -93,10 +96,8 @@ const AuthPage = ({ mode }: AuthPageProps) => {
     }
   };
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    const error = params.get('error');
+  // Handle OAuth callback immediately
+  useMemo(() => {
     if (token) {
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
       navigate('/dashboard');
@@ -105,7 +106,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         `Google ${isLogin ? 'sign-in' : 'sign-up'} failed. Please try again.`
       );
     }
-  }, [isLogin, navigate]);
+  }, [token, error, isLogin, navigate]);
 
   return (
     <AuthWrapper
