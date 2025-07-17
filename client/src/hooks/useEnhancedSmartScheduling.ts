@@ -6,7 +6,6 @@ import { MeetingFormData } from '@/lib/types';
 import { useCalendarIntegration } from './useCalendarIntegration';
 import {
   SMART_SCHEDULING_CONFIG,
-  WORKING_HOURS,
   ALTERNATIVE_OFFSETS,
   MAX_ALTERNATIVES,
 } from '@/config/smartScheduling';
@@ -46,6 +45,7 @@ interface AlternativeSlot {
   end: Date;
   available: boolean;
   reason?: string;
+  source?: 'calendar' | 'generated';
 }
 
 interface SmartSchedulingState {
@@ -157,9 +157,6 @@ export const useEnhancedSmartScheduling = () => {
             integration.type === 'google' && integration.isConnected
         );
 
-        // Debug: Check integrations state
-        const anyConnected = integrations.some((i) => i.isConnected);
-
         let conflicts: CalendarEvent[] = [];
         let alternatives: AlternativeSlot[] = [];
 
@@ -182,7 +179,7 @@ export const useEnhancedSmartScheduling = () => {
 
             // Convert available slots to alternatives
             alternatives = calendarResult.availableSlots
-              .map((slot) => {
+              .map((slot): AlternativeSlot | null => {
                 try {
                   // Ensure start and end are Date objects
                   const startDate =
@@ -198,6 +195,8 @@ export const useEnhancedSmartScheduling = () => {
                     start: startDate,
                     end: endDate,
                     available: true,
+                    source: 'calendar',
+                    reason: 'Calendar suggestion',
                   };
                 } catch (slotError) {
                   console.error('❌ Error processing slot:', slot, slotError);
@@ -335,7 +334,20 @@ export const useEnhancedSmartScheduling = () => {
       const alternatives: AlternativeSlot[] = [];
       const baseDate = new Date(originalStart);
 
-      // Generate alternatives using configured offsets
+      // Find the latest end time among all conflicts
+      const latestConflictEnd =
+        existingConflicts.length > 0
+          ? Math.max(
+              ...existingConflicts.map((conflict) =>
+                new Date(conflict.end).getTime()
+              )
+            )
+          : baseDate.getTime();
+
+      // Start alternatives from the latest conflict end time
+      const startFromTime = Math.max(baseDate.getTime(), latestConflictEnd);
+
+      // Generate alternatives using configured offsets from the conflict-free start time
       const timeOffsets = [
         ALTERNATIVE_OFFSETS.SHORT,
         ALTERNATIVE_OFFSETS.MEDIUM,
@@ -344,9 +356,7 @@ export const useEnhancedSmartScheduling = () => {
       ];
 
       timeOffsets.forEach((offsetMinutes) => {
-        const newTime = new Date(
-          baseDate.getTime() + offsetMinutes * 60 * 1000
-        );
+        const newTime = new Date(startFromTime + offsetMinutes * 60 * 1000);
         const newEnd = new Date(newTime.getTime() + duration * 60 * 1000);
 
         // Check if this time conflicts with existing conflicts
@@ -369,6 +379,7 @@ export const useEnhancedSmartScheduling = () => {
             end: newEnd,
             available: true,
             reason: SMART_SCHEDULING_CONFIG.getOffsetDescription(offsetMinutes),
+            source: 'generated',
           });
         }
       });

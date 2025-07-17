@@ -30,6 +30,7 @@ interface AlternativeSlot {
   end: Date;
   available: boolean;
   reason?: string;
+  source?: 'calendar' | 'generated';
 }
 
 interface ConflictCheckResult {
@@ -51,6 +52,7 @@ interface ConflictResolutionModalProps {
     duration: number;
   };
   onSelectAlternative: (slot: AlternativeSlot) => void;
+  onScheduleOnCalendar?: (slot: AlternativeSlot) => void;
   onProceedAnyway: () => void;
   onCancel: () => void;
 }
@@ -61,6 +63,7 @@ export default function ConflictResolutionModal({
   conflictCheck,
   originalMeeting,
   onSelectAlternative,
+  onScheduleOnCalendar,
   onProceedAnyway,
   onCancel,
 }: ConflictResolutionModalProps) {
@@ -181,8 +184,7 @@ export default function ConflictResolutionModal({
                 {conflictCheck.alternatives.slice(0, 5).map((slot, index) => (
                   <div
                     key={index}
-                    className="border border-green-200 bg-green-50 rounded-lg p-3 hover:bg-green-100 transition-colors cursor-pointer"
-                    onClick={() => onSelectAlternative(slot)}
+                    className="border border-green-200 bg-green-50 rounded-lg p-3 hover:bg-green-100 transition-colors"
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -195,13 +197,27 @@ export default function ConflictResolutionModal({
                           </div>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-green-300 text-green-700 hover:bg-green-200"
-                      >
-                        Select
-                      </Button>
+                      <div className="flex gap-2">
+                        {slot.source === 'calendar' && onScheduleOnCalendar ? (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={() => onScheduleOnCalendar(slot)}
+                          >
+                            Schedule on Google
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-green-300 text-green-700 hover:bg-green-200"
+                            onClick={() => onSelectAlternative(slot)}
+                          >
+                            Select
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -239,15 +255,13 @@ export default function ConflictResolutionModal({
               Cancel
             </Button>
 
-            {conflictCheck.alternatives.length === 0 && (
-              <Button
-                onClick={onProceedAnyway}
-                className="flex-1"
-                variant="outline"
-              >
-                Schedule Anyway
-              </Button>
-            )}
+            <Button
+              onClick={onProceedAnyway}
+              className="flex-1"
+              variant="outline"
+            >
+              Schedule Anyway
+            </Button>
           </div>
         </div>
       </DialogContent>

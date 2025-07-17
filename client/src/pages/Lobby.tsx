@@ -41,7 +41,6 @@ const Lobby = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Consolidated state
-  const [isValidRoom, setIsValidRoom] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -72,7 +71,6 @@ const Lobby = () => {
       // Additional check: verify user has access to the meeting
       // This is a basic check - in a real implementation, you might want to
       // store meeting-room associations and check against those
-      setIsValidRoom(true);
 
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({

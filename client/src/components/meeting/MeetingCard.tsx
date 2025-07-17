@@ -147,6 +147,21 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     }
   };
 
+  const handleDeleteMeeting = async () => {
+    // Check if this is a Google Calendar meeting
+    if (meeting.source === 'google' && meeting.externalId) {
+      // For Google Calendar meetings, we need to handle the deletion after confirmation
+      // We'll store the meeting info in the store and handle the actual deletion there
+      openDeleteDialog(meeting.meetingId, {
+        isGoogleCalendar: true,
+        externalId: meeting.externalId,
+      });
+    } else {
+      // Internal meeting - use existing delete dialog
+      openDeleteDialog(meeting.meetingId);
+    }
+  };
+
   return (
     <Card className="group hover:shadow-md transition-all duration-300 border-l-4 border-l-indigo-500">
       <CardContent className="p-4 space-y-3">
@@ -234,12 +249,12 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               {statusObj.label}
             </span>
             <span className="flex items-center gap-1">
-              {createdBy === userId && (
+              {(createdBy === userId || meeting.source === 'google') && (
                 <Button
                   size="icon"
                   variant="ghost"
                   className="text-destructive hover:bg-destructive/10"
-                  onClick={() => openDeleteDialog(meeting.meetingId)}
+                  onClick={handleDeleteMeeting}
                   aria-label="Delete meeting"
                 >
                   <Trash2 className="w-4 h-4" />

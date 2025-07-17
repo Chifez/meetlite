@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { toast } from 'sonner';
 import { env } from '@/config/env';
 import SEO from '@/components/SEO';
@@ -24,6 +25,9 @@ const Dashboard = () => {
   const { meetings, loading, fetchMeetings } = useMeetingsStore();
 
   const { setGlobalLoading } = useUIStore();
+
+  // Calendar integration
+  const { scheduleMeetingOnCalendar } = useCalendarIntegration();
 
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
@@ -75,9 +79,39 @@ const Dashboard = () => {
     setSearchParams({});
   };
 
+  // Handle direct scheduling on Google Calendar
+  const handleScheduleOnCalendar = async (slot: any) => {
+    try {
+      // Get the original meeting data from the conflict resolution
+      const meetingData = {
+        title: slot.title || 'Meeting',
+        description: slot.description || '',
+        startDate: slot.start,
+        endDate: slot.end,
+        participants: slot.participants || [],
+      };
+
+      const success = await scheduleMeetingOnCalendar(meetingData);
+
+      if (success) {
+        toast.success('Meeting scheduled on Google Calendar!');
+        // Refresh meetings to show the new meeting
+        if (user?.id) {
+          await fetchMeetings(user.id);
+        }
+      } else {
+        toast.error('Failed to schedule meeting on Google Calendar');
+      }
+    } catch (error) {
+      console.error('Error scheduling on calendar:', error);
+      toast.error('Failed to schedule meeting on Google Calendar');
+    }
+  };
+
   // Fetch upcoming meetings
   const initializeDashboard = useCallback(async () => {
     if (user?.id) {
+      // Only fetch if we don't have meetings or if user ID changed
       await fetchMeetings(user.id);
     }
   }, [user?.id, fetchMeetings]);
@@ -137,6 +171,7 @@ const Dashboard = () => {
         onRemoveParticipant={removeParticipant}
         onSubmit={submitForm}
         onCancel={closeScheduleModal}
+        onScheduleOnCalendar={handleScheduleOnCalendar}
       />
       <SettingsModal
         key={showSettingsModal ? 'open' : 'close'}

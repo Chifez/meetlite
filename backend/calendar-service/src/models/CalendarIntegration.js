@@ -1,61 +1,71 @@
 import mongoose from 'mongoose';
 
-const calendarIntegrationSchema = new mongoose.Schema({
-  userId: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    enum: ['google'],
-    required: true,
-  },
-  connected: {
-    type: Boolean,
-    default: false,
-  },
-  email: String,
-  accessToken: String,
-  refreshToken: String,
-  tokenExpiry: Date,
-  lastSync: {
-    type: Date,
-    default: Date.now,
-  },
-  settings: {
-    autoSync: {
+const calendarIntegrationSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    calendarType: {
+      type: String,
+      required: true,
+      enum: ['google', 'outlook', 'apple'],
+    },
+    accessToken: {
+      type: String,
+      required: true,
+    },
+    refreshToken: {
+      type: String,
+      required: true,
+    },
+    tokenExpiry: {
+      type: Date,
+      required: true,
+    },
+    isConnected: {
       type: Boolean,
       default: true,
     },
-    syncInterval: {
-      type: Number,
-      default: 15, // minutes
+    lastSync: {
+      type: Date,
+      default: Date.now,
     },
-    importMeetings: {
-      type: Boolean,
-      default: true,
+    calendarId: {
+      type: String,
+      default: 'primary',
     },
-    exportMeetings: {
-      type: Boolean,
-      default: true,
+    email: {
+      type: String,
+      required: true,
     },
   },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  {
+    timestamps: true,
+  }
+);
 
-calendarIntegrationSchema.pre('save', function (next) {
-  this.updatedAt = new Date();
-  next();
-});
+// Compound index to ensure one integration per user per calendar type
+calendarIntegrationSchema.index(
+  { userId: 1, calendarType: 1 },
+  { unique: true }
+);
 
-// Compound index for user and calendar type
-calendarIntegrationSchema.index({ userId: 1, type: 1 }, { unique: true });
+// Method to check if token is expired
+calendarIntegrationSchema.methods.isTokenExpired = function () {
+  return new Date() > this.tokenExpiry;
+};
 
-export default mongoose.model('CalendarIntegration', calendarIntegrationSchema);
+// Method to refresh token (to be implemented)
+calendarIntegrationSchema.methods.refreshAccessToken = async function () {
+  // Implementation for token refresh logic
+  // This would call the respective OAuth provider's refresh endpoint
+};
+
+const CalendarIntegration = mongoose.model(
+  'CalendarIntegration',
+  calendarIntegrationSchema
+);
+
+export default CalendarIntegration;

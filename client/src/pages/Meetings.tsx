@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useMeetingForm } from '@/hooks/useMeetingForm';
 import SEO from '@/components/SEO';
@@ -31,6 +31,7 @@ const Meetings = () => {
     connectGoogleCalendar,
     isPolling,
     disconnectCalendar,
+    scheduleMeetingOnCalendar,
   } = useCalendarIntegration();
 
   const {
@@ -99,6 +100,33 @@ const Meetings = () => {
     await submitForm();
   };
 
+  // Handle direct scheduling on Google Calendar
+  const handleScheduleOnCalendar = async (slot: any) => {
+    try {
+      // Get the original meeting data from the conflict resolution
+      const meetingData = {
+        title: slot.title || 'Meeting',
+        description: slot.description || '',
+        startDate: slot.start,
+        endDate: slot.end,
+        participants: slot.participants || [],
+      };
+
+      const success = await scheduleMeetingOnCalendar(meetingData);
+
+      if (success) {
+        toast.success('Meeting scheduled on Google Calendar!');
+        // Refresh meetings to show the new meeting
+        await loadMeetings();
+      } else {
+        toast.error('Failed to schedule meeting on Google Calendar');
+      }
+    } catch (error) {
+      console.error('Error scheduling on calendar:', error);
+      toast.error('Failed to schedule meeting on Google Calendar');
+    }
+  };
+
   // Import handler
   const handleImport = async () => {
     if (!isConnected('google')) {
@@ -119,9 +147,10 @@ const Meetings = () => {
 
   useEffect(() => {
     if (user?.id) {
+      // Only fetch if we don't have meetings or if user ID changed
       loadMeetings();
     }
-  }, [user?.id, fetchMeetingsFromStore]);
+  }, [user?.id]); // Remove fetchMeetingsFromStore from dependencies
 
   return (
     <>
@@ -139,6 +168,7 @@ const Meetings = () => {
         onRemoveParticipant={removeParticipant}
         onSubmit={handleFormSubmit}
         onCancel={closeScheduleModal}
+        onScheduleOnCalendar={handleScheduleOnCalendar}
       />
       <MeetingsLayout>
         <div className="min-h-screen bg-page md:px-4">

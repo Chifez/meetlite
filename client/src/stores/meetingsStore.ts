@@ -9,11 +9,14 @@ interface MeetingsState {
   meetings: Meeting[];
   loading: boolean;
   view: 'list' | 'calendar';
+  lastFetched: number | null; // Timestamp of last fetch
 
   // Modal states
   deleteDialog: {
     open: boolean;
     meetingId?: string;
+    isGoogleCalendar?: boolean;
+    externalId?: string;
   };
 
   // Actions
@@ -25,12 +28,16 @@ interface MeetingsState {
   fetchMeetings: (userId?: string) => Promise<void>;
   createMeeting: (meetingData: any) => Promise<string | null>;
   deleteMeeting: (meetingId: string) => Promise<void>;
+  deleteGoogleCalendarMeeting: (externalId: string) => Promise<void>;
   startMeeting: (meetingId: string) => Promise<string>;
   completeMeeting: (meetingId: string) => Promise<void>;
   refreshGoogleCalendarEvents: () => Promise<void>;
 
   // Modal actions
-  openDeleteDialog: (meetingId: string) => void;
+  openDeleteDialog: (
+    meetingId: string,
+    options?: { isGoogleCalendar?: boolean; externalId?: string }
+  ) => void;
   closeDeleteDialog: () => void;
 }
 
@@ -39,6 +46,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   meetings: [],
   loading: false,
   view: 'list',
+  lastFetched: null,
   deleteDialog: { open: false },
 
   // State setters
@@ -48,6 +56,14 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   // Meeting actions
   fetchMeetings: async (userId) => {
+    const now = Date.now();
+    const lastFetched = get().lastFetched;
+
+    // Only fetch if not recently fetched or if force is true
+    if (lastFetched && now - lastFetched < 60000) {
+      return;
+    }
+
     set({ loading: true });
     try {
       const response = await api.get(`${env.ROOM_API_URL}/meetings`);
@@ -154,7 +170,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       toast.error('Failed to load meetings');
       console.error('Fetch meetings error:', error);
     } finally {
-      set({ loading: false });
+      set({ loading: false, lastFetched: now });
     }
   },
 
@@ -193,6 +209,30 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
     } catch (error) {
       toast.error('Failed to delete meeting');
       console.error('Delete meeting error:', error);
+      throw error;
+    }
+  },
+
+  deleteGoogleCalendarMeeting: async (externalId) => {
+    try {
+      await api.delete(
+        `${env.CALENDAR_API_URL}/api/calendar/events/${externalId}`,
+        {
+          data: { calendarType: 'google' },
+        }
+      );
+
+      // Remove the meeting from local state
+      set((state) => ({
+        meetings: state.meetings.filter(
+          (meeting) => meeting.externalId !== externalId
+        ),
+      }));
+
+      toast.success('Google Calendar event deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete Google Calendar event');
+      console.error('Delete Google Calendar event error:', error);
       throw error;
     }
   },
@@ -312,7 +352,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   },
 
   // Modal actions
-  openDeleteDialog: (meetingId) =>
-    set({ deleteDialog: { open: true, meetingId } }),
+  openDeleteDialog: (meetingId, options) =>
+    set({ deleteDialog: { open: true, meetingId, ...options } }),
   closeDeleteDialog: () => set({ deleteDialog: { open: false } }),
 }));

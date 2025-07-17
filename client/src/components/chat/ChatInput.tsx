@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent, useCallback, useEffect } from 'react';
+import { useState, useRef, KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Smile } from 'lucide-react';

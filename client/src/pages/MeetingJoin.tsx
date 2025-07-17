@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useMeetings } from '@/hooks/useMeetings';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import SEO from '@/components/SEO';
-import { Meeting } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, AlertCircle } from 'lucide-react';

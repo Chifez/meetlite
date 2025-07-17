@@ -294,6 +294,60 @@ export const useCalendarIntegration = () => {
     }
   }, [getConnectedCalendars]);
 
+  // Schedule meeting directly on Google Calendar
+  const scheduleMeetingOnCalendar = useCallback(
+    async (meetingData: {
+      title: string;
+      description?: string;
+      startDate: Date;
+      endDate: Date;
+      participants: string[];
+    }): Promise<boolean> => {
+      try {
+        const response = await api.post(
+          `${env.CALENDAR_API_URL}/api/calendar/schedule`,
+          {
+            title: meetingData.title,
+            description: meetingData.description || '',
+            startDate: meetingData.startDate.toISOString(),
+            endDate: meetingData.endDate.toISOString(),
+            participants: meetingData.participants,
+            calendarType: 'google',
+          }
+        );
+
+        return response.data.success;
+      } catch (error) {
+        console.error('Calendar scheduling error:', error);
+        return false;
+      }
+    },
+    []
+  );
+
+  // Delete meeting from Google Calendar
+  const deleteMeetingFromCalendar = useCallback(
+    async (
+      eventId: string,
+      calendarType: 'google' = 'google'
+    ): Promise<boolean> => {
+      try {
+        const response = await api.delete(
+          `${env.CALENDAR_API_URL}/api/calendar/events/${eventId}`,
+          {
+            data: { calendarType },
+          }
+        );
+
+        return response.data.success;
+      } catch (error) {
+        console.error('Calendar deletion error:', error);
+        return false;
+      }
+    },
+    []
+  );
+
   // When modal closes, stop polling
   useEffect(() => {
     if (!showImportModal) {
@@ -320,5 +374,7 @@ export const useCalendarIntegration = () => {
     disconnectCalendar,
     isPolling,
     stopPolling,
+    scheduleMeetingOnCalendar,
+    deleteMeetingFromCalendar,
   };
 };

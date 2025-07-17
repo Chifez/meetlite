@@ -1,9 +1,8 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
   Views,
-  type View,
 } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, isToday, isAfter } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';

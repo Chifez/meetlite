@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
-import { Loader2, Sparkles, Calendar, AlertTriangle } from 'lucide-react';
+import { Loader2, Sparkles, Calendar } from 'lucide-react';
 import MeetingForm from '@/components/meeting/MeetingForm';
 import { MeetingFormData } from '@/lib/types';
 import { useEnhancedSmartScheduling } from '@/hooks/useEnhancedSmartScheduling';
@@ -28,6 +28,7 @@ interface SmartSchedulingModalProps {
   onRemoveParticipant: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onCancel: () => void;
+  onScheduleOnCalendar?: (slot: any) => void | Promise<void>;
 }
 
 export default function SmartSchedulingModal({
@@ -43,6 +44,7 @@ export default function SmartSchedulingModal({
   onRemoveParticipant,
   onSubmit,
   onCancel,
+  onScheduleOnCalendar,
 }: SmartSchedulingModalProps) {
   const [activeTab, setActiveTab] = useState('smart');
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('');
@@ -57,7 +59,6 @@ export default function SmartSchedulingModal({
   const {
     isProcessing,
     error: parsingError,
-    result: conflictResult,
     smartSchedule,
     populateFormData,
     clearResult,
@@ -150,6 +151,18 @@ export default function SmartSchedulingModal({
     await populateFormWithData(conflictData.parsedData);
     setShowConflictModal(false);
     setConflictData(null);
+  };
+
+  const handleScheduleOnCalendar = async (slot: any) => {
+    if (!conflictData || !onScheduleOnCalendar) return;
+
+    try {
+      await onScheduleOnCalendar(slot);
+      setShowConflictModal(false);
+      setConflictData(null);
+    } catch (error) {
+      console.error('Failed to schedule on Google Calendar:', error);
+    }
   };
 
   const handleTabChange = (value: string) => {
@@ -314,6 +327,7 @@ export default function SmartSchedulingModal({
           }}
           onSelectAlternative={handleSelectAlternative}
           onProceedAnyway={handleProceedAnyway}
+          onScheduleOnCalendar={handleScheduleOnCalendar}
           onCancel={() => {
             setShowConflictModal(false);
             setConflictData(null);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -60,7 +60,7 @@ export default function SettingsModal({
   const onSubmit = async (data: SettingsFormValues) => {
     setIsLoading(true);
     try {
-      const response = await api.put(`${env.AUTH_API_URL}/auth/profile`, data, {
+      await api.put(`${env.AUTH_API_URL}/auth/profile`, data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
