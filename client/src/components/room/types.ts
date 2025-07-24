@@ -1,5 +1,9 @@
 import { Socket } from 'socket.io-client';
 import { ChatState } from '@/types/chat';
+import { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
+
+export type Node = FlowNode;
+export type Edge = FlowEdge;
 
 export interface PeerConnection {
   id: string;
@@ -13,25 +17,24 @@ export interface MediaState {
   videoEnabled: boolean;
 }
 
-export interface RoomData {
-  participants: string[];
-  mediaState: Record<string, MediaState>;
-  participantInfo?: Record<
-    string,
-    {
-      email: string;
-      userId: string;
-    }
-  >;
+export interface WorkflowData {
+  nodes: Node[];
+  edges: Edge[];
+  lastModified?: Date;
+  lastModifiedBy?: string;
 }
 
-export interface VideoParticipantProps {
-  stream: MediaStream | null;
-  mediaState: MediaState;
-  isLocal: boolean;
-  isLoading?: boolean;
-  userEmail?: string;
-  userName?: string;
+export interface WhiteboardData {
+  version: number;
+  lastModified?: Date;
+  lastModifiedBy?: string;
+}
+
+export interface CollaborationState {
+  mode: 'none' | 'workflow' | 'whiteboard';
+  activeTool: 'none' | 'workflow' | 'whiteboard';
+  workflowData: WorkflowData | null;
+  whiteboardData: WhiteboardData | null;
 }
 
 export interface RoomContextType {
@@ -57,6 +60,11 @@ export interface RoomContextType {
   markChatAsRead: () => void;
   startTyping: () => void;
   stopTyping: () => void;
+  // Collaboration functionality
+  collaborationState: CollaborationState;
+  changeCollaborationMode: (mode: 'none' | 'workflow' | 'whiteboard') => void;
+  sendWorkflowOperation: (operation: any) => void;
+  sendWhiteboardUpdate: (update: any) => void;
 }
 
 export interface Participant {

@@ -10,6 +10,10 @@ import { useScreenShare } from '@/hooks/useScreenShare';
 import { useMediaSetup } from '@/hooks/useMediaSetup';
 import { useParticipantInfo } from '@/hooks/useParticipantInfo';
 import { useChat } from '@/hooks/useChat';
+import { useCollaboration } from '@/hooks/useCollaboration';
+import { WorkflowPanel } from '@/components/room/collaboration/WorkflowPanel';
+import { WhiteboardPanel } from '@/components/room/collaboration/WhiteboardPanel';
+import { CollaborationToolbar } from '@/components/room/collaboration/CollaborationToolbar';
 import SEO from '@/components/SEO';
 import { RoomProvider } from '@/contexts/RoomContext';
 
@@ -44,6 +48,14 @@ const Room = () => {
     startTyping,
     stopTyping,
   } = useChat({ socket, roomId });
+
+  // Setup collaboration features
+  const {
+    collaborationState,
+    changeCollaborationMode,
+    sendWorkflowOperation,
+    sendWhiteboardUpdate,
+  } = useCollaboration({ socket, roomId });
 
   // Use WebRTC hooks with localStream and participant info callback
   const { peers, peerMediaState } = useWebRTC(
@@ -101,6 +113,11 @@ const Room = () => {
       markChatAsRead: markAsRead,
       startTyping,
       stopTyping,
+      // Collaboration functionality
+      collaborationState,
+      changeCollaborationMode,
+      sendWorkflowOperation,
+      sendWhiteboardUpdate,
     }),
     [
       socket,
@@ -124,6 +141,10 @@ const Room = () => {
       markAsRead,
       startTyping,
       stopTyping,
+      collaborationState,
+      changeCollaborationMode,
+      sendWorkflowOperation,
+      sendWhiteboardUpdate,
     ]
   );
 
@@ -146,7 +167,13 @@ const Room = () => {
           {/* Main content area */}
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-hidden bg-[#121212] p-4">
-              <VideoGrid />
+              {collaborationState.mode === 'none' ? (
+                <VideoGrid />
+              ) : collaborationState.mode === 'workflow' ? (
+                <WorkflowPanel className="w-full h-full" />
+              ) : (
+                <WhiteboardPanel className="w-full h-full" />
+              )}
             </div>
 
             <RoomControls

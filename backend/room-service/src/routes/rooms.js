@@ -2,6 +2,12 @@ import express from 'express';
 import { nanoid } from 'nanoid';
 import Room from '../models/Room.js';
 import Meeting from '../models/Meeting.js';
+import {
+  updateCollaborationMode,
+  updateParticipantRole,
+  updateRoomSettings,
+  joinRoom,
+} from '../controllers/roomCollaboration.js';
 
 const router = express.Router();
 
@@ -9,10 +15,23 @@ const router = express.Router();
 router.post('/', async (req, res) => {
   try {
     const roomId = nanoid(10);
+    const { settings = {} } = req.body;
 
     const room = new Room({
       roomId,
       createdBy: req.user.userId,
+      settings: {
+        allowCollaboration: settings.allowCollaboration ?? true,
+        maxParticipants: settings.maxParticipants ?? 50,
+      },
+      participants: [
+        {
+          userId: req.user.userId,
+          role: 'host',
+          joinedAt: new Date(),
+          lastActive: new Date(),
+        },
+      ],
     });
 
     await room.save();
@@ -71,5 +90,11 @@ router.get('/:roomId', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Collaboration routes
+router.post('/:roomId/join', joinRoom);
+router.patch('/:roomId/collaboration', updateCollaborationMode);
+router.patch('/:roomId/participants/:userId/role', updateParticipantRole);
+router.patch('/:roomId/settings', updateRoomSettings);
 
 export default router;

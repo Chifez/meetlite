@@ -40,6 +40,7 @@ const socketToUser = new Map();
 const activeConnections = new Map(); // Track active peer connections
 const screenSharingState = new Map(); // Track screen sharing state per room
 const userInfo = new Map(); // Store user information by userId
+const collaborationState = new Map(); // New: Track collaboration state
 
 // Helper function to determine who should initiate the connection
 const shouldInitiateConnection = (userA, userB) => {
@@ -86,17 +87,27 @@ io.on('connection', (socket) => {
     userId: socket.user.userId,
   });
 
-  socket.on('ready', ({ roomId, mediaState }) => {
+  socket.on('ready', ({ roomId, mediaState, collaborationData }) => {
     console.log(`User ${socket.user.userId} joining room ${roomId}`);
 
     socket.join(roomId);
 
+    // Initialize states
     if (!roomState.has(roomId)) {
       roomState.set(roomId, new Map());
     }
 
     if (!screenSharingState.has(roomId)) {
       screenSharingState.set(roomId, null);
+    }
+
+    if (!collaborationState.has(roomId)) {
+      collaborationState.set(roomId, {
+        mode: 'none',
+        activeTool: 'none',
+        workflowData: null,
+        whiteboardData: null,
+      });
     }
 
     const existingParticipants = [];
@@ -222,6 +233,10 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Send current collaboration state
+    const currentCollabState = collaborationState.get(roomId);
+    socket.emit('collaboration:state', currentCollabState);
+
     // Clean up old connection tracking
     const oneMinuteAgo = Date.now() - 60000;
     for (const [key, connection] of activeConnections.entries()) {
@@ -342,6 +357,81 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Collaboration mode change
+  socket.on('collaboration:mode', ({ roomId, mode }) => {
+    const collabState = collaborationState.get(roomId);
+    if (collabState) {
+      collabState.mode = mode;
+      collabState.activeTool = mode; // Initially set tool to match mode
+
+      io.to(roomId).emit('collaboration:mode-changed', {
+        mode,
+        activeTool: mode,
+        changedBy: socket.user.userId,
+      });
+    }
+  });
+
+  // Tool switching
+  socket.on('collaboration:tool', ({ roomId, tool }) => {
+    const collabState = collaborationState.get(roomId);
+    if (collabState && collabState.mode !== 'none') {
+      collabState.activeTool = tool;
+
+      io.to(roomId).emit('collaboration:tool-changed', {
+        tool,
+        changedBy: socket.user.userId,
+      });
+    }
+  });
+
+  // Workflow operations
+  socket.on('workflow:operation', ({ roomId, operation }) => {
+    const collabState = collaborationState.get(roomId);
+    if (collabState && collabState.mode === 'workflow') {
+      // Update workflow state
+      if (!collabState.workflowData) {
+        collabState.workflowData = { nodes: [], edges: [] };
+      }
+
+      // Apply operation to workflow data
+      applyWorkflowOperation(collabState.workflowData, operation);
+
+      // Broadcast to other participants
+      socket.to(roomId).emit('workflow:operation', {
+        operation,
+        userId: socket.user.userId,
+        timestamp: Date.now(),
+      });
+    }
+  });
+
+  // Whiteboard updates
+  socket.on('whiteboard:update', ({ roomId, update }) => {
+    const collabState = collaborationState.get(roomId);
+    if (collabState && collabState.mode === 'whiteboard') {
+      if (!collabState.whiteboardData) {
+        collabState.whiteboardData = {
+          version: 0,
+          lastModified: new Date(),
+          lastModifiedBy: socket.user.userId,
+        };
+      }
+
+      collabState.whiteboardData.version++;
+      collabState.whiteboardData.lastModified = new Date();
+      collabState.whiteboardData.lastModifiedBy = socket.user.userId;
+
+      // Broadcast update to other participants
+      socket.to(roomId).emit('whiteboard:update', {
+        update,
+        userId: socket.user.userId,
+        timestamp: Date.now(),
+        version: collabState.whiteboardData.version,
+      });
+    }
+  });
+
   // Chat functionality
   socket.on('chat:message', (data) => {
     const { roomId, userId, userEmail, message, timestamp, type } = data;
@@ -428,6 +518,7 @@ function handleUserLeaving(socket, roomId, emitUserLeft = true) {
     if (room.size === 0) {
       roomState.delete(roomId);
       screenSharingState.delete(roomId);
+      collaborationState.delete(roomId); // Clean up collaboration state
     }
   }
 
@@ -452,6 +543,42 @@ function handleUserLeaving(socket, roomId, emitUserLeft = true) {
 
   // Leave the room
   socket.leave(roomId);
+}
+
+// Helper function to apply workflow operations
+function applyWorkflowOperation(workflowData, operation) {
+  switch (operation.type) {
+    case 'add_node':
+      workflowData.nodes.push(operation.node);
+      break;
+    case 'update_node':
+      const nodeIndex = workflowData.nodes.findIndex(
+        (n) => n.id === operation.nodeId
+      );
+      if (nodeIndex !== -1) {
+        workflowData.nodes[nodeIndex] = {
+          ...workflowData.nodes[nodeIndex],
+          ...operation.data,
+        };
+      }
+      break;
+    case 'delete_node':
+      workflowData.nodes = workflowData.nodes.filter(
+        (n) => n.id !== operation.nodeId
+      );
+      workflowData.edges = workflowData.edges.filter(
+        (e) => e.source !== operation.nodeId && e.target !== operation.nodeId
+      );
+      break;
+    case 'add_edge':
+      workflowData.edges.push(operation.edge);
+      break;
+    case 'delete_edge':
+      workflowData.edges = workflowData.edges.filter(
+        (e) => e.id !== operation.edgeId
+      );
+      break;
+  }
 }
 
 const PORT = process.env.PORT || 3001;
