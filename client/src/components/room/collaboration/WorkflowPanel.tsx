@@ -39,8 +39,16 @@ type EdgeStyle = 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier';
 type NodeType = 'input' | 'default' | 'output' | 'group';
 
 interface NodeData {
-  label: string;
   nodeType: NodeType;
+  title?: string;
+  description?: string;
+  tags?: string[];
+  icon?: string;
+  details?: Array<{
+    label: string;
+    value: string;
+    icon?: string;
+  }>;
 }
 
 // Define node types mapping
@@ -240,8 +248,14 @@ const Flow = ({ className }: WorkflowPanelProps) => {
         type: 'custom',
         position,
         data: {
-          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
           nodeType: type,
+          title: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+          description: `A ${type} node for workflow processing`,
+          tags: [type],
+          details: [
+            { label: 'Type', value: type },
+            { label: 'Status', value: 'Ready' },
+          ],
         },
       };
 
@@ -283,8 +297,14 @@ const Flow = ({ className }: WorkflowPanelProps) => {
         type: 'custom',
         position,
         data: {
-          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
           nodeType: type,
+          title: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+          description: `A ${type} node for workflow processing`,
+          tags: [type],
+          details: [
+            { label: 'Type', value: type },
+            { label: 'Status', value: 'Ready' },
+          ],
         },
       };
 
