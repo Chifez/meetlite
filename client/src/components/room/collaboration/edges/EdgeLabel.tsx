@@ -1,5 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getBezierPath, EdgeProps } from '@xyflow/react';
+
+interface EdgeLabelChangeEvent {
+  id: string;
+  label: string;
+}
 
 export const EdgeLabel = ({
   id,
@@ -12,11 +17,14 @@ export const EdgeLabel = ({
   style = {},
   markerEnd,
   label,
-  data,
-  selected,
 }: EdgeProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [labelText, setLabelText] = useState(label as string);
+
+  // Sync label with incoming changes
+  useEffect(() => {
+    setLabelText(label as string);
+  }, [label]);
 
   const onDoubleClick = useCallback((evt: React.MouseEvent) => {
     evt.preventDefault();
@@ -31,7 +39,7 @@ export const EdgeLabel = ({
   const onBlur = useCallback(() => {
     setIsEditing(false);
     // We update the edge label here through the custom event
-    const event = new CustomEvent('edge:labelchange', {
+    const event = new CustomEvent<EdgeLabelChangeEvent>('edge:labelchange', {
       detail: { id, label: labelText },
     });
     window.dispatchEvent(event);

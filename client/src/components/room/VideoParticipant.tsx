@@ -1,7 +1,18 @@
 import { VideoOff, MicOff, Loader2 } from 'lucide-react';
-import { VideoParticipantProps } from './types';
 import { useEffect, useRef, useState } from 'react';
 import { SpeakingIndicator } from './SpeakingIndicator';
+
+interface VideoParticipantProps {
+  stream: MediaStream | null;
+  mediaState: {
+    audioEnabled: boolean;
+    videoEnabled: boolean;
+  };
+  isLocal: boolean;
+  isLoading?: boolean;
+  userEmail?: string;
+  userName?: string;
+}
 
 export const VideoParticipant = ({
   stream,
@@ -9,6 +20,7 @@ export const VideoParticipant = ({
   isLocal,
   isLoading = false,
   userEmail,
+  userName,
 }: VideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -62,18 +74,6 @@ export const VideoParticipant = ({
       videoElement.removeEventListener('error', handleError);
     };
   }, [stream, isLocal]);
-
-  // Update video visibility when mediaState changes
-  // useEffect(() => {
-  //   const videoElement = videoRef.current;
-  //   if (videoElement && stream) {
-  //     if (!mediaState.videoEnabled) {
-  //       videoElement.style.display = 'none';
-  //     } else {
-  //       videoElement.style.display = 'block';
-  //     }
-  //   }
-  // }, [mediaState.videoEnabled, stream]);
 
   const showVideoOff = !mediaState.videoEnabled;
   const showError = videoError && !isLocal;

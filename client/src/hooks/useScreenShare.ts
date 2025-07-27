@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSound } from '@/hooks/useSound';
 import { Socket } from 'socket.io-client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ScreenShareState {
   stream: MediaStream | null;
@@ -17,6 +18,7 @@ interface UseScreenShareProps {
 export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
   const { toast } = useToast();
   const { playUserJoinSound, playUserLeaveSound } = useSound();
+  const { user } = useAuth();
 
   const [screenShareState, setScreenShareState] = useState<ScreenShareState>({
     stream: null,
@@ -71,7 +73,7 @@ export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
     try {
       if (
         screenShareState.sharingUser &&
-        screenShareState.sharingUser !== socket?.id
+        screenShareState.sharingUser !== user?.id
       ) {
         toast({
           variant: 'destructive',
@@ -110,7 +112,7 @@ export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
         setScreenShareState({
           stream,
           isSharing: true,
-          sharingUser: socket?.id || null,
+          sharingUser: user?.id || null,
         });
         socket?.emit('screen-share-started', { roomId });
       }

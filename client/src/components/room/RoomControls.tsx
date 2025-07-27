@@ -3,6 +3,7 @@ import { ParticipantCount } from './ParticipantCount';
 import { MediaControls } from './MediaControls';
 import { MoreOptionsMenu } from './MoreOptionsMenu';
 import { CollaborationMenu } from './collaboration/CollaborationMenu';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RoomControlsProps {
   onRefreshConnection: () => void;
@@ -22,12 +23,16 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
     toggleVideo,
     shareScreen,
     leaveMeeting,
-    socket,
     peers,
+    collaborationState,
   } = useRoom();
+  const { user } = useAuth();
 
-  const canShareScreen =
-    !screenSharingUser || (socket && screenSharingUser === socket.id);
+  const isPresenting = collaborationState?.mode !== 'none';
+  const canShareScreen = Boolean(
+    (!screenSharingUser || (user && screenSharingUser === user.id)) &&
+      !isPresenting
+  );
 
   const participantCount = peers.size + 1;
 
@@ -56,7 +61,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
               audioEnabled={audioEnabled}
               videoEnabled={videoEnabled}
               isScreenSharing={isScreenSharing}
-              canShareScreen={canShareScreen as boolean}
+              canShareScreen={canShareScreen}
               onToggleAudio={toggleAudio}
               onToggleVideo={toggleVideo}
               onShareScreen={shareScreen}
@@ -76,7 +81,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
               audioEnabled={audioEnabled}
               videoEnabled={videoEnabled}
               isScreenSharing={isScreenSharing}
-              canShareScreen={canShareScreen as boolean}
+              canShareScreen={canShareScreen}
               onToggleAudio={toggleAudio}
               onToggleVideo={toggleVideo}
               onShareScreen={shareScreen}

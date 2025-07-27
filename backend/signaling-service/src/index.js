@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { applyWorkflowOperation } from '../controllers/workflow-controller.js';
 
 dotenv.config();
 
@@ -87,7 +88,7 @@ io.on('connection', (socket) => {
     userId: socket.user.userId,
   });
 
-  socket.on('ready', ({ roomId, mediaState, collaborationData }) => {
+  socket.on('ready', ({ roomId, mediaState }) => {
     console.log(`User ${socket.user.userId} joining room ${roomId}`);
 
     socket.join(roomId);
@@ -107,6 +108,14 @@ io.on('connection', (socket) => {
         activeTool: 'none',
         workflowData: null,
         whiteboardData: null,
+        presenter: {
+          userId: null,
+          mode: null,
+          collaborationSettings: {
+            mode: 'allow-edit',
+            allowedUsers: [],
+          },
+        },
       });
     }
 
@@ -364,9 +373,31 @@ io.on('connection', (socket) => {
       collabState.mode = mode;
       collabState.activeTool = mode; // Initially set tool to match mode
 
+      // Update presenter information
+      if (mode === 'none') {
+        collabState.presenter = {
+          userId: null,
+          mode: null,
+          collaborationSettings: {
+            mode: 'allow-edit',
+            allowedUsers: [],
+          },
+        };
+      } else {
+        collabState.presenter = {
+          userId: socket.user.userId,
+          mode: mode,
+          collaborationSettings: {
+            mode: 'allow-edit',
+            allowedUsers: [],
+          },
+        };
+      }
+
       io.to(roomId).emit('collaboration:mode-changed', {
         mode,
         activeTool: mode,
+        presenter: collabState.presenter,
         changedBy: socket.user.userId,
       });
     }
@@ -389,20 +420,46 @@ io.on('connection', (socket) => {
   socket.on('workflow:operation', ({ roomId, operation }) => {
     const collabState = collaborationState.get(roomId);
     if (collabState && collabState.mode === 'workflow') {
-      // Update workflow state
+      // Initialize workflow data if it doesn't exist
       if (!collabState.workflowData) {
-        collabState.workflowData = { nodes: [], edges: [] };
+        collabState.workflowData = {
+          nodes: [],
+          edges: [],
+          version: 0,
+          lastModified: Date.now(),
+          lastModifiedBy: socket.user.userId,
+        };
       }
 
-      // Apply operation to workflow data
-      applyWorkflowOperation(collabState.workflowData, operation);
+      // Apply operation atomically
+      const newWorkflowData = applyWorkflowOperation(
+        collabState.workflowData,
+        operation
+      );
 
-      // Broadcast to other participants
-      socket.to(roomId).emit('workflow:operation', {
+      // Update state atomically
+      collabState.workflowData = {
+        ...newWorkflowData,
+        version: (collabState.workflowData.version || 0) + 1,
+        lastModified: Date.now(),
+        lastModifiedBy: socket.user.userId,
+      };
+
+      // Broadcast to all clients including sender for confirmation
+      io.to(roomId).emit('workflow:operation', {
         operation,
         userId: socket.user.userId,
         timestamp: Date.now(),
+        version: collabState.workflowData.version,
       });
+    }
+  });
+
+  // State sync handler
+  socket.on('workflow:request-sync', ({ roomId }) => {
+    const collabState = collaborationState.get(roomId);
+    if (collabState) {
+      socket.emit('workflow:state-sync', collabState);
     }
   });
 
@@ -528,6 +585,27 @@ function handleUserLeaving(socket, roomId, emitUserLeft = true) {
     socket.to(roomId).emit('screen-share-stopped');
   }
 
+  // Check if user was presenting
+  const collabState = collaborationState.get(roomId);
+  if (collabState && collabState.presenter?.userId === socket.user.userId) {
+    collabState.mode = 'none';
+    collabState.activeTool = 'none';
+    collabState.presenter = {
+      userId: null,
+      mode: null,
+      collaborationSettings: {
+        mode: 'allow-edit',
+        allowedUsers: [],
+      },
+    };
+    socket.to(roomId).emit('collaboration:mode-changed', {
+      mode: 'none',
+      activeTool: 'none',
+      presenter: collabState.presenter,
+      changedBy: socket.user.userId,
+    });
+  }
+
   // Clean up any active connections involving this user
   for (const [key, connection] of activeConnections.entries()) {
     if (connection.users.includes(socket.user.userId)) {
@@ -543,42 +621,6 @@ function handleUserLeaving(socket, roomId, emitUserLeft = true) {
 
   // Leave the room
   socket.leave(roomId);
-}
-
-// Helper function to apply workflow operations
-function applyWorkflowOperation(workflowData, operation) {
-  switch (operation.type) {
-    case 'add_node':
-      workflowData.nodes.push(operation.node);
-      break;
-    case 'update_node':
-      const nodeIndex = workflowData.nodes.findIndex(
-        (n) => n.id === operation.nodeId
-      );
-      if (nodeIndex !== -1) {
-        workflowData.nodes[nodeIndex] = {
-          ...workflowData.nodes[nodeIndex],
-          ...operation.data,
-        };
-      }
-      break;
-    case 'delete_node':
-      workflowData.nodes = workflowData.nodes.filter(
-        (n) => n.id !== operation.nodeId
-      );
-      workflowData.edges = workflowData.edges.filter(
-        (e) => e.source !== operation.nodeId && e.target !== operation.nodeId
-      );
-      break;
-    case 'add_edge':
-      workflowData.edges.push(operation.edge);
-      break;
-    case 'delete_edge':
-      workflowData.edges = workflowData.edges.filter(
-        (e) => e.id !== operation.edgeId
-      );
-      break;
-  }
 }
 
 const PORT = process.env.PORT || 3001;

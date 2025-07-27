@@ -1,4 +1,4 @@
-import { useCallback, useState, DragEvent, useEffect } from 'react';
+import { useCallback, useState, DragEvent, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -6,7 +6,6 @@ import {
   Connection,
   Edge,
   Node,
-  addEdge,
   NodeTypes,
   ReactFlowProvider,
   Panel,
@@ -39,6 +38,11 @@ interface WorkflowPanelProps {
 type EdgeStyle = 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier';
 type NodeType = 'input' | 'default' | 'output' | 'group';
 
+interface NodeData {
+  label: string;
+  nodeType: NodeType;
+}
+
 // Define node types mapping
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -64,31 +68,119 @@ const defaultEdgeOptions = {
 };
 
 const Flow = ({ className }: WorkflowPanelProps) => {
-  const { socket, collaborationState, sendWorkflowOperation } = useRoom();
-  const [nodes, setNodes] = useState<Node[]>([]);
+  const { socket, collaborationState, sendWorkflowOperation, canEdit } =
+    useRoom();
+  const [nodes, setNodes] = useState<Node<NodeData | any>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smoothstep');
   const reactFlowInstance = useReactFlow();
+  const isInitialized = useRef(false);
+
+  // Check if current user can edit
+  const canUserEdit = socket?.user?.id ? canEdit(socket.user.id) : true;
 
   // Handle node changes (movement, deletion, etc)
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((nds) => applyNodeChanges(changes, nds));
-  }, []);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      // Apply changes locally first
+      setNodes((nds) => applyNodeChanges(changes, nds));
+
+      // Only send operations if user can edit
+      if (!canUserEdit) return;
+
+      // Process each change
+      changes.forEach((change) => {
+        if (change.type === 'remove') {
+          // For delete operations, send immediately
+          sendWorkflowOperation({
+            type: 'delete_node',
+            nodeId: change.id,
+          });
+        } else if (
+          change.type === 'position' &&
+          change.position &&
+          !change.dragging
+        ) {
+          // For position updates, only send when dragging ends
+          const updatedNode = nodes.find((n) => n.id === change.id);
+          if (updatedNode) {
+            const { id, type, data } = updatedNode;
+            sendWorkflowOperation({
+              type: 'update_node',
+              nodeId: id,
+              node: { id, type, position: change.position, data },
+            });
+          }
+        }
+      });
+    },
+    [nodes, sendWorkflowOperation, canUserEdit]
+  );
+
+  // Sync with collaboration state
+  useEffect(() => {
+    if (!collaborationState?.workflowData) return;
+
+    const currentNodes = collaborationState.workflowData.nodes || [];
+    const currentEdges = collaborationState.workflowData.edges || [];
+
+    // Only apply remote changes
+    if (!isInitialized.current) {
+      isInitialized.current = true;
+      setNodes(currentNodes);
+      setEdges(currentEdges);
+    } else if (
+      collaborationState.workflowData.lastModifiedBy !== socket?.user?.id
+    ) {
+      setNodes(currentNodes);
+      setEdges(currentEdges);
+    }
+  }, [collaborationState?.workflowData, socket?.user?.id]);
 
   // Handle edge changes (deletion, selection)
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((eds) => applyEdgeChanges(changes, eds));
-  }, []);
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      // Let React Flow handle the state changes internally
+      setEdges((eds) => applyEdgeChanges(changes, eds));
+
+      // Only send operations if user can edit
+      if (!canUserEdit) return;
+
+      // Send operations for specific changes
+      changes.forEach((change) => {
+        if (change.type === 'remove') {
+          sendWorkflowOperation({
+            type: 'delete_edge',
+            edgeId: change.id,
+          });
+        }
+      });
+    },
+    [sendWorkflowOperation, canUserEdit]
+  );
 
   // Listen for edge label changes
   useEffect(() => {
     const handleEdgeLabelChange = (event: Event) => {
-      const { id, label } = (event as CustomEvent).detail;
-      setEdges((eds) =>
-        eds.map((e) =>
-          e.id === id ? { ...e, label, labelStyle: { fontSize: 12 } } : e
-        )
-      );
+      const { id, label } = (
+        event as CustomEvent<{ id: string; label: string }>
+      ).detail;
+      const updatedEdge = edges.find((e) => e.id === id);
+      if (updatedEdge) {
+        const newEdge = {
+          ...updatedEdge,
+          label,
+          labelStyle: { fontSize: 12 },
+        };
+        // Update local state
+        setEdges((eds) => eds.map((e) => (e.id === id ? newEdge : e)));
+        // Send update
+        sendWorkflowOperation({
+          type: 'update_edge',
+          edgeId: id,
+          edge: newEdge,
+        });
+      }
     };
 
     window.addEventListener(
@@ -101,11 +193,13 @@ const Flow = ({ className }: WorkflowPanelProps) => {
         handleEdgeLabelChange as EventListener
       );
     };
-  }, []);
+  }, [edges, sendWorkflowOperation]);
 
   // Handle node connection
   const onConnect = useCallback(
     (params: Connection) => {
+      if (!canUserEdit) return;
+
       if (params.source && params.target) {
         const newEdge: Edge = {
           id: `e${params.source}-${params.target}`,
@@ -113,35 +207,55 @@ const Flow = ({ className }: WorkflowPanelProps) => {
           target: params.target,
           type: 'custom',
           markerEnd: defaultEdgeOptions.markerEnd,
-          style: { ...defaultEdgeOptions.style, type: edgeStyle },
+          style: { ...defaultEdgeOptions.style },
           animated: defaultEdgeOptions.animated,
           label: 'Label',
           labelStyle: { fontSize: 12 },
         };
-        setEdges((eds) => addEdge(newEdge, eds));
+
+        // Send update first
+        sendWorkflowOperation({
+          type: 'add_edge',
+          edge: newEdge,
+        });
+
+        // Then update local state
+        setEdges((eds) => [...eds, newEdge]);
       }
     },
-    [edgeStyle]
+    [edgeStyle, sendWorkflowOperation, canUserEdit]
   );
 
-  const createNode = useCallback((type: NodeType) => {
-    const position = {
-      x: Math.random() * 500,
-      y: Math.random() * 500,
-    };
+  const createNode = useCallback(
+    (type: NodeType) => {
+      if (!canUserEdit) return;
 
-    const newNode: Node = {
-      id: `node_${Date.now()}`,
-      type: 'custom',
-      position,
-      data: {
-        label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
-        nodeType: type,
-      },
-    };
+      const position = {
+        x: Math.random() * 500,
+        y: Math.random() * 500,
+      };
 
-    setNodes((nds) => [...nds, newNode]);
-  }, []);
+      const newNode: Node<NodeData | any> = {
+        id: `node_${Date.now()}`,
+        type: 'custom',
+        position,
+        data: {
+          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+          nodeType: type,
+        },
+      };
+
+      // Send operation first
+      sendWorkflowOperation({
+        type: 'add_node',
+        node: newNode,
+      });
+
+      // Then update local state
+      setNodes((nds) => [...nds, newNode]);
+    },
+    [sendWorkflowOperation, canUserEdit]
+  );
 
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
@@ -150,6 +264,8 @@ const Flow = ({ className }: WorkflowPanelProps) => {
 
   const onDrop = useCallback(
     (event: DragEvent) => {
+      if (!canUserEdit) return;
+
       event.preventDefault();
 
       const type = event.dataTransfer.getData(
@@ -162,7 +278,7 @@ const Flow = ({ className }: WorkflowPanelProps) => {
         y: event.clientY,
       });
 
-      const newNode: Node = {
+      const newNode: Node<NodeData | any> = {
         id: `node_${Date.now()}`,
         type: 'custom',
         position,
@@ -172,9 +288,16 @@ const Flow = ({ className }: WorkflowPanelProps) => {
         },
       };
 
+      // Send operation first
+      sendWorkflowOperation({
+        type: 'add_node',
+        node: newNode,
+      });
+
+      // Then update local state
       setNodes((nds) => [...nds, newNode]);
     },
-    [reactFlowInstance]
+    [reactFlowInstance, sendWorkflowOperation, canUserEdit]
   );
 
   if (!socket || collaborationState?.mode !== 'workflow') {
@@ -182,7 +305,7 @@ const Flow = ({ className }: WorkflowPanelProps) => {
   }
 
   return (
-    <div className={className}>
+    <div className={`${className} ${!canUserEdit && 'cursor-not-allowed'}`}>
       <div className="h-full w-full" onDragOver={onDragOver} onDrop={onDrop}>
         <ReactFlow
           nodes={nodes}

@@ -20,6 +20,7 @@ export interface MediaState {
 export interface WorkflowData {
   nodes: Node[];
   edges: Edge[];
+  version?: number;
   lastModified?: Date;
   lastModifiedBy?: string;
 }
@@ -35,10 +36,52 @@ export interface CollaborationState {
   activeTool: 'none' | 'workflow' | 'whiteboard';
   workflowData: WorkflowData | null;
   whiteboardData: WhiteboardData | null;
+  // New presenter-related fields
+  presenter: {
+    userId: string | null;
+    mode: 'workflow' | 'whiteboard' | null;
+    collaborationSettings: {
+      mode: 'view-only' | 'allow-edit' | 'selective-edit';
+      allowedUsers: string[];
+    };
+  };
+}
+
+export interface WorkflowOperation {
+  type:
+    | 'add_node'
+    | 'update_node'
+    | 'delete_node'
+    | 'add_edge'
+    | 'delete_edge'
+    | 'update_edge';
+  node?: Node;
+  nodeId?: string;
+  data?: Partial<Node>;
+  edge?: Edge;
+  edgeId?: string;
+  edgeData?: Partial<Edge>;
+  version?: number;
+  timestamp?: number;
+  userId?: string;
+}
+
+export interface WhiteboardUpdate {
+  version: number;
+  data: unknown;
+}
+
+// Extend Socket type to include user property
+export interface ExtendedSocket extends Socket {
+  user?: {
+    id: string;
+    userId: string;
+    email: string;
+  };
 }
 
 export interface RoomContextType {
-  socket: Socket | null;
+  socket: ExtendedSocket | null;
   localStream: MediaStream | null;
   screenStream: MediaStream | null;
   peers: Map<string, PeerConnection>;
@@ -63,8 +106,16 @@ export interface RoomContextType {
   // Collaboration functionality
   collaborationState: CollaborationState;
   changeCollaborationMode: (mode: 'none' | 'workflow' | 'whiteboard') => void;
-  sendWorkflowOperation: (operation: any) => void;
-  sendWhiteboardUpdate: (update: any) => void;
+  sendWorkflowOperation: (operation: WorkflowOperation) => void;
+  sendWhiteboardUpdate: (update: WhiteboardUpdate) => void;
+  // Presenter functionality
+  startPresenting: (mode: 'workflow' | 'whiteboard') => void;
+  stopPresenting: () => void;
+  updateCollaborationSettings: (settings: {
+    mode: 'view-only' | 'allow-edit' | 'selective-edit';
+    allowedUsers?: string[];
+  }) => void;
+  canEdit: (userId: string) => boolean;
 }
 
 export interface Participant {

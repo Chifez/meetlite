@@ -1,20 +1,23 @@
-import { SharedScreen } from './SharedScreen';
 import { MobileVideoLayout } from './layouts/MobileVideoLayout';
 import { DesktopVideoLayout } from './layouts/DesktopVideoLayout';
+import { SharedScreen } from './SharedScreen';
 import { useRoom } from '@/contexts/RoomContext';
 
 export const VideoGrid = () => {
   const {
     localStream,
     peers,
-    screenPeers,
     peerMediaState,
     videoEnabled,
     audioEnabled,
+    getParticipantEmail,
     screenStream,
     screenSharingUser,
-    getParticipantEmail,
+    screenPeers,
   } = useRoom();
+
+  // Calculate participant count
+  const participantCount = peers.size + 1; // +1 for local user
 
   // Get the screen sharing stream from peers if we're not the one sharing
   const sharedScreenStream =
@@ -23,9 +26,6 @@ export const VideoGrid = () => {
       Array.from(screenPeers.values()).find((p) => p.id === screenSharingUser)
         ?.stream) ||
     null;
-
-  // Calculate participant count
-  const participantCount = peers.size + 1; // +1 for local user
 
   // Create array of all participants (local + peers) with user info
   const allParticipants = [
@@ -36,6 +36,7 @@ export const VideoGrid = () => {
       isLocal: true,
       isLoading: false,
       userEmail: undefined,
+      userName: 'You',
     },
     ...Array.from(peers.entries()).map(([peerId, peer]) => {
       const participantEmail = getParticipantEmail(peer.id);
@@ -50,15 +51,16 @@ export const VideoGrid = () => {
         isLocal: false,
         isLoading: peer.isLoading || false,
         userEmail: participantEmail,
+        userName: participantEmail || 'Participant',
       };
     }),
   ];
 
   return (
     <div className="flex flex-col w-full h-full overflow-hidden">
-      {/* Mobile: Keep horizontal split for screen sharing */}
+      {/* Mobile: Screen sharing takes 65% height */}
       {sharedScreenStream && (
-        <div className="md:hidden w-full h-1/2 mb-2 flex-shrink-0">
+        <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
           <SharedScreen stream={sharedScreenStream} />
         </div>
       )}
@@ -67,7 +69,7 @@ export const VideoGrid = () => {
       <div
         className={`flex-1 overflow-hidden ${
           sharedScreenStream ? 'md:flex md:flex-row' : 'flex flex-col'
-        } ${sharedScreenStream ? 'md:h-full h-1/2' : 'h-full'}`}
+        } ${sharedScreenStream ? 'md:h-full h-[35%]' : 'h-full'}`}
       >
         {/* Desktop: Shared Screen */}
         {sharedScreenStream && (

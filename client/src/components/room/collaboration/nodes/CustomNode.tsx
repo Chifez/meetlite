@@ -1,6 +1,7 @@
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { Handle, Position } from '@xyflow/react';
 import { cn } from '@/lib/utils';
+import { useRoom } from '@/contexts/RoomContext';
 
 type NodeData = {
   label: string;
@@ -21,10 +22,16 @@ const handleStyles = {
   group: '!bg-purple-500',
 };
 
-export const CustomNode = ({ data, isConnectable }: NodeProps) => {
+export const CustomNode = ({ id, data, isConnectable }: any) => {
+  const { sendWorkflowOperation } = useRoom();
   const nodeData = data as NodeData;
   const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(nodeData.label);
+  const [label, setLabel] = useState<string>(nodeData.label);
+
+  // Sync label with incoming data changes
+  useEffect(() => {
+    setLabel(nodeData.label);
+  }, [nodeData.label]);
 
   const onLabelClick = useCallback((evt: React.MouseEvent) => {
     evt.stopPropagation();
@@ -40,8 +47,20 @@ export const CustomNode = ({ data, isConnectable }: NodeProps) => {
 
   const onLabelBlur = useCallback(() => {
     setIsEditing(false);
-    nodeData.label = label;
-  }, [nodeData, label]);
+    // Send update for label change only
+    sendWorkflowOperation({
+      type: 'update_node',
+      nodeId: id,
+      node: {
+        id,
+        type: 'custom',
+        data: {
+          ...nodeData,
+          label,
+        },
+      },
+    });
+  }, [id, label, nodeData, sendWorkflowOperation]);
 
   const type = nodeData.nodeType || 'default';
 

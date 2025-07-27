@@ -17,7 +17,7 @@ interface MediaControlsProps {
   audioEnabled: boolean;
   videoEnabled: boolean;
   isScreenSharing: boolean;
-  canShareScreen: boolean;
+  canShareScreen: boolean | null;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onShareScreen: () => void;
@@ -36,7 +36,11 @@ export const MediaControls = ({
   onLeaveMeeting,
   showScreenShare = true,
 }: MediaControlsProps) => {
-  const { chatState, toggleChatPanel } = useRoom();
+  const { chatState, toggleChatPanel, collaborationState } = useRoom();
+
+  // Disable screen sharing when presenting
+  const isPresenting = collaborationState?.mode !== 'none';
+  const canShare = canShareScreen && !isPresenting;
 
   return (
     <div className="flex items-center gap-3 justify-center">
@@ -59,11 +63,14 @@ export const MediaControls = ({
       {showScreenShare && (
         <ControlButton
           icon={MonitorUp}
-          iconAlt={canShareScreen ? Monitor : MonitorOff}
+          iconAlt={canShare ? Monitor : MonitorOff}
           onClick={onShareScreen}
-          disabled={!canShareScreen}
+          disabled={!canShare}
           isActive={isScreenSharing}
           className="hidden md:inline-flex"
+          title={
+            isPresenting ? 'Cannot share screen while presenting' : undefined
+          }
         />
       )}
 

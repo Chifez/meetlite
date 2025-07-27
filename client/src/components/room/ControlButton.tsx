@@ -9,6 +9,7 @@ interface ControlButtonProps {
   isDestructive?: boolean;
   disabled?: boolean;
   className?: string;
+  title?: string;
 }
 
 export const ControlButton = ({
@@ -19,6 +20,7 @@ export const ControlButton = ({
   isDestructive = false,
   disabled = false,
   className = '',
+  title,
 }: ControlButtonProps) => {
   const activeState = Boolean(isActive);
 
@@ -42,6 +44,7 @@ export const ControlButton = ({
       onClick={onClick}
       disabled={disabled}
       className={`rounded-full h-12 w-12 transition-all duration-200 ${getVariantStyles()} ${className}`}
+      title={title}
     >
       {IconAlt && !activeState ? (
         <IconAlt className="h-5 w-5" />

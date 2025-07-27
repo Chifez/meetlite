@@ -11,15 +11,18 @@ import { useMediaSetup } from '@/hooks/useMediaSetup';
 import { useParticipantInfo } from '@/hooks/useParticipantInfo';
 import { useChat } from '@/hooks/useChat';
 import { useCollaboration } from '@/hooks/useCollaboration';
-import { WorkflowPanel } from '@/components/room/collaboration/WorkflowPanel';
-import { WhiteboardPanel } from '@/components/room/collaboration/WhiteboardPanel';
-import { CollaborationToolbar } from '@/components/room/collaboration/CollaborationToolbar';
 import SEO from '@/components/SEO';
 import { RoomProvider } from '@/contexts/RoomContext';
+import { WorkflowPanel } from '@/components/room/collaboration/WorkflowPanel';
+import { WhiteboardPanel } from '@/components/room/collaboration/WhiteboardPanel';
+import { SharedPresentation } from '@/components/room/SharedPresentation';
+import { ParticipantsContainer } from '@/components/room/ParticipantsContainer';
+import { useAuth } from '@/hooks/useAuth';
 
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Setup socket connection
   const { socket } = useSocketSetup({ roomId });
@@ -55,6 +58,10 @@ const Room = () => {
     changeCollaborationMode,
     sendWorkflowOperation,
     sendWhiteboardUpdate,
+    startPresenting,
+    stopPresenting,
+    updateCollaborationSettings,
+    canEdit,
   } = useCollaboration({ socket, roomId });
 
   // Use WebRTC hooks with localStream and participant info callback
@@ -118,6 +125,11 @@ const Room = () => {
       changeCollaborationMode,
       sendWorkflowOperation,
       sendWhiteboardUpdate,
+      // Presenter functionality
+      startPresenting,
+      stopPresenting,
+      updateCollaborationSettings,
+      canEdit,
     }),
     [
       socket,
@@ -145,6 +157,10 @@ const Room = () => {
       changeCollaborationMode,
       sendWorkflowOperation,
       sendWhiteboardUpdate,
+      startPresenting,
+      stopPresenting,
+      updateCollaborationSettings,
+      canEdit,
     ]
   );
 
@@ -167,12 +183,71 @@ const Room = () => {
           {/* Main content area */}
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-hidden bg-[#121212] p-4">
-              {collaborationState.mode === 'none' ? (
-                <VideoGrid />
-              ) : collaborationState.mode === 'workflow' ? (
-                <WorkflowPanel className="w-full h-full" />
+              {collaborationState?.mode === 'workflow' ? (
+                // Check if current user is the presenter
+                collaborationState?.presenter?.userId === user?.id ? (
+                  // Presenter: Full screen workflow
+                  <WorkflowPanel className="w-full h-full" />
+                ) : (
+                  // Viewer: Split layout with workflow + participants (like screen sharing)
+                  <div className="flex flex-col w-full h-full overflow-hidden">
+                    {/* Mobile: Presentation takes 65% height */}
+                    <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
+                      <SharedPresentation mode="workflow" />
+                    </div>
+
+                    {/* Layout Container */}
+                    <div className="md:flex md:flex-row md:h-full h-[35%]">
+                      {/* Mobile: Participants */}
+                      <div className="md:hidden w-full h-full">
+                        <ParticipantsContainer />
+                      </div>
+                      {/* Desktop: Shared Presentation */}
+                      <div className="hidden md:block w-[68%] h-full flex-shrink-0 pr-2">
+                        <SharedPresentation mode="workflow" />
+                      </div>
+
+                      {/* Participants Container */}
+                      <div className="md:w-[32%] h-full flex-1 overflow-hidden">
+                        <ParticipantsContainer />
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : collaborationState?.mode === 'whiteboard' ? (
+                // Check if current user is the presenter
+                collaborationState?.presenter?.userId === user?.id ? (
+                  // Presenter: Full screen whiteboard
+                  <WhiteboardPanel className="w-full h-full" />
+                ) : (
+                  // Viewer: Split layout with whiteboard + participants (like screen sharing)
+                  <div className="flex flex-col w-full h-full overflow-hidden">
+                    {/* Mobile: Presentation takes 65% height */}
+                    <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
+                      <SharedPresentation mode="whiteboard" />
+                    </div>
+
+                    {/* Layout Container */}
+                    <div className="md:flex md:flex-row md:h-full h-[35%]">
+                      {/* Mobile: Participants */}
+                      <div className="md:hidden w-full h-full">
+                        <ParticipantsContainer />
+                      </div>
+                      {/* Desktop: Shared Presentation */}
+                      <div className="hidden md:block w-[68%] h-full flex-shrink-0 pr-2">
+                        <SharedPresentation mode="whiteboard" />
+                      </div>
+
+                      {/* Participants Container */}
+                      <div className="md:w-[32%] h-full flex-1 overflow-hidden">
+                        <ParticipantsContainer />
+                      </div>
+                    </div>
+                  </div>
+                )
               ) : (
-                <WhiteboardPanel className="w-full h-full" />
+                // No presentation mode: Regular video grid
+                <VideoGrid />
               )}
             </div>
 
