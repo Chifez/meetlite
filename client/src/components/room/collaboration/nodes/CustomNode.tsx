@@ -18,6 +18,7 @@ import {
   X,
   Check,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 type NodeData = {
   nodeType?: 'input' | 'default' | 'output' | 'group';
@@ -25,6 +26,7 @@ type NodeData = {
   description?: string;
   tags?: string[];
   icon?: string;
+  showAllFields?: boolean;
   details?: Array<{
     label: string;
     value: string;
@@ -120,14 +122,14 @@ const TagPill = ({ tag, onRemove, onEdit }: TagPillProps) => {
 };
 
 export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
-  const { sendWorkflowOperation } = useRoom();
+  const { sendWorkflowOperation, canEdit, collaborationState } = useRoom();
+  const { user } = useAuth();
   const nodeData = data as NodeData;
   const { position } = data as any; // Get position from the node data
 
   // Single state for editing field
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showOptions, setShowOptions] = useState(false);
-  const [showAllFields, setShowAllFields] = useState(false);
 
   // Tag editing state
   const [isEditingTags, setIsEditingTags] = useState(false);
@@ -136,6 +138,7 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
 
   // Icon selection state
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [editingValue, setEditingValue] = useState('');
 
   // Compute derived values from props using useMemo
   const title = useMemo(() => nodeData.title || '', [nodeData.title]);
@@ -145,8 +148,37 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
   );
   const tags = useMemo(() => nodeData.tags || [], [nodeData.tags]);
 
-  // Local editing state - only track what's currently being edited
-  const [editingValue, setEditingValue] = useState('');
+  const showAllFields = nodeData.showAllFields || false;
+  const canUserEdit = user?.id ? canEdit(user.id) : false;
+
+  // Debug logging
+  console.log('CustomNode Debug:', {
+    nodeId: id,
+    authUser: user,
+    authUserId: user?.id,
+    collaborationState: collaborationState,
+    presenterUserId: collaborationState?.presenter?.userId,
+    canUserEdit,
+    showAllFields,
+    showOptions,
+  });
+
+  const toggleShowAllFields = useCallback(() => {
+    sendWorkflowOperation({
+      type: 'update_node',
+      nodeId: id,
+      node: {
+        id,
+        type: 'custom',
+        position,
+        data: {
+          ...nodeData,
+          showAllFields: !nodeData.showAllFields,
+        },
+      },
+    });
+    setShowOptions(false);
+  }, [id, nodeData, position, sendWorkflowOperation]);
 
   // Set editing value when entering edit mode
   const startEditing = useCallback(
@@ -497,17 +529,16 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
               <Image className="w-4 h-4 mr-2" />
               Change Icon
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setShowOptions(false);
-                setShowAllFields(!showAllFields);
-              }}
-              className="w-full justify-start"
-            >
-              {showAllFields ? 'Hide Fields' : 'Show All Fields'}
-            </Button>
+            {canUserEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleShowAllFields}
+                className="w-full justify-start"
+              >
+                {showAllFields ? 'Hide Fields' : 'Show All Fields'}
+              </Button>
+            )}
           </div>
         </div>
       )}
