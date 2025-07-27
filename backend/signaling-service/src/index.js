@@ -416,6 +416,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Collaboration settings update
+  socket.on('presentation:settings', ({ roomId, settings }) => {
+    const collabState = collaborationState.get(roomId);
+    if (collabState && collabState.presenter) {
+      // Verify the sender is the presenter
+      if (socket.user.userId === collabState.presenter.userId) {
+        // Update collaboration settings
+        collabState.presenter.collaborationSettings = {
+          mode: settings.mode,
+          allowedUsers: settings.allowedUsers || [],
+        };
+
+        // Broadcast settings update to all clients
+        io.to(roomId).emit('collaboration:settings-changed', {
+          settings: collabState.presenter.collaborationSettings,
+          changedBy: socket.user.userId,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  });
+
   // Workflow operations
   socket.on('workflow:operation', ({ roomId, operation }) => {
     const collabState = collaborationState.get(roomId);

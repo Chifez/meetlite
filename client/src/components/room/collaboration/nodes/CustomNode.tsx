@@ -1,19 +1,18 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { useRoom } from '@/contexts/RoomContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
 import {
   MoreHorizontal,
   Tag,
   FileText,
   Image,
-  Info,
   Zap,
   Settings as SettingsIcon,
   Send,
-  Package,
   Plus,
   X,
   Check,
@@ -21,7 +20,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 
 type NodeData = {
-  nodeType?: 'input' | 'default' | 'output' | 'group';
+  nodeType?: 'input' | 'default' | 'output';
   title?: string;
   description?: string;
   tags?: string[];
@@ -38,14 +37,12 @@ const nodeIcons = {
   input: Zap,
   default: SettingsIcon,
   output: Send,
-  group: Package,
 };
 
 const nodeColors = {
   input: 'bg-green-50 border-green-200',
   default: 'bg-blue-50 border-blue-200',
   output: 'bg-orange-50 border-orange-200',
-  group: 'bg-purple-50 border-purple-200',
 };
 
 interface CustomNodeProps {
@@ -125,7 +122,7 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
   const { sendWorkflowOperation, canEdit, collaborationState } = useRoom();
   const { user } = useAuth();
   const nodeData = data as NodeData;
-  const { position } = data as any; // Get position from the node data
+  const { position } = data as any;
 
   // Single state for editing field
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -309,7 +306,9 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
     <div
       className={cn(
         'bg-white shadow-lg rounded-lg border min-w-[250px] max-w-[300px]',
-        'transition-all duration-200 cursor-grab active:cursor-grabbing',
+        'transition-all duration-200',
+        !canUserEdit && 'cursor-default',
+        canUserEdit && 'cursor-grab active:cursor-grabbing',
         'hover:shadow-xl',
         nodeColors[type]
       )}
@@ -319,8 +318,11 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
         <Handle
           type="target"
           position={Position.Left}
-          isConnectable={isConnectable}
-          className="w-3 h-3 -ml-1.5 !bg-gray-400"
+          isConnectable={isConnectable && canUserEdit}
+          className={cn(
+            'w-3 h-3 -ml-1.5',
+            canUserEdit ? '!bg-gray-400' : '!bg-gray-300'
+          )}
         />
       )}
 
@@ -344,8 +346,11 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
               />
             ) : (
               <div
-                className="cursor-text"
-                onDoubleClick={() => startEditing('title')}
+                className={cn(
+                  canUserEdit && 'cursor-text',
+                  !canUserEdit && 'cursor-default'
+                )}
+                onDoubleClick={() => canUserEdit && startEditing('title')}
               >
                 <p className="text-sm font-bold text-gray-800">
                   {title || 'Untitled'}
@@ -355,15 +360,17 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
           </div>
         </div>
 
-        {/* Options Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowOptions(!showOptions)}
-          className="h-6 w-6 p-0"
-        >
-          <MoreHorizontal className="w-4 h-4 text-gray-500" />
-        </Button>
+        {/* Options Button - Only show if user can edit */}
+        {canUserEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowOptions(!showOptions)}
+            className="h-6 w-6 p-0"
+          >
+            <MoreHorizontal className="w-4 h-4 text-gray-500" />
+          </Button>
+        )}
       </div>
 
       {/* Conditional Fields */}
@@ -371,8 +378,8 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
         <>
           {/* Tags - Below Title */}
           <div className="px-3 pb-2">
-            {isEditingTags ? (
-              // Tag editing mode
+            {isEditingTags && canUserEdit ? (
+              // Tag editing mode - only show if user can edit
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-1">
                   {editingTags.map((tag, index) => (
@@ -430,14 +437,18 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
                 {tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded cursor-pointer hover:bg-gray-200"
-                    onClick={() => startEditingTags()}
-                    title="Click to edit tags"
+                    className={cn(
+                      'px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded',
+                      canUserEdit && 'cursor-pointer hover:bg-gray-200',
+                      !canUserEdit && 'cursor-default'
+                    )}
+                    onClick={() => canUserEdit && startEditingTags()}
+                    title={canUserEdit ? 'Click to edit tags' : undefined}
                   >
                     {tag}
                   </span>
                 ))}
-                {tags.length === 0 && (
+                {tags.length === 0 && canUserEdit && (
                   <span
                     className="px-2 py-1 text-xs text-gray-400 border border-dashed border-gray-300 rounded cursor-pointer hover:border-gray-400"
                     onClick={() => startEditingTags()}
@@ -464,11 +475,19 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
                 />
               ) : (
                 <div
-                  className="cursor-text"
-                  onDoubleClick={() => startEditing('description')}
+                  className={cn(
+                    canUserEdit && 'cursor-text',
+                    !canUserEdit && 'cursor-default'
+                  )}
+                  onDoubleClick={() =>
+                    canUserEdit && startEditing('description')
+                  }
                 >
                   <p className="text-xs text-gray-500">
-                    {description || 'Double-click to add description...'}
+                    {description ||
+                      (canUserEdit
+                        ? 'Double-click to add description...'
+                        : 'No description')}
                   </p>
                 </div>
               )}
@@ -477,8 +496,8 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
         </>
       )}
 
-      {/* Options Menu */}
-      {showOptions && (
+      {/* Options Menu - Only show if user can edit */}
+      {showOptions && canUserEdit && (
         <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg z-10 min-w-[200px]">
           <div className="p-2 space-y-1">
             <Button
@@ -543,8 +562,8 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
         </div>
       )}
 
-      {/* Icon Picker */}
-      {showIconPicker && (
+      {/* Icon Picker - Only show if user can edit */}
+      {showIconPicker && canUserEdit && (
         <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg z-10 min-w-[200px]">
           <div className="p-2">
             <div className="flex items-center justify-between mb-2">
@@ -581,8 +600,11 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
         <Handle
           type="source"
           position={Position.Right}
-          isConnectable={isConnectable}
-          className="w-3 h-3 -mr-1.5 !bg-gray-400"
+          isConnectable={isConnectable && canUserEdit}
+          className={cn(
+            'w-3 h-3 -mr-1.5',
+            canUserEdit ? '!bg-gray-400' : '!bg-gray-300'
+          )}
         />
       )}
     </div>

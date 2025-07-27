@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Users, Eye, Edit, UserCheck } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRoom } from '@/contexts/RoomContext';
+import { useAuth } from '@/hooks/useAuth';
 
 type CollaborationMode = 'view-only' | 'allow-edit' | 'selective-edit';
 
@@ -14,13 +15,31 @@ interface CollaborationSettingsPanelProps {
 export const CollaborationSettingsPanel = ({
   className,
 }: CollaborationSettingsPanelProps) => {
-  const { socket, peers, getParticipantEmail, updateCollaborationSettings } =
-    useRoom();
+  const {
+    peers,
+    getParticipantEmail,
+    updateCollaborationSettings,
+    collaborationState,
+  } = useRoom();
+  const { user } = useAuth();
+
+  // Sync with global state
   const [collaborationMode, setCollaborationMode] =
     useState<CollaborationMode>('allow-edit');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
-  const isPresenter = socket?.user?.userId === socket?.user?.userId; // Placeholder - should be replaced with actual presenter logic
+  // Fix presenter check
+  const isPresenter = user?.id === collaborationState?.presenter?.userId;
+
+  // Sync local state with global state
+  useEffect(() => {
+    if (collaborationState?.presenter?.collaborationSettings) {
+      const { mode, allowedUsers } =
+        collaborationState.presenter.collaborationSettings;
+      setCollaborationMode(mode);
+      setSelectedUsers(new Set(allowedUsers));
+    }
+  }, [collaborationState?.presenter?.collaborationSettings]);
 
   if (!isPresenter) {
     return null;
@@ -43,10 +62,12 @@ export const CollaborationSettingsPanel = ({
     }
     setSelectedUsers(newSelected);
 
-    updateCollaborationSettings({
-      mode: collaborationMode,
-      allowedUsers: Array.from(newSelected),
-    });
+    if (collaborationMode === 'selective-edit') {
+      updateCollaborationSettings({
+        mode: collaborationMode,
+        allowedUsers: Array.from(newSelected),
+      });
+    }
   };
 
   const participants = Array.from(peers.entries()).map(([_, peer]) => ({

@@ -23,20 +23,22 @@ import { useRoom } from '@/contexts/RoomContext';
 import { CustomNode } from './nodes/CustomNode';
 import { EdgeLabel } from './edges/EdgeLabel';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings2, ChevronDown } from 'lucide-react';
+import { Plus, Settings2, ChevronDown, Crown } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/hooks/useAuth';
+import { Badge } from '@/components/ui/badge';
 
 interface WorkflowPanelProps {
   className?: string;
 }
 
 type EdgeStyle = 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier';
-type NodeType = 'input' | 'default' | 'output' | 'group';
+type NodeType = 'input' | 'default' | 'output';
 
 interface NodeData {
   nodeType: NodeType;
@@ -78,6 +80,7 @@ const defaultEdgeOptions = {
 const Flow = ({ className }: WorkflowPanelProps) => {
   const { socket, collaborationState, sendWorkflowOperation, canEdit } =
     useRoom();
+  const { user } = useAuth();
   const [nodes, setNodes] = useState<Node<NodeData | any>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smoothstep');
@@ -85,7 +88,8 @@ const Flow = ({ className }: WorkflowPanelProps) => {
   const isInitialized = useRef(false);
 
   // Check if current user can edit
-  const canUserEdit = socket?.user?.id ? canEdit(socket.user.id) : true;
+  const canUserEdit = user?.id ? canEdit(user.id) : false;
+  const isPresenter = user?.id === collaborationState?.presenter?.userId;
 
   // Handle node changes (movement, deletion, etc)
   const onNodesChange = useCallback(
@@ -325,8 +329,16 @@ const Flow = ({ className }: WorkflowPanelProps) => {
   }
 
   return (
-    <div className={`${className} ${!canUserEdit && 'cursor-not-allowed'}`}>
-      <div className="h-full w-full" onDragOver={onDragOver} onDrop={onDrop}>
+    <div className={className}>
+      <div
+        className="h-full w-full relative"
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {/* Add overlay to prevent interactions when user can't edit */}
+        {!canUserEdit && (
+          <div className="absolute inset-0 bg-transparent z-10 pointer-events-none" />
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -338,63 +350,88 @@ const Flow = ({ className }: WorkflowPanelProps) => {
           defaultEdgeOptions={defaultEdgeOptions}
           connectionMode={ConnectionMode.Loose}
           fitView
-          deleteKeyCode="Delete"
+          deleteKeyCode={canUserEdit ? 'Delete' : null}
           snapToGrid
           snapGrid={[20, 20]}
+          nodesDraggable={canUserEdit}
+          nodesConnectable={canUserEdit}
+          elementsSelectable={canUserEdit}
+          panOnDrag={true}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
+          panOnScroll={true}
         >
           <Background />
-          <Controls />
-          <Panel
-            position="top-left"
-            className="flex gap-2 bg-white p-2 rounded shadow-lg"
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Node
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => createNode('input')}>
-                  Input Node
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createNode('default')}>
-                  Default Node
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createNode('output')}>
-                  Output Node
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createNode('group')}>
-                  Group Node
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => setEdgeStyle('default')}>
-                  Default Edge
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEdgeStyle('straight')}>
-                  Straight Edge
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEdgeStyle('step')}>
-                  Step Edge
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEdgeStyle('smoothstep')}>
-                  Smooth Step Edge
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEdgeStyle('bezier')}>
-                  Bezier Edge
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {canUserEdit && <Controls />}
+          {/* Only show panel with controls if user can edit */}
+
+          {canUserEdit && (
+            <Panel
+              position="top-left"
+              className="flex gap-2 bg-white p-2 rounded shadow-lg"
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Node
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => createNode('input')}>
+                    Input Node
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => createNode('default')}>
+                    Default Node
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => createNode('output')}>
+                    Output Node
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => setEdgeStyle('default')}>
+                    Default Edge
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEdgeStyle('straight')}>
+                    Straight Edge
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEdgeStyle('step')}>
+                    Step Edge
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEdgeStyle('smoothstep')}>
+                    Smooth Step Edge
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEdgeStyle('bezier')}>
+                    Bezier Edge
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </Panel>
+          )}
+
+          {/* Permission Badge - positioned next to the panel */}
+          <Panel position="top-right" className="pt-4">
+            <div className="flex items-center gap-2">
+              {isPresenter && <Crown className="h-4 w-4 text-yellow-600" />}
+              <Badge
+                variant={canUserEdit ? 'default' : 'secondary'}
+                className="text-xs"
+              >
+                {isPresenter
+                  ? 'Presenter'
+                  : canUserEdit
+                  ? 'Can Edit'
+                  : 'View Only'}
+              </Badge>
+            </div>
           </Panel>
         </ReactFlow>
       </div>

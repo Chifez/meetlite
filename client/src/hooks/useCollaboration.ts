@@ -299,6 +299,27 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       }));
     };
 
+    const handleCollaborationSettingsChanged = (data: {
+      settings: {
+        mode: 'view-only' | 'allow-edit' | 'selective-edit';
+        allowedUsers: string[];
+      };
+      changedBy: string;
+      timestamp: number;
+    }) => {
+      console.log('Collaboration settings changed:', data);
+      setCollaborationState((prev) => {
+        if (!prev.presenter) return prev;
+        return {
+          ...prev,
+          presenter: {
+            ...prev.presenter,
+            collaborationSettings: data.settings,
+          },
+        };
+      });
+    };
+
     const handleWorkflowOperation = (data: {
       operation: WorkflowOperation;
       userId: string;
@@ -364,6 +385,10 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
 
     socket.on('collaboration:state', handleCollaborationState);
     socket.on('collaboration:mode-changed', handleCollaborationModeChanged);
+    socket.on(
+      'collaboration:settings-changed',
+      handleCollaborationSettingsChanged
+    );
     socket.on('workflow:operation', handleWorkflowOperation);
     socket.on('whiteboard:update', handleWhiteboardUpdate);
 
@@ -378,6 +403,10 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     return () => {
       socket.off('collaboration:state', handleCollaborationState);
       socket.off('collaboration:mode-changed', handleCollaborationModeChanged);
+      socket.off(
+        'collaboration:settings-changed',
+        handleCollaborationSettingsChanged
+      );
       socket.off('workflow:operation', handleWorkflowOperation);
       socket.off('whiteboard:update', handleWhiteboardUpdate);
       socket.off('workflow:state-sync');
