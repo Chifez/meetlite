@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "Backend services for MeetLite video meeting application",
   "scripts": {
-    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:signaling\" \"npm run dev:ai\"",
+    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:signaling\" \"npm run dev:cal\" \"npm run dev:ai\"",
     "dev:auth": "cd auth-service && npm run dev",
     "dev:room": "cd room-service && npm run dev",
     "dev:ai": "cd ai-service && npm run dev",
+    "dev:cal": "cd calendar-service && npm run dev",
     "dev:signaling": "cd signaling-service && npm run dev",
     "dev:no-watch": "concurrently \"npm run dev:auth:no-watch\" \"npm run dev:room:no-watch\" \"npm run dev:signaling:no-watch\" \"npm run dev:ai:no-watch\"",
     "dev:auth:no-watch": "cd auth-service && npm run dev:no-watch",

@@ -1,12 +1,45 @@
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
+import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
-import { applyWorkflowOperation } from '../controllers/workflow-controller.js';
+
+import { authMiddleware } from './middleware/auth.js';
+import { StateManager } from './services/stateManager.js';
+import { ConnectionManager } from './services/connectionManager.js';
+import { ScreenShareManager } from './services/screenShareManager.js';
+import { TldrawService } from './services/tldrawService.js';
+import { FileHandler } from './handlers/fileHandler.js';
+
+import { RoomHandler } from './handlers/roomHandler.js';
+import { MediaHandler } from './handlers/mediaHandler.js';
+import { ChatHandler } from './handlers/chatHandler.js';
+import { CollaborationHandler } from './handlers/collaborationHandler.js';
+import { WorkflowHandler } from './handlers/workflowHandler.js';
+import { WhiteboardHandler } from './handlers/whiteboardHandler.js';
 
 dotenv.config();
 
+// Initialize FileHandler
+const fileHandler = new FileHandler();
+
+// Create HTTP server
 const httpServer = createServer((req, res) => {
+  // Set CORS headers for all responses
+  res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, DELETE, OPTIONS'
+  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
   // Health check endpoint
   if (req.url === '/health' && req.method === 'GET') {
     const health = {
@@ -16,9 +49,25 @@ const httpServer = createServer((req, res) => {
       memory: process.memoryUsage(),
       connections: io?.engine?.clientsCount || 0,
       rooms: io?.sockets?.adapter?.rooms?.size || 0,
+      tldrawRooms: tldrawService.getRoomStats(),
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(health));
+    return;
+  }
+
+  // Handle file uploads
+  if (
+    req.url.startsWith('/uploads/') &&
+    (req.method === 'POST' || req.method === 'PUT')
+  ) {
+    fileHandler.handleUpload(req, res);
+    return;
+  }
+
+  // Handle file serving
+  if (req.url.startsWith('/uploads/') && req.method === 'GET') {
+    fileHandler.handleFileServe(req, res);
     return;
   }
 
@@ -27,6 +76,7 @@ const httpServer = createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
+// Create Socket.IO server
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.CORS_ORIGIN,
@@ -34,618 +84,99 @@ const io = new Server(httpServer, {
   },
 });
 
-// Enhanced room state management
-const roomState = new Map();
-const userToSocket = new Map();
-const socketToUser = new Map();
-const activeConnections = new Map(); // Track active peer connections
-const screenSharingState = new Map(); // Track screen sharing state per room
-const userInfo = new Map(); // Store user information by userId
-const collaborationState = new Map(); // New: Track collaboration state
+// Create WebSocket server for Tldraw
+const wss = new WebSocketServer({
+  noServer: true,
+});
 
-// Helper function to determine who should initiate the connection
-const shouldInitiateConnection = (userA, userB) => {
-  // Use lexicographic ordering to ensure consistent initiator selection
-  return userA < userB;
-};
+// Initialize Tldraw service
+const tldrawService = new TldrawService();
 
-// Helper function to create connection key
-const createConnectionKey = (userA, userB) => {
-  return [userA, userB].sort().join('_');
-};
+// Handle WebSocket upgrade for Tldraw
+httpServer.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, `http://${request.headers.host}`)
+    .pathname;
 
-// Helper function to create screen sharing connection key
-const createScreenConnectionKey = (userA, userB) => {
-  return `screen_${[userA, userB].sort().join('_')}`;
-};
-
-// Middleware to verify JWT
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-
-  if (!token) {
-    return next(new Error('Authentication error'));
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.user = decoded;
-    next();
-  } catch (err) {
-    next(new Error('Authentication error'));
+  if (pathname.startsWith('/connect')) {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
   }
 });
 
+// Handle Tldraw WebSocket connections
+wss.on('connection', (ws, req) => {
+  tldrawService.handleWebSocketConnection(ws, req);
+});
+
+// Initialize services
+const stateManager = new StateManager();
+const connectionManager = new ConnectionManager(io, stateManager);
+const screenShareManager = new ScreenShareManager(io, stateManager);
+
+// Initialize handlers
+const collaborationHandler = new CollaborationHandler(io, stateManager);
+const roomHandler = new RoomHandler(
+  io,
+  stateManager,
+  connectionManager,
+  screenShareManager
+);
+const mediaHandler = new MediaHandler(io, stateManager);
+const chatHandler = new ChatHandler(io, stateManager);
+const workflowHandler = new WorkflowHandler(
+  io,
+  stateManager,
+  collaborationHandler
+);
+const whiteboardHandler = new WhiteboardHandler(
+  io,
+  stateManager,
+  collaborationHandler
+);
+
+// Setup authentication middleware
+io.use(authMiddleware);
+
+// Handle socket connections
 io.on('connection', (socket) => {
   console.log('User connected:', socket.user.email, 'Socket ID:', socket.id);
 
-  userToSocket.set(socket.user.userId, socket.id);
-  socketToUser.set(socket.id, socket.user.userId);
-
-  // Store user information for this session
-  userInfo.set(socket.user.userId, {
+  // Initialize user state
+  stateManager.setUserSocket(socket.user.userId, socket.id);
+  stateManager.setUserInfo(socket.user.userId, {
     email: socket.user.email,
     userId: socket.user.userId,
   });
 
-  socket.on('ready', ({ roomId, mediaState }) => {
-    console.log(`User ${socket.user.userId} joining room ${roomId}`);
-
-    socket.join(roomId);
-
-    // Initialize states
-    if (!roomState.has(roomId)) {
-      roomState.set(roomId, new Map());
-    }
-
-    if (!screenSharingState.has(roomId)) {
-      screenSharingState.set(roomId, null);
-    }
-
-    if (!collaborationState.has(roomId)) {
-      collaborationState.set(roomId, {
-        mode: 'none',
-        activeTool: 'none',
-        workflowData: null,
-        whiteboardData: null,
-        presenter: {
-          userId: null,
-          mode: null,
-          collaborationSettings: {
-            mode: 'allow-edit',
-            allowedUsers: [],
-          },
-        },
-      });
-    }
-
-    const existingParticipants = [];
-    const roomSockets = io.sockets.adapter.rooms.get(roomId);
-
-    if (roomSockets) {
-      roomSockets.forEach((socketId) => {
-        if (socketId !== socket.id) {
-          const userId = socketToUser.get(socketId);
-          if (userId) {
-            existingParticipants.push(userId);
-          }
-        }
-      });
-    }
-
-    const room = roomState.get(roomId);
-    room.set(socket.user.userId, {
-      audioEnabled: mediaState.audioEnabled,
-      videoEnabled: mediaState.videoEnabled,
-    });
-
-    existingParticipants.forEach((existingUserId) => {
-      const connectionKey = createConnectionKey(
-        socket.user.userId,
-        existingUserId
-      );
-
-      if (activeConnections.has(connectionKey)) {
-        return;
-      }
-
-      activeConnections.set(connectionKey, {
-        users: [socket.user.userId, existingUserId],
-        timestamp: Date.now(),
-        status: 'initiating',
-      });
-
-      const shouldInitiate = shouldInitiateConnection(
-        socket.user.userId,
-        existingUserId
-      );
-
-      if (shouldInitiate) {
-        socket.emit('initiate-connection', {
-          targetUserId: existingUserId,
-          isInitiator: true,
-        });
-
-        const targetSocketId = userToSocket.get(existingUserId);
-        if (targetSocketId) {
-          io.to(targetSocketId).emit('initiate-connection', {
-            targetUserId: socket.user.userId,
-            isInitiator: false,
-          });
-        }
-      } else {
-        const targetSocketId = userToSocket.get(existingUserId);
-        if (targetSocketId) {
-          io.to(targetSocketId).emit('initiate-connection', {
-            targetUserId: socket.user.userId,
-            isInitiator: true,
-          });
-        }
-
-        socket.emit('initiate-connection', {
-          targetUserId: existingUserId,
-          isInitiator: false,
-        });
-      }
-    });
-
-    const allParticipants = [socket.user.userId, ...existingParticipants];
-    const roomStateData = Object.fromEntries(room);
-
-    // Create participant info with user details
-    const participantInfo = {};
-    allParticipants.forEach((participantId) => {
-      const user = userInfo.get(participantId);
-      if (user) {
-        participantInfo[participantId] = {
-          email: user.email,
-          userId: user.userId,
-        };
-      }
-    });
-
-    io.to(roomId).emit('room-data', {
-      participants: allParticipants,
-      mediaState: roomStateData,
-      participantInfo, // Send user information for all participants
-    });
-
-    if (existingParticipants.length > 0) {
-      socket.to(roomId).emit('user-joined', {
-        userId: socket.user.userId,
-        userEmail: socket.user.email,
-      });
-    }
-
-    const currentScreenSharer = screenSharingState.get(roomId);
-    if (currentScreenSharer) {
-      socket.emit('screen-share-started', { userId: currentScreenSharer });
-
-      const connectionKey = createScreenConnectionKey(
-        currentScreenSharer,
-        socket.user.userId
-      );
-      if (!activeConnections.has(connectionKey)) {
-        activeConnections.set(connectionKey, {
-          users: [currentScreenSharer, socket.user.userId],
-          timestamp: Date.now(),
-          status: 'screen-initiating',
-        });
-
-        const sharerSocketId = userToSocket.get(currentScreenSharer);
-        if (sharerSocketId) {
-          io.to(sharerSocketId).emit('initiate-screen-connection', {
-            targetUserId: socket.user.userId,
-            isInitiator: true,
-          });
-        }
-      }
-    }
-
-    // Send current collaboration state
-    const currentCollabState = collaborationState.get(roomId);
-    socket.emit('collaboration:state', currentCollabState);
-
-    // Clean up old connection tracking
-    const oneMinuteAgo = Date.now() - 60000;
-    for (const [key, connection] of activeConnections.entries()) {
-      if (connection.timestamp < oneMinuteAgo) {
-        activeConnections.delete(key);
-      }
-    }
-  });
-
-  // WebRTC signaling
-  socket.on('call-user', ({ to, offer }) => {
-    const targetSocketId = userToSocket.get(to);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('call-user', {
-        from: socket.user.userId,
-        offer,
-      });
-    }
-  });
-
-  socket.on('make-answer', ({ to, answer }) => {
-    const targetSocketId = userToSocket.get(to);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('answer-made', {
-        from: socket.user.userId,
-        answer,
-      });
-    }
-  });
-
-  socket.on('ice-candidate', ({ to, candidate }) => {
-    const targetSocketId = userToSocket.get(to);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('ice-candidate', {
-        from: socket.user.userId,
-        candidate,
-      });
-    }
-  });
-
-  // Screen sharing signaling
-  socket.on('screen-share-call', ({ to, offer }) => {
-    const targetSocketId = userToSocket.get(to);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('screen-share-call', {
-        from: socket.user.userId,
-        offer,
-      });
-    }
-  });
-
-  socket.on('screen-share-answer', ({ to, answer }) => {
-    const targetSocketId = userToSocket.get(to);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('screen-share-answer', {
-        from: socket.user.userId,
-        answer,
-      });
-    }
-  });
-
-  socket.on('screen-share-candidate', ({ to, candidate }) => {
-    const targetSocketId = userToSocket.get(to);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('screen-share-candidate', {
-        from: socket.user.userId,
-        candidate,
-      });
-    }
-  });
-
-  socket.on('screen-share-started', ({ roomId }) => {
-    console.log(
-      `Screen sharing started by ${socket.user.userId} in room ${roomId}`
-    );
-    screenSharingState.set(roomId, socket.user.userId);
-
-    socket
-      .to(roomId)
-      .emit('screen-share-started', { userId: socket.user.userId });
-  });
-
-  socket.on('screen-share-ready', ({ roomId }) => {
-    const roomSockets = io.sockets.adapter.rooms.get(roomId);
-    if (roomSockets) {
-      roomSockets.forEach((socketId) => {
-        if (socketId !== socket.id) {
-          const userId = socketToUser.get(socketId);
-          if (userId) {
-            io.to(socket.id).emit('initiate-screen-connection', {
-              targetUserId: userId,
-              isInitiator: true,
-            });
-          }
-        }
-      });
-    }
-  });
-
-  socket.on('screen-share-stopped', ({ roomId }) => {
-    console.log(
-      `Screen sharing stopped by ${socket.user.userId} in room ${roomId}`
-    );
-    screenSharingState.set(roomId, null);
-    socket.to(roomId).emit('screen-share-stopped');
-  });
-
-  socket.on('media-state-change', ({ roomId, audioEnabled, videoEnabled }) => {
-    const room = roomState.get(roomId);
-    if (room && room.has(socket.user.userId)) {
-      room.set(socket.user.userId, { audioEnabled, videoEnabled });
-
-      socket.to(roomId).emit('media-state-update', {
-        userId: socket.user.userId,
-        audioEnabled,
-        videoEnabled,
-      });
-    }
-  });
-
-  // Collaboration mode change
-  socket.on('collaboration:mode', ({ roomId, mode }) => {
-    const collabState = collaborationState.get(roomId);
-    if (collabState) {
-      collabState.mode = mode;
-      collabState.activeTool = mode; // Initially set tool to match mode
-
-      // Update presenter information
-      if (mode === 'none') {
-        collabState.presenter = {
-          userId: null,
-          mode: null,
-          collaborationSettings: {
-            mode: 'allow-edit',
-            allowedUsers: [],
-          },
-        };
-      } else {
-        collabState.presenter = {
-          userId: socket.user.userId,
-          mode: mode,
-          collaborationSettings: {
-            mode: 'allow-edit',
-            allowedUsers: [],
-          },
-        };
-      }
-
-      io.to(roomId).emit('collaboration:mode-changed', {
-        mode,
-        activeTool: mode,
-        presenter: collabState.presenter,
-        changedBy: socket.user.userId,
-      });
-    }
-  });
-
-  // Tool switching
-  socket.on('collaboration:tool', ({ roomId, tool }) => {
-    const collabState = collaborationState.get(roomId);
-    if (collabState && collabState.mode !== 'none') {
-      collabState.activeTool = tool;
-
-      io.to(roomId).emit('collaboration:tool-changed', {
-        tool,
-        changedBy: socket.user.userId,
-      });
-    }
-  });
-
-  // Collaboration settings update
-  socket.on('presentation:settings', ({ roomId, settings }) => {
-    const collabState = collaborationState.get(roomId);
-    if (collabState && collabState.presenter) {
-      // Verify the sender is the presenter
-      if (socket.user.userId === collabState.presenter.userId) {
-        // Update collaboration settings
-        collabState.presenter.collaborationSettings = {
-          mode: settings.mode,
-          allowedUsers: settings.allowedUsers || [],
-        };
-
-        // Broadcast settings update to all clients
-        io.to(roomId).emit('collaboration:settings-changed', {
-          settings: collabState.presenter.collaborationSettings,
-          changedBy: socket.user.userId,
-          timestamp: Date.now(),
-        });
-      }
-    }
-  });
-
-  // Workflow operations
-  socket.on('workflow:operation', ({ roomId, operation }) => {
-    const collabState = collaborationState.get(roomId);
-    if (collabState && collabState.mode === 'workflow') {
-      // Initialize workflow data if it doesn't exist
-      if (!collabState.workflowData) {
-        collabState.workflowData = {
-          nodes: [],
-          edges: [],
-          version: 0,
-          lastModified: Date.now(),
-          lastModifiedBy: socket.user.userId,
-        };
-      }
-
-      // Apply operation atomically
-      const newWorkflowData = applyWorkflowOperation(
-        collabState.workflowData,
-        operation
-      );
-
-      // Update state atomically
-      collabState.workflowData = {
-        ...newWorkflowData,
-        version: (collabState.workflowData.version || 0) + 1,
-        lastModified: Date.now(),
-        lastModifiedBy: socket.user.userId,
-      };
-
-      // Broadcast to all clients including sender for confirmation
-      io.to(roomId).emit('workflow:operation', {
-        operation,
-        userId: socket.user.userId,
-        timestamp: Date.now(),
-        version: collabState.workflowData.version,
-      });
-    }
-  });
-
-  // State sync handler
-  socket.on('workflow:request-sync', ({ roomId }) => {
-    const collabState = collaborationState.get(roomId);
-    if (collabState) {
-      socket.emit('workflow:state-sync', collabState);
-    }
-  });
-
-  // Whiteboard updates
-  socket.on('whiteboard:update', ({ roomId, update }) => {
-    const collabState = collaborationState.get(roomId);
-    if (collabState && collabState.mode === 'whiteboard') {
-      if (!collabState.whiteboardData) {
-        collabState.whiteboardData = {
-          version: 0,
-          lastModified: new Date(),
-          lastModifiedBy: socket.user.userId,
-        };
-      }
-
-      collabState.whiteboardData.version++;
-      collabState.whiteboardData.lastModified = new Date();
-      collabState.whiteboardData.lastModifiedBy = socket.user.userId;
-
-      // Broadcast update to other participants
-      socket.to(roomId).emit('whiteboard:update', {
-        update,
-        userId: socket.user.userId,
-        timestamp: Date.now(),
-        version: collabState.whiteboardData.version,
-      });
-    }
-  });
-
-  // Chat functionality
-  socket.on('chat:message', (data) => {
-    const { roomId, userId, userEmail, message, timestamp, type } = data;
-
-    // Validate the message
-    if (!roomId || !message || message.trim().length === 0) {
-      return;
-    }
-
-    // Verify user is in the room
-    if (!socket.rooms.has(roomId)) {
-      return;
-    }
-
-    // Broadcast message to all users in the room (including sender for confirmation)
-    io.to(roomId).emit('chat:message', {
-      userId,
-      userEmail,
-      message: message.trim(),
-      timestamp,
-      type: type || 'text',
-    });
-  });
-
-  socket.on('chat:typing-start', (data) => {
-    const { roomId, userId, userEmail } = data;
-
-    if (!roomId || !socket.rooms.has(roomId)) {
-      return;
-    }
-
-    // Broadcast typing indicator to others in the room (not to sender)
-    socket.to(roomId).emit('chat:typing-start', {
-      userId,
-      userEmail,
-    });
-  });
-
-  socket.on('chat:typing-stop', (data) => {
-    const { roomId, userId } = data;
-
-    if (!roomId || !socket.rooms.has(roomId)) {
-      return;
-    }
-
-    // Broadcast stop typing to others in the room (not to sender)
-    socket.to(roomId).emit('chat:typing-stop', {
-      userId,
-    });
-  });
-
-  // Enhanced user leaving handling
-  socket.on('user-left', ({ roomId }) => {
-    handleUserLeaving(socket, roomId);
-  });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.user.email);
-
-    // Find and leave all rooms the user was in
-    const rooms = Array.from(socket.rooms);
-    rooms.forEach((roomId) => {
-      if (roomId !== socket.id) {
-        handleUserLeaving(socket, roomId, false);
-      }
-    });
-
-    // Clean up user mappings and info
-    userToSocket.delete(socket.user.userId);
-    socketToUser.delete(socket.id);
-    userInfo.delete(socket.user.userId);
-  });
+  // Setup all handlers
+  roomHandler.setupSocketHandlers(socket);
+  mediaHandler.setupSocketHandlers(socket);
+  chatHandler.setupSocketHandlers(socket);
+  collaborationHandler.setupSocketHandlers(socket);
+  workflowHandler.setupSocketHandlers(socket);
+  whiteboardHandler.setupSocketHandlers(socket);
+  connectionManager.setupSocketHandlers(socket);
+  screenShareManager.setupSocketHandlers(socket);
 });
 
-// Helper function to handle user leaving
-function handleUserLeaving(socket, roomId, emitUserLeft = true) {
-  console.log(`User ${socket.user.userId} leaving room ${roomId}`);
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  tldrawService.cleanup();
+  process.exit(0);
+});
 
-  // Remove user from room state
-  const room = roomState.get(roomId);
-  if (room) {
-    room.delete(socket.user.userId);
-    if (room.size === 0) {
-      roomState.delete(roomId);
-      screenSharingState.delete(roomId);
-      collaborationState.delete(roomId); // Clean up collaboration state
-    }
-  }
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  tldrawService.cleanup();
+  process.exit(0);
+});
 
-  // Check if user was sharing screen
-  if (screenSharingState.get(roomId) === socket.user.userId) {
-    screenSharingState.set(roomId, null);
-    socket.to(roomId).emit('screen-share-stopped');
-  }
-
-  // Check if user was presenting
-  const collabState = collaborationState.get(roomId);
-  if (collabState && collabState.presenter?.userId === socket.user.userId) {
-    collabState.mode = 'none';
-    collabState.activeTool = 'none';
-    collabState.presenter = {
-      userId: null,
-      mode: null,
-      collaborationSettings: {
-        mode: 'allow-edit',
-        allowedUsers: [],
-      },
-    };
-    socket.to(roomId).emit('collaboration:mode-changed', {
-      mode: 'none',
-      activeTool: 'none',
-      presenter: collabState.presenter,
-      changedBy: socket.user.userId,
-    });
-  }
-
-  // Clean up any active connections involving this user
-  for (const [key, connection] of activeConnections.entries()) {
-    if (connection.users.includes(socket.user.userId)) {
-      console.log(`Cleaning up connection ${key} for leaving user`);
-      activeConnections.delete(key);
-    }
-  }
-
-  // Notify others in the room
-  if (emitUserLeft) {
-    socket.to(roomId).emit('user-left', socket.user.userId);
-  }
-
-  // Leave the room
-  socket.leave(roomId);
-}
-
-const PORT = process.env.PORT || 3001;
+// Start server
+const PORT = process.env.PORT || 5002;
 httpServer.listen(PORT, () => {
   console.log(`Signaling server running on port ${PORT}`);
 });

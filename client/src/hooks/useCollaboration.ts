@@ -213,6 +213,12 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     [socket, roomId, collaborationState.mode]
   );
 
+  // Handle whiteboard state sync request
+  const requestWhiteboardSync = useCallback(() => {
+    if (!socket || !roomId) return;
+    socket.emit('whiteboard:request-sync', { roomId });
+  }, [socket, roomId]);
+
   // Presenter functionality
   const startPresenting = useCallback(
     (mode: 'workflow' | 'whiteboard') => {
@@ -400,6 +406,14 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       }
     });
 
+    // Handle whiteboard state sync response
+    socket.on('whiteboard:state-sync', (whiteboardData: any) => {
+      setCollaborationState((prev) => ({
+        ...prev,
+        whiteboardData,
+      }));
+    });
+
     return () => {
       socket.off('collaboration:state', handleCollaborationState);
       socket.off('collaboration:mode-changed', handleCollaborationModeChanged);
@@ -410,6 +424,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       socket.off('workflow:operation', handleWorkflowOperation);
       socket.off('whiteboard:update', handleWhiteboardUpdate);
       socket.off('workflow:state-sync');
+      socket.off('whiteboard:state-sync');
     };
   }, [socket, operationVersion, applyWorkflowOperation, requestStateSync]);
 
