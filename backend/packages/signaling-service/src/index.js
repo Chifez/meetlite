@@ -2,12 +2,23 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
+import { createAdapter } from '@socket.io/redis-adapter';
+
+import {
+  connectRedis,
+  disconnectRedis,
+  isRedisReady,
+  getRedisHealth,
+  pubClient,
+  subClient,
+} from './config/redis.js';
 
 import { authMiddleware } from './middleware/auth.js';
-import { StateManager } from './services/stateManager.js';
+import { HybridStateManager } from './services/hybridStateManager.js';
 import { ConnectionManager } from './services/connectionManager.js';
 import { ScreenShareManager } from './services/screenShareManager.js';
 import { TldrawService } from './services/tldrawService.js';
+import { SessionManager } from './services/sessionManager.js';
 import { FileHandler } from './handlers/fileHandler.js';
 
 import { RoomHandler } from './handlers/roomHandler.js';
@@ -19,11 +30,30 @@ import { WhiteboardHandler } from './handlers/whiteboardHandler.js';
 
 dotenv.config();
 
+// Initialize Redis connection
+let redisConnected = false;
+
+const initializeRedis = async () => {
+  try {
+    redisConnected = await connectRedis();
+    if (redisConnected) {
+      console.log('✅ Redis initialized successfully');
+    } else {
+      console.log(
+        '⚠️ Redis initialization failed, running in memory-only mode'
+      );
+    }
+  } catch (error) {
+    console.error('❌ Redis initialization error:', error);
+    redisConnected = false;
+  }
+};
+
 // Initialize FileHandler
 const fileHandler = new FileHandler();
 
 // Create HTTP server
-const httpServer = createServer((req, res) => {
+const httpServer = createServer(async (req, res) => {
   // Set CORS headers for all responses
   res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
   res.setHeader(
@@ -50,7 +80,34 @@ const httpServer = createServer((req, res) => {
       connections: io?.engine?.clientsCount || 0,
       rooms: io?.sockets?.adapter?.rooms?.size || 0,
       tldrawRooms: tldrawService.getRoomStats(),
+      redis: getRedisHealth(),
+      mode: redisConnected ? 'redis' : 'memory-only',
+      adapter: {
+        type: io.sockets.adapter.constructor.name,
+        isRedis: isRedisAdapterActive(),
+        rooms: io.sockets.adapter.rooms.size || 0,
+      },
+      services: {
+        stateManager: 'active',
+        sessionManager: sessionManager.isAvailable ? 'active' : 'inactive',
+        connectionManager: 'active',
+        screenShareManager: 'active',
+      },
     };
+
+    // Add Redis statistics if available
+    if (redisConnected) {
+      try {
+        const redisStats = await stateManager.getRedisStats();
+        const sessionStats = await sessionManager.getSessionStats();
+        health.redisStats = redisStats;
+        health.sessionStats = sessionStats;
+      } catch (error) {
+        health.redisStats = { error: error.message };
+        health.sessionStats = { error: error.message };
+      }
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(health));
     return;
@@ -84,6 +141,70 @@ const io = new Server(httpServer, {
   },
 });
 
+// Setup Redis adapter for Socket.IO scaling when Redis is ready
+const setupRedisAdapter = () => {
+  if (redisConnected && isRedisReady()) {
+    try {
+      const redisAdapter = createAdapter(pubClient, subClient);
+
+      // Monitor Redis client health instead of adapter events
+      const healthCheckInterval = setInterval(() => {
+        if (!isRedisReady()) {
+          console.log(
+            '⚠️ Redis clients disconnected, falling back to memory adapter'
+          );
+          clearInterval(healthCheckInterval);
+          fallbackToMemoryAdapter();
+        } else if (isRedisAdapterActive()) {
+          // Log adapter status periodically
+          console.log(
+            '📊 Redis adapter active - rooms:',
+            io.sockets.adapter.rooms.size
+          );
+        } else {
+          // Adapter is not Redis, might have fallen back
+          console.log(
+            '⚠️ Current adapter type:',
+            io.sockets.adapter.constructor.name
+          );
+        }
+      }, 30000); // Check every 30 seconds
+
+      io.adapter(redisAdapter);
+      console.log('✅ Socket.IO Redis adapter configured successfully');
+    } catch (error) {
+      console.error('❌ Failed to setup Redis adapter:', error);
+      fallbackToMemoryAdapter();
+    }
+  } else {
+    console.log('⚠️ Redis not ready, using Socket.IO memory adapter');
+  }
+};
+
+// Check if Redis adapter is currently active
+const isRedisAdapterActive = () => {
+  return io.sockets.adapter.constructor.name === 'RedisAdapter';
+};
+
+// Fallback to memory adapter when Redis fails
+const fallbackToMemoryAdapter = () => {
+  try {
+    // Remove Redis adapter
+    io.adapter();
+    console.log('⚠️ Fallback to Socket.IO memory adapter');
+
+    // Attempt to reconnect Redis adapter after delay
+    setTimeout(() => {
+      if (redisConnected && isRedisReady()) {
+        console.log('🔄 Attempting to restore Redis adapter...');
+        setupRedisAdapter();
+      }
+    }, 5000); // Wait 5 seconds before retry
+  } catch (error) {
+    console.error('❌ Error during fallback to memory adapter:', error);
+  }
+};
+
 // Create WebSocket server for Tldraw
 const wss = new WebSocketServer({
   noServer: true,
@@ -112,7 +233,8 @@ wss.on('connection', (ws, req) => {
 });
 
 // Initialize services
-const stateManager = new StateManager();
+const stateManager = new HybridStateManager();
+const sessionManager = new SessionManager();
 const connectionManager = new ConnectionManager(io, stateManager);
 const screenShareManager = new ScreenShareManager(io, stateManager);
 
@@ -163,20 +285,51 @@ io.on('connection', (socket) => {
 });
 
 // Graceful shutdown handling
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
   tldrawService.cleanup();
+  await stateManager.shutdown();
+  await sessionManager.shutdown();
+  if (redisConnected) {
+    await disconnectRedis();
+  }
+  console.log('✅ Graceful shutdown completed');
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully...');
   tldrawService.cleanup();
+  await stateManager.shutdown();
+  await sessionManager.shutdown();
+  if (redisConnected) {
+    await disconnectRedis();
+  }
+  console.log('✅ Graceful shutdown completed');
   process.exit(0);
 });
 
 // Start server
 const PORT = process.env.PORT || 5002;
-httpServer.listen(PORT, () => {
-  console.log(`Signaling server running on port ${PORT}`);
+httpServer.listen(PORT, async () => {
+  console.log(`🚀 Signaling server running on port ${PORT}`);
+
+  // Initialize Redis after server starts
+  await initializeRedis();
+
+  // Setup Redis adapter after Redis is ready
+  if (redisConnected) {
+    // Wait a bit for Redis to be fully ready
+    setTimeout(() => {
+      setupRedisAdapter();
+    }, 1000);
+  }
+
+  // Load state from Redis
+  await stateManager.loadFromRedis();
+
+  // Wait for session manager to be ready
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  console.log('✅ Signaling server initialization completed');
 });
