@@ -6,9 +6,13 @@ export const env = {
 
   SIGNALING_SERVER_URL: import.meta.env.VITE_SIGNALING_SERVER_URL,
 
-  AI_SERVICE_URL: import.meta.env.VITE_AI_SERVICE_URL || '/api/ai',
+  AI_SERVICE_URL:
+    import.meta.env.VITE_AI_SERVICE_URL ||
+    `${import.meta.env.VITE_ROOM_API_URL}/api/ai`,
 
-  CALENDAR_API_URL: import.meta.env.VITE_CALENDAR_SERVICE_URL,
+  CALENDAR_API_URL:
+    import.meta.env.VITE_CALENDAR_SERVICE_URL ||
+    import.meta.env.VITE_ROOM_API_URL,
   BASE_URL: import.meta.env.VITE_BASE_URL,
 } as const;
 

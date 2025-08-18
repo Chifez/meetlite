@@ -50,7 +50,10 @@ export const useAIFeatures = () => {
           formData.append('video', videoBlob, 'meeting-video.webm');
         }
 
-        const response = await api.post('/api/ai/summarize', formData);
+        const response = await api.post(
+          `${env.AI_SERVICE_URL}/summarize`,
+          formData
+        );
 
         return response.data;
       } catch (error) {
@@ -130,7 +133,7 @@ export const useAIFeatures = () => {
       topic?: string
     ): Promise<SmartSuggestion[]> => {
       try {
-        const response = await api.post('/api/ai/suggest', {
+        const response = await api.post(`${env.AI_SERVICE_URL}/suggest`, {
           participants,
           duration,
           topic,
