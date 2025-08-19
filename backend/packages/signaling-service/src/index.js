@@ -11,6 +11,10 @@ import {
   getRedisHealth,
   pubClient,
   subClient,
+  getPerformanceMetrics,
+  getErrorMetrics,
+  getComprehensiveHealth,
+  isCircuitBreakerOpen,
 } from './config/redis.js';
 
 import { authMiddleware } from './middleware/auth.js';
@@ -93,6 +97,24 @@ const httpServer = createServer(async (req, res) => {
         connectionManager: 'active',
         screenShareManager: 'active',
       },
+      connections: await connectionManager.getConnectionStats(),
+      connectionHealth: await stateManager.getAllConnectionHealth(),
+      performance: {
+        redis: getPerformanceMetrics(),
+        stateManager: await stateManager.getRedisStats(),
+        detailed: await stateManager.redisState.getPerformanceMetrics(),
+        connectionManager: connectionManager.getPerformanceMetrics(),
+      },
+      errorHandling: {
+        redis: getErrorMetrics(),
+        comprehensive: getComprehensiveHealth(),
+        circuitBreaker: {
+          isOpen: isCircuitBreakerOpen(),
+          state: getComprehensiveHealth().circuitBreaker,
+        },
+        stateManager: stateManager.redisState.getComprehensiveHealth(),
+        errorRecovery: await stateManager.getErrorRecoveryMetrics(),
+      },
     };
 
     // Add Redis statistics if available
@@ -100,11 +122,23 @@ const httpServer = createServer(async (req, res) => {
       try {
         const redisStats = await stateManager.getRedisStats();
         const sessionStats = await sessionManager.getSessionStats();
+        const redisPerformance =
+          await stateManager.redisState.getPerformanceStats();
+        const redisMemory = await stateManager.redisState.getMemoryAnalysis();
+        const redisConnections =
+          await stateManager.redisState.getConnectionPoolStatus();
+
         health.redisStats = redisStats;
         health.sessionStats = sessionStats;
+        health.redisPerformance = redisPerformance;
+        health.redisMemory = redisMemory;
+        health.redisConnections = redisConnections;
       } catch (error) {
         health.redisStats = { error: error.message };
         health.sessionStats = { error: error.message };
+        health.redisPerformance = { error: error.message };
+        health.redisMemory = { error: error.message };
+        health.redisConnections = { error: error.message };
       }
     }
 
@@ -148,7 +182,7 @@ const setupRedisAdapter = () => {
       const redisAdapter = createAdapter(pubClient, subClient);
 
       // Monitor Redis client health instead of adapter events
-      const healthCheckInterval = setInterval(() => {
+      const healthCheckInterval = setInterval(async () => {
         if (!isRedisReady()) {
           console.log(
             '⚠️ Redis clients disconnected, falling back to memory adapter'
@@ -161,6 +195,22 @@ const setupRedisAdapter = () => {
             '📊 Redis adapter active - rooms:',
             io.sockets.adapter.rooms.size
           );
+
+          // Performance monitoring
+          try {
+            const performanceStats =
+              await stateManager.redisState.getPerformanceStats();
+            if (
+              performanceStats.available &&
+              performanceStats.responseTime > 100
+            ) {
+              console.log(
+                `⚠️ Redis response time: ${performanceStats.responseTime}ms`
+              );
+            }
+          } catch (error) {
+            // Silently handle performance monitoring errors
+          }
         } else {
           // Adapter is not Redis, might have fallen back
           console.log(
@@ -290,6 +340,12 @@ process.on('SIGTERM', async () => {
   tldrawService.cleanup();
   await stateManager.shutdown();
   await sessionManager.shutdown();
+
+  // Cleanup connection manager
+  if (connectionManager && typeof connectionManager.cleanup === 'function') {
+    connectionManager.cleanup();
+  }
+
   if (redisConnected) {
     await disconnectRedis();
   }
@@ -302,6 +358,12 @@ process.on('SIGINT', async () => {
   tldrawService.cleanup();
   await stateManager.shutdown();
   await sessionManager.shutdown();
+
+  // Cleanup connection manager
+  if (connectionManager && typeof connectionManager.cleanup === 'function') {
+    connectionManager.cleanup();
+  }
+
   if (redisConnected) {
     await disconnectRedis();
   }

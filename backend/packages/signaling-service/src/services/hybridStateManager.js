@@ -46,6 +46,8 @@ export class HybridStateManager {
       return;
     }
 
+    const startTime = Date.now();
+
     try {
       // Sync room participants
       for (const [roomId, room] of this.roomState.entries()) {
@@ -81,6 +83,9 @@ export class HybridStateManager {
           });
         }
       }
+
+      // Track performance
+      await this.trackSyncOperation('full_sync', startTime);
 
       console.log('🔄 Redis sync completed');
     } catch (error) {
@@ -295,6 +300,118 @@ export class HybridStateManager {
       if (connection.timestamp < cutoff) {
         this.activeConnections.delete(key);
       }
+    }
+  }
+
+  // Enhanced connection management with Redis (optimized)
+  async setConnectionWithRecovery(key, connection) {
+    // Set connection in memory
+    this.setConnection(key, connection);
+
+    // Store connection metadata in Redis for recovery (optimized)
+    if (this.redisState.isAvailable) {
+      try {
+        // Use batch operation for better performance
+        const operations = [
+          {
+            type: 'set',
+            key: `conn_meta:${key}`,
+            value: {
+              users: connection.users,
+              status: connection.status,
+              createdAt: connection.timestamp,
+              lastActivity: Date.now(),
+            },
+            ttl: 1800, // 30 minutes
+          },
+          {
+            type: 'custom',
+            command: (pipeline) => {
+              pipeline.incr(`CONNECTION_COUNT:total:${key}`);
+              pipeline.expire(`CONNECTION_COUNT:total:${key}`, 3600);
+            },
+          },
+        ];
+
+        await this.redisState.batchOperation(operations);
+      } catch (error) {
+        console.error(
+          `❌ Error storing connection metadata for ${key}:`,
+          error
+        );
+      }
+    }
+  }
+
+  // Attempt connection recovery from Redis
+  async attemptConnectionRecovery(key) {
+    if (!this.redisState.isAvailable) return false;
+
+    try {
+      const metadata = await this.redisState.getConnectionMetadata(key);
+      if (metadata) {
+        // Check if users are still active
+        const activeUsers = [];
+        for (const userId of metadata.users) {
+          if (this.userToSocket.has(userId)) {
+            activeUsers.push(userId);
+          }
+        }
+
+        if (activeUsers.length > 0) {
+          // Recreate connection with active users
+          const recoveredConnection = {
+            users: activeUsers,
+            status: 'recovered',
+            timestamp: Date.now(),
+            recoveredAt: Date.now(),
+          };
+
+          this.setConnection(key, recoveredConnection);
+          console.log(
+            `✅ Connection ${key} recovered with ${activeUsers.length} active users`
+          );
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error(
+        `❌ Error attempting connection recovery for ${key}:`,
+        error
+      );
+      return false;
+    }
+  }
+
+  // Get connection health status
+  async getConnectionHealth(key) {
+    if (!this.redisState.isAvailable) return null;
+
+    try {
+      return await this.redisState.getConnectionHealth(key);
+    } catch (error) {
+      console.error(`❌ Error getting connection health for ${key}:`, error);
+      return null;
+    }
+  }
+
+  // Get all connection health data
+  async getAllConnectionHealth() {
+    if (!this.redisState.isAvailable) return [];
+
+    try {
+      const healthData = [];
+      for (const [key, connection] of this.activeConnections.entries()) {
+        const health = await this.redisState.getConnectionHealth(key);
+        if (health) {
+          healthData.push(health);
+        }
+      }
+      return healthData;
+    } catch (error) {
+      console.error('❌ Error getting all connection health data:', error);
+      return [];
     }
   }
 
@@ -589,6 +706,118 @@ export class HybridStateManager {
       totalConnections: this.activeConnections.size,
       totalTldrawRooms: this.tldrawRooms.size,
     };
+  }
+
+  // Get performance metrics
+  async getPerformanceMetrics() {
+    try {
+      const metrics = {
+        memory: {
+          roomState: this.roomState.size,
+          userInfo: this.userInfo.size,
+          activeConnections: this.activeConnections.size,
+          screenSharingState: this.screenSharingState.size,
+          collaborationState: this.collaborationState.size,
+          tldrawRooms: this.tldrawRooms.size,
+        },
+        operations: {
+          syncOperations: this.syncOperations || 0,
+          lastSyncTime: this.lastSyncTime || null,
+          averageSyncTime: this.averageSyncTime || 0,
+        },
+        redis: await this.redisState.getPerformanceMetrics(),
+        timestamp: Date.now(),
+      };
+
+      return metrics;
+    } catch (error) {
+      console.error('❌ Error getting performance metrics:', error);
+      return { error: error.message };
+    }
+  }
+
+  // Get error recovery metrics
+  async getErrorRecoveryMetrics() {
+    try {
+      const metrics = {
+        redisErrors: this.redisState.getErrorMetrics(),
+        recoveryAttempts: this.recoveryAttempts || 0,
+        lastRecoveryTime: this.lastRecoveryTime || null,
+        successfulRecoveries: this.successfulRecoveries || 0,
+        failedRecoveries: this.failedRecoveries || 0,
+        timestamp: Date.now(),
+      };
+
+      return metrics;
+    } catch (error) {
+      console.error('❌ Error getting error recovery metrics:', error);
+      return { error: error.message };
+    }
+  }
+
+  // Attempt error recovery
+  async attemptErrorRecovery() {
+    try {
+      if (!this.recoveryAttempts) this.recoveryAttempts = 0;
+      if (!this.successfulRecoveries) this.successfulRecoveries = 0;
+      if (!this.failedRecoveries) this.failedRecoveries = 0;
+
+      this.recoveryAttempts++;
+      this.lastRecoveryTime = Date.now();
+
+      console.log(
+        `🔄 Attempting error recovery (attempt ${this.recoveryAttempts})`
+      );
+
+      // Check Redis availability
+      if (this.redisState.isAvailable) {
+        // Try to sync state to Redis
+        await this.syncToRedis();
+        this.successfulRecoveries++;
+        console.log('✅ Error recovery successful - Redis sync completed');
+        return true;
+      } else {
+        // Try to reconnect Redis
+        await this.redisState.checkAvailability();
+        if (this.redisState.isAvailable) {
+          this.successfulRecoveries++;
+          console.log('✅ Error recovery successful - Redis reconnected');
+          return true;
+        } else {
+          this.failedRecoveries++;
+          console.log('❌ Error recovery failed - Redis still unavailable');
+          return false;
+        }
+      }
+    } catch (error) {
+      this.failedRecoveries++;
+      console.error('❌ Error during recovery attempt:', error);
+      return false;
+    }
+  }
+
+  // Track sync operation performance
+  async trackSyncOperation(operation, startTime) {
+    const duration = Date.now() - startTime;
+
+    if (!this.syncOperations) this.syncOperations = 0;
+    if (!this.lastSyncTime) this.lastSyncTime = null;
+    if (!this.averageSyncTime) this.averageSyncTime = 0;
+
+    this.syncOperations++;
+    this.lastSyncTime = Date.now();
+    this.averageSyncTime =
+      (this.averageSyncTime * (this.syncOperations - 1) + duration) /
+      this.syncOperations;
+
+    // Log slow operations
+    if (duration > 1000) {
+      console.warn(
+        `⚠️ Slow sync operation detected: ${operation} took ${duration}ms`
+      );
+    }
+
+    return duration;
   }
 
   // Cleanup Redis

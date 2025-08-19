@@ -6,7 +6,7 @@ export class RoomHandler {
     this.screenShareManager = screenShareManager;
   }
 
-  handleJoinRoom(socket, { roomId, mediaState }) {
+  async handleJoinRoom(socket, { roomId, mediaState }) {
     console.log(`User ${socket.user.userId} joining room ${roomId}`);
 
     socket.join(roomId);
@@ -14,6 +14,9 @@ export class RoomHandler {
     // Initialize room state
     const room = this.stateManager.initializeRoom(roomId);
     this.stateManager.setUserMediaState(roomId, socket.user.userId, mediaState);
+
+    // Attempt to recover any existing connections for this user
+    await this.attemptUserConnectionRecovery(socket.user.userId, roomId);
 
     // Get existing participants
     const existingParticipants = [];
@@ -91,6 +94,48 @@ export class RoomHandler {
 
     // Clean up old connections
     this.connectionManager.cleanupOldConnections();
+  }
+
+  // Attempt to recover user connections
+  async attemptUserConnectionRecovery(userId, roomId) {
+    try {
+      // Get user's existing connections
+      const userConnections = this.stateManager.getUserConnections(userId);
+
+      for (const connection of userConnections) {
+        // Check if connection is stale and attempt recovery
+        if (this.isConnectionStale(connection)) {
+          console.log(
+            `🔄 Attempting to recover connection ${connection.key} for user ${userId}`
+          );
+          const recovered = await this.stateManager.attemptConnectionRecovery(
+            connection.key
+          );
+
+          if (recovered) {
+            console.log(
+              `✅ Successfully recovered connection ${connection.key} for user ${userId}`
+            );
+          } else {
+            console.log(
+              `❌ Failed to recover connection ${connection.key} for user ${userId}`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        `❌ Error attempting user connection recovery for ${userId}:`,
+        error
+      );
+    }
+  }
+
+  // Check if connection is stale
+  isConnectionStale(connection) {
+    const now = Date.now();
+    const staleThreshold = 5 * 60 * 1000; // 5 minutes
+    return now - connection.timestamp > staleThreshold;
   }
 
   handleUserLeaving(socket, roomId, emitUserLeft = true) {
