@@ -1,5 +1,5 @@
-import AuthPage from '@/components/AuthPage';
-import SEO from '@/components/SEO';
+import AuthPage from '@/components/auth-page';
+import SEO from '@/components/seo';
 
 const Signup = () => (
   <>

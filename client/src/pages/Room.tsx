@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMemo, useCallback } from 'react';
-import { VideoGrid } from '@/components/room/VideoGrid';
-import { RoomControls } from '@/components/room/RoomControls';
-import { ChatPanel } from '@/components/chat/ChatPanel';
+import { VideoGrid } from '@/components/room/video-grid';
+import { RoomControls } from '@/components/room/room-controls';
+import { ChatPanel } from '@/components/chat/chat-panel';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useScreenShareRTC } from '@/hooks/useScreenShareRTC';
 import { useSocketSetup } from '@/hooks/useSocketSetup';
@@ -11,12 +11,12 @@ import { useMediaSetup } from '@/hooks/useMediaSetup';
 import { useParticipantInfo } from '@/hooks/useParticipantInfo';
 import { useChat } from '@/hooks/useChat';
 import { useCollaboration } from '@/hooks/useCollaboration';
-import SEO from '@/components/SEO';
-import { RoomProvider } from '@/contexts/RoomContext';
-import { WorkflowPanel } from '@/components/room/collaboration/WorkflowPanel';
-import { WhiteboardPanel } from '@/components/room/collaboration/WhiteboardPanel';
-import { SharedPresentation } from '@/components/room/SharedPresentation';
-import { ParticipantsContainer } from '@/components/room/ParticipantsContainer';
+import SEO from '@/components/seo';
+import { RoomProvider } from '@/contexts/room-context';
+import { WorkflowPanel } from '@/components/room/collaboration/workflow-panel';
+import { WhiteboardPanel } from '@/components/room/collaboration/whiteboard-panel';
+import { SharedPresentation } from '@/components/room/shared-presentation';
+import { ParticipantsContainer } from '@/components/room/participants-container';
 import { useAuth } from '@/hooks/useAuth';
 
 const Room = () => {

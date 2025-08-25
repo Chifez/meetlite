@@ -1,17 +1,17 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Dashboard from './pages/Dashboard';
-import Lobby from './pages/Lobby';
-import Room from './pages/Room';
-import NotFound from './pages/NotFound';
-import Layout from './components/Layout';
-import Meetings from './pages/Meetings';
-import MeetingJoin from './pages/MeetingJoin';
-import Landing from './pages/Landing';
+import Login from './pages/login';
+import Signup from './pages/signup';
+import ForgotPassword from './pages/forgot-password';
+import ResetPassword from './pages/reset-password';
+import Dashboard from './pages/dashboard';
+import Lobby from './pages/lobby';
+import Room from './pages/room';
+import NotFound from './pages/notfound';
+import Layout from './components/layout';
+import Meetings from './pages/meeting';
+import MeetingJoin from './pages/meeting-join';
+import Landing from './pages/landing';
 
 function App() {
   const { isAuthenticated, redirectTo } = useAuth();

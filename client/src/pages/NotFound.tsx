@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Video } from 'lucide-react';
-import SEO from '@/components/SEO';
+import SEO from '@/components/seo';
 
 const NotFound = () => {
   return (

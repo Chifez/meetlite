@@ -1,9 +1,9 @@
-import SEO from '@/components/SEO';
-import HeroSection from '@/components/landing/HeroSection';
-import FeaturesSection from '@/components/landing/FeaturesSection';
-import PricingSection from '@/components/landing/PricingSection';
-import CTASection from '@/components/landing/CTASection';
-import Footer from '@/components/landing/Footer';
+import SEO from '@/components/seo';
+import HeroSection from '@/components/landing/hero-section';
+import FeaturesSection from '@/components/landing/feature-section';
+import PricingSection from '@/components/landing/pricing-section';
+import CTASection from '@/components/landing/cta-section';
+import Footer from '@/components/landing/footer';
 
 export default function Landing() {
   return (

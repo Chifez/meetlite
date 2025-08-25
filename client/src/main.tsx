@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
-import { AuthProvider } from './contexts/AuthContext.tsx';
+import { AuthProvider } from './contexts/auth-context.tsx';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from 'next-themes';
 import { HelmetProvider } from 'react-helmet-async';
