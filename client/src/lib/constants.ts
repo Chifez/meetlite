@@ -9,13 +9,18 @@ import {
 } from 'lucide-react';
 
 export const NAVIGATION_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard', icon: Home },
-  { path: '/team', label: 'Team Members', icon: Users },
-  { path: '/meetings', label: 'Meetings', icon: Video },
-  { path: '/history', label: 'History', icon: History },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/organization', label: 'Organization', icon: Building2 },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/dashboard', label: 'Dashboard', icon: Home, available: true },
+  { path: '/team', label: 'Team', icon: Users, available: false },
+  { path: '/meetings', label: 'Meetings', icon: Video, available: true },
+  { path: '/history', label: 'History', icon: History, available: false },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3, available: false },
+  {
+    path: '/organization',
+    label: 'Organization',
+    icon: Building2,
+    available: false,
+  },
+  { path: '/settings', label: 'Settings', icon: Settings, available: true },
 ];
 
 export const NAV_LINKS = [

@@ -12,22 +12,12 @@ import {
   Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// import { useAuth } from "./auth-provider"
 import { OrganizationSwitcher } from './organization-switcher';
 import { useAuth } from '@/hooks/useAuth';
 import UserMenu from '../ui/user-menu';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../logo';
-
-const navigationItems = [
-  { icon: Home, label: 'Dashboard', href: '/dashboard', active: true },
-  { icon: Users, label: 'Team Members', href: '/team' },
-  { icon: Video, label: 'Meetings', href: '/meetings' },
-  { icon: History, label: 'History', href: '/history' },
-  { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-  { icon: Building2, label: 'Organization', href: '/organization' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
-];
+import { NAVIGATION_ITEMS } from '@/lib/constants';
 
 interface SidebarProps {
   mobileMenuOpen?: boolean;
@@ -37,8 +27,10 @@ interface SidebarProps {
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [organizations, setOrganizations] = useState<any[]>([]);
-  const { user, organization, logout, setOrganization } = useAuth();
+  const { user, organization, setOrganization } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
   // Load organizations (mock data for now)
   useEffect(() => {
     const mockOrgs = [
@@ -71,6 +63,14 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
       };
       localStorage.setItem('user', JSON.stringify(updatedUser));
     }
+  };
+
+  const handleNavigationClick = (item: any) => {
+    if (item.available) {
+      navigate(item.path);
+      setMobileMenuOpen?.(false);
+    }
+    // If not available, do nothing (link is disabled)
   };
 
   return (
@@ -126,7 +126,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           </div>
 
           {/* Organization Switcher - Now a compact dropdown */}
-
           <OrganizationSwitcher
             currentOrg={organization}
             onOrgChange={handleOrgChange}
@@ -137,27 +136,41 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
-          {navigationItems.map((item) => (
-            <li key={item.href}>
-              <Button
-                variant={item.active ? 'secondary' : 'ghost'}
-                className={cn(
-                  'w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent',
-                  collapsed &&
-                    window.innerWidth >= 768 &&
-                    'justify-center px-2',
-                  item.active &&
-                    'bg-sidebar-accent text-sidebar-accent-foreground'
-                )}
-                onClick={() => setMobileMenuOpen?.(false)}
-              >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
-                {!(collapsed && window.innerWidth >= 768) && (
-                  <span>{item.label}</span>
-                )}
-              </Button>
-            </li>
-          ))}
+          {NAVIGATION_ITEMS.map((item) => {
+            const isActive = location.pathname === item.path;
+            const Icon = item.icon;
+
+            return (
+              <li key={item.path}>
+                <Button
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent',
+                    collapsed &&
+                      window.innerWidth >= 768 &&
+                      'justify-center px-2',
+                    isActive &&
+                      'bg-sidebar-accent text-sidebar-accent-foreground',
+                    !item.available && 'opacity-50 cursor-not-allowed'
+                  )}
+                  onClick={() => handleNavigationClick(item)}
+                  disabled={!item.available}
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  {!(collapsed && window.innerWidth >= 768) && (
+                    <div className="flex items-center gap-2">
+                      <span>{item.label}</span>
+                      {!item.available && (
+                        <span className="text-xs text-sidebar-foreground/40">
+                          (Soon)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </Button>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
