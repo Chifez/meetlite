@@ -40,6 +40,9 @@ const signupSchema = z
     confirmPassword: z
       .string()
       .min(6, { message: 'Password must be at least 6 characters' }),
+    agreeToTerms: z.boolean().refine((val) => val === true, {
+      message: 'You must agree to the terms and conditions',
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -66,7 +69,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
     resolver: zodResolver(isLogin ? loginSchema : signupSchema),
     defaultValues: isLogin
       ? { email: '', password: '' }
-      : { email: '', password: '', confirmPassword: '' },
+      : { email: '', password: '', confirmPassword: '', agreeToTerms: false },
   });
 
   const onSubmit = async (data: FormValues) => {
@@ -87,7 +90,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         navigate(redirectTo);
         setRedirectTo(null);
       } else {
-        navigate('/dashboard');
+        navigate(isLogin ? '/dashboard' : '/onboarding');
       }
     } catch (error) {
       // Error handled in context
@@ -213,6 +216,47 @@ const AuthPage = ({ mode }: AuthPageProps) => {
                     </div>
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          {!isLogin && (
+            <FormField
+              control={form.control}
+              name="agreeToTerms"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={field.onChange}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-sm font-normal">
+                      I agree to the{' '}
+                      <a
+                        href="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Terms and Conditions
+                      </a>{' '}
+                      and{' '}
+                      <a
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Privacy Policy
+                      </a>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />

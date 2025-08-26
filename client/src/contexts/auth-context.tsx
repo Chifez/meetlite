@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { env } from '@/config/env';
 import Cookies from 'js-cookie';
 import { Organization } from '@/types/organization';
+import { useNavigate } from 'react-router-dom';
 
 // Types
 type User = {
@@ -59,6 +60,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const navigate = useNavigate();
+
   // Update user function
   const updateUser = (userData: Partial<User>) => {
     if (user) {
