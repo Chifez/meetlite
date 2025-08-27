@@ -15,7 +15,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const { user, organization, setOrganization } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

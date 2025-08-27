@@ -54,7 +54,7 @@ const Layout = () => {
           </div>
         )}
       </div>
-      <main className="flex-1 mt-4">
+      <main className="flex-1">
         <Outlet />
       </main>
     </div>

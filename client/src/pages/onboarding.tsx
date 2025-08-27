@@ -175,6 +175,7 @@ const Onboarding = () => {
   const renderStep1 = () => (
     <div className="space-y-4">
       <FormField
+        key="name"
         control={form.control}
         name="name"
         render={({ field }) => (
@@ -189,6 +190,7 @@ const Onboarding = () => {
       />
 
       <FormField
+        key="useCase"
         control={form.control}
         name="useCase"
         render={({ field }) => (
@@ -198,7 +200,7 @@ const Onboarding = () => {
               <RadioGroup
                 onValueChange={field.onChange}
                 value={field.value ?? ''}
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-2 gap-4 mt-2"
               >
                 {useCaseOptions.map((option) => {
                   const Icon = option.icon;
@@ -239,6 +241,7 @@ const Onboarding = () => {
     <div className="space-y-4">
       {form.watch('useCase') === 'team' && (
         <FormField
+          key="teamSize"
           control={form.control}
           name="teamSize"
           render={({ field }) => (
@@ -279,13 +282,14 @@ const Onboarding = () => {
 
       {/* Single FormField for primaryUse (do NOT create a FormField per checkbox) */}
       <FormField
+        key="primaryUse"
         control={form.control}
         name="primaryUse"
         render={({ field }) => (
           <FormItem>
             <FormLabel>What features are most important to you?</FormLabel>
             <FormControl>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mt-2">
                 {primaryUseOptions.map((option) => {
                   const checked = (field.value ?? []).includes(option);
                   return (
@@ -325,6 +329,7 @@ const Onboarding = () => {
   const renderStep3 = () => (
     <div className="space-y-4">
       <FormField
+        key="experience"
         control={form.control}
         name="experience"
         render={({ field }) => (
@@ -387,7 +392,7 @@ const Onboarding = () => {
         description="Complete your profile setup"
       />
       <div className="w-full max-w-md">
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">
               Step {currentStep} of {steps.length}
@@ -405,8 +410,8 @@ const Onboarding = () => {
         </div>
 
         <div className="bg-card border border-border rounded-lg p-6 shadow-lg">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+          <div className="text-center mb-4">
+            <h1 className="text-2xl font-bold text-foreground">
               {steps[currentStep - 1].title}
             </h1>
             <p className="text-muted-foreground">
