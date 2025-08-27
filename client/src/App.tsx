@@ -15,7 +15,7 @@ import Landing from './pages/landing';
 import Onboarding from './pages/onboarding';
 
 function App() {
-  const { isAuthenticated, redirectTo } = useAuth();
+  const { isAuthenticated, redirectTo, user } = useAuth();
 
   return (
     <Routes>
@@ -44,24 +44,73 @@ function App() {
         <Route path="/meeting/:meetingId/join" element={<MeetingJoin />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/onboarding" element={<Onboarding />} />
+        <Route
+          path="/onboarding"
+          element={
+            isAuthenticated && user?.onboardingCompleted ? (
+              <Navigate to={redirectTo || '/dashboard'} />
+            ) : (
+              <Onboarding />
+            )
+          }
+        />
 
         {/* Protected routes */}
         <Route
           path="/dashboard"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Dashboard />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
         <Route
           path="/lobby/:roomId"
-          element={isAuthenticated ? <Lobby /> : <Navigate to="/login" />}
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Lobby />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
         <Route
           path="/room/:roomId"
-          element={isAuthenticated ? <Room /> : <Navigate to="/login" />}
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Room />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
         <Route
           path="/meetings"
-          element={isAuthenticated ? <Meetings /> : <Navigate to="/login" />}
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Meetings />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
 
         {/* Redirects */}

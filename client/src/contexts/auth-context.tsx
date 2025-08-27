@@ -13,6 +13,17 @@ type User = {
   email: string;
   name?: string;
   useNameInMeetings?: boolean;
+  onboardingCompleted?: boolean;
+  onboarding?: {
+    name?: string;
+    useCase?: 'personal' | 'education' | 'business' | 'team';
+    teamSize?: '1-5' | '6-20' | '21-50' | '50+';
+    primaryUse?: string[];
+    experience?: 'beginner' | 'intermediate' | 'advanced';
+  };
+  organizationId?: string | null;
+  role?: 'owner' | 'member';
+  plan?: 'free' | 'pro' | 'business' | 'enterprise';
 };
 
 type AuthContextType = {
@@ -81,6 +92,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: profile.email,
         name: profile.name,
         useNameInMeetings: profile.useNameInMeetings,
+        onboardingCompleted: profile.onboardingCompleted,
+        onboarding: profile.onboarding,
+        organizationId: profile.organizationId ?? null,
+        role: profile.role,
+        plan: profile.plan,
       });
     } catch (error) {
       // fallback: clear user if profile fetch fails

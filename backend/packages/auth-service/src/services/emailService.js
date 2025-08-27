@@ -38,9 +38,10 @@ export const sendWelcomeEmail = async (userEmail, userName = '') => {
   try {
     const transporter = createTransport();
     const template = getWelcomeEmailTemplate(userName);
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
-      from: process.env.SMTP_FROM,
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
       to: userEmail,
       subject: template.subject,
       html: template.html,
@@ -63,9 +64,10 @@ export const sendPasswordResetEmail = async (
     const transporter = createTransport();
     const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
     const template = getPasswordResetEmailTemplate(resetUrl, userName);
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
-      from: 'noreply@meetlite.app',
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
       to: userEmail,
       subject: template.subject,
       html: template.html,

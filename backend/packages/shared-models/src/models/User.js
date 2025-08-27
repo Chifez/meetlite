@@ -28,6 +28,46 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // Onboarding status and collected onboarding preferences
+  onboardingCompleted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  onboarding: {
+    name: { type: String, trim: true },
+    useCase: {
+      type: String,
+      enum: ['personal', 'education', 'business', 'team'],
+    },
+    teamSize: {
+      type: String,
+      enum: ['1-5', '6-20', '21-50', '50+'],
+    },
+    primaryUse: [{ type: String }],
+    experience: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+    },
+  },
+  // Multitenancy fields (single-organization for now)
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true,
+  },
+  role: {
+    type: String,
+    enum: ['owner', 'member'],
+    default: 'owner',
+  },
+  // Plan information (default free until billing is implemented)
+  plan: {
+    type: String,
+    enum: ['free', 'pro', 'business', 'enterprise'],
+    default: 'free',
+    index: true,
+  },
   resetToken: {
     type: String,
     default: null,

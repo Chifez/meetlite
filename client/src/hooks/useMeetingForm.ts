@@ -135,6 +135,26 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
       return;
     }
 
+    // If a user forgets to click enter after inputing an email
+    // let validate the input and include the any email found in the input to the participants array
+    if (
+      formData.participantInput &&
+      formData.participantInput.trim().length > 0
+    ) {
+      const pending = formData.participantInput.trim();
+      const emailLike = /.+@.+\..+/.test(pending);
+      if (emailLike && !formData.participants.includes(pending)) {
+        setFormData((prev) => ({
+          ...prev,
+          participants: [...prev.participants, pending],
+          participantInput: '',
+        }));
+      } else {
+        toast.error('Please enter a valid email and press Enter');
+        return;
+      }
+    }
+
     setLoading(true);
     const meetingData = {
       title: formData.title.trim(),

@@ -18,6 +18,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Users, GraduationCap, Briefcase, Home } from 'lucide-react';
 import SEO from '@/components/seo';
+import api from '@/lib/axios';
+import { env } from '@/config/env';
+import { useAuth } from '@/hooks/useAuth';
 
 const onboardingSchema = z
   .object({
@@ -48,6 +51,7 @@ const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { validateToken } = useAuth();
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingSchema),
@@ -65,8 +69,12 @@ const Onboarding = () => {
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
-      console.log('Onboarding data:', data);
-      await new Promise((r) => setTimeout(r, 1000));
+      // Post onboarding data to backend
+      await api.post(`${env.AUTH_API_URL}/auth/onboarding`, data);
+
+      // Refresh profile/token-backed state
+      await validateToken();
+
       toast.success('Welcome to MeetLite!');
       navigate('/dashboard');
     } catch (err) {

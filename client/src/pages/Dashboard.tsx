@@ -65,6 +65,10 @@ const Dashboard = () => {
   } = useMeetingForm(() => {
     // Close modal and refresh meetings
     setSearchParams({});
+    if (user?.id) {
+      // Align with production: refresh meetings after scheduling
+      fetchMeetings(user.id);
+    }
   });
 
   const openScheduleModal = () => {

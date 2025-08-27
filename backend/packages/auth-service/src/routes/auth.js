@@ -14,6 +14,7 @@ const router = express.Router();
 
 // Google OAuth config
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
+const CLIENT_URL = process.env.CLIENT_URL || FRONTEND_URL;
 
 // Input validation middleware
 const validateLoginInput = (req, res, next) => {
@@ -83,15 +84,6 @@ router.post('/signup', async (req, res) => {
     });
 
     await user.save();
-
-    // Send welcome email
-    try {
-      await sendWelcomeEmail(user.email, user.name);
-    } catch (emailError) {
-      console.error('Welcome email error:', emailError);
-      // Log error but don't fail signup - user account is created successfully
-      // The welcome email is a nice-to-have, not critical for account creation
-    }
 
     // Generate token with longer expiration (7 days)
     const token = jwt.sign(
@@ -217,6 +209,12 @@ router.post('/validate', async (req, res) => {
         email: user.email,
         name: user.name,
         useNameInMeetings: user.useNameInMeetings,
+        onboardingCompleted: user.onboardingCompleted,
+        onboarding: user.onboarding,
+        organizationId: user.organizationId,
+        role: user.role,
+        plan: user.plan,
+        createdAt: user.createdAt,
       },
       expiresAt: decoded.exp,
     });
@@ -477,6 +475,11 @@ router.get('/profile', async (req, res) => {
         email: user.email,
         name: user.name,
         useNameInMeetings: user.useNameInMeetings,
+        onboardingCompleted: user.onboardingCompleted,
+        onboarding: user.onboarding,
+        organizationId: user.organizationId,
+        role: user.role,
+        plan: user.plan,
         createdAt: user.createdAt,
       },
     });
@@ -490,3 +493,87 @@ router.get('/profile', async (req, res) => {
 });
 
 export default router;
+
+// Onboarding completion endpoint (auth required)
+router.post('/onboarding', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await models.User.findById(decoded.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { name, useCase, teamSize, primaryUse, experience } = req.body || {};
+
+    // Basic validation
+    const validUseCases = ['personal', 'education', 'business', 'team'];
+    const validTeamSizes = ['1-5', '6-20', '21-50', '50+'];
+    const validExperience = ['beginner', 'intermediate', 'advanced'];
+
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ message: 'Name is required' });
+    }
+    if (!validUseCases.includes(useCase)) {
+      return res.status(400).json({ message: 'Invalid use case' });
+    }
+    if (useCase === 'team' && teamSize && !validTeamSizes.includes(teamSize)) {
+      return res.status(400).json({ message: 'Invalid team size' });
+    }
+    if (!Array.isArray(primaryUse) || primaryUse.length === 0) {
+      return res
+        .status(400)
+        .json({ message: 'Select at least one primary use' });
+    }
+    if (!validExperience.includes(experience)) {
+      return res.status(400).json({ message: 'Invalid experience level' });
+    }
+
+    // Persist onboarding data
+    user.onboarding = {
+      name: name.trim(),
+      useCase,
+      teamSize,
+      primaryUse,
+      experience,
+    };
+    user.name = user.name || name.trim();
+    user.onboardingCompleted = true;
+
+    await user.save();
+
+    // Send welcome email now (moved from signup)
+    try {
+      await sendWelcomeEmail(user.email, user.name);
+    } catch (emailError) {
+      console.error('Welcome email error:', emailError);
+      // Do not fail the onboarding request due to email errors
+    }
+
+    return res.json({
+      message: 'Onboarding completed',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        useNameInMeetings: user.useNameInMeetings,
+        onboardingCompleted: user.onboardingCompleted,
+        onboarding: user.onboarding,
+        organizationId: user.organizationId,
+        role: user.role,
+        plan: user.plan,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    console.error('Onboarding completion error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
