@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useMeetingForm } from '@/hooks/useMeetingForm';
 import SEO from '@/components/seo';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/contexts/workspace-context';
 import { useSearchParams } from 'react-router-dom';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useMeetingsStore } from '@/stores';
@@ -18,6 +19,7 @@ import MeetingsWelcomeHeader from '@/components/meetings/meetings-welcome-header
 
 const Meetings = () => {
   const { user } = useAuth();
+  const { activeOrganization } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     importCalendarEvents,
@@ -147,10 +149,10 @@ const Meetings = () => {
 
   useEffect(() => {
     if (user?.id) {
-      // Only fetch if we don't have meetings or if user ID changed
+      // Load meetings when user ID or organization changes
       loadMeetings();
     }
-  }, [user?.id]); // Remove fetchMeetingsFromStore from dependencies
+  }, [user?.id, activeOrganization?.id]);
 
   return (
     <>

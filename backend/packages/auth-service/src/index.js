@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
+import organizationRoutes from './routes/organizations.js';
+import organizationMemberRoutes from './routes/organizationMembers.js';
+import invitationRoutes from './routes/invitations.js';
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
@@ -31,6 +34,9 @@ app.use((err, req, res, next) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/organizations/members', organizationMemberRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -94,6 +94,7 @@ router.post('/', async (req, res) => {
       scheduledTime,
       duration,
       createdBy: req.user.userId,
+      organizationId: req.user.organizationId || null, // Use user's active org or personal
       participants: participants || [],
       privacy: privacy || 'public',
       invites,
@@ -124,10 +125,16 @@ router.post('/', async (req, res) => {
   }
 });
 
-// List meetings (optionally filter by user)
+// List meetings (filtered by user and organization)
 router.get('/', async (req, res) => {
   try {
+    // Build query based on user's active organization
+    const orgFilter = req.user.organizationId
+      ? { organizationId: req.user.organizationId }
+      : { organizationId: null }; // Personal workspace
+
     const meetings = await models.Meeting.find({
+      ...orgFilter, // Filter by organization first
       $or: [
         { createdBy: req.user.userId },
         { participants: req.user.userId },
@@ -297,6 +304,7 @@ router.post('/:meetingId/start', async (req, res) => {
     const room = new models.Room({
       roomId,
       createdBy: req.user.userId,
+      organizationId: meeting.organizationId, // Inherit from meeting
     });
     await room.save();
     meeting.roomId = roomId;

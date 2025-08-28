@@ -1,0 +1,160 @@
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import { models } from '../index.js';
+
+const router = express.Router();
+
+// GET /invitations/:token - Get invitation details (public route)
+router.get('/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Find invitation by token
+    const invitation = await models.OrganizationInvitation.findByToken(token);
+
+    if (!invitation) {
+      return res.status(404).json({
+        message: 'Invitation not found or expired',
+      });
+    }
+
+    // Return invitation details without sensitive information
+    res.json({
+      invitation: {
+        id: invitation._id,
+        organizationName: invitation.organizationId.name,
+        organizationLogo: invitation.organizationId.logo,
+        inviterName: invitation.invitedBy.name || invitation.invitedBy.email,
+        role: invitation.role,
+        message: invitation.message,
+        expiresAt: invitation.expiresAt,
+        createdAt: invitation.createdAt,
+      },
+      isValid: invitation.canBeAccepted(),
+    });
+  } catch (error) {
+    console.error('Get invitation error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /invitations/:token/accept - Accept invitation (requires auth)
+router.post('/:token/accept', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const authHeader = req.headers['authorization'];
+    const authToken = authHeader && authHeader.split(' ')[1];
+
+    if (!authToken) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // Verify JWT token
+    let userId;
+    try {
+      const decoded = jwt.verify(authToken, process.env.JWT_SECRET);
+      const user = await models.User.findById(decoded.userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      userId = user._id;
+
+      // Find invitation by token
+      const invitation = await models.OrganizationInvitation.findByToken(token);
+      if (!invitation) {
+        return res.status(404).json({
+          message: 'Invitation not found or expired',
+        });
+      }
+
+      // Check if invitation email matches user email
+      if (invitation.email !== user.email.toLowerCase()) {
+        return res.status(403).json({
+          message: 'This invitation is for a different email address',
+        });
+      }
+
+      // Check if invitation can be accepted
+      if (!invitation.canBeAccepted()) {
+        return res.status(400).json({
+          message:
+            'Invitation cannot be accepted (expired or already processed)',
+        });
+      }
+
+      // Check if user is already in an organization
+      if (user.organizationId) {
+        return res.status(400).json({
+          message:
+            'You are already a member of an organization. Please leave your current organization first.',
+        });
+      }
+
+      // Accept invitation
+      await invitation.accept(userId);
+
+      // Add user to organization
+      await models.User.findByIdAndUpdate(userId, {
+        organizationId: invitation.organizationId._id,
+        role: invitation.role,
+      });
+
+      // Update organization member count
+      await models.Organization.findByIdAndUpdate(
+        invitation.organizationId._id,
+        {
+          $inc: { 'stats.totalMembers': 1 },
+        }
+      );
+
+      res.json({
+        message: 'Invitation accepted successfully',
+        organization: {
+          id: invitation.organizationId._id,
+          name: invitation.organizationId.name,
+          role: invitation.role,
+        },
+      });
+    } catch (jwtError) {
+      return res.status(401).json({ message: 'Invalid authentication token' });
+    }
+  } catch (error) {
+    console.error('Accept invitation error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /invitations/:token/decline - Decline invitation (public route)
+router.post('/:token/decline', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Find invitation by token
+    const invitation = await models.OrganizationInvitation.findByToken(token);
+
+    if (!invitation) {
+      return res.status(404).json({
+        message: 'Invitation not found or expired',
+      });
+    }
+
+    // Check if invitation can be declined
+    if (invitation.status !== 'pending') {
+      return res.status(400).json({
+        message: 'Invitation cannot be declined (already processed)',
+      });
+    }
+
+    // Decline invitation
+    await invitation.decline();
+
+    res.json({
+      message: 'Invitation declined successfully',
+    });
+  } catch (error) {
+    console.error('Decline invitation error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+export default router;

@@ -10,6 +10,13 @@ const roomSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // Organization scope for multi-tenancy
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true,
+    default: null, // null means personal workspace
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -97,6 +104,7 @@ const roomSchema = new mongoose.Schema({
 
 // Indexes for better performance
 roomSchema.index({ roomId: 1 });
+roomSchema.index({ organizationId: 1, createdBy: 1 });
 roomSchema.index({ 'participants.userId': 1 });
 roomSchema.index({ collaborationMode: 1 });
 

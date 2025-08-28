@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { AuthProvider } from './contexts/auth-context.tsx';
+import { WorkspaceProvider } from './contexts/workspace-context.tsx';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from 'next-themes';
 import { HelmetProvider } from 'react-helmet-async';
@@ -28,8 +29,10 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <App />
-            <Toaster richColors />
+            <WorkspaceProvider>
+              <App />
+              <Toaster richColors />
+            </WorkspaceProvider>
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

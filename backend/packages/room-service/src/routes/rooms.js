@@ -19,6 +19,7 @@ router.post('/', async (req, res) => {
     const room = new models.Room({
       roomId,
       createdBy: req.user.userId,
+      organizationId: req.user.organizationId || null, // Use user's active org or personal
       settings: {
         allowCollaboration: settings.allowCollaboration ?? true,
         maxParticipants: settings.maxParticipants ?? 50,
@@ -50,12 +51,23 @@ router.get('/:roomId', async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
+    // Check organization access first
+    const userOrgId = req.user.organizationId || null;
+    const roomOrgId = room.organizationId || null;
+
+    // Users can only access rooms from their current workspace
+    if (userOrgId?.toString() !== roomOrgId?.toString()) {
+      return res.status(403).json({
+        message: 'Access denied. Room belongs to a different workspace.',
+      });
+    }
+
     // If the user is the room creator, allow access
     if (room.createdBy === req.user.userId) {
       return res.json(room);
     }
 
-    // If the room is not associated with a Meeting, allow any authenticated user to join (instant meeting)
+    // If the room is not associated with a Meeting, allow authenticated users from same org
     const meeting = await models.Meeting.findOne({
       roomId: req.params.roomId,
     });

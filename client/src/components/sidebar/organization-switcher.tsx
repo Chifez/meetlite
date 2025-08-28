@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,101 +21,81 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Plus, User, ChevronDown, LogOut } from 'lucide-react';
+import { Building2, Plus, User, ChevronDown, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-
-interface Organization {
-  id: string;
-  name: string;
-  size?: string;
-  industry?: string;
-  logo?: string;
-  members: any[];
-}
+import { useWorkspace } from '@/contexts/workspace-context';
 
 interface OrganizationSwitcherProps {
-  currentOrg: Organization | null;
-  onOrgChange: (org: Organization | null) => void;
+  // Props are no longer needed as we get data from context
 }
 
-export function OrganizationSwitcher({
-  currentOrg,
-  onOrgChange,
-}: OrganizationSwitcherProps) {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
+  const {
+    activeOrganization,
+    organizations,
+    switchingOrg,
+    switchToOrganization,
+    switchToPersonal,
+    createOrganization,
+    currentWorkspaceName,
+  } = useWorkspace();
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
+  const [newOrgDescription, setNewOrgDescription] = useState('');
+  const [newOrgIndustry, setNewOrgIndustry] = useState('');
+  const [newOrgSize, setNewOrgSize] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    // Load organizations from localStorage (mock data)
-    const mockOrgs: Organization[] = [
-      {
-        id: 'org_1',
-        name: 'Acme Corp',
-        size: '51-200',
-        industry: 'Technology',
-        members: [],
-      },
-      {
-        id: 'org_2',
-        name: 'Design Studio',
-        size: '1-10',
-        industry: 'Design',
-        members: [],
-      },
-    ];
-    setOrganizations(mockOrgs);
-  }, []);
 
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock organization creation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const newOrg = await createOrganization({
+        name: newOrgName.trim(),
+        description: newOrgDescription.trim() || undefined,
+        industry: newOrgIndustry.trim() || undefined,
+        size: newOrgSize || undefined,
+      });
 
-    const newOrg: Organization = {
-      id: `org_${Date.now()}`,
-      name: newOrgName,
-      members: [],
-    };
-
-    setOrganizations((prev) => [...prev, newOrg]);
-    setNewOrgName('');
-    setIsCreateDialogOpen(false);
-    setIsLoading(false);
-    onOrgChange(newOrg);
+      if (newOrg) {
+        // Reset form and close dialog
+        setNewOrgName('');
+        setNewOrgDescription('');
+        setNewOrgIndustry('');
+        setNewOrgSize('');
+        setIsCreateDialogOpen(false);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSwitchToPersonal = () => {
-    onOrgChange(null);
+    if (switchingOrg) return;
+    switchToPersonal();
+  };
+
+  const handleSwitchToOrg = (orgId: string) => {
+    if (switchingOrg) return;
+    switchToOrganization(orgId);
   };
 
   const getCurrentDisplayName = () => {
-    if (currentOrg) {
-      return currentOrg.name;
-    }
-    return 'Personal Account';
-  };
-
-  const getCurrentDisplayIcon = () => {
-    if (currentOrg) {
-      return <Building2 className="w-4 h-4 text-primary" />;
-    }
-    return <User className="w-4 h-4 text-primary" />;
+    return currentWorkspaceName;
   };
 
   const getCurrentDisplayDescription = () => {
-    if (currentOrg) {
-      return `${currentOrg.members?.length || 0} members`;
+    if (activeOrganization) {
+      return `${activeOrganization.memberCount || 0} members`;
     }
     return 'Individual workspace';
   };
 
   const getCurrentInitials = () => {
-    if (currentOrg) {
-      return currentOrg.name
+    if (activeOrganization) {
+      return activeOrganization.name
         .split(' ')
         .map((n) => n[0])
         .join('')
@@ -133,6 +113,7 @@ export function OrganizationSwitcher({
           <Button
             variant="ghost"
             className="w-full justify-between h-auto p-3 hover:bg-sidebar-accent"
+            disabled={switchingOrg}
           >
             <div className="flex items-center gap-3 flex-1">
               <Avatar className="h-8 w-8">
@@ -149,7 +130,11 @@ export function OrganizationSwitcher({
                 </div>
               </div>
             </div>
-            <ChevronDown className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0" />
+            {switchingOrg ? (
+              <Loader2 className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0 animate-spin" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0" />
+            )}
           </Button>
         </DropdownMenuTrigger>
 
@@ -176,8 +161,9 @@ export function OrganizationSwitcher({
           {organizations.map((org) => (
             <DropdownMenuItem
               key={org.id}
-              onClick={() => onOrgChange(org)}
+              onClick={() => handleSwitchToOrg(org.id)}
               className="flex items-center gap-3 p-3 cursor-pointer"
+              disabled={switchingOrg}
             >
               <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                 <Building2 className="w-4 h-4 text-primary" />
@@ -185,7 +171,7 @@ export function OrganizationSwitcher({
               <div className="text-left">
                 <div className="font-medium">{org.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {org.members?.length || 0} members
+                  {org.memberCount || 0} members • {org.plan}
                 </div>
               </div>
             </DropdownMenuItem>
@@ -235,20 +221,38 @@ export function OrganizationSwitcher({
                     className="bg-input"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="orgDescription">Description (optional)</Label>
+                  <Input
+                    id="orgDescription"
+                    value={newOrgDescription}
+                    onChange={(e) => setNewOrgDescription(e.target.value)}
+                    placeholder="What does your organization do?"
+                    className="bg-input"
+                  />
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsCreateDialogOpen(false)}
+                    disabled={isLoading}
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    disabled={isLoading || !newOrgName}
+                    disabled={isLoading || !newOrgName.trim()}
                     className="bg-primary hover:bg-primary/90"
                   >
-                    {isLoading ? 'Creating...' : 'Create Organization'}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Organization'
+                    )}
                   </Button>
                 </div>
               </form>

@@ -25,6 +25,13 @@ const meetingSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // Organization scope for multi-tenancy
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true,
+    default: null, // null means personal workspace
+  },
   participants: [
     {
       type: String, // userId
@@ -60,6 +67,10 @@ const meetingSchema = new mongoose.Schema({
     },
   ],
 });
+
+// Indexes for better performance
+meetingSchema.index({ organizationId: 1, createdBy: 1 });
+meetingSchema.index({ organizationId: 1, scheduledTime: 1 });
 
 // Export the schema for use with the model factory
 export { meetingSchema };

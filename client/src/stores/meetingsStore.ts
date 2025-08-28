@@ -69,7 +69,8 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       const response = await api.get(`${env.ROOM_API_URL}/meetings`);
       const data = response.data;
 
-      // Filter meetings based on user permissions
+      // Backend now handles organization and access filtering
+      // Frontend only needs to filter for upcoming/ongoing meetings
       if (userId) {
         const now = new Date();
         const userMeetings = data.filter((meeting: Meeting) => {
@@ -77,18 +78,9 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
             new Date(meeting.scheduledTime).getTime() +
               (meeting.duration || 0) * 60000
           );
-          const isCreator = meeting.createdBy === userId;
-          const isInvited =
-            meeting.invites?.some((invite) => invite.email === userId) || false;
 
-          // Show meetings where user is creator OR invited
-          const hasAccess = isCreator || isInvited;
-
-          // Show if:
-          // 1. User has access (creator or invited) AND
-          // 2. Meeting is ongoing or upcoming (not completed or cancelled)
+          // Show only upcoming/ongoing meetings (backend handles access control)
           return (
-            hasAccess &&
             meeting.status !== 'cancelled' &&
             meeting.status !== 'completed' &&
             meetingEnd > now

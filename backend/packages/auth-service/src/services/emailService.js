@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import { getWelcomeEmailTemplate } from '../templates/welcomeEmail.js';
 import { getPasswordResetEmailTemplate } from '../templates/passwordResetEmail.js';
+import { getOrganizationInviteEmailTemplate } from '../templates/organizationInviteEmail.js';
 
 // Email service configuration - following room-service pattern
 const createTransport = () => {
@@ -83,4 +84,44 @@ export const sendPasswordResetEmail = async (
 
 export const generateResetToken = () => {
   return uuidv4();
+};
+
+export const sendOrganizationInviteEmail = async ({
+  email,
+  organizationName,
+  inviterName,
+  inviterEmail,
+  inviteToken,
+  message = '',
+  role = 'member',
+}) => {
+  try {
+    const transporter = createTransport();
+    const inviteUrl = `${process.env.CLIENT_URL}/invite/${inviteToken}`;
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
+
+    const template = getOrganizationInviteEmailTemplate(
+      organizationName,
+      inviterName,
+      inviterEmail,
+      inviteUrl,
+      message,
+      role
+    );
+
+    const emailContent = {
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
+      to: email,
+      subject: template.subject,
+      html: template.html,
+    };
+
+    await transporter.sendMail(emailContent);
+    console.log(
+      `Organization invite email sent to ${email} for ${organizationName}`
+    );
+  } catch (error) {
+    console.error('Organization invite email error:', error);
+    throw error;
+  }
 };

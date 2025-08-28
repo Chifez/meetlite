@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/contexts/workspace-context';
 import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { toast } from 'sonner';
 import { env } from '@/config/env';
@@ -18,6 +19,7 @@ import { useMeetingsStore, useUIStore } from '@/stores';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { activeOrganization } = useWorkspace();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -32,24 +34,6 @@ const Dashboard = () => {
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
   const showSettingsModal = searchParams.get('settings') === 'true';
-
-  // Handle OAuth callback
-  // useEffect(() => {
-  //   const oauthStatus = searchParams.get('oauth');
-  //   const provider = searchParams.get('provider');
-
-  //   if (oauthStatus === 'success' && provider === 'google') {
-  //     toast.success('Google Calendar connected successfully!');
-  //     // Refresh connection status
-  //     refreshConnectionStatus();
-  //     // Clear the OAuth params from URL
-  //     setSearchParams({});
-  //   } else if (oauthStatus === 'error' && provider === 'google') {
-  //     toast.error('Failed to connect Google Calendar. Please try again.');
-  //     // Clear the OAuth params from URL
-  //     setSearchParams({});
-  //   }
-  // }, [searchParams, refreshConnectionStatus, setSearchParams]);
 
   // Use the custom hook for form state management
   const {
@@ -115,10 +99,10 @@ const Dashboard = () => {
   // Fetch upcoming meetings
   const initializeDashboard = useCallback(async () => {
     if (user?.id) {
-      // Only fetch if we don't have meetings or if user ID changed
+      // Fetch meetings for current user and organization context
       await fetchMeetings(user.id);
     }
-  }, [user?.id, fetchMeetings]);
+  }, [user?.id, activeOrganization?.id, fetchMeetings]);
 
   useEffect(() => {
     initializeDashboard();

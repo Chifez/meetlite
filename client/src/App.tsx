@@ -13,6 +13,8 @@ import Meetings from './pages/meeting';
 import MeetingJoin from './pages/meeting-join';
 import Landing from './pages/landing';
 import Onboarding from './pages/onboarding';
+import Members from './pages/members';
+import Recordings from './pages/recordings';
 
 function App() {
   const { isAuthenticated, redirectTo, user } = useAuth();
@@ -104,6 +106,34 @@ function App() {
             isAuthenticated ? (
               user?.onboardingCompleted ? (
                 <Meetings />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/members"
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Members />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/recordings"
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Recordings />
               ) : (
                 <Navigate to="/onboarding" />
               )

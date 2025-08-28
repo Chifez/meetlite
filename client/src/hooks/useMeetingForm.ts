@@ -135,23 +135,41 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
       return;
     }
 
-    // If a user forgets to click enter after inputing an email
-    // let validate the input and include the any email found in the input to the participants array
+    // Auto-add pending email input to participants array (synchronous approach)
+    let finalParticipants = [...formData.participants];
     if (
       formData.participantInput &&
       formData.participantInput.trim().length > 0
     ) {
       const pending = formData.participantInput.trim();
-      const emailLike = /.+@.+\..+/.test(pending);
-      if (emailLike && !formData.participants.includes(pending)) {
-        setFormData((prev) => ({
-          ...prev,
-          participants: [...prev.participants, pending],
-          participantInput: '',
-        }));
-      } else {
-        toast.error('Please enter a valid email and press Enter');
+
+      // Handle multiple emails separated by commas, semicolons, or spaces
+      const emailCandidates = pending
+        .split(/[,;\s]+/)
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
+
+      const validEmails = [];
+      const invalidEmails = [];
+
+      for (const email of emailCandidates) {
+        const emailLike = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        if (emailLike && !finalParticipants.includes(email)) {
+          validEmails.push(email);
+        } else if (!emailLike) {
+          invalidEmails.push(email);
+        }
+      }
+
+      if (invalidEmails.length > 0) {
+        toast.error(`Invalid email format: ${invalidEmails.join(', ')}`);
         return;
+      }
+
+      if (validEmails.length > 0) {
+        finalParticipants.push(...validEmails);
+        // Clear the input for UI feedback
+        setFormData((prev) => ({ ...prev, participantInput: '' }));
       }
     }
 
@@ -161,9 +179,9 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
       description: formData.description.trim(),
       scheduledTime,
       duration: formData.duration,
-      participants: formData.participants,
+      participants: finalParticipants,
       privacy: formData.privacy,
-      inviteEmails: formData.participants,
+      inviteEmails: finalParticipants,
       hostEmail: user?.email,
     };
 

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crown, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizationSwitcher } from './organization-switcher';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/contexts/workspace-context';
 import UserMenu from '../ui/user-menu';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../logo';
 import { NAVIGATION_ITEMS } from '@/lib/constants';
+import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
   mobileMenuOpen?: boolean;
@@ -16,22 +18,11 @@ interface SidebarProps {
 
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
-  const { user, organization, setOrganization } = useAuth();
+  const { user } = useAuth();
+  const { activeOrganization, currentWorkspaceName, isPersonalMode } =
+    useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleOrgChange = (org: any) => {
-    setOrganization(org);
-    // Update user account type based on selection
-    if (user) {
-      const updatedUser = {
-        ...user,
-        accountType: org ? 'organization' : 'personal',
-        organizationId: org?.id || undefined,
-      };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
-  };
 
   const handleNavigationClick = (item: any) => {
     if (item.available) {
@@ -105,10 +96,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
             </div>
 
             {/* Organization Switcher - Now a compact dropdown */}
-            <OrganizationSwitcher
-              currentOrg={organization}
-              onOrgChange={handleOrgChange}
-            />
+            <OrganizationSwitcher />
           </div>
         )}
 
@@ -118,6 +106,11 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
             {NAVIGATION_ITEMS.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
+
+              // Hide organization-only items when in personal mode
+              if (item.organizationOnly && isPersonalMode) {
+                return null;
+              }
 
               return (
                 <li key={item.path}>
@@ -153,7 +146,50 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-3">
+          {/* Current Plan Display */}
+          {!(collapsed && window.innerWidth >= 768) && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wide font-medium">
+                  Current Plan
+                </p>
+                {(activeOrganization?.plan || user?.plan) === 'free' && (
+                  <Badge variant="outline" className="text-xs">
+                    Free
+                  </Badge>
+                )}
+                {(activeOrganization?.plan || user?.plan) === 'pro' && (
+                  <Badge variant="default" className="text-xs bg-blue-500">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Pro
+                  </Badge>
+                )}
+                {(activeOrganization?.plan || user?.plan) === 'business' && (
+                  <Badge variant="default" className="text-xs bg-purple-500">
+                    <Crown className="w-3 h-3 mr-1" />
+                    Business
+                  </Badge>
+                )}
+              </div>
+
+              {(activeOrganization?.plan || user?.plan) === 'free' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => {
+                    // TODO: Implement upgrade flow
+                    console.log('Upgrade plan clicked');
+                  }}
+                >
+                  <Zap className="w-3 h-3 mr-2" />
+                  Upgrade Plan
+                </Button>
+              )}
+            </div>
+          )}
+
           <UserMenu
             collapsed={collapsed}
             onOpenSettings={() =>
