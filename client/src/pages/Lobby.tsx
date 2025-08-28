@@ -375,7 +375,7 @@ const Lobby = () => {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button onClick={joinMeeting} size="lg">
+          <Button onClick={joinMeeting} size="sm">
             Join Meeting
           </Button>
         </CardFooter>

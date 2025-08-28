@@ -15,22 +15,28 @@ const AuthWrapper = ({
   children,
   footer,
 }: AuthWrapperProps) => (
-  <div className="container max-w-md mx-auto py-16 px-4">
-    <div className="flex justify-center mb-8">
-      <Logo />
-    </div>
-    <Card>
-      <CardHeader>
-        <h2 className="text-2xl text-center font-bold">{title}</h2>
-        {description && (
-          <p className="text-center text-muted-foreground">{description}</p>
+  <div className="min-h-screen bg-background pt-20 md:pt-24 flex items-center justify-center p-4">
+    <div className="w-full max-w-md">
+      <div className="flex justify-center mb-8">
+        <Logo />
+      </div>
+      <Card>
+        <CardHeader>
+          <h2 className="text-xl text-center font-semibold text-foreground">
+            {title}
+          </h2>
+          {description && (
+            <p className="text-center text-sm text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent>{children}</CardContent>
+        {footer && (
+          <CardFooter className="flex justify-center">{footer}</CardFooter>
         )}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-      {footer && (
-        <CardFooter className="flex justify-center">{footer}</CardFooter>
-      )}
-    </Card>
+      </Card>
+    </div>
   </div>
 );
 

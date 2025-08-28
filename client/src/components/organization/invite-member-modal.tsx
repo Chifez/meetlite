@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
-import { Textarea } from '../ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Mail, UserPlus } from 'lucide-react';
 import { useMembers } from '../../hooks/useMembers';
 
@@ -86,98 +91,113 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-blue-600" />
-            Invite Member to {organizationName}
-          </DialogTitle>
-        </DialogHeader>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-blue-600" />
+              Invite Member to {organizationName}
+            </DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Email Input */}
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium">
-              Email Address
-            </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="colleague@company.com"
-                className="pl-10"
-                {...register('email', {
-                  required: 'Email is required',
-                  onChange: (e) => {
-                    if (emailError) setEmailError('');
-                  },
-                })}
-              />
-            </div>
-            {errors.email && (
-              <p className="text-sm text-red-600">{errors.email.message}</p>
-            )}
-            {emailError && (
-              <p className="text-sm text-red-600">{emailError}</p>
-            )}
-          </div>
-
-          {/* Role Selection */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Role</Label>
-            <RadioGroup
-              value={selectedRole}
-              onValueChange={(value: 'member' | 'owner') => setValue('role', value)}
-              className="space-y-3"
-            >
-              <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
-                <RadioGroupItem value="member" id="member" />
-                <div className="flex-1">
-                  <Label htmlFor="member" className="font-medium cursor-pointer">
-                    Member
-                  </Label>
-                  <p className="text-sm text-gray-600">
-                    Can join meetings, participate in collaborations, and view organization content
-                  </p>
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            <div className="space-y-6 p-1">
+              {/* Email Input */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email Address
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="colleague@company.com"
+                    className="pl-10"
+                    {...register('email', {
+                      required: 'Email is required',
+                      onChange: (e) => {
+                        if (emailError) setEmailError('');
+                      },
+                    })}
+                  />
                 </div>
+                {errors.email && (
+                  <p className="text-sm text-red-600">{errors.email.message}</p>
+                )}
+                {emailError && (
+                  <p className="text-sm text-red-600">{emailError}</p>
+                )}
               </div>
-              
-              {canInviteOwners && (
-                <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
-                  <RadioGroupItem value="owner" id="owner" />
-                  <div className="flex-1">
-                    <Label htmlFor="owner" className="font-medium cursor-pointer">
-                      Owner
-                    </Label>
-                    <p className="text-sm text-gray-600">
-                      Full access including member management, billing, and organization settings
-                    </p>
+
+              {/* Role Selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Role</Label>
+                <RadioGroup
+                  value={selectedRole}
+                  onValueChange={(value: 'member' | 'owner') =>
+                    setValue('role', value)
+                  }
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                    <RadioGroupItem value="member" id="member" />
+                    <div className="flex-1">
+                      <Label
+                        htmlFor="member"
+                        className="font-medium cursor-pointer"
+                      >
+                        Member
+                      </Label>
+                      <p className="text-sm text-gray-600">
+                        Can join meetings, participate in collaborations, and
+                        view organization content
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </RadioGroup>
+
+                  {canInviteOwners && (
+                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                      <RadioGroupItem value="owner" id="owner" />
+                      <div className="flex-1">
+                        <Label
+                          htmlFor="owner"
+                          className="font-medium cursor-pointer"
+                        >
+                          Owner
+                        </Label>
+                        <p className="text-sm text-gray-600">
+                          Full access including member management, billing, and
+                          organization settings
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </RadioGroup>
+              </div>
+
+              {/* Personal Message */}
+              <div className="space-y-2">
+                <Label htmlFor="message" className="text-sm font-medium">
+                  Personal Message{' '}
+                  <span className="text-gray-500">(Optional)</span>
+                </Label>
+                <Textarea
+                  id="message"
+                  placeholder="Add a personal message to the invitation..."
+                  rows={3}
+                  maxLength={500}
+                  {...register('message')}
+                />
+                <p className="text-xs text-gray-500">
+                  This message will be included in the invitation email
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Personal Message */}
-          <div className="space-y-2">
-            <Label htmlFor="message" className="text-sm font-medium">
-              Personal Message <span className="text-gray-500">(Optional)</span>
-            </Label>
-            <Textarea
-              id="message"
-              placeholder="Add a personal message to the invitation..."
-              rows={3}
-              maxLength={500}
-              {...register('message')}
-            />
-            <p className="text-xs text-gray-500">
-              This message will be included in the invitation email
-            </p>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
+          {/* Action Buttons - Fixed Footer */}
+          <div className="flex gap-3 pt-4 border-t flex-shrink-0">
             <Button
               type="button"
               variant="outline"
@@ -191,6 +211,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               type="submit"
               disabled={inviting}
               className="flex-1"
+              onClick={handleSubmit(onSubmit)}
             >
               {inviting ? (
                 <>
@@ -205,8 +226,8 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               )}
             </Button>
           </div>
-        </form>
-      </DialogContent>
+        </DialogContent>
+      </form>
     </Dialog>
   );
 };

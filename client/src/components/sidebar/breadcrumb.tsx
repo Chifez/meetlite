@@ -1,6 +1,7 @@
 import { NAVIGATION_ITEMS } from '@/lib/constants';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
-import { Menu } from 'lucide-react';
+import { ArrowLeft, Menu } from 'lucide-react';
 
 const Breadcrumb = ({
   currentPath,
@@ -11,6 +12,7 @@ const Breadcrumb = ({
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (isMobileMenuOpen: boolean) => void;
 }) => {
+  const navigate = useNavigate();
   const currentItem = NAVIGATION_ITEMS.find(
     (item) => item.path === currentPath
   );
@@ -37,9 +39,27 @@ const Breadcrumb = ({
         )}
       </div>
 
-      <span className="text-foreground font-medium text-xl">
-        {currentItem.label}
-      </span>
+      <div className="flex items-center justify-center gap-2 py-1 text-lg text-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/dashboard')}
+          className="hover:bg-transparent cursor-pointer flex items-center justify-center gap-2 h-auto font-medium text-xs uppercase"
+        >
+          {currentPath !== '/dashboard' && (
+            <>
+              <ArrowLeft className="h-4 w-4" />
+            </>
+          )}
+          <p>Dashboard</p>
+          {currentPath !== '/dashboard' && (
+            <>
+              <span>/</span>
+              <span>{currentItem.label}</span>
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 };

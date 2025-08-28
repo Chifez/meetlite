@@ -110,7 +110,7 @@ export const MemberList: React.FC<MemberListProps> = ({
         <div className="flex items-center gap-3">
           <Users className="h-6 w-6 text-blue-600" />
           <div>
-            <h2 className="text-xl font-semibold">Team Members</h2>
+            <h1 className="text-lg md:text-xl font-semibold">Team Members</h1>
             <p className="text-sm text-gray-600">
               {memberCount} {memberCount === 1 ? 'member' : 'members'}
               {maxMembers !== -1 && ` of ${maxMembers} maximum`}
@@ -119,9 +119,9 @@ export const MemberList: React.FC<MemberListProps> = ({
         </div>
 
         {canInvite && (
-          <Button onClick={onInviteClick} className="gap-2">
+          <Button onClick={onInviteClick} className="gap-2" size="sm">
             <UserPlus className="h-4 w-4" />
-            Invite Member
+            <p className="text-sm">Invite Member</p>
           </Button>
         )}
       </div>
@@ -147,7 +147,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                   className="p-4 flex items-center justify-between hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 z-0">
                       <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
                         {getInitials(member.name)}
                       </AvatarFallback>

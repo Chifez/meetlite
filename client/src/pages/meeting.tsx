@@ -16,6 +16,7 @@ import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal'
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import MeetingViewToggle from '@/components/meetings/meeting-view-toggle';
 import MeetingsWelcomeHeader from '@/components/meetings/meetings-welcome-header';
+import DashboardLayout from '@/components/dashboard/dashboard-layout';
 
 const Meetings = () => {
   const { user } = useAuth();
@@ -172,43 +173,40 @@ const Meetings = () => {
         onCancel={closeScheduleModal}
         onScheduleOnCalendar={handleScheduleOnCalendar}
       />
-      <MeetingsLayout>
-        <div className="min-h-screen bg-page md:px-4">
-          <div className="max-w-4xl mx-auto space-y-10">
-            {/* Hero Section */}
-            <MeetingsWelcomeHeader onSchedule={openScheduleModal} />
+      <DashboardLayout>
+        {/* Hero Section */}
+        <MeetingsWelcomeHeader onSchedule={openScheduleModal} />
 
-            {/* View Toggle */}
-            <MeetingViewToggle
-              view={view}
-              setView={setView}
-              setShowImportModal={setShowImportModal}
-            />
-
-            {/* Meetings List or Calendar */}
-            {view === 'list' ? (
-              <MeetingListSection meetings={meetings} loading={loading} />
-            ) : (
-              <MeetingCalendarSection meetings={meetings} loading={loading} />
-            )}
-
-            {/* Delete Confirmation Dialog */}
-            <DeleteMeetingDialog />
-          </div>
-        </div>
-        <ImportModal
-          open={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          importLoading={importLoading}
-          importError={importError}
-          importedEvents={importedEvents}
-          onImport={handleImport}
-          isConnected={isConnected}
-          refreshConnectionStatus={refreshConnectionStatus}
-          disconnectCalendar={disconnectCalendar}
-          isPolling={isPolling}
+        {/* View Toggle */}
+        <MeetingViewToggle
+          view={view}
+          setView={setView}
+          setShowImportModal={setShowImportModal}
         />
-      </MeetingsLayout>
+
+        {/* Meetings List or Calendar */}
+        {view === 'list' ? (
+          <MeetingListSection meetings={meetings} loading={loading} />
+        ) : (
+          <MeetingCalendarSection meetings={meetings} loading={loading} />
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteMeetingDialog />
+      </DashboardLayout>
+
+      <ImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importLoading={importLoading}
+        importError={importError}
+        importedEvents={importedEvents}
+        onImport={handleImport}
+        isConnected={isConnected}
+        refreshConnectionStatus={refreshConnectionStatus}
+        disconnectCalendar={disconnectCalendar}
+        isPolling={isPolling}
+      />
     </>
   );
 };

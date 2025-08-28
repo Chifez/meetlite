@@ -402,10 +402,10 @@ const Onboarding = () => {
       <div className="w-full max-w-md">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               Step {currentStep} of {steps.length}
             </span>
-            <span className="text-sm font-medium">
+            <span className="text-xs font-medium">
               {Math.round((currentStep / steps.length) * 100)}%
             </span>
           </div>
@@ -419,10 +419,10 @@ const Onboarding = () => {
 
         <div className="bg-card border border-border rounded-lg p-6 shadow-lg">
           <div className="text-center mb-4">
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-xl font-semibold text-foreground">
               {steps[currentStep - 1].title}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {steps[currentStep - 1].description}
             </p>
           </div>
@@ -436,6 +436,7 @@ const Onboarding = () => {
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
                     onClick={prevStep}
                     className="flex-1"
                   >
@@ -444,6 +445,7 @@ const Onboarding = () => {
                 )}
                 <Button
                   type="button"
+                  size="sm"
                   onClick={nextStep}
                   disabled={isLoading}
                   className="flex-1"

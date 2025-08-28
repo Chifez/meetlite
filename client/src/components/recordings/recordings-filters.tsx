@@ -28,7 +28,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<string>('desc');
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState<
+    'uploading' | 'processing' | 'completed' | 'failed' | ''
+  >('');
   const [hasTranscript, setHasTranscript] = useState<string>('');
   const [hasSummary, setHasSummary] = useState<string>('');
 
@@ -67,12 +69,12 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
       className={`bg-card border rounded-lg p-4 space-y-4 ${className || ''}`}
     >
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
           <Filter className="w-4 h-4" />
           Filters
         </h3>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {totalCount} recordings
           </span>
           <Button variant="outline" size="sm" onClick={clearFilters}>
@@ -85,7 +87,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Search */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Search</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Search
+          </label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -99,7 +103,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
 
         {/* Sort By */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Sort By</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Sort By
+          </label>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger>
               <SelectValue />
@@ -115,7 +121,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
 
         {/* Sort Order */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Order</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Order
+          </label>
           <Select value={sortOrder} onValueChange={setSortOrder}>
             <SelectTrigger>
               <SelectValue />
@@ -129,8 +137,13 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
 
         {/* Status */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Status</label>
-          <Select value={status} onValueChange={setStatus}>
+          <label className="text-xs font-medium text-muted-foreground">
+            Status
+          </label>
+          <Select
+            value={status}
+            onValueChange={(value: string) => setStatus(value as any)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
@@ -148,7 +161,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Has Transcript */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Transcript</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Transcript
+          </label>
           <Select value={hasTranscript} onValueChange={setHasTranscript}>
             <SelectTrigger>
               <SelectValue placeholder="Any" />
@@ -163,7 +178,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
 
         {/* Has Summary */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">AI Summary</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            AI Summary
+          </label>
           <Select value={hasSummary} onValueChange={setHasSummary}>
             <SelectTrigger>
               <SelectValue placeholder="Any" />

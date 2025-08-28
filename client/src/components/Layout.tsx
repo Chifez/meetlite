@@ -35,27 +35,32 @@ const Layout = () => {
 
   return (
     <div className="relative flex flex-col">
-      <div className="fixed h-0 flex flex-row">
-        <div className="h-screen">
+      <div className="relative z-50">
+        <div className="fixed h-0 flex flex-row">
+          <div className="h-screen">
+            {shouldShowNavbar && (
+              <Navbar
+                isMobileMenuOpen={isMobileMenuOpen}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+              />
+            )}
+          </div>
           {shouldShowNavbar && (
-            <Navbar
-              isMobileMenuOpen={isMobileMenuOpen}
-              setIsMobileMenuOpen={setIsMobileMenuOpen}
-            />
+            <div className="bg-background/80 backdrop-blur h-fit w-screen p-2">
+              <Breadcrumb
+                currentPath={location.pathname}
+                isMobileMenuOpen={isMobileMenuOpen}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+              />
+            </div>
           )}
         </div>
-        {shouldShowNavbar && (
-          <div className="bg-background/80 backdrop-blur h-fit w-screen p-2">
-            <Breadcrumb
-              currentPath={location.pathname}
-              isMobileMenuOpen={isMobileMenuOpen}
-              setIsMobileMenuOpen={setIsMobileMenuOpen}
-            />
-          </div>
-        )}
       </div>
+
       <main className="flex-1">
-        <Outlet />
+        <div className="relative z-20">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

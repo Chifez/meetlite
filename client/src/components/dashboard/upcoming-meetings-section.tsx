@@ -16,19 +16,21 @@ export default function UpcomingMeetingsSection({
 }) {
   return (
     <div className="mt-12">
-      <div className="flex justify-between">
-        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <List className="h-6 w-6 text-blue-600" /> Upcoming Meetings
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <List className="h-5 w-5 text-blue-600" /> Upcoming Meetings
         </h2>
-        <Link to="/meetings" className="underline text-primary">
-          <p>See all</p>
+        <Link to="/meetings" className="underline text-primary text-sm">
+          See all
         </Link>
       </div>
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="text-muted-foreground mt-2">Loading meetings...</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Loading meetings...
+            </p>
           </div>
         ) : meetings.length === 0 ? (
           <Card className="text-center py-12">
@@ -40,12 +42,12 @@ export default function UpcomingMeetingsSection({
                 <h3 className="text-lg font-semibold text-foreground">
                   No upcoming meetings
                 </h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
                   Schedule your first meeting to get started with your team
                   collaboration.
                 </p>
               </div>
-              <Button onClick={onSchedule} className="mt-4">
+              <Button size="sm" onClick={onSchedule} className="mt-4">
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Schedule Meeting
               </Button>

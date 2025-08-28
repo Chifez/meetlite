@@ -32,27 +32,29 @@ export default function QuickActions({
     <div className="grid md:grid-cols-3 gap-8">
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <PlusCircle className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <PlusCircle className="h-4 w-4" />
             Schedule Meeting
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm text-muted-foreground">
             Plan a meeting for later and send invites
           </CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button className="w-full" onClick={onSchedule}>
+          <Button size="sm" className="w-full" onClick={onSchedule}>
             Schedule Meeting
           </Button>
         </CardFooter>
       </Card>
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <Users className="h-4 w-4" />
             Join Meeting
           </CardTitle>
-          <CardDescription>Enter a code to join a meeting room</CardDescription>
+          <CardDescription className="text-sm text-muted-foreground">
+            Enter a code to join a meeting room
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Input
@@ -67,23 +69,24 @@ export default function QuickActions({
           />
         </CardContent>
         <CardFooter>
-          <Button onClick={handleJoin} className="w-full">
+          <Button size="sm" onClick={handleJoin} className="w-full">
             Join
           </Button>
         </CardFooter>
       </Card>
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <CalendarDays className="h-4 w-4" />
             Start Instant Meeting
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm text-muted-foreground">
             Create a room and start collaborating now
           </CardDescription>
         </CardHeader>
         <CardFooter>
           <Button
+            size="sm"
             onClick={onQuickMeeting}
             className="w-full"
             disabled={globalLoading}

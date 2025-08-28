@@ -271,7 +271,12 @@ const AuthPage = ({ mode }: AuthPageProps) => {
               </Link>
             </div>
           )}
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            size="sm"
+            className="w-full"
+            disabled={isLoading}
+          >
             {isLoading
               ? isLogin
                 ? 'Signing in...'
@@ -286,6 +291,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         <Button
           type="button"
           variant="outline"
+          size="sm"
           className="w-full flex items-center justify-center gap-2"
           onClick={() => {
             window.location.href = `${env.AUTH_API_URL}/auth/google`;

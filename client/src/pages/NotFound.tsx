@@ -2,29 +2,30 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Video } from 'lucide-react';
 import SEO from '@/components/seo';
+import Logo from '@/components/logo';
+import DashboardLayout from '@/components/dashboard/dashboard-layout';
 
 const NotFound = () => {
   return (
     <>
       <SEO title="404 - MeetLite" description="This page could not be found" />
 
-      <div className="container max-w-md mx-auto py-16 px-4 text-center">
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <Video className="h-8 w-8 text-primary" />
-            <span className="font-bold text-2xl">MeetLite</span>
+      <div className="min-h-screen bg-page pb-12 pt-20 px-4 flex items-center justify-center">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-8">
+            <Logo />
           </div>
+
+          <h1 className="text-2xl font-semibold text-foreground mb-4">404</h1>
+          <p className="text-lg text-foreground mb-2">Page not found</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            The page you're looking for doesn't exist or has been moved.
+          </p>
+
+          <Link to="/">
+            <Button size="sm">Return Home</Button>
+          </Link>
         </div>
-
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl mb-8">Page not found</p>
-        <p className="text-muted-foreground mb-8">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-
-        <Link to="/">
-          <Button>Return Home</Button>
-        </Link>
       </div>
     </>
   );

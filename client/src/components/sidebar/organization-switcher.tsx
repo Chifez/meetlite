@@ -21,7 +21,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Plus, User, ChevronDown, Loader2 } from 'lucide-react';
+import {
+  Building2,
+  Plus,
+  User,
+  ChevronDown,
+  Loader2,
+  ChevronsUpDown,
+} from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useWorkspace } from '@/contexts/workspace-context';
 
@@ -82,13 +89,15 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
     switchToOrganization(orgId);
   };
 
-  const getCurrentDisplayName = () => {
+  const getCurrentDisplayName = (): string => {
     return currentWorkspaceName;
   };
 
-  const getCurrentDisplayDescription = () => {
+  const getCurrentDisplayDescription = (): string => {
     if (activeOrganization) {
-      return `${activeOrganization.memberCount || 0} members`;
+      return `${activeOrganization.memberCount || 0} member${
+        activeOrganization.memberCount === 1 ? '' : 's'
+      }`;
     }
     return 'Individual workspace';
   };
@@ -122,7 +131,7 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="text-left flex-1 min-w-0">
-                <div className="font-medium text-sidebar-foreground truncate">
+                <div className="text-xs font-medium text-sidebar-foreground truncate uppercase">
                   {getCurrentDisplayName()}
                 </div>
                 <div className="text-xs text-sidebar-foreground/60 truncate">
@@ -133,7 +142,7 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
             {switchingOrg ? (
               <Loader2 className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0 animate-spin" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0" />
+              <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0" />
             )}
           </Button>
         </DropdownMenuTrigger>

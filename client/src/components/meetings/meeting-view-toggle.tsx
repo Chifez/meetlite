@@ -15,18 +15,21 @@ export default function MeetingViewToggle({
   return (
     <div className="flex justify-end mb-4 gap-2">
       <Button
+        size="sm"
         variant={view === 'list' ? 'default' : 'outline'}
         onClick={() => setView('list')}
       >
         List View
       </Button>
       <Button
+        size="sm"
         variant={view === 'calendar' ? 'default' : 'outline'}
         onClick={() => setView('calendar')}
       >
         Calendar View
       </Button>
       <Button
+        size="sm"
         variant="outline"
         onClick={() => setShowImportModal(true)}
         className="flex items-center gap-2"

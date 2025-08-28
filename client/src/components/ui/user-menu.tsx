@@ -52,12 +52,26 @@ export default function UserMenu({ onOpenSettings, collapsed }: UserMenuProps) {
               </div>
             </div>
           ) : (
+            // <div className="flex-1 flex items-center justify-center w-fit gap-2  overflow-hidden text-ellipsis cursor-pointer">
+            //   <Avatar className="h-6 w-6">
+            //     <AvatarFallback className="text-[10px] bg-gradient-to-b to-[#131316] from-[#5C6670] text-white font-semibold">
+            //       {initials}
+            //     </AvatarFallback>
+            //   </Avatar>
+            // </div>
+
             <div className="flex-1 flex items-center justify-center w-fit gap-2  overflow-hidden text-ellipsis cursor-pointer">
               <Avatar className="h-6 w-6">
                 <AvatarFallback className="text-[10px] bg-gradient-to-b to-[#131316] from-[#5C6670] text-white font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
+              <div className="flex flex-col items-start  md:hidden">
+                <div className="font-medium leading-tight text-xs ">{name}</div>
+                <div className="text-xs text-gray-500 leading-tight truncate">
+                  {email}
+                </div>
+              </div>
             </div>
           )}
         </div>

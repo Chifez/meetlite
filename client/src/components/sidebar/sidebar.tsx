@@ -48,10 +48,10 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           'fixed md:relative z-50 md:z-auto h-full',
           'md:flex',
           mobileMenuOpen
-            ? 'translate-x-0'
+            ? 'translate-x-0 w-[70vw]'
             : '-translate-x-full md:translate-x-0',
           collapsed && 'md:w-16',
-          !collapsed && 'w-64'
+          !collapsed && 'md:w-64'
         )}
       >
         {/* Header */}
@@ -88,9 +88,9 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
         </div>
 
         {!(collapsed && window.innerWidth >= 768) && (
-          <div className="p-4 border-b border-sidebar-border">
-            <div className="mb-2">
-              <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wide font-medium">
+          <div className="px-4 py-2 border-b border-sidebar-border">
+            <div className="mb-1">
+              <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
                 Workspace
               </p>
             </div>
@@ -131,11 +131,16 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     {!(collapsed && window.innerWidth >= 768) && (
                       <div className="flex items-center gap-2">
-                        <span>{item.label}</span>
+                        <span className="text-xs font-medium">
+                          {item.label}
+                        </span>
                         {!item.available && (
-                          <span className="text-xs text-sidebar-foreground/40">
-                            (Soon)
-                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[8px] bg-primary/50 px-1 py-.5 font-medium"
+                          >
+                            Soon
+                          </Badge>
                         )}
                       </div>
                     )}
@@ -151,7 +156,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           {!(collapsed && window.innerWidth >= 768) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wide font-medium">
+                <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
                   Current Plan
                 </p>
                 {(activeOrganization?.plan || user?.plan) === 'free' && (
