@@ -15,6 +15,7 @@ import Landing from './pages/landing';
 import Onboarding from './pages/onboarding';
 import Members from './pages/members';
 import Recordings from './pages/recordings';
+import OrganizationSettings from './pages/organization-settings';
 
 function App() {
   const { isAuthenticated, redirectTo, user } = useAuth();
@@ -134,6 +135,20 @@ function App() {
             isAuthenticated ? (
               user?.onboardingCompleted ? (
                 <Recordings />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/organization/:orgId/settings"
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <OrganizationSettings />
               ) : (
                 <Navigate to="/onboarding" />
               )

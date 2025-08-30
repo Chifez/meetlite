@@ -1,37 +1,9 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { models } from '../index.js';
+import { generateJWTToken } from '../utils/generate-token.js';
+import { authenticateToken } from '../middleware/authenticate-token.js';
 
 const router = express.Router();
-
-// Middleware to authenticate requests
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
-    }
-
-    // Get user info and attach to request
-    try {
-      const user = await models.User.findById(decoded.userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      req.user = user;
-      next();
-    } catch (error) {
-      console.error('Authentication error:', error);
-      res.status(500).json({ message: 'Authentication failed' });
-    }
-  });
-};
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
@@ -138,12 +110,20 @@ router.post('/', async (req, res) => {
       hasSlug: !!organization.slug,
     });
 
-    // Update user to be part of this organization
-    await models.User.findByIdAndUpdate(userId, {
-      organizationId: organization._id,
-      role: 'owner',
-      onboardingCompleted: true, // Mark onboarding as completed
-    });
+    // Update user to be part of this organization and increment token version
+    const updatedUser = await models.User.findByIdAndUpdate(
+      userId,
+      {
+        organizationId: organization._id,
+        role: 'owner',
+        onboardingCompleted: true, // Mark onboarding as completed
+        $inc: { tokenVersion: 1 }, // Invalidate old tokens
+      },
+      { new: true }
+    );
+
+    // Generate new token with organization context
+    const newToken = generateJWTToken(updatedUser);
 
     res.status(201).json({
       organization: {
@@ -160,6 +140,7 @@ router.post('/', async (req, res) => {
         settings: organization.settings,
         createdAt: organization.createdAt,
       },
+      token: newToken, // Return new token
     });
   } catch (error) {
     console.error('Create organization error:', error);
@@ -295,53 +276,6 @@ router.put('/:orgId', async (req, res) => {
   }
 });
 
-// POST /organizations/:orgId/switch - Switch user's active organization
-router.post('/:orgId/switch', async (req, res) => {
-  try {
-    const { orgId } = req.params;
-    const userId = req.user._id;
-
-    // Validate organization exists and user has access
-    const organization = await models.Organization.findOne({
-      _id: orgId,
-      status: 'active',
-    });
-
-    if (!organization) {
-      return res.status(404).json({ message: 'Organization not found' });
-    }
-
-    // Check if user has access (owner or is already a member)
-    const isOwner = organization.ownerId.toString() === userId.toString();
-    const isMember = req.user.organizationId?.toString() === orgId;
-
-    if (!isOwner && !isMember) {
-      return res
-        .status(403)
-        .json({ message: 'Access denied to this organization' });
-    }
-
-    // Update user's active organization
-    const userRole = isOwner ? 'owner' : 'member';
-    await models.User.findByIdAndUpdate(userId, {
-      organizationId: orgId,
-      role: userRole,
-    });
-
-    res.json({
-      message: 'Organization switched successfully',
-      organization: {
-        id: organization._id,
-        name: organization.name,
-        role: userRole,
-      },
-    });
-  } catch (error) {
-    console.error('Switch organization error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // POST /organizations/:orgId/leave - Leave organization (members only)
 router.post('/:orgId/leave', async (req, res) => {
   try {
@@ -372,20 +306,88 @@ router.post('/:orgId/leave', async (req, res) => {
         .json({ message: 'You are not a member of this organization' });
     }
 
-    // Remove user from organization
-    await models.User.findByIdAndUpdate(userId, {
-      $unset: { organizationId: 1 },
-      role: 'owner', // Reset to default personal account role
-    });
+    // Remove user from organization and increment token version
+    const updatedUser = await models.User.findByIdAndUpdate(
+      userId,
+      {
+        $unset: { organizationId: 1 },
+        role: 'owner', // Reset to default personal account role
+        $inc: { tokenVersion: 1 }, // Invalidate old tokens
+      },
+      { new: true }
+    );
 
     // Update organization member count
     await models.Organization.findByIdAndUpdate(orgId, {
       $inc: { 'stats.totalMembers': -1 },
     });
 
-    res.json({ message: 'Successfully left organization' });
+    // Generate new token for personal account
+    const newToken = generateJWTToken(updatedUser);
+
+    res.json({
+      message: 'Successfully left organization',
+      token: newToken, // Return new token for personal account
+    });
   } catch (error) {
     console.error('Leave organization error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /organizations/:orgId - Delete organization (owner only)
+router.delete('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const userId = req.user._id;
+
+    const organization = await models.Organization.findOne({
+      _id: orgId,
+      ownerId: userId,
+      status: 'active',
+    });
+
+    if (!organization) {
+      return res
+        .status(404)
+        .json({ message: 'Organization not found or access denied' });
+    }
+
+    // Get all members and switch them to personal accounts
+    const members = await models.User.find({
+      organizationId: orgId,
+    });
+
+    // Remove all members from organization and increment their token versions
+    for (const member of members) {
+      await models.User.findByIdAndUpdate(member._id, {
+        $unset: { organizationId: 1 },
+        role: 'owner', // Reset to personal account role
+        $inc: { tokenVersion: 1 }, // Invalidate tokens
+      });
+    }
+
+    // Soft delete the organization
+    await models.Organization.findByIdAndUpdate(orgId, {
+      status: 'deleted',
+      deletedAt: new Date(),
+    });
+
+    // TODO: In a production app, you'd also need to:
+    // - Delete or archive all organization data (meetings, recordings, etc.)
+    // - Handle billing and subscriptions
+    // - Send notifications to members
+
+    // Get updated user for token generation
+    const updatedOwner = await models.User.findById(userId);
+    const newToken = generateJWTToken(updatedOwner);
+
+    res.json({
+      message: 'Organization deleted successfully',
+      token: newToken, // Return new token for personal account
+    });
+  } catch (error) {
+    console.error('Delete organization error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

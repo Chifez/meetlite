@@ -9,6 +9,7 @@ import {
   sendPasswordResetEmail,
   generateResetToken,
 } from '../services/emailService.js';
+import { generateJWTToken } from '../utils/generate-token.js';
 
 const router = express.Router();
 
@@ -85,12 +86,8 @@ router.post('/signup', async (req, res) => {
 
     await user.save();
 
-    // Generate token with longer expiration (7 days)
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate token with organization context
+    const token = generateJWTToken(user);
 
     res.status(201).json({ token });
   } catch (error) {
@@ -126,12 +123,8 @@ router.post('/login', validateLoginInput, async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Generate token with longer expiration (7 days)
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate token with organization context
+    const token = generateJWTToken(user);
 
     res.json({ token });
   } catch (error) {
@@ -171,12 +164,13 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ message: 'User not found' });
     }
 
-    // Generate new token
-    const newToken = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Check token version for invalidation
+    if (decoded.tokenVersion && decoded.tokenVersion !== user.tokenVersion) {
+      return res.status(401).json({ message: 'Token has been invalidated' });
+    }
+
+    // Generate new token with current organization context
+    const newToken = generateJWTToken(user);
 
     res.json({ token: newToken });
   } catch (error) {
@@ -200,6 +194,11 @@ router.post('/validate', async (req, res) => {
     const user = await models.User.findById(decoded.userId);
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Check token version for invalidation
+    if (decoded.tokenVersion && decoded.tokenVersion !== user.tokenVersion) {
+      return res.status(401).json({ message: 'Token has been invalidated' });
     }
 
     res.json({
@@ -296,12 +295,8 @@ router.get('/google/callback', async (req, res) => {
         user = await models.User.create({ email, googleId });
       }
     }
-    // Issue JWT
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Issue JWT with organization context
+    const token = generateJWTToken(user);
     // Redirect to frontend with token (as query param)
     res.redirect(`${FRONTEND_URL}/login?token=${token}`);
   } catch (err) {

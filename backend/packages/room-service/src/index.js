@@ -5,6 +5,7 @@ import redisClient from './config/redis.js';
 import roomRoutes from './routes/rooms.js';
 import { verifyToken } from './middleware/auth.js';
 import meetingsRoutes from './routes/meetings.js';
+import recordingsRoutes from './routes/recordings.js';
 import aiRoutes from './routes/ai.js';
 import calendarRoutes from './routes/calendar.js';
 import { createSessionStore } from './config/session.js';
@@ -39,6 +40,7 @@ app.use((err, req, res, next) => {
 // Routes
 app.use('/api/rooms', roomRoutes);
 app.use('/api/meetings', meetingsRoutes);
+app.use('/api/recordings', recordingsRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Health check endpoint

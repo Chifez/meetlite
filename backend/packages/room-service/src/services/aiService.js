@@ -257,3 +257,286 @@ Return ONLY the JSON object, no other text.`;
 
   return parsedData;
 };
+
+// ========== NEW RECORDING AI FUNCTIONS ==========
+
+/**
+ * Transcribe video/audio recording using OpenAI Whisper
+ * @param {string} audioUrl - URL to the audio file
+ * @returns {Promise<Object>} Transcript with segments
+ */
+export const transcribeRecording = async (audioUrl) => {
+  try {
+    // Download audio file
+    const audioResponse = await undiciRequest(audioUrl);
+    const audioBuffer = Buffer.from(await audioResponse.body.arrayBuffer());
+
+    // Create form data for OpenAI Whisper
+    const formData = new FormData();
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
+    formData.append('file', audioBlob, 'recording.mp3');
+    formData.append('model', 'whisper-1');
+    formData.append('response_format', 'verbose_json');
+    formData.append('timestamp_granularities[]', 'segment');
+
+    const response = await undiciRequest(
+      'https://api.openai.com/v1/audio/transcriptions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: formData,
+      }
+    );
+
+    const transcriptData = await response.body.json();
+
+    if (!transcriptData.text) {
+      throw new Error('No transcript text received from OpenAI');
+    }
+
+    // Format segments for our schema
+    const segments =
+      transcriptData.segments?.map((segment) => ({
+        startTime: segment.start,
+        endTime: segment.end,
+        speaker: 'Unknown', // Whisper doesn't provide speaker identification
+        text: segment.text.trim(),
+        confidence: segment.avg_logprob ? Math.exp(segment.avg_logprob) : 0.8,
+      })) || [];
+
+    return {
+      success: true,
+      text: transcriptData.text,
+      segments,
+      language: transcriptData.language || 'en',
+      duration: transcriptData.duration,
+    };
+  } catch (error) {
+    console.error('Error transcribing recording:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate AI summary from transcript
+ * @param {string} transcript - The full transcript text
+ * @param {Object} options - Summary options
+ * @returns {Promise<Object>} Comprehensive summary with action items
+ */
+export const generateRecordingSummary = async (transcript, options = {}) => {
+  try {
+    const { meetingContext = '', participantCount = 1, duration = 0 } = options;
+
+    const systemPrompt = `You are an AI assistant that analyzes meeting recordings and creates comprehensive summaries. 
+
+Your task is to analyze the transcript and provide:
+1. A concise overall summary (2-3 sentences)
+2. Key points discussed (bullet format)
+3. Action items with assignments and due dates where possible
+4. Topics covered
+5. Overall sentiment analysis
+
+Format your response as valid JSON with this exact structure:
+{
+  "summary": "Brief 2-3 sentence overview of the meeting",
+  "keyPoints": ["Point 1", "Point 2", "Point 3"],
+  "actionItems": [
+    {
+      "task": "Description of task",
+      "assignee": "Person assigned (if mentioned)",
+      "dueDate": "YYYY-MM-DD (if mentioned, otherwise null)",
+      "priority": "high|medium|low"
+    }
+  ],
+  "topics": ["Topic 1", "Topic 2", "Topic 3"],
+  "sentiment": {
+    "overall": "positive|neutral|negative",
+    "score": 0.5
+  }
+}`;
+
+    const userPrompt = `Meeting Context: ${meetingContext}
+Participants: ${participantCount}
+Duration: ${Math.round(duration / 60)} minutes
+
+Transcript:
+${transcript}
+
+Please analyze this meeting transcript and provide a comprehensive summary in the requested JSON format.`;
+
+    const data = await callOpenAI(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      {
+        model: 'gpt-4',
+        max_tokens: 2000,
+        temperature: 0.3,
+      }
+    );
+
+    const responseText = data.choices?.[0]?.message?.content?.trim();
+
+    if (!responseText) {
+      throw new Error('No response from AI service');
+    }
+
+    // Parse JSON response
+    let summaryData;
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        summaryData = JSON.parse(jsonMatch[0]);
+      } else {
+        summaryData = JSON.parse(responseText);
+      }
+    } catch (parseError) {
+      throw new Error(`Failed to parse AI summary response: ${responseText}`);
+    }
+
+    // Validate required fields
+    if (!summaryData.summary || !Array.isArray(summaryData.keyPoints)) {
+      throw new Error('Invalid summary format received');
+    }
+
+    return {
+      success: true,
+      ...summaryData,
+    };
+  } catch (error) {
+    console.error('Error generating recording summary:', error);
+    throw error;
+  }
+};
+
+/**
+ * Extract speaker insights from transcript segments
+ * @param {Array} segments - Transcript segments with timing
+ * @returns {Promise<Object>} Speaker analysis
+ */
+export const analyzeRecordingSpeakers = async (segments) => {
+  try {
+    // Calculate speaking time and patterns
+    const speakerStats = {};
+    let totalDuration = 0;
+
+    segments.forEach((segment) => {
+      const speaker = segment.speaker || 'Unknown';
+      const duration = segment.endTime - segment.startTime;
+
+      if (!speakerStats[speaker]) {
+        speakerStats[speaker] = {
+          totalTime: 0,
+          segmentCount: 0,
+          avgConfidence: 0,
+        };
+      }
+
+      speakerStats[speaker].totalTime += duration;
+      speakerStats[speaker].segmentCount += 1;
+      speakerStats[speaker].avgConfidence += segment.confidence || 0;
+      totalDuration += duration;
+    });
+
+    // Calculate percentages and averages
+    Object.keys(speakerStats).forEach((speaker) => {
+      const stats = speakerStats[speaker];
+      stats.percentage =
+        totalDuration > 0 ? (stats.totalTime / totalDuration) * 100 : 0;
+      stats.avgConfidence =
+        stats.segmentCount > 0 ? stats.avgConfidence / stats.segmentCount : 0;
+    });
+
+    return {
+      success: true,
+      totalDuration,
+      speakerCount: Object.keys(speakerStats).length,
+      speakers: speakerStats,
+    };
+  } catch (error) {
+    console.error('Error analyzing speakers:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate meeting insights and recommendations
+ * @param {Object} recordingData - Full recording data with transcript and metadata
+ * @returns {Promise<Object>} Insights and recommendations
+ */
+export const generateRecordingInsights = async (recordingData) => {
+  try {
+    const { transcript, duration, participantCount, title } = recordingData;
+
+    const prompt = `Analyze this meeting recording and provide insights:
+
+Meeting: ${title}
+Duration: ${Math.round(duration / 60)} minutes
+Participants: ${participantCount}
+
+Transcript: ${transcript}
+
+Provide insights on:
+1. Meeting effectiveness (was time used well?)
+2. Participation balance (did everyone contribute?)
+3. Key decisions made
+4. Follow-up recommendations
+5. Meeting quality score (1-10)
+
+Format as JSON with these fields:
+{
+  "effectiveness": "High|Medium|Low",
+  "participationBalance": "Balanced|Unbalanced",
+  "keyDecisions": ["Decision 1", "Decision 2"],
+  "recommendations": ["Recommendation 1", "Recommendation 2"],
+  "qualityScore": 8,
+  "insights": "Overall assessment paragraph"
+}`;
+
+    const data = await callOpenAI(
+      [
+        {
+          role: 'system',
+          content:
+            'You are a meeting effectiveness analyst. Provide objective insights about meeting quality and outcomes.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      {
+        model: 'gpt-4',
+        max_tokens: 1000,
+        temperature: 0.4,
+      }
+    );
+
+    const responseText = data.choices?.[0]?.message?.content?.trim();
+
+    if (!responseText) {
+      throw new Error('No insights response from AI service');
+    }
+
+    // Parse JSON response
+    let insightsData;
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        insightsData = JSON.parse(jsonMatch[0]);
+      } else {
+        insightsData = JSON.parse(responseText);
+      }
+    } catch (parseError) {
+      throw new Error(`Failed to parse insights response: ${responseText}`);
+    }
+
+    return {
+      success: true,
+      ...insightsData,
+    };
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    throw error;
+  }
+};

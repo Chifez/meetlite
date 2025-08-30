@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { env } from '@/config/env';
 import Cookies from 'js-cookie';
 import { Organization } from '@/types/organization';
-import { useNavigate } from 'react-router-dom';
 
 // Types
 type User = {
@@ -37,6 +36,7 @@ type AuthContextType = {
   logout: () => void;
   validateToken: () => Promise<boolean>;
   updateUser: (userData: Partial<User>) => void;
+  handleNewToken: (token: string) => void;
   redirectTo: string | null;
   setRedirectTo: (url: string | null) => void;
 };
@@ -44,8 +44,9 @@ type AuthContextType = {
 type TokenPayload = {
   userId: string;
   email: string;
-  name?: string;
-  useNameInMeetings?: boolean;
+  organizationId?: string | null;
+  role?: 'owner' | 'member';
+  tokenVersion?: number;
   exp: number;
 };
 
@@ -61,6 +62,7 @@ export const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   validateToken: async () => false,
   updateUser: () => {},
+  handleNewToken: () => {},
   redirectTo: null,
   setRedirectTo: () => {},
 });
@@ -71,7 +73,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
-  const navigate = useNavigate();
+
+  // Helper function to handle new tokens from API responses
+  const handleNewToken = (newToken: string) => {
+    Cookies.set('token', newToken, { secure: true, sameSite: 'lax' });
+    // Fetch updated profile with new token
+    fetchUserProfile(newToken);
+  };
 
   // Update user function
   const updateUser = (userData: Partial<User>) => {
@@ -235,6 +243,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         validateToken,
         updateUser,
+        handleNewToken,
         redirectTo,
         setRedirectTo,
       }}

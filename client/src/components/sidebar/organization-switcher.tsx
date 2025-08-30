@@ -28,15 +28,18 @@ import {
   ChevronDown,
   Loader2,
   ChevronsUpDown,
+  Settings,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useWorkspace } from '@/contexts/workspace-context';
+import { useNavigate } from 'react-router-dom';
 
 interface OrganizationSwitcherProps {
   // Props are no longer needed as we get data from context
 }
 
 export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
+  const navigate = useNavigate();
   const {
     activeOrganization,
     organizations,
@@ -86,6 +89,7 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
 
   const handleSwitchToOrg = (orgId: string) => {
     if (switchingOrg) return;
+
     switchToOrganization(orgId);
   };
 
@@ -185,6 +189,31 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
               </div>
             </DropdownMenuItem>
           ))}
+
+          {/* Organization Settings (Owner Only) */}
+          {activeOrganization && activeOrganization.role === 'owner' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() =>
+                  navigate(`/organization/${activeOrganization.id}/settings`)
+                }
+                className="flex items-center gap-3 p-3 cursor-pointer"
+              >
+                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium text-muted-foreground">
+                    Organization Settings
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Manage organization
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            </>
+          )}
 
           <DropdownMenuSeparator />
 

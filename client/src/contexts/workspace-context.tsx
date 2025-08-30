@@ -54,7 +54,7 @@ interface WorkspaceProviderProps {
 }
 
 export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
-  const { user, isAuthenticated, updateUser } = useAuth();
+  const { user, isAuthenticated, updateUser, handleNewToken } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [activeOrganization, setActiveOrganization] =
     useState<Organization | null>(null);
@@ -132,15 +132,26 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
 
     setSwitchingOrg(true);
     try {
-      await api.post(`${env.AUTH_API_URL}/organizations/${orgId}/switch`);
-
-      // Update user context
-      updateUser({
+      const response = await api.post(`${env.AUTH_API_URL}/workspace/switch`, {
+        type: 'organization',
         organizationId: orgId,
-        role: organizations.find((org) => org.id === orgId)?.role || 'member',
       });
 
-      toast.success('Workspace switched successfully');
+      // Handle new token - this should always be returned with the new endpoint
+      if (response.data.token) {
+        handleNewToken(response.data.token);
+      } else {
+        // This shouldn't happen with the new endpoint, but keeping for safety
+        console.warn(
+          'No token returned from workspace switch - using fallback'
+        );
+        updateUser({
+          organizationId: orgId,
+          role: organizations.find((org) => org.id === orgId)?.role || 'member',
+        });
+      }
+
+      toast.success(response.data.message || 'Workspace switched successfully');
     } catch (error: any) {
       console.error('Failed to switch organization:', error);
       toast.error(
@@ -156,18 +167,32 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
 
     setSwitchingOrg(true);
     try {
-      // For personal mode, we just update the local state
-      // The backend will handle this as no organizationId
-      updateUser({
-        organizationId: null,
-        role: 'owner', // Personal accounts are always "owner" role
+      const response = await api.post(`${env.AUTH_API_URL}/workspace/switch`, {
+        type: 'personal',
       });
 
-      setActiveOrganization(null);
-      toast.success('Switched to personal workspace');
-    } catch (error) {
+      // Handle new token - this should always be returned with the new endpoint
+      if (response.data.token) {
+        handleNewToken(response.data.token);
+      } else {
+        // This shouldn't happen with the new endpoint, but keeping for safety
+        console.warn(
+          'No token returned from workspace switch - using fallback'
+        );
+        updateUser({
+          organizationId: null,
+          role: 'owner', // Personal accounts are always "owner" role
+        });
+        setActiveOrganization(null);
+      }
+
+      toast.success(response.data.message || 'Switched to personal workspace');
+    } catch (error: any) {
       console.error('Failed to switch to personal:', error);
-      toast.error('Failed to switch to personal workspace');
+      toast.error(
+        error.response?.data?.message ||
+          'Failed to switch to personal workspace'
+      );
     } finally {
       setSwitchingOrg(false);
     }
@@ -206,11 +231,16 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
       // Add to organizations list
       setOrganizations((prev) => [newOrg, ...prev]);
 
-      // Auto-switch to the new organization
-      updateUser({
-        organizationId: newOrg.id,
-        role: 'owner',
-      });
+      // Handle new token if returned
+      if (response.data.token) {
+        handleNewToken(response.data.token);
+      } else {
+        // Fallback: Update user context manually (for backward compatibility)
+        updateUser({
+          organizationId: newOrg.id,
+          role: 'owner',
+        });
+      }
 
       toast.success(`Organization "${newOrg.name}" created successfully!`);
       return newOrg;

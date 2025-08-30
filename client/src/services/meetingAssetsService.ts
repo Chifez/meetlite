@@ -110,7 +110,7 @@ export interface ProcessingJob {
 class MeetingAssetsService {
   // Get organization's meeting recordings with filtering and pagination
   async getOrganizationRecordings(
-    organizationId: string,
+    organizationId?: string,
     query: MeetingAssetsQuery = {}
   ): Promise<MeetingAssetsResponse> {
     try {
@@ -118,7 +118,7 @@ class MeetingAssetsService {
       Object.entries(query).forEach(([key, value]) => {
         if (value !== undefined) {
           if (Array.isArray(value)) {
-            value.forEach((v) => params.append(key, v));
+            params.append(key, value.join(','));
           } else {
             params.set(key, value.toString());
           }
@@ -126,9 +126,25 @@ class MeetingAssetsService {
       });
 
       const response = await api.get(
-        `${env.ROOM_API_URL}/meetings/recordings/organization/${organizationId}?${params}`
+        `${env.ROOM_API_URL}/recordings?${params}`
       );
-      return response.data;
+
+      return {
+        recordings: response.data.recordings || [],
+        pagination: response.data.pagination || {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        },
+        stats: {
+          totalRecordings: 0,
+          totalSize: 0,
+          totalDuration: 0,
+          completedTranscripts: 0,
+          completedSummaries: 0,
+        },
+      };
     } catch (error: any) {
       console.error('Failed to fetch meeting recordings:', error);
       throw new Error(
@@ -141,9 +157,9 @@ class MeetingAssetsService {
   async getRecording(recordingId: string): Promise<MeetingRecording> {
     try {
       const response = await api.get(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}`
+        `${env.ROOM_API_URL}/recordings/${recordingId}`
       );
-      return response.data;
+      return response.data.recording;
     } catch (error: any) {
       console.error('Failed to fetch recording:', error);
       throw new Error(
@@ -163,11 +179,11 @@ class MeetingAssetsService {
     }
   ): Promise<MeetingRecording> {
     try {
-      const response = await api.patch(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}`,
+      const response = await api.put(
+        `${env.ROOM_API_URL}/recordings/${recordingId}`,
         updates
       );
-      return response.data;
+      return response.data.recording;
     } catch (error: any) {
       console.error('Failed to update recording:', error);
       throw new Error(
@@ -180,7 +196,7 @@ class MeetingAssetsService {
   async deleteRecording(recordingId: string): Promise<{ message: string }> {
     try {
       const response = await api.delete(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}`
+        `${env.ROOM_API_URL}/recordings/${recordingId}`
       );
       return response.data;
     } catch (error: any) {
@@ -198,10 +214,15 @@ class MeetingAssetsService {
   ): Promise<ProcessingJob> {
     try {
       const response = await api.post(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}/process`,
+        `${env.ROOM_API_URL}/recordings/${recordingId}/process`,
         { type }
       );
-      return response.data;
+      return {
+        id: response.data.processingId,
+        type,
+        status: 'processing',
+        progress: 0,
+      };
     } catch (error: any) {
       console.error('Failed to start processing:', error);
       throw new Error(
@@ -211,12 +232,17 @@ class MeetingAssetsService {
   }
 
   // Get processing status
-  async getProcessingStatus(jobId: string): Promise<ProcessingJob> {
+  async getProcessingStatus(recordingId: string): Promise<ProcessingJob> {
     try {
       const response = await api.get(
-        `${env.ROOM_API_URL}/meetings/processing/${jobId}`
+        `${env.ROOM_API_URL}/recordings/${recordingId}/status`
       );
-      return response.data;
+      return {
+        id: recordingId,
+        type: 'both',
+        status: response.data.status.overall,
+        progress: response.data.status.progress,
+      };
     } catch (error: any) {
       console.error('Failed to get processing status:', error);
       throw new Error(
@@ -228,11 +254,12 @@ class MeetingAssetsService {
   // Download transcript file
   async downloadTranscript(recordingId: string): Promise<Blob> {
     try {
-      const response = await api.get(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}/transcript/download`,
-        { responseType: 'blob' }
-      );
-      return response.data;
+      // For now, create a text blob from the transcript text
+      const recording = await this.getRecording(recordingId);
+      const transcriptText =
+        recording.transcript.text || 'No transcript available';
+      const blob = new Blob([transcriptText], { type: 'text/plain' });
+      return blob;
     } catch (error: any) {
       console.error('Failed to download transcript:', error);
       throw new Error(
@@ -243,30 +270,18 @@ class MeetingAssetsService {
 
   // Stream video recording
   getStreamingUrl(recordingId: string): string {
-    return `${env.ROOM_API_URL}/meetings/recordings/${recordingId}/stream`;
+    return `${env.ROOM_API_URL}/recordings/${recordingId}/download`;
   }
 
-  // Track analytics
+  // Track analytics (handled automatically by backend when accessing recordings)
   async trackView(recordingId: string): Promise<void> {
-    try {
-      await api.post(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}/view`
-      );
-    } catch (error: any) {
-      console.error('Failed to track view:', error);
-      // Don't throw error for analytics
-    }
+    // Analytics are tracked automatically when calling getRecording()
+    // No need for separate tracking
   }
 
   async trackDownload(recordingId: string): Promise<void> {
-    try {
-      await api.post(
-        `${env.ROOM_API_URL}/meetings/recordings/${recordingId}/download`
-      );
-    } catch (error: any) {
-      console.error('Failed to track download:', error);
-      // Don't throw error for analytics
-    }
+    // Analytics are tracked automatically when calling download endpoint
+    // No need for separate tracking
   }
 
   // Search recordings with advanced filters
@@ -282,15 +297,18 @@ class MeetingAssetsService {
     } = {}
   ): Promise<MeetingRecording[]> {
     try {
-      const response = await api.post(
-        `${env.ROOM_API_URL}/meetings/recordings/search`,
-        {
-          organizationId,
-          searchTerm,
-          filters,
-        }
+      const query: MeetingAssetsQuery = {
+        search: searchTerm,
+        tags: filters.tags,
+        dateFrom: filters.dateRange?.from,
+        dateTo: filters.dateRange?.to,
+      };
+
+      const response = await this.getOrganizationRecordings(
+        organizationId,
+        query
       );
-      return response.data.recordings;
+      return response.recordings;
     } catch (error: any) {
       console.error('Failed to search recordings:', error);
       throw new Error(
@@ -306,16 +324,115 @@ class MeetingAssetsService {
     filters: MeetingAssetsQuery = {}
   ): Promise<Blob> {
     try {
-      const response = await api.post(
-        `${env.ROOM_API_URL}/meetings/recordings/export`,
-        { organizationId, format, filters },
-        { responseType: 'blob' }
+      // For now, get all recordings and create a simple export
+      const response = await this.getOrganizationRecordings(
+        organizationId,
+        filters
       );
-      return response.data;
+
+      if (format === 'json') {
+        const blob = new Blob([JSON.stringify(response.recordings, null, 2)], {
+          type: 'application/json',
+        });
+        return blob;
+      } else if (format === 'csv') {
+        // Simple CSV export
+        const headers = [
+          'Title',
+          'Duration',
+          'Created',
+          'Status',
+          'Transcript Status',
+          'Summary Status',
+        ];
+        const rows = response.recordings.map((r) => [
+          r.title,
+          `${Math.round(r.recording.duration / 60)}m`,
+          new Date(r.createdAt).toLocaleDateString(),
+          r.processingStatus,
+          r.transcript.status,
+          r.aiSummary.status,
+        ]);
+
+        const csvContent = [headers, ...rows]
+          .map((row) => row.join(','))
+          .join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        return blob;
+      }
+
+      throw new Error(`Export format ${format} not supported yet`);
     } catch (error: any) {
       console.error('Failed to export recordings:', error);
       throw new Error(
         error.response?.data?.message || 'Failed to export recordings'
+      );
+    }
+  }
+
+  // Upload new recording
+  async uploadRecording(
+    file: File,
+    metadata: {
+      title: string;
+      description?: string;
+      meetingId?: string;
+      visibility?: 'organization' | 'participants' | 'private';
+      tags?: string[];
+    }
+  ): Promise<MeetingRecording> {
+    try {
+      const formData = new FormData();
+      formData.append('recording', file);
+      formData.append('title', metadata.title);
+
+      if (metadata.description) {
+        formData.append('description', metadata.description);
+      }
+      if (metadata.meetingId) {
+        formData.append('meetingId', metadata.meetingId);
+      }
+      if (metadata.visibility) {
+        formData.append('visibility', metadata.visibility);
+      }
+      if (metadata.tags) {
+        formData.append('tags', metadata.tags.join(','));
+      }
+
+      const response = await api.post(
+        `${env.ROOM_API_URL}/recordings`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      return response.data.recording;
+    } catch (error: any) {
+      console.error('Failed to upload recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to upload recording'
+      );
+    }
+  }
+
+  // Get organization statistics
+  async getOrganizationStats(): Promise<{
+    totalRecordings: number;
+    totalSize: number;
+    totalDuration: number;
+    completedTranscripts: number;
+    completedSummaries: number;
+  }> {
+    try {
+      const response = await api.get(`${env.ROOM_API_URL}/recordings/stats`);
+      return response.data.stats;
+    } catch (error: any) {
+      console.error('Failed to get organization stats:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to get statistics'
       );
     }
   }

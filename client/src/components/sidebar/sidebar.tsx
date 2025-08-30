@@ -12,8 +12,8 @@ import { NAVIGATION_ITEMS } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
-  mobileMenuOpen?: boolean;
-  setMobileMenuOpen?: (open: boolean) => void;
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
 }
 
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
@@ -27,7 +27,8 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const handleNavigationClick = (item: any) => {
     if (item.available) {
       navigate(item.path);
-      setMobileMenuOpen?.(false);
+      setMobileMenuOpen(false);
+      setCollapsed(true);
     }
     // If not available, do nothing (link is disabled)
   };
@@ -38,7 +39,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={() => setMobileMenuOpen?.(false)}
+          onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
@@ -76,7 +77,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
               variant="ghost"
               size="sm"
               onClick={() => setCollapsed(!collapsed)}
-              className="text-sidebar-foreground hover:bg-sidebar-accent"
+              className="text-sidebar-foreground hover:bg-sidemd:-accent"
             >
               {collapsed ? (
                 <ChevronRight className="h-4 w-4" />

@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { useWorkspace } from '../contexts/workspace-context';
 import { useMeetingAssets } from '../hooks/useMeetingAssets';
 import { RecordingCard } from '../components/recordings/recording-card';
-import { RecordingsFilters } from '../components/recordings/recordings-filters';
+import { RecordingsSearch } from '../components/recordings/recordings-search';
+import { RecordingsFilterModal } from '../components/recordings/recordings-filter-modal';
+import { RecordingsExport } from '../components/recordings/recordings-export';
 import { VideoPlayerModal } from '../components/recordings/video-player/video-player-modal';
+import { UploadRecordingModal } from '../components/recordings/upload-recording-modal';
 import { Button } from '../components/ui/button';
-import { Download, Upload, FileText, Video } from 'lucide-react';
+import { Download, FileText, Upload, Video } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import type { MeetingAssetsQuery } from '../services/meetingAssetsService';
 
 export default function Recordings() {
   const { activeOrganization } = useWorkspace();
@@ -20,13 +24,24 @@ export default function Recordings() {
     exportRecordings,
   } = useMeetingAssets(activeOrganization?.id);
 
-  const [showFilters, setShowFilters] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState<MeetingAssetsQuery>({});
 
   useEffect(() => {
     if (activeOrganization?.id) {
-      fetchRecordings();
+      fetchRecordings(currentQuery);
     }
-  }, [activeOrganization?.id, fetchRecordings]);
+  }, [activeOrganization?.id, fetchRecordings, currentQuery]);
+
+  const handleSearchChange = (searchTerm: string) => {
+    const newQuery = { ...currentQuery, search: searchTerm || undefined };
+    setCurrentQuery(newQuery);
+  };
+
+  const handleFiltersChange = (filters: MeetingAssetsQuery) => {
+    const newQuery = { ...currentQuery, ...filters };
+    setCurrentQuery(newQuery);
+  };
 
   if (!activeOrganization) {
     return (
@@ -46,28 +61,37 @@ export default function Recordings() {
     <DashboardLayout>
       <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold text-foreground">
-              Meeting Recordings
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Manage and access your organization's meeting recordings,
-              transcripts, and AI summaries.
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold text-foreground">
+                Meeting Recordings
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Manage and access your organization's meeting recordings,
+                transcripts, and AI summaries.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setShowUploadModal(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Recording
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              Filters
-            </Button>
-            <Button size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Recording
-            </Button>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <RecordingsSearch onSearchChange={handleSearchChange} />
+            </div>
+            <div className="flex gap-2">
+              <RecordingsFilterModal
+                onFiltersChange={handleFiltersChange}
+                totalCount={stats.totalRecordings}
+              />
+              <RecordingsExport onExport={exportRecordings} />
+            </div>
           </div>
         </div>
 
@@ -117,15 +141,6 @@ export default function Recordings() {
               </p>
             </div>
           </div>
-        )}
-
-        {/* Filters */}
-        {showFilters && (
-          <RecordingsFilters
-            onFiltersChange={fetchRecordings}
-            onExport={exportRecordings}
-            totalCount={recordings.length}
-          />
         )}
 
         {/* Recordings Grid */}
@@ -178,6 +193,16 @@ export default function Recordings() {
           onStartProcessing={() => {}}
         />
       )}
+
+      {/* Upload Modal */}
+      <UploadRecordingModal
+        open={showUploadModal}
+        onOpenChange={setShowUploadModal}
+        onUploadSuccess={(recording) => {
+          // Refresh recordings list after successful upload
+          fetchRecordings();
+        }}
+      />
     </DashboardLayout>
   );
 }

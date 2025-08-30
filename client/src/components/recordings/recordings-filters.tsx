@@ -28,20 +28,19 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<string>('desc');
-  const [status, setStatus] = useState<
-    'uploading' | 'processing' | 'completed' | 'failed' | ''
-  >('');
-  const [hasTranscript, setHasTranscript] = useState<string>('');
-  const [hasSummary, setHasSummary] = useState<string>('');
+  const [status, setStatus] = useState<string>('all');
+  const [hasTranscript, setHasTranscript] = useState<string>('any');
+  const [hasSummary, setHasSummary] = useState<string>('any');
 
   const applyFilters = () => {
     const filters: MeetingAssetsQuery = {
       search: searchTerm || undefined,
       sortBy: sortBy as any,
       sortOrder: sortOrder as any,
-      status: status || undefined,
-      hasTranscript: hasTranscript ? hasTranscript === 'true' : undefined,
-      hasSummary: hasSummary ? hasSummary === 'true' : undefined,
+      status: status !== 'all' ? (status as any) : undefined,
+      hasTranscript:
+        hasTranscript !== 'any' ? hasTranscript === 'true' : undefined,
+      hasSummary: hasSummary !== 'any' ? hasSummary === 'true' : undefined,
     };
 
     // Remove undefined values
@@ -58,9 +57,9 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
     setSearchTerm('');
     setSortBy('createdAt');
     setSortOrder('desc');
-    setStatus('');
-    setHasTranscript('');
-    setHasSummary('');
+    setStatus('all');
+    setHasTranscript('any');
+    setHasSummary('any');
     onFiltersChange({});
   };
 
@@ -148,7 +147,7 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="processing">Processing</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
@@ -169,7 +168,7 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
               <SelectValue placeholder="Any" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Any</SelectItem>
+              <SelectItem value="any">Any</SelectItem>
               <SelectItem value="true">Has Transcript</SelectItem>
               <SelectItem value="false">No Transcript</SelectItem>
             </SelectContent>
@@ -186,7 +185,7 @@ export const RecordingsFilters: React.FC<RecordingsFiltersProps> = ({
               <SelectValue placeholder="Any" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Any</SelectItem>
+              <SelectItem value="any">Any</SelectItem>
               <SelectItem value="true">Has Summary</SelectItem>
               <SelectItem value="false">No Summary</SelectItem>
             </SelectContent>

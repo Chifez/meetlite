@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.js';
 import organizationRoutes from './routes/organizations.js';
 import organizationMemberRoutes from './routes/organizationMembers.js';
 import invitationRoutes from './routes/invitations.js';
+import workspaceRoutes from './routes/workspace.js';
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/organizations/members', organizationMemberRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/workspace', workspaceRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

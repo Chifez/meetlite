@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { models } from '../index.js';
+import { generateJWTToken } from '../utils/generate-token.js';
 
 const router = express.Router();
 
@@ -93,11 +94,16 @@ router.post('/:token/accept', async (req, res) => {
       // Accept invitation
       await invitation.accept(userId);
 
-      // Add user to organization
-      await models.User.findByIdAndUpdate(userId, {
-        organizationId: invitation.organizationId._id,
-        role: invitation.role,
-      });
+      // Add user to organization and increment token version
+      const updatedUser = await models.User.findByIdAndUpdate(
+        userId,
+        {
+          organizationId: invitation.organizationId._id,
+          role: invitation.role,
+          $inc: { tokenVersion: 1 }, // Invalidate old tokens
+        },
+        { new: true }
+      );
 
       // Update organization member count
       await models.Organization.findByIdAndUpdate(
@@ -107,6 +113,9 @@ router.post('/:token/accept', async (req, res) => {
         }
       );
 
+      // Generate new token with organization context
+      const newToken = generateJWTToken(updatedUser);
+
       res.json({
         message: 'Invitation accepted successfully',
         organization: {
@@ -114,6 +123,7 @@ router.post('/:token/accept', async (req, res) => {
           name: invitation.organizationId.name,
           role: invitation.role,
         },
+        token: newToken, // Return new token
       });
     } catch (jwtError) {
       return res.status(401).json({ message: 'Invalid authentication token' });

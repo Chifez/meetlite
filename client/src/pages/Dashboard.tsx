@@ -13,7 +13,7 @@ import QuickActions from '@/components/dashboard/quick-action';
 import UpcomingMeetingsSection from '@/components/dashboard/upcoming-meetings-section';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal';
-import SettingsModal from '@/components/dashboard/settings-modal';
+
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import { useMeetingsStore, useUIStore } from '@/stores';
 
@@ -33,7 +33,6 @@ const Dashboard = () => {
 
   // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
-  const showSettingsModal = searchParams.get('settings') === 'true';
 
   // Use the custom hook for form state management
   const {
@@ -60,10 +59,6 @@ const Dashboard = () => {
   };
 
   const closeScheduleModal = () => {
-    setSearchParams({});
-  };
-
-  const closeSettingsModal = () => {
     setSearchParams({});
   };
 
@@ -161,11 +156,7 @@ const Dashboard = () => {
         onCancel={closeScheduleModal}
         onScheduleOnCalendar={handleScheduleOnCalendar}
       />
-      <SettingsModal
-        key={showSettingsModal ? 'open' : 'close'}
-        open={showSettingsModal}
-        onOpenChange={(open) => !open && closeSettingsModal()}
-      />
+
       <DashboardLayout>
         <WelcomeHeader user={user ?? undefined} />
         <QuickActions

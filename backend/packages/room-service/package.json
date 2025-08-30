@@ -8,9 +8,10 @@
     "start": "node src/index.js"
   },
   "dependencies": {
-    "@minimeet/shared-models": "*",
     "@google-cloud/speech": "^6.2.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@minimeet/shared-models": "*",
+    "cloudinary": "^2.7.0",
     "connect-redis": "^9.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

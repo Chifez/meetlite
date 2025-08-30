@@ -1,13 +1,27 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { mockRecordings } from '../data/mockRecordings';
+import { meetingAssetsService } from '../services/meetingAssetsService';
 import type {
   MeetingRecording,
   MeetingAssetsQuery,
+  MeetingAssetsResponse,
 } from '../services/meetingAssetsService';
 
 export const useMeetingAssets = (organizationId?: string) => {
   const [recordings, setRecordings] = useState<MeetingRecording[]>([]);
+  const [stats, setStats] = useState({
+    totalRecordings: 0,
+    totalSize: 0,
+    totalDuration: 0,
+    completedTranscripts: 0,
+    completedSummaries: 0,
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<
     Record<string, { progress: number; status: string }>
@@ -15,115 +29,39 @@ export const useMeetingAssets = (organizationId?: string) => {
   const [selectedRecording, setSelectedRecording] =
     useState<MeetingRecording | null>(null);
 
-  // Derived state - no need for separate state variables
-  const stats = useMemo(
-    () => ({
-      totalRecordings: recordings.length,
-      totalSize: recordings.reduce((sum, r) => sum + r.recording.fileSize, 0),
-      totalDuration: recordings.reduce(
-        (sum, r) => sum + r.recording.duration,
-        0
-      ),
-      completedTranscripts: recordings.filter(
-        (r) => r.transcript.status === 'completed'
-      ).length,
-      completedSummaries: recordings.filter(
-        (r) => r.aiSummary.status === 'completed'
-      ).length,
-    }),
-    [recordings]
-  );
-
-  const pagination = useMemo(
-    () => ({
-      page: 1,
-      limit: 20,
-      total: recordings.length,
-      totalPages: Math.ceil(recordings.length / 20),
-    }),
-    [recordings]
-  );
-
   const fetchRecordings = useCallback(
     async (query: MeetingAssetsQuery = {}) => {
-      if (!organizationId) return;
+      if (!organizationId) {
+        setRecordings([]);
+        setStats({
+          totalRecordings: 0,
+          totalSize: 0,
+          totalDuration: 0,
+          completedTranscripts: 0,
+          completedSummaries: 0,
+        });
+        setPagination({
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        });
+        return;
+      }
 
       setLoading(true);
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const response = await meetingAssetsService.getOrganizationRecordings(
+          organizationId,
+          query
+        );
 
-        let filtered = [...mockRecordings];
-
-        if (query.search) {
-          const search = query.search.toLowerCase();
-          filtered = filtered.filter(
-            (r) =>
-              r.title.toLowerCase().includes(search) ||
-              r.description?.toLowerCase().includes(search) ||
-              r.tags.some((tag) => tag.toLowerCase().includes(search))
-          );
-        }
-
-        if (query.status) {
-          filtered = filtered.filter(
-            (r) => r.processingStatus === query.status
-          );
-        }
-
-        if (query.hasTranscript !== undefined) {
-          const hasTranscript = query.hasTranscript;
-          filtered = filtered.filter(
-            (r) => (r.transcript.status === 'completed') === hasTranscript
-          );
-        }
-
-        if (query.hasSummary !== undefined) {
-          const hasSummary = query.hasSummary;
-          filtered = filtered.filter(
-            (r) => (r.aiSummary.status === 'completed') === hasSummary
-          );
-        }
-
-        if (query.tags?.length) {
-          filtered = filtered.filter((r) =>
-            query.tags!.some((tag) => r.tags.includes(tag))
-          );
-        }
-
-        // Sort
-        const sortBy = query.sortBy || 'createdAt';
-        const sortOrder = query.sortOrder || 'desc';
-        filtered.sort((a, b) => {
-          let aVal: any, bVal: any;
-          switch (sortBy) {
-            case 'title':
-              aVal = a.title;
-              bVal = b.title;
-              break;
-            case 'duration':
-              aVal = a.recording.duration;
-              bVal = b.recording.duration;
-              break;
-            case 'viewCount':
-              aVal = a.analytics.viewCount;
-              bVal = b.analytics.viewCount;
-              break;
-            default:
-              aVal = new Date(a.createdAt);
-              bVal = new Date(b.createdAt);
-          }
-          return sortOrder === 'asc'
-            ? aVal > bVal
-              ? 1
-              : -1
-            : aVal < bVal
-            ? 1
-            : -1;
-        });
-
-        setRecordings(filtered);
+        setRecordings(response.recordings);
+        setPagination(response.pagination);
+        setStats(response.stats);
       } catch (error: any) {
         toast.error(error.message || 'Failed to load recordings');
+        setRecordings([]);
       } finally {
         setLoading(false);
       }
@@ -133,9 +71,7 @@ export const useMeetingAssets = (organizationId?: string) => {
 
   const loadRecording = useCallback(async (id: string) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const recording = mockRecordings.find((r) => r.id === id);
-      if (!recording) throw new Error('Recording not found');
+      const recording = await meetingAssetsService.getRecording(id);
       setSelectedRecording(recording);
       return recording;
     } catch (error: any) {
@@ -147,16 +83,7 @@ export const useMeetingAssets = (organizationId?: string) => {
   const updateRecording = useCallback(
     async (id: string, updates: any) => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const index = mockRecordings.findIndex((r) => r.id === id);
-        if (index === -1) throw new Error('Recording not found');
-
-        const updated = {
-          ...mockRecordings[index],
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        };
-        mockRecordings[index] = updated;
+        const updated = await meetingAssetsService.updateRecording(id, updates);
 
         setRecordings((prev) => prev.map((r) => (r.id === id ? updated : r)));
         if (selectedRecording?.id === id) setSelectedRecording(updated);
@@ -174,11 +101,8 @@ export const useMeetingAssets = (organizationId?: string) => {
   const deleteRecording = useCallback(
     async (id: string) => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const index = mockRecordings.findIndex((r) => r.id === id);
-        if (index === -1) throw new Error('Recording not found');
+        await meetingAssetsService.deleteRecording(id);
 
-        mockRecordings.splice(index, 1);
         setRecordings((prev) => prev.filter((r) => r.id !== id));
         if (selectedRecording?.id === id) setSelectedRecording(null);
 
@@ -195,7 +119,7 @@ export const useMeetingAssets = (organizationId?: string) => {
   const startProcessing = useCallback(
     async (id: string, type: 'transcript' | 'summary' | 'both') => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await meetingAssetsService.startProcessing(id, type);
 
         setProcessing((prev) => ({
           ...prev,
@@ -203,59 +127,43 @@ export const useMeetingAssets = (organizationId?: string) => {
         }));
         toast.success(`${type} processing started`);
 
-        // Simulate progress
-        const interval = setInterval(() => {
-          setProcessing((prev) => {
-            const current = prev[id];
-            if (!current || current.status !== 'processing') {
-              clearInterval(interval);
-              return prev;
-            }
-
-            const newProgress = Math.min(current.progress + 10, 100);
-            if (newProgress >= 100) {
-              clearInterval(interval);
-              // Update recording status
-              setTimeout(() => {
-                const index = mockRecordings.findIndex((r) => r.id === id);
-                if (index !== -1) {
-                  if (type === 'transcript' || type === 'both') {
-                    mockRecordings[index].transcript.status = 'completed';
-                  }
-                  if (type === 'summary' || type === 'both') {
-                    mockRecordings[index].aiSummary.status = 'completed';
-                  }
-                  setRecordings([...mockRecordings]);
-                }
-              }, 1000);
-              return { ...prev, [id]: { progress: 100, status: 'completed' } };
-            }
-
-            return {
+        // Check processing status periodically
+        const checkStatus = async () => {
+          try {
+            const status = await meetingAssetsService.getProcessingStatus(id);
+            setProcessing((prev) => ({
               ...prev,
-              [id]: { progress: newProgress, status: 'processing' },
-            };
-          });
-        }, 2000);
+              [id]: { progress: status.progress, status: status.status },
+            }));
+
+            if (status.status === 'completed' || status.status === 'failed') {
+              // Refresh recordings to get updated status
+              fetchRecordings();
+              return;
+            }
+
+            // Continue checking if still processing
+            if (status.status === 'processing') {
+              setTimeout(checkStatus, 5000);
+            }
+          } catch (error) {
+            console.error('Failed to check processing status:', error);
+          }
+        };
+
+        // Start status checking after a short delay
+        setTimeout(checkStatus, 2000);
       } catch (error: any) {
         toast.error(error.message || 'Failed to start processing');
       }
     },
-    []
+    [fetchRecordings]
   );
 
   const downloadTranscript = useCallback(async (id: string) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const recording = mockRecordings.find((r) => r.id === id);
-      if (!recording || recording.transcript.status !== 'completed') {
-        throw new Error('Transcript not available');
-      }
+      const blob = await meetingAssetsService.downloadTranscript(id);
 
-      const content = `Transcript: ${recording.title}\n\n${
-        recording.transcript.text || 'Content...'
-      }`;
-      const blob = new Blob([content], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -272,42 +180,11 @@ export const useMeetingAssets = (organizationId?: string) => {
   const exportRecordings = useCallback(
     async (format: 'csv' | 'json' | 'pdf') => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const blob = await meetingAssetsService.exportRecordings(
+          organizationId || '',
+          format
+        );
 
-        const data = recordings.map((r) => ({
-          title: r.title,
-          duration: r.recording.duration,
-          createdAt: r.createdAt,
-          participants: r.participants.length,
-          hasTranscript: r.transcript.status === 'completed',
-          hasSummary: r.aiSummary.status === 'completed',
-        }));
-
-        let content = '';
-        if (format === 'csv') {
-          const headers = [
-            'Title',
-            'Duration',
-            'Created',
-            'Participants',
-            'Transcript',
-            'Summary',
-          ];
-          content =
-            headers.join(',') +
-            '\n' +
-            data.map((row) => Object.values(row).join(',')).join('\n');
-        } else if (format === 'json') {
-          content = JSON.stringify(data, null, 2);
-        } else {
-          content = `Recordings Export\n\n${data
-            .map((row) => `${row.title} (${row.duration}s)`)
-            .join('\n')}`;
-        }
-
-        const blob = new Blob([content], {
-          type: format === 'json' ? 'application/json' : 'text/plain',
-        });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -320,7 +197,38 @@ export const useMeetingAssets = (organizationId?: string) => {
         toast.error('Failed to export recordings');
       }
     },
-    [recordings]
+    [organizationId]
+  );
+
+  // Add upload function for new recordings
+  const uploadRecording = useCallback(
+    async (
+      file: File,
+      metadata: {
+        title: string;
+        description?: string;
+        meetingId?: string;
+        visibility?: 'organization' | 'participants' | 'private';
+        tags?: string[];
+      }
+    ) => {
+      try {
+        const recording = await meetingAssetsService.uploadRecording(
+          file,
+          metadata
+        );
+
+        // Add to recordings list
+        setRecordings((prev) => [recording, ...prev]);
+
+        toast.success('Recording uploaded successfully');
+        return recording;
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to upload recording');
+        return null;
+      }
+    },
+    []
   );
 
   return {
@@ -337,6 +245,7 @@ export const useMeetingAssets = (organizationId?: string) => {
     startProcessing,
     downloadTranscript,
     exportRecordings,
+    uploadRecording,
     setSelectedRecording,
   };
 };

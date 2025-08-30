@@ -68,6 +68,11 @@ const userSchema = new mongoose.Schema({
     default: 'free',
     index: true,
   },
+  // Token versioning for JWT invalidation
+  tokenVersion: {
+    type: Number,
+    default: 1,
+  },
   resetToken: {
     type: String,
     default: null,
