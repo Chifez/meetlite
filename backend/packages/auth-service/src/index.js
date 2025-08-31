@@ -1,11 +1,19 @@
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth.js';
-import organizationRoutes from './routes/organizations.js';
-import organizationMemberRoutes from './routes/organizationMembers.js';
-import invitationRoutes from './routes/invitations.js';
-import workspaceRoutes from './routes/workspace.js';
+
+// Import routes
+import authRoutes from './routes/v1/auth.route.js';
+import organizationRoutes from './routes/v1/organization.routes.js';
+import organizationMemberRoutes from './routes/v1/organization-member.route.js';
+import invitationRoutes from './routes/v1/invitations.route.js';
+import workspaceRoutes from './routes/v1/workspace.route.js';
+
+// Import simple middleware
+import corsMiddleware from './middleware/cors.js';
+import rateLimiter from './middleware/rate-limiter.js';
+import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
+
+// Import configs
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
@@ -15,41 +23,45 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-// app.use(cors());
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN,
-    credentials: true, // Enable cookies for sessions
-  })
-);
-app.use(express.json({ limit: '10mb' })); // Add size limit
+// ================================
+// MIDDLEWARE
+// ================================
 
-// Session middleware will be added after Redis connection
+// CORS
+app.use(corsMiddleware);
 
-// Global error handler middleware
-app.use((err, req, res, next) => {
-  console.error('❌ Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error' });
-});
+// Rate limiting
+app.use(rateLimiter);
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/organizations', organizationRoutes);
-app.use('/api/organizations/members', organizationMemberRoutes);
-app.use('/api/invitations', invitationRoutes);
-app.use('/api/workspace', workspaceRoutes);
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
+// ================================
+// ROUTES
+// ================================
+
+// Health check
 app.get('/health', (req, res) => {
-  const health = {
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-  };
-  res.json(health);
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+
+// API routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/organizations', organizationRoutes);
+app.use('/api/v1/organizations/members', organizationMemberRoutes);
+app.use('/api/v1/invitations', invitationRoutes);
+app.use('/api/v1/workspace', workspaceRoutes);
+
+// ================================
+// ERROR HANDLING
+// ================================
+
+// 404 handler for unknown routes
+app.use(notFoundHandler);
+
+// Global error handler
+app.use(errorHandler);
 
 // Connect to MongoDB using shared connection pool
 let authConnection = null;
@@ -91,24 +103,10 @@ const connectDB = async () => {
   }
 };
 
-// Process error handlers to prevent crashes
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  // Don't exit immediately, give time for cleanup
-  setTimeout(() => {
-    process.exit(1);
-  }, 1000);
-});
+// ================================
+// SERVER STARTUP
+// ================================
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit immediately, give time for cleanup
-  setTimeout(() => {
-    process.exit(1);
-  }, 1000);
-});
-
-// Start server only after DB and Redis connections
 const startServer = async () => {
   try {
     // Connect to MongoDB
@@ -122,29 +120,10 @@ const startServer = async () => {
     const sessionMiddleware = await createSessionStore();
     app.use(sessionMiddleware);
 
-    const server = app.listen(PORT, () => {
+    // Start server
+    app.listen(PORT, () => {
       console.log(`🚀 Auth service running on port ${PORT}`);
-    });
-
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      console.log('🛑 SIGTERM received, shutting down gracefully...');
-      server.close(async () => {
-        console.log('✅ Server closed');
-        await redisClient.disconnect();
-        console.log('✅ Redis connection closed');
-        process.exit(0);
-      });
-    });
-
-    process.on('SIGINT', async () => {
-      console.log('🛑 SIGINT received, shutting down gracefully...');
-      server.close(async () => {
-        console.log('✅ Server closed');
-        await redisClient.disconnect();
-        console.log('✅ Redis connection closed');
-        process.exit(0);
-      });
+      console.log(`❤️  Health Check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
