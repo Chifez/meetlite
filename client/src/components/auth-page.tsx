@@ -64,6 +64,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   const error = params.get('error');
+  const invitation = params.get('invitation');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(isLogin ? loginSchema : signupSchema),
@@ -86,7 +87,10 @@ const AuthPage = ({ mode }: AuthPageProps) => {
           (data as SignupFormValues).password
         );
       }
-      if (redirectTo) {
+      if (invitation) {
+        // Redirect back to invitation page after login/signup
+        navigate(`/invite/${invitation}`);
+      } else if (redirectTo) {
         navigate(redirectTo);
         setRedirectTo(null);
       } else {
@@ -103,19 +107,27 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   useMemo(() => {
     if (token) {
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
-      navigate('/dashboard');
+      if (invitation) {
+        navigate(`/invite/${invitation}`);
+      } else {
+        navigate('/dashboard');
+      }
     } else if (error === 'google_oauth_failed') {
       toast.error(
         `Google ${isLogin ? 'sign-in' : 'sign-up'} failed. Please try again.`
       );
     }
-  }, [token, error, isLogin, navigate]);
+  }, [token, error, isLogin, navigate, invitation]);
 
   return (
     <AuthWrapper
       title={isLogin ? 'Welcome back' : 'Create an account'}
       description={
-        isLogin
+        invitation
+          ? `${
+              isLogin ? 'Sign in' : 'Create an account'
+            } to accept your organization invitation`
+          : isLogin
           ? 'Sign in to your account to continue'
           : 'Enter your details to get started'
       }
@@ -123,14 +135,20 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         isLogin ? (
           <p className="text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <Link to="/signup" className="text-primary font-medium">
+            <Link
+              to={`/signup${invitation ? `?invitation=${invitation}` : ''}`}
+              className="text-primary font-medium"
+            >
               Sign up
             </Link>
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary font-medium">
+            <Link
+              to={`/login${invitation ? `?invitation=${invitation}` : ''}`}
+              className="text-primary font-medium"
+            >
               Sign in
             </Link>
           </p>

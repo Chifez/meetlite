@@ -14,7 +14,8 @@ const Layout = () => {
     location.pathname === '/signup' ||
     location.pathname === '/forgot-password' ||
     location.pathname === '/reset-password' ||
-    location.pathname === '/onboarding';
+    location.pathname === '/onboarding' ||
+    location.pathname.startsWith('/invite/');
   const isLandingPage = location.pathname === '/';
   const shouldShowNavbar = !isRoomPage && !isAuthPage;
 

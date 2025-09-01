@@ -29,7 +29,7 @@ export function loginAndGetToken() {
     password: TEST_USER.password,
   });
 
-  const response = http.post(`${AUTH_BASE_URL}/api/auth/login`, payload, {
+  const response = http.post(`${AUTH_BASE_URL}/api/v1/auth/login`, payload, {
     headers: {
       'Content-Type': 'application/json',
     },

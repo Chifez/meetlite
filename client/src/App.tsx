@@ -16,6 +16,8 @@ import Onboarding from './pages/onboarding';
 import Members from './pages/members';
 import Recordings from './pages/recordings';
 import OrganizationSettings from './pages/organization-settings';
+import Settings from './pages/settings';
+import InvitationPage from './pages/invitation';
 
 function App() {
   const { isAuthenticated, redirectTo, user } = useAuth();
@@ -45,6 +47,7 @@ function App() {
           }
         />
         <Route path="/meeting/:meetingId/join" element={<MeetingJoin />} />
+        <Route path="/invite/:token" element={<InvitationPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route
@@ -149,6 +152,20 @@ function App() {
             isAuthenticated ? (
               user?.onboardingCompleted ? (
                 <OrganizationSettings />
+              ) : (
+                <Navigate to="/onboarding" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            isAuthenticated ? (
+              user?.onboardingCompleted ? (
+                <Settings />
               ) : (
                 <Navigate to="/onboarding" />
               )

@@ -231,20 +231,23 @@ export class AuthController {
       const { code } = req.query;
       if (!code) return res.status(400).send('No code provided');
 
+      // Get frontend URL with fallback
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+      console.log('🔗 Redirecting to frontend URL:', frontendUrl);
+
       const result = await this.authService.handleGoogleOAuth(code);
       const { token, error } = result;
 
       if (error) {
-        return res.redirect(`${process.env.FRONTEND_URL}/login?error=${error}`);
+        return res.redirect(`${frontendUrl}/login?error=${error}`);
       }
 
       // Redirect to frontend with token
-      res.redirect(`${process.env.FRONTEND_URL}/login?token=${token}`);
+      res.redirect(`${frontendUrl}/login?token=${token}`);
     } catch (error) {
       console.error('Google OAuth callback error:', error);
-      res.redirect(
-        `${process.env.FRONTEND_URL}/login?error=google_oauth_failed`
-      );
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+      res.redirect(`${frontendUrl}/login?error=google_oauth_failed`);
     }
   }
 
