@@ -7,6 +7,7 @@ import organizationRoutes from './routes/v1/organization.routes.js';
 import organizationMemberRoutes from './routes/v1/organization-member.route.js';
 import invitationRoutes from './routes/v1/invitations.route.js';
 import workspaceRoutes from './routes/v1/workspace.route.js';
+import planRoutes from './routes/v1/plan.route.js';
 
 // Import simple middleware
 import corsMiddleware from './middleware/cors.js';
@@ -17,6 +18,9 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
+
+// Import cron jobs
+import './jobs/usage-reset.job.js';
 
 dotenv.config();
 
@@ -52,6 +56,7 @@ app.use('/api/v1/organizations', organizationRoutes);
 app.use('/api/v1/organizations/members', organizationMemberRoutes);
 app.use('/api/v1/invitations', invitationRoutes);
 app.use('/api/v1/workspace', workspaceRoutes);
+app.use('/api/v1/plan', planRoutes);
 
 // ================================
 // ERROR HANDLING

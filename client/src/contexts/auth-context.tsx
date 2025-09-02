@@ -22,7 +22,12 @@ type User = {
   };
   organizationId?: string | null;
   role?: 'owner' | 'member';
-  plan?: 'free' | 'pro' | 'business' | 'enterprise';
+  plan?: {
+    type: 'free' | 'pro' | 'enterprise';
+    startDate?: Date;
+    endDate?: Date | null;
+    status?: 'active' | 'expired' | 'cancelled';
+  };
 };
 
 type AuthContextType = {

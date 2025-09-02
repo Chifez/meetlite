@@ -67,7 +67,7 @@ export class OrganizationController {
         status: 'active',
       });
 
-      const maxOrgsAllowed = req.user.plan === 'free' ? 1 : 10; // Free users can own 1 org
+      const maxOrgsAllowed = req.user.plan.type === 'free' ? 1 : 10; // Free users can own 1 org
       if (ownedOrgsCount >= maxOrgsAllowed) {
         return res.status(400).json({
           message: `You can only create ${maxOrgsAllowed} organization${
@@ -83,7 +83,11 @@ export class OrganizationController {
         industry: industry?.trim(),
         size,
         ownerId: userId,
-        plan: 'free', // Default plan
+        plan: {
+          type: 'free',
+          startDate: new Date(),
+          status: 'active',
+        }, // Default plan
         stats: {
           totalMembers: 1, // Owner is the first member
         },

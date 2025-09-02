@@ -207,6 +207,15 @@ export class AuthService {
       user.name = user.name || name.trim();
       user.onboardingCompleted = true;
 
+      // Initialize plan if not set
+      if (!user.plan || typeof user.plan === 'string') {
+        user.plan = {
+          type: 'free',
+          startDate: new Date(),
+          status: 'active',
+        };
+      }
+
       await user.save();
 
       // Send welcome email now (moved from signup)

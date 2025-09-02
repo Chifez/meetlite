@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
 import { sendOrganizationInviteEmail } from '../services/email-service.js';
 import { OrganizationMemberService } from '../services/organization-member.service.js';
+import { PlanValidationService } from '../services/plan-validation.service.js';
 
 export class OrganizationMemberController {
   constructor() {
@@ -43,7 +44,35 @@ export class OrganizationMemberController {
         });
       }
 
-      // Check if email is already a member
+      // 1. Validate plan constraints for invitation sending
+      const invitationValidation =
+        await PlanValidationService.validateInvitationSending(userId);
+      if (!invitationValidation.isValid) {
+        return res.status(403).json({
+          message: invitationValidation.message,
+          upgradeRequired: invitationValidation.upgradeRequired,
+          currentPlan: invitationValidation.currentPlan,
+          currentUsage: invitationValidation.currentUsage,
+          limit: invitationValidation.limit,
+        });
+      }
+
+      // 2. Validate organization capacity based on owner's plan
+      const capacityValidation =
+        await PlanValidationService.validateOrganizationCapacity(
+          organizationId
+        );
+      if (!capacityValidation.isValid) {
+        return res.status(403).json({
+          message: capacityValidation.message,
+          upgradeRequired: capacityValidation.upgradeRequired,
+          organizationPlan: capacityValidation.organizationPlan,
+          currentMembers: capacityValidation.currentMembers,
+          maxMembers: capacityValidation.maxMembers,
+        });
+      }
+
+      // 3. Check if email is already a member
       const existingMember = await models.User.findOne({
         email: email.toLowerCase(),
         organizationId: organizationId,
@@ -55,7 +84,7 @@ export class OrganizationMemberController {
         });
       }
 
-      // Check if there's already a pending invitation
+      // 4. Check if there's already a pending invitation
       const existingInvitation =
         await models.OrganizationInvitation.findPendingInvitation(
           organizationId,
@@ -65,16 +94,6 @@ export class OrganizationMemberController {
       if (existingInvitation) {
         return res.status(400).json({
           message: 'There is already a pending invitation for this email',
-        });
-      }
-
-      // Check organization member limits based on plan
-      const currentMemberCount = organization.stats.totalMembers || 0;
-      const maxMembers = organization.limits.maxMembers;
-
-      if (maxMembers !== -1 && currentMemberCount >= maxMembers) {
-        return res.status(400).json({
-          message: `Organization has reached its member limit (${maxMembers} members)`,
         });
       }
 
@@ -110,6 +129,9 @@ export class OrganizationMemberController {
           message: 'Failed to send invitation email',
         });
       }
+
+      // 5. Update user's invitation usage after successful email send
+      await PlanValidationService.updateInvitationUsage(userId);
 
       res.status(201).json({
         message: 'Invitation sent successfully',

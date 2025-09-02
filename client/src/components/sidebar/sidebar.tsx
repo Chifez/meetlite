@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
 import { ChevronLeft, ChevronRight, Crown, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizationSwitcher } from './organization-switcher';
@@ -18,6 +19,7 @@ interface SidebarProps {
 
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const { user } = useAuth();
   const { activeOrganization, currentWorkspaceName, isPersonalMode } =
     useWorkspace();
@@ -160,34 +162,37 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
                 <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
                   Current Plan
                 </p>
-                {(activeOrganization?.plan || user?.plan) === 'free' && (
+                {(activeOrganization?.plan?.type ||
+                  user?.plan?.type ||
+                  'free') === 'free' && (
                   <Badge variant="outline" className="text-xs">
                     Free
                   </Badge>
                 )}
-                {(activeOrganization?.plan || user?.plan) === 'pro' && (
+                {(activeOrganization?.plan?.type ||
+                  user?.plan?.type ||
+                  'free') === 'pro' && (
                   <Badge variant="default" className="text-xs bg-blue-500">
                     <Zap className="w-3 h-3 mr-1" />
                     Pro
                   </Badge>
                 )}
-                {(activeOrganization?.plan || user?.plan) === 'business' && (
+                {(activeOrganization?.plan?.type ||
+                  user?.plan?.type ||
+                  'free') === 'enterprise' && (
                   <Badge variant="default" className="text-xs bg-purple-500">
                     <Crown className="w-3 h-3 mr-1" />
-                    Business
+                    Enterprise
                   </Badge>
                 )}
               </div>
 
-              {(activeOrganization?.plan || user?.plan) === 'free' && (
+              {user?.plan?.type === 'free' && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
-                  onClick={() => {
-                    // TODO: Implement upgrade flow
-                    console.log('Upgrade plan clicked');
-                  }}
+                  onClick={() => setPlanDialogOpen(true)}
                 >
                   <Zap className="w-3 h-3 mr-2" />
                   Upgrade Plan
@@ -204,6 +209,15 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           />
         </div>
       </div>
+
+      {/* Plan Settings Dialog */}
+      <PlanSettingsDialog
+        open={planDialogOpen}
+        onOpenChange={setPlanDialogOpen}
+        currentPlan={
+          activeOrganization?.plan?.type || user?.plan?.type || 'free'
+        }
+      />
     </>
   );
 }

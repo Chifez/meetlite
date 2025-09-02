@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { models } from '../index.js';
 import { generateJWTToken } from '../utils/generate-token.js';
+import { PlanValidationService } from '../services/plan-validation.service.js';
 
 export class InvitationController {
   // GET /invitations/:token - Get invitation details (public route)
@@ -83,11 +84,35 @@ export class InvitationController {
           });
         }
 
-        // Check if user is already in an organization
-        if (user.organizationId) {
-          return res.status(400).json({
-            message:
-              'You are already a member of an organization. Please leave your current organization first.',
+        // 1. Validate plan constraints for invitation acceptance
+        const acceptanceValidation =
+          await PlanValidationService.validateInvitationAcceptance(
+            userId,
+            invitation.organizationId,
+            invitation.role
+          );
+        if (!acceptanceValidation.isValid) {
+          return res.status(403).json({
+            message: acceptanceValidation.message,
+            upgradeRequired: acceptanceValidation.upgradeRequired,
+            currentPlan: acceptanceValidation.currentPlan,
+            currentUsage: acceptanceValidation.currentUsage,
+            limit: acceptanceValidation.limit,
+          });
+        }
+
+        // 2. Validate organization capacity based on owner's plan
+        const capacityValidation =
+          await PlanValidationService.validateOrganizationCapacity(
+            invitation.organizationId
+          );
+        if (!capacityValidation.isValid) {
+          return res.status(403).json({
+            message: capacityValidation.message,
+            upgradeRequired: capacityValidation.upgradeRequired,
+            organizationPlan: capacityValidation.organizationPlan,
+            currentMembers: capacityValidation.currentMembers,
+            maxMembers: capacityValidation.maxMembers,
           });
         }
 
@@ -111,6 +136,12 @@ export class InvitationController {
           {
             $inc: { 'stats.totalMembers': 1 },
           }
+        );
+
+        // 3. Update user's membership usage after successful acceptance
+        await PlanValidationService.updateMembershipUsage(
+          userId,
+          invitation.role
         );
 
         // Generate new token with organization context

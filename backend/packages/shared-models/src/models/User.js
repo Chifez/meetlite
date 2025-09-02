@@ -61,12 +61,83 @@ const userSchema = new mongoose.Schema({
     enum: ['owner', 'member'],
     default: 'owner',
   },
-  // Plan information (default free until billing is implemented)
+  // Plan information and usage tracking
   plan: {
-    type: String,
-    enum: ['free', 'pro', 'business', 'enterprise'],
-    default: 'free',
-    index: true,
+    type: {
+      type: String,
+      enum: ['free', 'pro', 'enterprise'],
+      default: 'free',
+      index: true,
+    },
+    startDate: {
+      type: Date,
+      default: Date.now,
+    },
+    endDate: {
+      type: Date,
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: ['active', 'expired', 'cancelled'],
+      default: 'active',
+    },
+  },
+  // Usage tracking for plan constraints
+  usage: {
+    // Organization usage
+    organizationsOwned: {
+      type: Number,
+      default: 0,
+    },
+    organizationsMember: {
+      type: Number,
+      default: 0,
+    },
+    // Invitation usage
+    invitationsSentToday: {
+      type: Number,
+      default: 0,
+    },
+    invitationsSentThisMonth: {
+      type: Number,
+      default: 0,
+    },
+    lastInvitationDate: {
+      type: Date,
+      default: null,
+    },
+    lastMonthlyReset: {
+      type: Date,
+      default: Date.now,
+    },
+    // Meeting usage
+    meetingsCreatedToday: {
+      type: Number,
+      default: 0,
+    },
+    meetingsCreatedThisMonth: {
+      type: Number,
+      default: 0,
+    },
+    lastMeetingDate: {
+      type: Date,
+      default: null,
+    },
+    // Storage usage
+    storageUsedGB: {
+      type: Number,
+      default: 0,
+    },
+    // API usage
+    apiCallsToday: {
+      type: Number,
+      default: 0,
+    },
+    lastApiCallDate: {
+      type: Date,
+      default: null,
+    },
   },
   // Token versioning for JWT invalidation
   tokenVersion: {

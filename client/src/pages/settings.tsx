@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { Settings as SettingsIcon, User, Building } from 'lucide-react';
+import { User, Building, Crown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import ProfileSettings from '@/components/settings/profile-settings';
 import OrganizationSettings from '@/components/settings/organization-settings';
+import PlanUsageCard from '@/components/plan/plan-usage-card';
+import PlanComparison from '@/components/plan/plan-comparison';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Settings() {
   const { activeOrganization } = useWorkspace();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
   return (
@@ -17,21 +21,31 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground">
+        <TabsList className="inline-flex h-auto items-center justify-start rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
           <TabsTrigger
             value="profile"
-            className="inline-flex w-fit items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            className="inline-flex w-fit items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
           >
-            <User className="h-4 w-4 mr-2" />
-            Profile Settings
+            <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Profile Settings</span>
+            <span className="sm:hidden">Profile</span>
           </TabsTrigger>
           <TabsTrigger
             value="organization"
-            className="inline-flex w-fit items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:disabled:cursor-not-allowed disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            // disabled={!activeOrganization}
+            className="inline-flex w-fit items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:disabled:cursor-not-allowed disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            disabled={!activeOrganization}
           >
-            <Building className="h-4 w-4 mr-2" />
-            Organization Settings
+            <Building className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Organization Settings</span>
+            <span className="sm:hidden">Organization</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="plan"
+            className="inline-flex w-fit items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+          >
+            <Crown className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Plan & Usage</span>
+            <span className="sm:hidden">Plan</span>
           </TabsTrigger>
         </TabsList>
 
@@ -41,6 +55,18 @@ export default function Settings() {
 
         <TabsContent value="organization" className="mt-6">
           <OrganizationSettings />
+        </TabsContent>
+
+        <TabsContent value="plan" className="mt-6 space-y-6">
+          <PlanUsageCard showUpgradeButton={false} />
+
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">Available Plans</h2>
+            <PlanComparison
+              currentPlan={user?.plan?.type || 'free'}
+              showUpgradeButtons={true}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </DashboardLayout>

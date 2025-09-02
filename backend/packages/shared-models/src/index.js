@@ -19,6 +19,7 @@ export {
 } from './models/MeetingAssets.js';
 export { default as connectionPool } from './utils/connectionPool.js';
 export * from './utils/queryHelpers.js';
+export * from './config/plans.js';
 
 // Create a factory for all shared models
 export const createModelFactory = (connection) => ({

@@ -35,10 +35,25 @@ const organizationSchema = new mongoose.Schema(
       enum: ['1-5', '6-20', '21-50', '51-200', '201-500', '500+'],
     },
     plan: {
-      type: String,
-      enum: ['free', 'pro', 'business', 'enterprise'],
-      default: 'free',
-      index: true,
+      type: {
+        type: String,
+        enum: ['free', 'pro', 'enterprise'],
+        default: 'free',
+        index: true,
+      },
+      startDate: {
+        type: Date,
+        default: Date.now,
+      },
+      endDate: {
+        type: Date,
+        default: null,
+      },
+      status: {
+        type: String,
+        enum: ['active', 'expired', 'cancelled'],
+        default: 'active',
+      },
     },
     settings: {
       allowPublicMeetings: {
@@ -82,30 +97,26 @@ const organizationSchema = new mongoose.Schema(
       maxMembers: {
         type: Number,
         default: function () {
-          switch (this.plan) {
+          switch (this.plan.type) {
             case 'free':
-              return 5;
+              return 10;
             case 'pro':
-              return 25;
-            case 'business':
               return 100;
             case 'enterprise':
-              return 1000;
+              return -1; // unlimited
             default:
-              return 5;
+              return 10;
           }
         },
       },
       maxMeetingsPerMonth: {
         type: Number,
         default: function () {
-          switch (this.plan) {
+          switch (this.plan.type) {
             case 'free':
               return 100;
             case 'pro':
-              return 500;
-            case 'business':
-              return 2000;
+              return 1000;
             case 'enterprise':
               return -1; // unlimited
             default:
@@ -116,15 +127,13 @@ const organizationSchema = new mongoose.Schema(
       maxStorageGB: {
         type: Number,
         default: function () {
-          switch (this.plan) {
+          switch (this.plan.type) {
             case 'free':
               return 1;
             case 'pro':
-              return 10;
-            case 'business':
               return 100;
             case 'enterprise':
-              return 1000;
+              return -1; // unlimited
             default:
               return 1;
           }

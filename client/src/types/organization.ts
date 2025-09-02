@@ -11,7 +11,12 @@ export type Organization = {
   phone?: string;
   email?: string;
   website?: string;
-  plan?: 'free' | 'pro' | 'business' | 'enterprise';
+  plan?: {
+    type: 'free' | 'pro' | 'enterprise';
+    startDate?: Date;
+    endDate?: Date | null;
+    status?: 'active' | 'expired' | 'cancelled';
+  };
   role?: 'owner' | 'member';
   settings?: {
     allowPublicMeetings?: boolean;
