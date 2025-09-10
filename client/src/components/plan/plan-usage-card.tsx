@@ -24,6 +24,7 @@ import {
 import planService from '@/services/planService';
 import { PlanSummary } from '@/types/plan';
 import { toast } from 'sonner';
+import { PaymentService } from '../../services/paymentService';
 
 interface PlanUsageCardProps {
   className?: string;
@@ -333,9 +334,19 @@ export default function PlanUsageCard({
             <Button
               className="w-full"
               variant={hasUpgradeSuggestions ? 'default' : 'outline'}
-              onClick={() => {
-                // TODO: Implement upgrade flow
-                toast.info('Upgrade flow coming soon!');
+              onClick={async () => {
+                if (!nextPlan) return;
+
+                try {
+                  // Convert plan name to payment service format
+                  const planType = nextPlan === 'pro' ? 'pro' : 'enterprise';
+                  await PaymentService.redirectToCheckout(planType, 'monthly');
+                } catch (error: any) {
+                  console.error('Upgrade error:', error);
+                  toast.error(
+                    error.message || 'Failed to start upgrade process'
+                  );
+                }
               }}
             >
               <Crown className="h-4 w-4 mr-2" />

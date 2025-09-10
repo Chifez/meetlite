@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { getWelcomeEmailTemplate } from '../templates/welcomeEmail.js';
 import { getPasswordResetEmailTemplate } from '../templates/passwordResetEmail.js';
 import { getOrganizationInviteEmailTemplate } from '../templates/organizationInviteEmail.js';
+import { getPlanUpgradeEmailTemplate } from '../templates/planUpgradeEmail.js';
+import { getPlanCancellationEmailTemplate } from '../templates/planCancellationEmail.js';
+import { getPlanExpirationWarningEmailTemplate } from '../templates/planExpirationWarningEmail.js';
 
 // Email service configuration - following room-service pattern
 const createTransport = () => {
@@ -122,6 +125,93 @@ export const sendOrganizationInviteEmail = async ({
     );
   } catch (error) {
     console.error('Organization invite email error:', error);
+    throw error;
+  }
+};
+
+// Plan-related email functions
+export const sendPlanUpgradeEmail = async (
+  userEmail,
+  userName,
+  planType,
+  endDate
+) => {
+  try {
+    const transporter = createTransport();
+    const template = getPlanUpgradeEmailTemplate(userName, planType, endDate);
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
+
+    const emailContent = {
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
+      to: userEmail,
+      subject: template.subject,
+      html: template.html,
+    };
+
+    await transporter.sendMail(emailContent);
+    console.log(`Plan upgrade email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Plan upgrade email error:', error);
+    throw error;
+  }
+};
+
+export const sendPlanCancellationEmail = async (
+  userEmail,
+  userName,
+  planType,
+  endDate
+) => {
+  try {
+    const transporter = createTransport();
+    const template = getPlanCancellationEmailTemplate(
+      userName,
+      planType,
+      endDate
+    );
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
+
+    const emailContent = {
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
+      to: userEmail,
+      subject: template.subject,
+      html: template.html,
+    };
+
+    await transporter.sendMail(emailContent);
+    console.log(`Plan cancellation email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Plan cancellation email error:', error);
+    throw error;
+  }
+};
+
+export const sendPlanExpirationWarningEmail = async (
+  userEmail,
+  userName,
+  planType,
+  daysRemaining
+) => {
+  try {
+    const transporter = createTransport();
+    const template = getPlanExpirationWarningEmailTemplate(
+      userName,
+      planType,
+      daysRemaining
+    );
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
+
+    const emailContent = {
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
+      to: userEmail,
+      subject: template.subject,
+      html: template.html,
+    };
+
+    await transporter.sendMail(emailContent);
+    console.log(`Plan expiration warning email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Plan expiration warning email error:', error);
     throw error;
   }
 };

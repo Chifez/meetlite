@@ -50,17 +50,47 @@ const userSchema = new mongoose.Schema({
       enum: ['beginner', 'intermediate', 'advanced'],
     },
   },
-  // Multitenancy fields (single-organization for now)
+  // Multitenancy fields - support multiple organization memberships
   organizationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',
     index: true,
+    // This is the currently active organization for backward compatibility
   },
   role: {
     type: String,
     enum: ['owner', 'member'],
     default: 'owner',
+    // This is the role in the currently active organization
   },
+  // Multiple organization memberships
+  memberships: [
+    {
+      organizationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization',
+        required: true,
+      },
+      role: {
+        type: String,
+        enum: ['owner', 'member'],
+        required: true,
+      },
+      joinedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      status: {
+        type: String,
+        enum: ['active', 'inactive', 'pending'],
+        default: 'active',
+      },
+      invitedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    },
+  ],
   // Plan information and usage tracking
   plan: {
     type: {
@@ -79,9 +109,26 @@ const userSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['active', 'expired', 'cancelled'],
+      enum: ['active', 'expired', 'cancelled', 'past_due'],
       default: 'active',
     },
+    stripeSubscriptionId: {
+      type: String,
+    },
+    stripeSessionId: {
+      type: String,
+    },
+    stripePaymentIntentId: {
+      type: String,
+    },
+    lastPaymentDate: {
+      type: Date,
+    },
+  },
+  // Stripe customer ID
+  stripeCustomerId: {
+    type: String,
+    index: true,
   },
   // Usage tracking for plan constraints
   usage: {
@@ -157,6 +204,16 @@ const userSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// Indexes
+userSchema.index({ email: 1 });
+userSchema.index({ googleId: 1 });
+userSchema.index({ organizationId: 1 });
+userSchema.index({ 'memberships.organizationId': 1 });
+userSchema.index({ 'memberships.status': 1 });
+userSchema.index({ 'plan.type': 1 });
+userSchema.index({ 'plan.status': 1 });
+userSchema.index({ onboardingCompleted: 1 });
 
 // Export the schema and a factory function to create models with specific connections
 export const createUserModel = (connection) => {

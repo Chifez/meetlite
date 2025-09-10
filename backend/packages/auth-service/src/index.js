@@ -8,6 +8,10 @@ import organizationMemberRoutes from './routes/v1/organization-member.route.js';
 import invitationRoutes from './routes/v1/invitations.route.js';
 import workspaceRoutes from './routes/v1/workspace.route.js';
 import planRoutes from './routes/v1/plan.route.js';
+import planManagementRoutes from './routes/v1/plan-management.route.js';
+import multiOrganizationRoutes from './routes/v1/multi-organization.route.js';
+import bulkOperationsRoutes from './routes/v1/bulk-operations.route.js';
+import paymentRoutes from './routes/v1/payment.route.js';
 
 // Import simple middleware
 import corsMiddleware from './middleware/cors.js';
@@ -21,6 +25,7 @@ import { connectionPool, createModelFactory } from '@minimeet/shared-models';
 
 // Import cron jobs
 import './jobs/usage-reset.job.js';
+import './jobs/plan-expiration.job.js';
 
 dotenv.config();
 
@@ -57,6 +62,17 @@ app.use('/api/v1/organizations/members', organizationMemberRoutes);
 app.use('/api/v1/invitations', invitationRoutes);
 app.use('/api/v1/workspace', workspaceRoutes);
 app.use('/api/v1/plan', planRoutes);
+app.use('/api/v1/plan-management', planManagementRoutes);
+app.use('/api/v1/multi-org', multiOrganizationRoutes);
+app.use('/api/v1/bulk', bulkOperationsRoutes);
+
+// Only load payment routes if Stripe is configured
+if (process.env.STRIPE_SECRET_KEY) {
+  app.use('/api/v1/payment', paymentRoutes);
+  console.log('✅ Payment routes loaded (Stripe configured)');
+} else {
+  console.log('⚠️  Payment routes skipped (STRIPE_SECRET_KEY not configured)');
+}
 
 // ================================
 // ERROR HANDLING

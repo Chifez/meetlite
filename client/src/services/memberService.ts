@@ -126,6 +126,34 @@ class MemberService {
       );
     }
   }
+
+  // Update member role
+  async updateMemberRole(
+    organizationId: string,
+    memberId: string,
+    newRole: 'owner' | 'member'
+  ): Promise<{
+    message: string;
+    user: { id: string; name: string; email: string; role: string };
+    token?: string;
+  }> {
+    try {
+      const response = await api.put(
+        `${env.AUTH_API_URL}/multi-org/update-role`,
+        {
+          userId: memberId,
+          organizationId,
+          newRole,
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to update member role:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to update member role'
+      );
+    }
+  }
 }
 
 export const memberService = new MemberService();

@@ -11,6 +11,13 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -59,7 +66,14 @@ export const MemberList: React.FC<MemberListProps> = ({
   maxMembers,
   onInviteClick,
 }) => {
-  const { removeMember, cancelInvitation, removing, canceling } = useMembers();
+  const {
+    removeMember,
+    cancelInvitation,
+    updateMemberRole,
+    removing,
+    canceling,
+    updatingRole,
+  } = useMembers();
   const [memberToRemove, setMemberToRemove] =
     useState<OrganizationMember | null>(null);
   const [invitationToCancel, setInvitationToCancel] =
@@ -92,6 +106,13 @@ export const MemberList: React.FC<MemberListProps> = ({
     if (success) {
       setInvitationToCancel(null);
     }
+  };
+
+  const handleUpdateRole = async (
+    memberId: string,
+    newRole: 'owner' | 'member'
+  ) => {
+    await updateMemberRole(organizationId, memberId, newRole);
   };
 
   const getInitials = (name: string): string => {
@@ -169,13 +190,31 @@ export const MemberList: React.FC<MemberListProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Badge
-                      variant={
-                        member.role === 'owner' ? 'default' : 'secondary'
-                      }
-                    >
-                      {member.role}
-                    </Badge>
+                    {isOwner && !member.isOwner ? (
+                      <Select
+                        value={member.role}
+                        onValueChange={(newRole: 'owner' | 'member') =>
+                          handleUpdateRole(member.id, newRole)
+                        }
+                        disabled={updatingRole === member.id}
+                      >
+                        <SelectTrigger className="w-24 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="owner">Owner</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge
+                        variant={
+                          member.role === 'owner' ? 'default' : 'secondary'
+                        }
+                      >
+                        {member.role}
+                      </Badge>
+                    )}
 
                     {isOwner && !member.isOwner && (
                       <DropdownMenu>

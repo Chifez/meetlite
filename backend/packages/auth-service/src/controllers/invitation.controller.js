@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { models } from '../index.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import { PlanValidationService } from '../services/plan-validation.service.js';
+import { MultiOrganizationService } from '../services/multi-organization.service.js';
 
 export class InvitationController {
   // GET /invitations/:token - Get invitation details (public route)
@@ -119,16 +120,18 @@ export class InvitationController {
         // Accept invitation
         await invitation.accept(userId);
 
-        // Add user to organization and increment token version
-        const updatedUser = await models.User.findByIdAndUpdate(
-          userId,
-          {
-            organizationId: invitation.organizationId._id,
-            role: invitation.role,
-            $inc: { tokenVersion: 1 }, // Invalidate old tokens
-          },
-          { new: true }
-        );
+        // Add user to organization using multi-organization service
+        const updatedUser =
+          await MultiOrganizationService.addUserToOrganization(
+            userId,
+            invitation.organizationId._id,
+            invitation.role,
+            invitation.invitedBy
+          );
+
+        // Increment token version for security
+        updatedUser.tokenVersion = (updatedUser.tokenVersion || 1) + 1;
+        await updatedUser.save();
 
         // Update organization member count
         await models.Organization.findByIdAndUpdate(
