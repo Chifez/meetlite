@@ -11,7 +11,7 @@ const organizationSchema = new mongoose.Schema(
     slug: {
       type: String,
       required: false, // Will be set by pre-save middleware
-      unique: true,
+      // unique: true,
       lowercase: true,
       trim: true,
       match: /^[a-z0-9-]+$/,
@@ -177,7 +177,14 @@ const organizationSchema = new mongoose.Schema(
 
 // Indexes
 organizationSchema.index({ ownerId: 1, status: 1 });
-organizationSchema.index({ slug: 1 });
+// unique slug per owner, only for non-deleted organizations
+organizationSchema.index(
+  { ownerId: 1, slug: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $ne: 'deleted' } },
+  }
+);
 organizationSchema.index({ plan: 1, status: 1 });
 
 // Virtual for getting member count
@@ -221,28 +228,36 @@ organizationSchema.statics.generateSlug = function (name) {
   return slug;
 };
 
-// Pre-save middleware to generate slug if not provided
-organizationSchema.pre('save', function (next) {
-  console.log('Pre-save middleware running for Organization');
-  console.log('Document is new:', this.isNew);
-  console.log('Current slug:', this.slug);
-  console.log('Document name:', this.name);
-
-  // Always ensure slug is set for new documents
+// Pre-save middleware to generate unique slug for new organizations
+organizationSchema.pre('save', async function (next) {
+  // Only generate slug for new documents without one
   if (this.isNew && (!this.slug || this.slug.trim() === '')) {
-    // Generate slug synchronously to avoid async issues
     let baseSlug = this.constructor.generateSlug(this.name);
-    this.slug = baseSlug;
-    console.log('Generated slug:', baseSlug, 'for name:', this.name);
+    let finalSlug = baseSlug;
+    let counter = 1;
+
+    // Ensure slug is unique among active organizations only
+    while (true) {
+      const existingOrg = await this.constructor.findOne({
+        slug: finalSlug,
+        status: 'active',
+        _id: { $ne: this._id },
+      });
+
+      if (!existingOrg) break;
+
+      finalSlug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    this.slug = finalSlug;
   }
 
-  // Validate that slug is present before saving
+  // Validate slug is present
   if (!this.slug || this.slug.trim() === '') {
-    console.error('Slug validation failed - slug is missing or empty');
     return next(new Error('Slug is required and must be generated'));
   }
 
-  console.log('Pre-save middleware completed successfully');
   next();
 });
 
