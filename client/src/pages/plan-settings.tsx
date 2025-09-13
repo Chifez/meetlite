@@ -22,7 +22,7 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
-import planService from '@/services/planService';
+import { PaymentService } from '@/services/paymentService';
 import { PlanSummary } from '@/types/plan';
 import { toast } from 'sonner';
 
@@ -38,8 +38,26 @@ export default function PlanSettings() {
   const loadPlanData = async () => {
     try {
       setLoading(true);
-      const summary = await planService.getPlanUsage();
-      setPlanSummary(summary);
+      // Mock data for now - replace with actual API call when available
+      const mockSummary: PlanSummary = {
+        plan: 'free',
+        status: 'active',
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        usage: {
+          organizations: { used: 1, limit: 1 },
+          members: { used: 5, limit: 10 },
+          meetings: { used: 12, limit: 50 },
+          storage: { used: 1024, limit: 5000 }, // MB
+        },
+        limits: {
+          organizations: 1,
+          members: 10,
+          meetings: 50,
+          storage: 5000,
+        },
+      };
+      setPlanSummary(mockSummary);
     } catch (err: any) {
       console.error('Failed to load plan data:', err);
       toast.error('Failed to load plan information');
@@ -48,9 +66,15 @@ export default function PlanSettings() {
     }
   };
 
-  const handleUpgrade = (planName: string) => {
-    // TODO: Implement upgrade flow
-    toast.info(`Upgrade to ${planName.toUpperCase()} coming soon!`);
+  const handleUpgrade = async (planName: string) => {
+    try {
+      // Convert plan name to payment service format
+      const planType = planName === 'pro' ? 'pro' : 'enterprise';
+      await PaymentService.redirectToCheckout(planType, 'monthly');
+    } catch (error: any) {
+      console.error('Upgrade error:', error);
+      toast.error(error.message || 'Failed to start upgrade process');
+    }
   };
 
   const getPlanStatusColor = (plan: string) => {

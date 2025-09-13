@@ -2,13 +2,14 @@ import { models } from '../index.js';
 import { PaymentService } from '../services/payment.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import Stripe from 'stripe';
+import { stripeConfig, getPriceId } from '../config/stripe.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!stripeConfig.secretKey) {
     throw new Error('STRIPE_SECRET_KEY environment variable is required');
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
+  return new Stripe(stripeConfig.secretKey);
 };
 
 export class PaymentController {
@@ -86,7 +87,7 @@ export class PaymentController {
       }
 
       // Get price ID based on plan and duration
-      const priceId = this.getPriceId(planType, duration);
+      const priceId = getPriceId(planType, duration);
       if (!priceId) {
         return res
           .status(400)
@@ -94,8 +95,8 @@ export class PaymentController {
       }
 
       // Create checkout session
-      const successUrl = `${process.env.FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${process.env.FRONTEND_URL}/settings`;
+      const successUrl = stripeConfig.urls.successUrl;
+      const cancelUrl = stripeConfig.urls.cancelUrl;
 
       const session = await PaymentService.createSubscriptionCheckoutSession(
         customerId,
@@ -157,7 +158,7 @@ export class PaymentController {
   async handleWebhook(req, res) {
     try {
       const sig = req.headers['stripe-signature'];
-      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      const endpointSecret = stripeConfig.webhookSecret;
 
       let event;
 
@@ -251,24 +252,6 @@ export class PaymentController {
       console.error('Payment success error:', error);
       res.status(500).json({ message: 'Server error' });
     }
-  }
-
-  /**
-   * Helper method to get price ID based on plan and duration
-   */
-  getPriceId(planType, duration) {
-    const priceIds = {
-      pro: {
-        monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
-        yearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
-      },
-      enterprise: {
-        monthly: process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-        yearly: process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
-      },
-    };
-
-    return priceIds[planType]?.[duration] || null;
   }
 }
 

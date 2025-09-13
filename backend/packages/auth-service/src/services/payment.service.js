@@ -1,11 +1,12 @@
 import Stripe from 'stripe';
+import { stripeConfig } from '../config/stripe.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!stripeConfig.secretKey) {
     throw new Error('STRIPE_SECRET_KEY environment variable is required');
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
+  return new Stripe(stripeConfig.secretKey);
 };
 
 export class PaymentService {
@@ -39,6 +40,7 @@ export class PaymentService {
     metadata = {}
   ) {
     try {
+      const stripe = getStripe();
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount * 100, // Convert to cents
         currency: currency.toLowerCase(),
@@ -63,6 +65,7 @@ export class PaymentService {
    */
   static async createSubscription(customerId, priceId, metadata = {}) {
     try {
+      const stripe = getStripe();
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
@@ -92,6 +95,7 @@ export class PaymentService {
     metadata = {}
   ) {
     try {
+      const stripe = getStripe();
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
@@ -127,6 +131,7 @@ export class PaymentService {
     metadata = {}
   ) {
     try {
+      const stripe = getStripe();
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
@@ -156,6 +161,7 @@ export class PaymentService {
    */
   static async getPaymentIntent(paymentIntentId) {
     try {
+      const stripe = getStripe();
       const paymentIntent = await stripe.paymentIntents.retrieve(
         paymentIntentId
       );
@@ -171,6 +177,7 @@ export class PaymentService {
    */
   static async getSubscription(subscriptionId) {
     try {
+      const stripe = getStripe();
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       return subscription;
     } catch (error) {
@@ -184,6 +191,7 @@ export class PaymentService {
    */
   static async cancelSubscription(subscriptionId, immediately = false) {
     try {
+      const stripe = getStripe();
       const subscription = await stripe.subscriptions.update(subscriptionId, {
         cancel_at_period_end: !immediately,
         ...(immediately && { cancel_at: Math.floor(Date.now() / 1000) }),
@@ -200,6 +208,7 @@ export class PaymentService {
    */
   static async createBillingPortalSession(customerId, returnUrl) {
     try {
+      const stripe = getStripe();
       const session = await stripe.billingPortal.sessions.create({
         customer: customerId,
         return_url: returnUrl,

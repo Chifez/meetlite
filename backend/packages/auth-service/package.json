@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "dev:no-watch": "node src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "validate-stripe": "node validate-stripe.js"
   },
   "dependencies": {
     "@minimeet/shared-models": "*",
