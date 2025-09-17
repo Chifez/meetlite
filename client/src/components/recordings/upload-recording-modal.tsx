@@ -11,18 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import {
-  Upload,
-  Video,
-  FileText,
-  X,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
+import { CircularProgress } from '@/components/ui/circular-progress';
+
+import { Upload, Video, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { meetingAssetsService } from '@/services/meetingAssetsService';
+import { toast } from 'sonner';
 
 interface UploadRecordingModalProps {
   open: boolean;
@@ -121,54 +115,51 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
     setUploadProgress(0);
 
     try {
-      // TODO: Replace with actual upload service
-      // Simulate upload progress
-      const uploadSimulation = setInterval(() => {
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(uploadSimulation);
+            clearInterval(progressInterval);
             return 90;
           }
-          return prev + 10;
+          return Math.min(90, prev + Math.floor(Math.random() * 15) + 5);
         });
       }, 200);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // Upload the file using the real service
+      const recording = await meetingAssetsService.uploadRecording(
+        selectedFile,
+        {
+          title: data.title,
+          description: data.description,
+          visibility: data.visibility,
+          tags: data.tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean),
+        }
+      );
 
+      clearInterval(progressInterval);
       setUploadProgress(100);
 
-      // Mock successful response
-      const mockRecording = {
-        id: `rec_${Date.now()}`,
-        title: data.title,
-        description: data.description,
-        visibility: data.visibility,
-        tags: data.tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-        recording: {
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          duration: 0, // Will be set by backend
-          format: selectedFile.type.split('/')[1],
-          quality: '720p',
-          downloadUrl: '',
-          streamingUrl: '',
-          thumbnailUrl: '',
-        },
-        processingStatus: 'uploading',
-        createdAt: new Date().toISOString(),
-      };
+      toast.success('Recording uploaded successfully!');
 
-      onUploadSuccess?.(mockRecording);
-      handleClose();
-    } catch (error) {
+      // Call the success callback
+      if (onUploadSuccess) {
+        onUploadSuccess(recording);
+      }
+
+      // Reset form and close modal
+      reset();
+      setSelectedFile(null);
+      onOpenChange(false);
+    } catch (error: any) {
       console.error('Upload failed:', error);
-      alert('Upload failed. Please try again.');
+      toast.error(error.message || 'Failed to upload recording');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -202,6 +193,16 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5 text-blue-600" />
             Upload Recording
+            {uploading && (
+              <div>
+                <CircularProgress
+                  value={uploadProgress}
+                  size={30}
+                  strokeWidth={3}
+                  className="text-blue-600 text-xs"
+                />
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -243,15 +244,6 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
-
-                  {uploading && (
-                    <div className="space-y-2">
-                      <Progress value={uploadProgress} className="h-2" />
-                      <p className="text-sm text-gray-600">
-                        Uploading... {uploadProgress}%
-                      </p>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-4">

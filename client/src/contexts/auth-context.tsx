@@ -111,6 +111,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: profile.role,
         plan: profile.plan,
       });
+
+      console.log('Profile fetched successfully:', {
+        user: profile,
+        onboardingCompleted: profile.onboardingCompleted,
+        hasUser: !!profile,
+      });
     } catch (error) {
       // fallback: clear user if profile fetch fails
       setUser(null);
@@ -181,7 +187,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
       });
-
+      // Add this debug log:
+      console.log('Login completed, user state:', {
+        user,
+        isAuthenticated: !!user,
+        onboardingCompleted: user?.onboardingCompleted,
+      });
       const { token } = response.data;
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
 

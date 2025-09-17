@@ -1,5 +1,5 @@
 import { models } from '../index.js';
-import { uploadVideoFile } from '../services/cloudinaryService.js';
+import { uploadVideoFile } from '../services/cloudflareR2Service.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -49,7 +49,7 @@ export async function processAutoRecording(roomId, recordingData) {
         duration: recordingData.duration,
         format: 'mp4',
         quality: recordingData.quality || '720p',
-        storageProvider: 'cloudinary',
+        storageProvider: 'r2',
       },
       visibility: 'participants', // Default to participants-only for auto recordings
       tags: ['auto-recorded', 'meeting'],
@@ -87,33 +87,25 @@ export async function processAutoRecording(roomId, recordingData) {
     console.log(`Created recording document: ${recording._id}`);
 
     try {
-      // Upload to Cloudinary
+      // Upload to Cloudflare R2
       const uploadResult = await uploadVideoFile(recordingBuffer, {
-        public_id: `meetings/${meeting.organizationId || 'personal'}/${
-          recording._id
-        }`,
-        folder: 'minimeet/recordings',
-        resource_type: 'video',
-        format: 'mp4',
-        transformation: [
-          // Generate multiple quality versions
-          { quality: 'auto:best', format: 'mp4' },
-          { quality: 'auto:good', format: 'mp4' },
-          { quality: 'auto:low', format: 'mp4' },
-        ],
+        fileName: `meeting_${meeting._id}.mp4`,
+        organizationId: meeting.organizationId || 'personal',
+        recordingId: recording._id.toString(),
+        fileFormat: 'mp4',
       });
 
-      // Update recording with Cloudinary URLs
-      recording.recording.storagePath = uploadResult.public_id;
-      recording.recording.downloadUrl = uploadResult.secure_url;
-      recording.recording.streamingUrl = uploadResult.secure_url;
-      recording.recording.thumbnailUrl = uploadResult.thumbnail_url;
+      // Update recording with R2 URLs
+      recording.recording.storagePath = uploadResult.key;
+      recording.recording.downloadUrl = uploadResult.downloadUrl;
+      recording.recording.streamingUrl = uploadResult.streamingUrl;
+      recording.recording.thumbnailUrl = uploadResult.thumbnailUrl;
       recording.recording.duration =
         uploadResult.duration || recordingData.duration;
       recording.processingStatus = 'completed';
 
       await recording.save();
-      console.log(`Updated recording with Cloudinary URLs: ${recording._id}`);
+      console.log(`Updated recording with R2 URLs: ${recording._id}`);
 
       // Clean up local file
       try {
@@ -138,7 +130,7 @@ export async function processAutoRecording(roomId, recordingData) {
 
       return recording;
     } catch (uploadError) {
-      console.error('Cloudinary upload failed:', uploadError);
+      console.error('R2 upload failed:', uploadError);
 
       // Update recording status to failed
       recording.processingStatus = 'failed';

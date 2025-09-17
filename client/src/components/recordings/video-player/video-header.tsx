@@ -2,7 +2,6 @@ import { Badge } from '@/components/ui/badge';
 import { MeetingRecording } from '@/services/meetingAssetsService';
 import { Progress } from '@/components/ui/progress';
 import { Video } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 
 const VideoHeader = ({
   recording,

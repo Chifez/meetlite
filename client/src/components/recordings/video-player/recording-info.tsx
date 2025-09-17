@@ -22,6 +22,9 @@ export const RecordingInfo: React.FC<RecordingInfoProps> = ({
   const hasTranscript = recording.transcript.status === 'completed';
 
   const getParticipantInitials = (name: string): string => {
+    if (!name || typeof name !== 'string') {
+      return '??';
+    }
     return name
       .split(' ')
       .map((n) => n[0])
@@ -89,12 +92,14 @@ export const RecordingInfo: React.FC<RecordingInfoProps> = ({
             >
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="text-xs bg-blue-100 text-blue-600">
-                  {getParticipantInitials(participant.name)}
+                  {getParticipantInitials(
+                    participant.name || participant.email || 'User'
+                  )}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {participant.name}
+                  {participant.name || participant.email || 'Unknown User'}
                 </p>
                 <p className="text-xs text-gray-500">{participant.role}</p>
               </div>

@@ -75,6 +75,11 @@ export default defineConfig({
   ],
   server: {
     port: 5174,
+    // allowedHosts: [
+    //   'localhost',
+    //   '127.0.0.1',
+    //   '686e0379708e.ngrok-free.app', // ngrok frontend tunnel
+    // ],
   },
   resolve: {
     alias: {

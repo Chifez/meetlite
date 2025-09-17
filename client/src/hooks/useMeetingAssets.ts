@@ -1,10 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { meetingAssetsService } from '../services/meetingAssetsService';
+import { analyticsService } from '../services/analyticsService';
 import type {
   MeetingRecording,
   MeetingAssetsQuery,
-  MeetingAssetsResponse,
 } from '../services/meetingAssetsService';
 
 export const useMeetingAssets = (organizationId?: string) => {
@@ -51,14 +51,23 @@ export const useMeetingAssets = (organizationId?: string) => {
 
       setLoading(true);
       try {
-        const response = await meetingAssetsService.getOrganizationRecordings(
-          organizationId,
-          query
-        );
+        // Fetch recordings and analytics in parallel
+        const [response, analyticsData] = await Promise.all([
+          meetingAssetsService.getOrganizationRecordings(organizationId, query),
+          analyticsService.getOrganizationAnalytics(organizationId),
+        ]);
 
         setRecordings(response.recordings);
         setPagination(response.pagination);
-        setStats(response.stats);
+
+        // Use analytics data instead of response.stats
+        setStats({
+          totalRecordings: analyticsData.totalRecordings,
+          totalSize: analyticsData.totalSize,
+          totalDuration: analyticsData.totalDuration,
+          completedTranscripts: analyticsData.completedTranscripts,
+          completedSummaries: analyticsData.completedSummaries,
+        });
       } catch (error: any) {
         toast.error(error.message || 'Failed to load recordings');
         setRecordings([]);
@@ -110,6 +119,42 @@ export const useMeetingAssets = (organizationId?: string) => {
         return true;
       } catch (error: any) {
         toast.error(error.message || 'Failed to delete recording');
+        return false;
+      }
+    },
+    [selectedRecording]
+  );
+
+  const archiveRecording = useCallback(
+    async (id: string) => {
+      try {
+        await meetingAssetsService.archiveRecording(id);
+
+        setRecordings((prev) => prev.filter((r) => r.id !== id));
+        if (selectedRecording?.id === id) setSelectedRecording(null);
+
+        toast.success('Recording archived successfully');
+        return true;
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to archive recording');
+        return false;
+      }
+    },
+    [selectedRecording]
+  );
+
+  const unarchiveRecording = useCallback(
+    async (id: string) => {
+      try {
+        await meetingAssetsService.unarchiveRecording(id);
+
+        setRecordings((prev) => prev.filter((r) => r.id !== id));
+        if (selectedRecording?.id === id) setSelectedRecording(null);
+
+        toast.success('Recording unarchived successfully');
+        return true;
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to unarchive recording');
         return false;
       }
     },
@@ -242,6 +287,8 @@ export const useMeetingAssets = (organizationId?: string) => {
     loadRecording,
     updateRecording,
     deleteRecording,
+    archiveRecording,
+    unarchiveRecording,
     startProcessing,
     downloadTranscript,
     exportRecordings,

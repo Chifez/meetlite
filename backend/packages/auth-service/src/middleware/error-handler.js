@@ -1,4 +1,4 @@
-import { AppError } from '../utils/errors.js';
+import { AppError } from '@minimeet/shared-models';
 
 export const errorHandler = (err, req, res, next) => {
   // Clone the error to avoid mutation
@@ -12,35 +12,49 @@ export const errorHandler = (err, req, res, next) => {
 
   // MongoDB Validation Error
   if (err.name === 'ValidationError') {
-    const message = 'Validation Error';
     const errors = Object.values(err.errors).map((val) => val.message);
-    error = new AppError(message, 400);
-    error.errors = errors;
+    error = AppError.validation('Invalid input data provided', errors);
   }
 
   // MongoDB Cast Error (Invalid ObjectId)
   if (err.name === 'CastError') {
-    const message = 'Invalid ID format';
-    error = new AppError(message, 400);
+    error = new AppError('SYSTEM_9007', 'Invalid ID format');
   }
 
   // MongoDB Duplicate Key Error
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     const value = Object.values(err.keyValue)[0];
-    const message = `${field}: '${value}' already exists`;
-    error = new AppError(message, 409);
+
+    // Determine specific error based on field
+    if (field === 'email') {
+      error = new AppError(
+        'USER_2002',
+        `An account with email '${value}' already exists`
+      );
+    } else if (field === 'organizationName') {
+      error = new AppError(
+        'ORG_3002',
+        `An organization with name '${value}' already exists`
+      );
+    } else {
+      error = new AppError(
+        'SYSTEM_9007',
+        `${field}: '${value}' already exists`
+      );
+    }
   }
 
   // JWT Errors
   if (err.name === 'JsonWebTokenError') {
-    const message = 'Invalid token. Please log in again';
-    error = new AppError(message, 401);
+    error = new AppError('AUTH_1003', 'Invalid authentication token');
   }
 
   if (err.name === 'TokenExpiredError') {
-    const message = 'Token expired. Please log in again';
-    error = new AppError(message, 401);
+    error = new AppError(
+      'AUTH_1002',
+      'Your session has expired. Please log in again'
+    );
   }
 
   // Send error response
@@ -50,19 +64,18 @@ export const errorHandler = (err, req, res, next) => {
 const sendErrorResponse = (err, req, res) => {
   // Operational errors that we trust to show to client
   if (err.isOperational) {
-    const response = {
-      success: false,
-      message: err.message,
-    };
+    const response = err.toResponse
+      ? err.toResponse()
+      : {
+          success: false,
+          message: err.message,
+          code: err.code,
+          timestamp: err.timestamp,
+        };
 
     // Add validation errors if they exist
     if (err.errors) {
       response.errors = err.errors;
-    }
-
-    // Add error code for client handling
-    if (err.code) {
-      response.code = err.code;
     }
 
     return res.status(err.statusCode || 500).json(response);
@@ -73,17 +86,18 @@ const sendErrorResponse = (err, req, res) => {
 
   res.status(500).json({
     success: false,
+    code: 'SYSTEM_9006',
     message:
       process.env.NODE_ENV === 'development'
         ? err.message
         : 'Something went wrong. Please try again later.',
+    timestamp: new Date().toISOString(),
   });
 };
 
 // 404 handler for unknown routes
 export const notFoundHandler = (req, res, next) => {
-  const message = `Route ${req.originalUrl} not found`;
-  const error = new AppError(message, 404);
+  const error = AppError.notFound(`Route ${req.originalUrl}`);
   next(error);
 };
 

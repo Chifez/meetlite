@@ -1,11 +1,12 @@
 import express from 'express';
 import multer from 'multer';
 import { models } from '../index.js';
+import { AppError } from '@minimeet/shared-models';
 import {
   uploadVideoFile,
-  checkCloudinaryConfig,
+  checkR2Config,
   extractAudioFromVideo,
-} from '../services/cloudinaryService.js';
+} from '../services/cloudflareR2Service.js';
 import {
   transcribeRecording,
   generateRecordingSummary,
@@ -41,11 +42,16 @@ const upload = multer({
  */
 router.post('/', upload.single('recording'), async (req, res) => {
   try {
+    console.log('Upload request received:', {
+      hasFile: !!req.file,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      user: req.user,
+      body: req.body,
+    });
+
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No recording file provided',
-      });
+      throw new AppError('FILE_6001', 'No recording file provided');
     }
 
     const {
@@ -58,20 +64,25 @@ router.post('/', upload.single('recording'), async (req, res) => {
 
     // Validation
     if (!title) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title is required',
-      });
+      throw new AppError('SYSTEM_9007', 'Title is required');
+    }
+
+    if (!req.user.organizationId) {
+      throw new AppError(
+        'USER_2001',
+        'User must belong to an organization to upload recordings'
+      );
+    }
+
+    if (!req.user.userId) {
+      throw new AppError('AUTH_1001', 'Invalid user token - missing userId');
     }
 
     // Verify meeting exists and user has access (if meetingId provided)
     if (meetingId) {
       const meeting = await models.Meeting.findById(meetingId);
       if (!meeting) {
-        return res.status(404).json({
-          success: false,
-          message: 'Meeting not found',
-        });
+        throw new AppError('MEETING_4001', 'Meeting not found');
       }
 
       // Check if user has access to the meeting
@@ -80,22 +91,26 @@ router.post('/', upload.single('recording'), async (req, res) => {
         meeting.participants.some((p) => p.email === req.user.email);
 
       if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this meeting',
-        });
+        throw new AppError('AUTH_1004', 'Access denied to this meeting');
       }
     }
 
-    // Check Cloudinary configuration
-    if (!checkCloudinaryConfig()) {
-      return res.status(500).json({
-        success: false,
-        message: 'File storage service not configured properly',
-      });
+    // Check R2 configuration
+    if (!checkR2Config()) {
+      throw new AppError(
+        'FILE_6005',
+        'File storage service not configured properly'
+      );
     }
 
     // Create recording document first
+    console.log('Creating recording document with:', {
+      meetingId: meetingId || null,
+      organizationId: req.user.organizationId || null,
+      title: title.trim(),
+      userId: req.user.userId,
+    });
+
     const recording = new models.MeetingRecording({
       meetingId: meetingId || null,
       organizationId: req.user.organizationId || null,
@@ -105,8 +120,8 @@ router.post('/', upload.single('recording'), async (req, res) => {
         fileName: req.file.originalname,
         fileSize: req.file.size,
         format: req.file.mimetype.split('/')[1],
-        storageProvider: 'cloudinary',
-        // These will be set after upload to Cloudinary
+        storageProvider: 'r2',
+        // These will be set after upload to R2
         storagePath: null,
         downloadUrl: null,
         streamingUrl: null,
@@ -128,10 +143,20 @@ router.post('/', upload.single('recording'), async (req, res) => {
       ],
     });
 
-    await recording.save();
+    console.log('Saving recording to database...');
+    try {
+      await recording.save();
+      console.log('Recording saved successfully with ID:', recording._id);
+    } catch (saveError) {
+      console.error('Database save error:', saveError);
+      throw new AppError(
+        'SYSTEM_9006',
+        `Failed to save recording: ${saveError.message}`
+      );
+    }
 
     try {
-      // Upload to Cloudinary
+      // Upload to Cloudflare R2
       const uploadResult = await uploadVideoFile(req.file.buffer, {
         fileName: req.file.originalname,
         organizationId: req.user.organizationId,
@@ -139,15 +164,32 @@ router.post('/', upload.single('recording'), async (req, res) => {
         fileFormat: req.file.mimetype.split('/')[1],
       });
 
-      // Update recording with Cloudinary URLs
-      recording.recording.storagePath = uploadResult.storagePath;
+      // Update recording with R2 URLs
+      recording.recording.storagePath = uploadResult.key;
       recording.recording.downloadUrl = uploadResult.downloadUrl;
       recording.recording.streamingUrl = uploadResult.streamingUrl;
       recording.recording.thumbnailUrl = uploadResult.thumbnailUrl;
-      recording.recording.duration = uploadResult.duration;
-      recording.recording.quality = uploadResult.quality;
+      // Set duration and quality from upload result (now from FFmpeg processing)
+      recording.recording.duration = uploadResult.duration || 0;
+      recording.recording.quality = uploadResult.quality || 'unknown';
       recording.processingStatus = 'completed';
 
+      await recording.save();
+
+      // Generate signed URLs for secure access
+      const { generateSignedUrl } = await import(
+        '../services/cloudflareR2Service.js'
+      );
+      const signedStreamingUrl = await generateSignedUrl(uploadResult.key, {
+        expiresIn: 3600,
+      });
+      const signedDownloadUrl = await generateSignedUrl(uploadResult.key, {
+        expiresIn: 3600,
+      });
+
+      // Update with signed URLs
+      recording.recording.streamingUrl = signedStreamingUrl;
+      recording.recording.downloadUrl = signedDownloadUrl;
       await recording.save();
 
       // TODO: Start AI processing (transcript/summary)
@@ -161,8 +203,8 @@ router.post('/', upload.single('recording'), async (req, res) => {
           processingStatus: recording.processingStatus,
           recording: {
             thumbnailUrl: recording.recording.thumbnailUrl,
-            duration: recording.recording.duration,
-            quality: recording.recording.quality,
+            duration: recording.recording.duration || 0,
+            quality: recording.recording.quality || 'unknown',
             format: recording.recording.format,
           },
           createdAt: recording.createdAt,
@@ -170,7 +212,7 @@ router.post('/', upload.single('recording'), async (req, res) => {
         message: 'Recording uploaded and processed successfully.',
       });
     } catch (uploadError) {
-      console.error('Cloudinary upload failed:', uploadError);
+      console.error('R2 upload failed:', uploadError);
 
       // Update recording status to failed
       recording.processingStatus = 'failed';
@@ -216,6 +258,7 @@ router.get('/', async (req, res) => {
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
+      isArchived,
     } = req.query;
 
     // Organization is required for accessing recordings
@@ -234,6 +277,12 @@ router.get('/', async (req, res) => {
       status,
       tags: tags ? tags.split(',') : undefined,
       search,
+      isArchived:
+        isArchived === 'true'
+          ? true
+          : isArchived === 'false'
+          ? false
+          : undefined,
     };
 
     const recordings = await models.MeetingRecording.findByOrganization(
@@ -241,10 +290,14 @@ router.get('/', async (req, res) => {
       options
     );
 
-    const total = await models.MeetingRecording.countDocuments({
-      organizationId: req.user.organizationId,
-      isArchived: false,
-    });
+    const countQuery = { organizationId: req.user.organizationId };
+    if (isArchived !== undefined) {
+      countQuery.isArchived = isArchived === 'true' ? true : false;
+    } else {
+      countQuery.isArchived = false; // Default to non-archived
+    }
+
+    const total = await models.MeetingRecording.countDocuments(countQuery);
 
     res.json({
       success: true,
@@ -396,12 +449,35 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Archive instead of hard delete
-    recording.isArchived = true;
-    recording.archiveDate = new Date();
-    await recording.save();
+    // Actually delete the recording and clean up files
+    const { deleteFile } = await import('../services/cloudflareR2Service.js');
 
-    // TODO: Clean up files from Cloudinary
+    // Delete files from R2
+    if (recording.recording.storagePath) {
+      try {
+        await deleteFile(recording.recording.storagePath);
+        console.log('Deleted file from R2:', recording.recording.storagePath);
+      } catch (error) {
+        console.warn('Failed to delete file from R2:', error.message);
+      }
+    }
+
+    // Delete thumbnail if it exists
+    if (recording.recording.thumbnailUrl) {
+      try {
+        const thumbnailPath = recording.recording.thumbnailUrl
+          .split('/')
+          .slice(-2)
+          .join('/');
+        await deleteFile(thumbnailPath);
+        console.log('Deleted thumbnail from R2:', thumbnailPath);
+      } catch (error) {
+        console.warn('Failed to delete thumbnail from R2:', error.message);
+      }
+    }
+
+    // Delete the recording from database
+    await models.MeetingRecording.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
@@ -489,6 +565,102 @@ router.post('/:id/process', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to start processing',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/recordings/:id/archive
+ * @desc    Archive recording
+ * @access  Private
+ */
+router.post('/:id/archive', async (req, res) => {
+  try {
+    const recording = await models.MeetingRecording.findById(req.params.id);
+
+    if (!recording) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recording not found',
+      });
+    }
+
+    // Check if user can archive (host or organization owner)
+    const canArchive =
+      recording.participants.some(
+        (p) => p.userId.toString() === req.user.userId && p.role === 'host'
+      ) || req.user.role === 'owner';
+
+    if (!canArchive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Permission denied to archive this recording',
+      });
+    }
+
+    // Archive the recording
+    recording.isArchived = true;
+    recording.archiveDate = new Date();
+    await recording.save();
+
+    res.json({
+      success: true,
+      message: 'Recording archived successfully',
+    });
+  } catch (error) {
+    console.error('Error archiving recording:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to archive recording',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/recordings/:id/unarchive
+ * @desc    Unarchive recording
+ * @access  Private
+ */
+router.post('/:id/unarchive', async (req, res) => {
+  try {
+    const recording = await models.MeetingRecording.findById(req.params.id);
+
+    if (!recording) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recording not found',
+      });
+    }
+
+    // Check if user can unarchive (host or organization owner)
+    const canUnarchive =
+      recording.participants.some(
+        (p) => p.userId.toString() === req.user.userId && p.role === 'host'
+      ) || req.user.role === 'owner';
+
+    if (!canUnarchive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Permission denied to unarchive this recording',
+      });
+    }
+
+    // Unarchive the recording
+    recording.isArchived = false;
+    recording.archiveDate = undefined;
+    await recording.save();
+
+    res.json({
+      success: true,
+      message: 'Recording unarchived successfully',
+    });
+  } catch (error) {
+    console.error('Error unarchiving recording:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unarchive recording',
       error: error.message,
     });
   }
@@ -601,16 +773,18 @@ router.get('/:id/download', async (req, res) => {
     recording.analytics.downloadCount += 1;
     await recording.save();
 
-    // TODO: Implement actual file download from Cloudinary
-    // For now, return the download URL
-    if (recording.recording.downloadUrl) {
-      res.redirect(recording.recording.downloadUrl);
-    } else {
-      res.status(404).json({
-        success: false,
-        message: 'Recording file not available for download',
-      });
-    }
+    // Generate fresh signed URL for download
+    const { generateSignedUrl } = await import(
+      '../services/cloudflareR2Service.js'
+    );
+    const signedDownloadUrl = await generateSignedUrl(
+      recording.recording.storagePath,
+      {
+        expiresIn: 3600, // 1 hour
+      }
+    );
+
+    res.redirect(signedDownloadUrl);
   } catch (error) {
     console.error('Error downloading recording:', error);
     res.status(500).json({
@@ -650,7 +824,16 @@ async function processRecordingAI(recording, type, processingId) {
           const audioResult = await extractAudioFromVideo(
             recording.recording.storagePath
           );
-          audioUrl = audioResult.audioUrl;
+
+          // For now, use the original video URL since audio extraction is not implemented
+          if (audioResult.success && audioResult.audioUrl) {
+            audioUrl = audioResult.audioUrl;
+          } else {
+            console.log(
+              'Audio extraction not available, using video URL for transcription'
+            );
+            // The transcription service should handle video files directly
+          }
         }
 
         console.log('Transcribing audio...');

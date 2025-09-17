@@ -7,6 +7,7 @@ import { verifyToken } from './middleware/auth.js';
 import meetingsRoutes from './routes/meetings.js';
 import recordingsRoutes from './routes/recordings.js';
 import aiRoutes from './routes/ai.js';
+import analyticsRoutes from './routes/analytics.js';
 import calendarRoutes from './routes/calendar.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
@@ -34,7 +35,26 @@ app.use(verifyToken);
 // Global error handler middleware
 app.use((err, req, res, next) => {
   console.error('❌ Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error' });
+
+  // Use standardized error response
+  if (err.isOperational && err.code) {
+    const response = err.toResponse
+      ? err.toResponse()
+      : {
+          success: false,
+          message: err.message,
+          code: err.code,
+          timestamp: err.timestamp,
+        };
+    return res.status(err.statusCode || 500).json(response);
+  }
+
+  res.status(500).json({
+    success: false,
+    code: 'SYSTEM_9006',
+    message: 'Internal server error',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Routes
@@ -42,6 +62,7 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/meetings', meetingsRoutes);
 app.use('/api/recordings', recordingsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

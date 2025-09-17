@@ -6,7 +6,7 @@ const meetingRecordingSchema = new mongoose.Schema(
     meetingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Meeting',
-      required: true,
+      required: false, // Allow standalone recordings without a meeting
       index: true,
     },
     organizationId: {
@@ -33,8 +33,8 @@ const meetingRecordingSchema = new mongoose.Schema(
       quality: String, // 720p, 1080p, etc.
       storageProvider: {
         type: String,
-        enum: ['local', 's3', 'gcs', 'azure'],
-        default: 'local',
+        enum: ['local', 's3', 'gcs', 'azure', 'r2'],
+        default: 'r2',
       },
       storagePath: String,
       downloadUrl: String,
@@ -223,9 +223,17 @@ meetingRecordingSchema.statics.findByOrganization = function (
     status,
     tags,
     search,
+    isArchived,
   } = options;
 
-  const query = { organizationId, isArchived: false };
+  const query = { organizationId };
+
+  // Handle archive status - if not specified, default to non-archived
+  if (isArchived !== undefined) {
+    query.isArchived = isArchived;
+  } else {
+    query.isArchived = false; // Default to non-archived
+  }
 
   if (status) query.processingStatus = status;
   if (tags && tags.length > 0) query.tags = { $in: tags };
@@ -247,7 +255,12 @@ meetingRecordingSchema.statics.findByOrganization = function (
 
 meetingRecordingSchema.statics.getStorageStats = function (organizationId) {
   return this.aggregate([
-    { $match: { organizationId: new mongoose.Types.ObjectId(organizationId) } },
+    {
+      $match: {
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        isArchived: { $ne: true }, // Exclude archived recordings
+      },
+    },
     {
       $group: {
         _id: null,

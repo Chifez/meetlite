@@ -3,30 +3,16 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Progress } from '../ui/progress';
-import { Avatar, AvatarFallback } from '../ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+
+import { RecordingActionsDropdown } from './recording-actions-dropdown';
 import {
   Play,
   Download,
   FileText,
   Brain,
-  MoreVertical,
-  Edit3,
-  Trash2,
   Eye,
   Clock,
   Users,
-  Tag,
-  Share2,
-  Loader2,
-  Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MeetingRecording } from '../../services/meetingAssetsService';
@@ -37,6 +23,8 @@ interface RecordingCardProps {
   onPlay: (recording: MeetingRecording) => void;
   onEdit: (recording: MeetingRecording) => void;
   onDelete: (recording: MeetingRecording) => void;
+  onArchive?: (recording: MeetingRecording) => void;
+  onUnarchive?: (recording: MeetingRecording) => void;
   onDownloadTranscript: (recording: MeetingRecording) => void;
   onStartProcessing: (
     recording: MeetingRecording,
@@ -53,6 +41,8 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
   onPlay,
   onEdit,
   onDelete,
+  onArchive,
+  onUnarchive,
   onDownloadTranscript,
   onStartProcessing,
   onShare,
@@ -61,20 +51,6 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
   className,
 }) => {
   const [thumbnailError, setThumbnailError] = useState(false);
-
-  const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 B';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -121,54 +97,17 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
               >
                 <Play className="w-3 h-3" />
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onPlay(recording)}>
-                    <Play className="w-4 h-4 mr-2" />
-                    Play
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onEdit(recording)}>
-                    <Edit3 className="w-4 h-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onShare(recording)}>
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDownloadTranscript(recording)}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Download Transcript
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onStartProcessing(recording, 'transcript')}
-                  >
-                    <Brain className="w-4 h-4 mr-2" />
-                    Generate Transcript
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onStartProcessing(recording, 'summary')}
-                  >
-                    <Brain className="w-4 h-4 mr-2" />
-                    Generate Summary
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDelete(recording)}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <RecordingActionsDropdown
+                recording={recording}
+                onPlay={onPlay}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onArchive={onArchive}
+                onUnarchive={onUnarchive}
+                onShare={onShare}
+                onDownloadTranscript={onDownloadTranscript}
+                onStartProcessing={onStartProcessing}
+              />
             </div>
           </div>
         </CardHeader>
@@ -219,20 +158,22 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
           </div>
 
           {/* Tags */}
-          {recording.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {recording.tags.slice(0, 3).map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-              {recording.tags.length > 3 && (
-                <Badge variant="secondary" className="text-xs">
-                  +{recording.tags.length - 3}
-                </Badge>
-              )}
-            </div>
-          )}
+          <div className="h-5 flex items-center gap-1">
+            {recording.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {recording.tags.slice(0, 3).map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+                {recording.tags.length > 3 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{recording.tags.length - 3}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Analytics */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">

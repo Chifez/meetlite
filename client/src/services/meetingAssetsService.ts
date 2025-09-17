@@ -2,6 +2,7 @@ import api from '@/lib/axios';
 import { env } from '@/config/env';
 
 export interface MeetingRecording {
+  _id?: string;
   id: string;
   meetingId: string;
   organizationId: string;
@@ -21,6 +22,7 @@ export interface MeetingRecording {
     status: 'pending' | 'processing' | 'completed' | 'failed';
     text?: string;
     fileName?: string;
+    isArchived?: boolean;
     fileUrl?: string;
     language: string;
     segments?: Array<{
@@ -65,6 +67,7 @@ export interface MeetingRecording {
   };
   createdAt: string;
   updatedAt: string;
+  isArchived?: boolean;
 }
 
 export interface MeetingAssetsQuery {
@@ -79,6 +82,7 @@ export interface MeetingAssetsQuery {
   hasSummary?: boolean;
   dateFrom?: string;
   dateTo?: string;
+  isArchived?: boolean;
 }
 
 export interface MeetingAssetsResponse {
@@ -203,6 +207,34 @@ class MeetingAssetsService {
       console.error('Failed to delete recording:', error);
       throw new Error(
         error.response?.data?.message || 'Failed to delete recording'
+      );
+    }
+  }
+
+  async archiveRecording(recordingId: string): Promise<{ message: string }> {
+    try {
+      const response = await api.post(
+        `${env.ROOM_API_URL}/recordings/${recordingId}/archive`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to archive recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to archive recording'
+      );
+    }
+  }
+
+  async unarchiveRecording(recordingId: string): Promise<{ message: string }> {
+    try {
+      const response = await api.post(
+        `${env.ROOM_API_URL}/recordings/${recordingId}/unarchive`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to unarchive recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to unarchive recording'
       );
     }
   }

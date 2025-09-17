@@ -10,7 +10,12 @@ import { UploadRecordingModal } from '../components/recordings/upload-recording-
 import { Button } from '../components/ui/button';
 import { Download, FileText, Upload, Video } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
-import type { MeetingAssetsQuery } from '../services/meetingAssetsService';
+import type {
+  MeetingAssetsQuery,
+  MeetingRecording,
+} from '../services/meetingAssetsService';
+import { meetingAssetsService } from '../services/meetingAssetsService';
+import { toast } from 'sonner';
 
 export default function Recordings() {
   const { activeOrganization } = useWorkspace();
@@ -22,16 +27,21 @@ export default function Recordings() {
     selectedRecording,
     setSelectedRecording,
     exportRecordings,
+    deleteRecording,
+    archiveRecording,
+    unarchiveRecording,
   } = useMeetingAssets(activeOrganization?.id);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [currentQuery, setCurrentQuery] = useState<MeetingAssetsQuery>({});
 
   useEffect(() => {
     if (activeOrganization?.id) {
-      fetchRecordings(currentQuery);
+      const query = { ...currentQuery, isArchived: showArchived };
+      fetchRecordings(query);
     }
-  }, [activeOrganization?.id, fetchRecordings, currentQuery]);
+  }, [activeOrganization?.id, fetchRecordings, currentQuery, showArchived]);
 
   const handleSearchChange = (searchTerm: string) => {
     const newQuery = { ...currentQuery, search: searchTerm || undefined };
@@ -41,6 +51,65 @@ export default function Recordings() {
   const handleFiltersChange = (filters: MeetingAssetsQuery) => {
     const newQuery = { ...currentQuery, ...filters };
     setCurrentQuery(newQuery);
+  };
+
+  const handleDeleteRecording = async (recording: MeetingRecording) => {
+    try {
+      // Use _id if id is not available
+      const recordingId = recording.id || recording._id;
+      if (!recordingId) {
+        throw new Error('Recording ID not found');
+      }
+
+      await deleteRecording(recordingId);
+      // Refresh recordings list after deletion
+      const query = { ...currentQuery, isArchived: showArchived };
+      fetchRecordings(query);
+    } catch (error: any) {
+      console.error('Failed to delete recording:', error);
+      toast.error(error.message || 'Failed to delete recording');
+    }
+  };
+
+  const handleArchiveRecording = async (recording: MeetingRecording) => {
+    try {
+      const recordingId = recording.id || recording._id;
+      if (!recordingId) {
+        throw new Error('Recording ID not found');
+      }
+
+      await archiveRecording(recordingId);
+      // Refresh recordings list after archiving
+      const query = { ...currentQuery, isArchived: showArchived };
+      fetchRecordings(query);
+    } catch (error: any) {
+      console.error('Failed to archive recording:', error);
+      toast.error(error.message || 'Failed to archive recording');
+    }
+  };
+
+  const handleUnarchiveRecording = async (recording: MeetingRecording) => {
+    try {
+      const recordingId = recording.id || recording._id;
+      if (!recordingId) {
+        throw new Error('Recording ID not found');
+      }
+
+      await unarchiveRecording(recordingId);
+      // Refresh recordings list after unarchiving
+      const query = { ...currentQuery, isArchived: showArchived };
+      fetchRecordings(query);
+    } catch (error: any) {
+      console.error('Failed to unarchive recording:', error);
+      toast.error(error.message || 'Failed to unarchive recording');
+    }
+  };
+
+  const handleUploadSuccess = () => {
+    // Refresh recordings list after upload
+    const query = { ...currentQuery, isArchived: showArchived };
+    fetchRecordings(query);
+    setShowUploadModal(false);
   };
 
   if (!activeOrganization) {
@@ -59,20 +128,28 @@ export default function Recordings() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
+      <div className="mx-auto px-4 space-y-6 max-w-7xl">
         {/* Header */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
               <h1 className="text-xl font-semibold text-foreground">
-                Meeting Recordings
+                {showArchived ? 'Archived Recordings' : 'Meeting Recordings'}
               </h1>
               <p className="text-sm text-muted-foreground">
-                Manage and access your organization's meeting recordings,
-                transcripts, and AI summaries.
+                {showArchived
+                  ? 'View and manage archived meeting recordings.'
+                  : "Manage and access your organization's meeting recordings, transcripts, and AI summaries."}
               </p>
             </div>
             <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={showArchived ? 'outline' : 'default'}
+                onClick={() => setShowArchived(!showArchived)}
+              >
+                {showArchived ? 'Show Active' : 'Show Archived'}
+              </Button>
               <Button size="sm" onClick={() => setShowUploadModal(true)}>
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Recording
@@ -81,8 +158,8 @@ export default function Recordings() {
           </div>
 
           {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
+          <div className="flex flex-col justify-between sm:flex-row gap-3">
+            <div className="flex-1 max-w-md">
               <RecordingsSearch onSearchChange={handleSearchChange} />
             </div>
             <div className="flex gap-2">
@@ -162,7 +239,9 @@ export default function Recordings() {
                 recording={recording}
                 onPlay={() => setSelectedRecording(recording)}
                 onEdit={() => {}}
-                onDelete={() => {}}
+                onDelete={handleDeleteRecording}
+                onArchive={handleArchiveRecording}
+                onUnarchive={handleUnarchiveRecording}
                 onDownloadTranscript={() => {}}
                 onStartProcessing={() => {}}
                 onShare={() => {}}
@@ -176,7 +255,7 @@ export default function Recordings() {
             <p className="text-sm text-muted-foreground mb-4">
               Upload your first meeting recording to get started.
             </p>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setShowUploadModal(true)}>
               <Upload className="w-4 h-4 mr-2" />
               Upload Recording
             </Button>
@@ -198,10 +277,7 @@ export default function Recordings() {
       <UploadRecordingModal
         open={showUploadModal}
         onOpenChange={setShowUploadModal}
-        onUploadSuccess={(recording) => {
-          // Refresh recordings list after successful upload
-          fetchRecordings();
-        }}
+        onUploadSuccess={handleUploadSuccess}
       />
     </DashboardLayout>
   );
