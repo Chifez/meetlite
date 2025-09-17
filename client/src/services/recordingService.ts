@@ -1,0 +1,151 @@
+import api from '@/lib/axios';
+import { env } from '@/config/env';
+import {
+  MeetingRecording,
+  MeetingAssetsQuery,
+  MeetingAssetsResponse,
+} from '@/types/meetingAssets';
+
+export class RecordingService {
+  // Get organization's meeting recordings with filtering and pagination
+  async getOrganizationRecordings(
+    query: MeetingAssetsQuery = {}
+  ): Promise<MeetingAssetsResponse> {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined) {
+          if (Array.isArray(value)) {
+            params.append(key, value.join(','));
+          } else {
+            params.set(key, value.toString());
+          }
+        }
+      });
+
+      const response = await api.get(`${env.ROOM_API_URL}/recordings`, {
+        params,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch recordings:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to fetch recordings'
+      );
+    }
+  }
+
+  // Get a specific recording by ID
+  async getRecordingById(recordingId: string): Promise<MeetingRecording> {
+    try {
+      const response = await api.get(
+        `${env.ROOM_API_URL}/recordings/${recordingId}`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to fetch recording'
+      );
+    }
+  }
+
+  // Delete a recording
+  async deleteRecording(recordingId: string): Promise<void> {
+    try {
+      await api.delete(`${env.ROOM_API_URL}/recordings/${recordingId}`);
+    } catch (error: any) {
+      console.error('Failed to delete recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to delete recording'
+      );
+    }
+  }
+
+  // Archive a recording
+  async archiveRecording(recordingId: string): Promise<void> {
+    try {
+      await api.post(`${env.ROOM_API_URL}/recordings/${recordingId}/archive`);
+    } catch (error: any) {
+      console.error('Failed to archive recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to archive recording'
+      );
+    }
+  }
+
+  // Unarchive a recording
+  async unarchiveRecording(recordingId: string): Promise<void> {
+    try {
+      await api.post(`${env.ROOM_API_URL}/recordings/${recordingId}/unarchive`);
+    } catch (error: any) {
+      console.error('Failed to unarchive recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to unarchive recording'
+      );
+    }
+  }
+
+  // Get fresh streaming URLs for a recording
+  async getStreamingUrl(recordingId: string): Promise<{
+    streamingUrl: string;
+    thumbnailUrl?: string;
+  }> {
+    try {
+      const response = await api.get(
+        `${env.ROOM_API_URL}/recordings/${recordingId}/stream`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to get streaming URL:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to get streaming URL'
+      );
+    }
+  }
+
+  // Generate a shareable link for a recording
+  async generateShareLink(recordingId: string): Promise<{
+    shareableUrl: string;
+    expiresAt: Date;
+  }> {
+    try {
+      const response = await api.post(
+        `${env.ROOM_API_URL}/recordings/${recordingId}/share`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to generate share link:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to generate share link'
+      );
+    }
+  }
+
+  // Download a recording
+  async downloadRecording(recordingId: string): Promise<void> {
+    try {
+      const response = await api.get(
+        `${env.ROOM_API_URL}/recordings/${recordingId}/download`,
+        {
+          responseType: 'blob',
+        }
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `recording-${recordingId}.mp4`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Failed to download recording:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to download recording'
+      );
+    }
+  }
+}

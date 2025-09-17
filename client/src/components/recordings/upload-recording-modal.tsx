@@ -115,18 +115,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
     setUploadProgress(0);
 
     try {
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return Math.min(90, prev + Math.floor(Math.random() * 15) + 5);
-        });
-      }, 200);
-
-      // Upload the file using the real service
+      // Upload the file using the real service with progress tracking
       const recording = await meetingAssetsService.uploadRecording(
         selectedFile,
         {
@@ -137,10 +126,12 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean),
+        },
+        (progress) => {
+          setUploadProgress(progress.percentage);
         }
       );
 
-      clearInterval(progressInterval);
       setUploadProgress(100);
 
       toast.success('Recording uploaded successfully!');

@@ -1,6 +1,5 @@
 import { models } from '../index.js';
 import { uploadVideoFile } from '../services/cloudflareR2Service.js';
-import path from 'path';
 import fs from 'fs/promises';
 
 /**

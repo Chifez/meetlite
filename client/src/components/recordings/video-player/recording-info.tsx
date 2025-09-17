@@ -2,8 +2,8 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { FileText, Clock } from 'lucide-react';
-import type { MeetingRecording } from '../../../services/meetingAssetsService';
+import { FileText } from 'lucide-react';
+import type { MeetingRecording } from '@/types/meetingAssets';
 
 interface RecordingInfoProps {
   recording: MeetingRecording;
@@ -93,40 +93,44 @@ export const RecordingInfo: React.FC<RecordingInfoProps> = ({
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="text-xs bg-blue-100 text-blue-600">
                   {getParticipantInitials(
-                    participant.name || participant.email || 'User'
+                    participant.name ||
+                      participant.email ||
+                      `Participant ${index + 1}`
                   )}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {participant.name || participant.email || 'Unknown User'}
+                  {participant.name ||
+                    participant.email ||
+                    `Participant ${index + 1}`}
                 </p>
-                <p className="text-xs text-gray-500">{participant.role}</p>
+                <p className="text-xs text-gray-500">
+                  {participant.role || 'Participant'}
+                </p>
               </div>
-              {participant.speakingTime && (
-                <div className="text-xs text-gray-500 flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatTime(participant.speakingTime)}
-                </div>
-              )}
             </div>
           ))}
         </div>
       </div>
 
       {/* Tags */}
-      {recording.tags.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-lg mb-3 text-gray-900">Tags</h3>
-          <div className="flex flex-wrap gap-2">
-            {recording.tags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
+      {recording.tags &&
+        recording.tags.length > 0 &&
+        recording.tags.filter((tag) => tag && tag.trim()).length > 0 && (
+          <div>
+            <h3 className="font-semibold text-lg mb-3 text-gray-900">Tags</h3>
+            <div className="flex flex-wrap gap-2">
+              {recording.tags
+                .filter((tag) => tag && tag.trim())
+                .map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Action Buttons */}
       <div className="space-y-3 pt-4 border-t border-gray-200">

@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
-import { AlertTriangle, Trash2, Archive, ArchiveRestore } from 'lucide-react';
 
 interface ConfirmationModalProps {
   open: boolean;
@@ -19,7 +18,6 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'destructive' | 'default';
-  icon?: React.ReactNode;
   isLoading?: boolean;
 }
 
@@ -32,7 +30,6 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'default',
-  icon,
   isLoading = false,
 }) => {
   const handleConfirm = () => {
@@ -93,7 +90,6 @@ export const DeleteConfirmationModal: React.FC<{
     description={`Are you sure you want to delete "${itemName}"? This action cannot be undone and will permanently remove the recording and all associated files.`}
     confirmText="Delete"
     variant="destructive"
-    icon={<Trash2 className="h-6 w-6 text-red-600" />}
     isLoading={isLoading}
   />
 );
@@ -118,13 +114,6 @@ export const ArchiveConfirmationModal: React.FC<{
     }
     confirmText={isArchiving ? 'Archive' : 'Unarchive'}
     variant="default"
-    icon={
-      isArchiving ? (
-        <Archive className="h-6 w-6 text-blue-600" />
-      ) : (
-        <ArchiveRestore className="h-6 w-6 text-green-600" />
-      )
-    }
     isLoading={isLoading}
   />
 );

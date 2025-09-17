@@ -170,7 +170,7 @@ export const generateThumbnail = async (input, options = {}) => {
         );
 
         const {
-          timeOffset = '00:00:01', // Default to 1 second
+          timeOffset = '00:00:02', // Default to 2 seconds
           width = 320,
           height = 180,
           quality = 2, // FFmpeg quality scale (1-31, lower is better)

@@ -1,22 +1,15 @@
-import React, { useState } from 'react';
-import { format } from 'date-fns';
+import React from 'react';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-
 import { RecordingActionsDropdown } from './recording-actions-dropdown';
-import {
-  Play,
-  Download,
-  FileText,
-  Brain,
-  Eye,
-  Clock,
-  Users,
-} from 'lucide-react';
+import { RecordingMetadata } from './recording-metadata';
+import { RecordingStats } from './recording-stats';
+import { Play, Eye, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { MeetingRecording } from '../../services/meetingAssetsService';
+import type { MeetingRecording } from '@/types/meetingAssets';
 import VideoHeader from './video-player/video-header';
+import { useThumbnailManager } from '@/hooks/useThumbnailManager';
 
 interface RecordingCardProps {
   recording: MeetingRecording;
@@ -50,20 +43,13 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
   processingProgress = 0,
   className,
 }) => {
-  const [thumbnailError, setThumbnailError] = useState(false);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'processing':
-        return 'bg-blue-100 text-blue-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const recordingId = recording.id || recording._id || '';
+  const {
+    thumbnailError,
+    freshThumbnailUrl,
+    isLoadingThumbnail,
+    handleThumbnailError,
+  } = useThumbnailManager(recordingId);
 
   return (
     <div>
@@ -75,7 +61,9 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
           isProcessing={isProcessing}
           processingProgress={processingProgress}
           thumbnailError={thumbnailError}
-          setThumbnailError={setThumbnailError}
+          setThumbnailError={handleThumbnailError}
+          freshThumbnailUrl={freshThumbnailUrl || undefined}
+          isLoadingThumbnail={isLoadingThumbnail}
         />
 
         <CardHeader className="p-4 pb-2">
@@ -113,67 +101,34 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
         </CardHeader>
 
         <CardContent className="p-4 pt-0 space-y-3">
-          {/* Status Badges */}
-          <div className="flex flex-wrap gap-1">
-            <Badge variant="outline" className="text-xs">
-              {recording.recording.quality}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              {recording.recording.format.toUpperCase()}
-            </Badge>
-            <Badge
-              className={cn(
-                'text-xs',
-                getStatusColor(recording.processingStatus)
-              )}
-            >
-              {recording.processingStatus}
-            </Badge>
-          </div>
-
-          {/* Transcript & Summary Status */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <FileText className="w-3 h-3" />
-              <span>{recording.transcript.status}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Brain className="w-3 h-3" />
-              <span>{recording.aiSummary.status}</span>
-            </div>
-          </div>
-
-          {/* Metadata */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              <span>
-                {format(new Date(recording.createdAt), 'MMM d, yyyy')}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              <span>{recording.participants.length}</span>
-            </div>
-          </div>
+          <RecordingMetadata recording={recording} />
+          <RecordingStats recording={recording} />
 
           {/* Tags */}
-          <div className="h-5 flex items-center gap-1">
-            {recording.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {recording.tags.slice(0, 3).map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-                {recording.tags.length > 3 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{recording.tags.length - 3}
-                  </Badge>
-                )}
+          {recording.tags &&
+            recording.tags.length > 0 &&
+            recording.tags.filter((tag) => tag && tag.trim()).length > 0 && (
+              <div className="h-5 flex items-center gap-1">
+                <div className="flex flex-wrap gap-1">
+                  {recording.tags
+                    .filter((tag) => tag && tag.trim())
+                    .slice(0, 3)
+                    .map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  {recording.tags.filter((tag) => tag && tag.trim()).length >
+                    3 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +
+                      {recording.tags.filter((tag) => tag && tag.trim())
+                        .length - 3}
+                    </Badge>
+                  )}
+                </div>
               </div>
             )}
-          </div>
 
           {/* Analytics */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">

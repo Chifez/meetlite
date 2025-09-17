@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { meetingAssetsService } from '../services/meetingAssetsService';
-import { analyticsService } from '../services/analyticsService';
+import { meetingAssetsService } from '@/services/meetingAssetsService';
+import { AnalyticsService } from '@/services/analyticsService';
 import type {
   MeetingRecording,
   MeetingAssetsQuery,
-} from '../services/meetingAssetsService';
+} from '@/types/meetingAssets';
 
 export const useMeetingAssets = (organizationId?: string) => {
   const [recordings, setRecordings] = useState<MeetingRecording[]>([]);
@@ -22,12 +22,15 @@ export const useMeetingAssets = (organizationId?: string) => {
     total: 0,
     totalPages: 0,
   });
+
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<
     Record<string, { progress: number; status: string }>
   >({});
   const [selectedRecording, setSelectedRecording] =
     useState<MeetingRecording | null>(null);
+
+  const analyticsService = useMemo(() => new AnalyticsService(), []);
 
   const fetchRecordings = useCallback(
     async (query: MeetingAssetsQuery = {}) => {
@@ -53,7 +56,7 @@ export const useMeetingAssets = (organizationId?: string) => {
       try {
         // Fetch recordings and analytics in parallel
         const [response, analyticsData] = await Promise.all([
-          meetingAssetsService.getOrganizationRecordings(organizationId, query),
+          meetingAssetsService.getOrganizationRecordings(query),
           analyticsService.getOrganizationAnalytics(organizationId),
         ]);
 
@@ -80,7 +83,7 @@ export const useMeetingAssets = (organizationId?: string) => {
 
   const loadRecording = useCallback(async (id: string) => {
     try {
-      const recording = await meetingAssetsService.getRecording(id);
+      const recording = await meetingAssetsService.getRecordingById(id);
       setSelectedRecording(recording);
       return recording;
     } catch (error: any) {
@@ -88,24 +91,6 @@ export const useMeetingAssets = (organizationId?: string) => {
       return null;
     }
   }, []);
-
-  const updateRecording = useCallback(
-    async (id: string, updates: any) => {
-      try {
-        const updated = await meetingAssetsService.updateRecording(id, updates);
-
-        setRecordings((prev) => prev.map((r) => (r.id === id ? updated : r)));
-        if (selectedRecording?.id === id) setSelectedRecording(updated);
-
-        toast.success('Recording updated successfully');
-        return updated;
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to update recording');
-        return null;
-      }
-    },
-    [selectedRecording]
-  );
 
   const deleteRecording = useCallback(
     async (id: string) => {
@@ -178,7 +163,7 @@ export const useMeetingAssets = (organizationId?: string) => {
             const status = await meetingAssetsService.getProcessingStatus(id);
             setProcessing((prev) => ({
               ...prev,
-              [id]: { progress: status.progress, status: status.status },
+              [id]: { progress: 0, status: status.status },
             }));
 
             if (status.status === 'completed' || status.status === 'failed') {
@@ -205,39 +190,20 @@ export const useMeetingAssets = (organizationId?: string) => {
     [fetchRecordings]
   );
 
-  const downloadTranscript = useCallback(async (id: string) => {
+  const downloadTranscript = useCallback(async (_id: string) => {
     try {
-      const blob = await meetingAssetsService.downloadTranscript(id);
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `transcript-${id}.txt`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-
-      toast.success('Transcript downloaded');
+      // TODO: Implement transcript download functionality
+      toast.info('Transcript download coming soon');
     } catch (error: any) {
       toast.error(error.message || 'Failed to download transcript');
     }
   }, []);
 
   const exportRecordings = useCallback(
-    async (format: 'csv' | 'json' | 'pdf') => {
+    async (_format: 'csv' | 'json' | 'pdf') => {
       try {
-        const blob = await meetingAssetsService.exportRecordings(
-          organizationId || '',
-          format
-        );
-
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `recordings.${format}`;
-        link.click();
-        window.URL.revokeObjectURL(url);
-
-        toast.success(`Exported as ${format.toUpperCase()}`);
+        // TODO: Implement export functionality
+        toast.info('Export functionality coming soon');
       } catch (error: any) {
         toast.error('Failed to export recordings');
       }
@@ -253,14 +219,16 @@ export const useMeetingAssets = (organizationId?: string) => {
         title: string;
         description?: string;
         meetingId?: string;
-        visibility?: 'organization' | 'participants' | 'private';
         tags?: string[];
-      }
+        visibility?: 'organization' | 'participants' | 'private';
+      },
+      onProgress?: (progress: any) => void
     ) => {
       try {
         const recording = await meetingAssetsService.uploadRecording(
           file,
-          metadata
+          metadata,
+          onProgress
         );
 
         // Add to recordings list
@@ -285,7 +253,6 @@ export const useMeetingAssets = (organizationId?: string) => {
     selectedRecording,
     fetchRecordings,
     loadRecording,
-    updateRecording,
     deleteRecording,
     archiveRecording,
     unarchiveRecording,

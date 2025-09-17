@@ -9,12 +9,16 @@ const VideoHeader = ({
   setThumbnailError,
   isProcessing = false,
   processingProgress = 0,
+  freshThumbnailUrl,
+  isLoadingThumbnail = false,
 }: {
   recording: MeetingRecording;
   thumbnailError: boolean;
   setThumbnailError: (value: boolean) => void;
   isProcessing: boolean;
   processingProgress: number;
+  freshThumbnailUrl?: string;
+  isLoadingThumbnail?: boolean;
 }) => {
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -22,13 +26,18 @@ const VideoHeader = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  console.log('thumbnail', freshThumbnailUrl);
   return (
     <div>
       {/* Thumbnail */}
       <div className="relative aspect-video bg-muted rounded-t-lg overflow-hidden">
-        {!thumbnailError ? (
+        {isLoadingThumbnail ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : !thumbnailError && freshThumbnailUrl ? (
           <img
-            src={recording.recording.thumbnailUrl}
+            src={freshThumbnailUrl}
             alt={recording.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
             onError={() => setThumbnailError(true)}

@@ -210,6 +210,11 @@ meetingRecordingSchema.methods.incrementViewCount = async function () {
   return this.save();
 };
 
+meetingRecordingSchema.methods.incrementDownloadCount = async function () {
+  this.analytics.downloadCount += 1;
+  return this.save();
+};
+
 // Static methods
 meetingRecordingSchema.statics.findByOrganization = function (
   organizationId,
@@ -250,7 +255,27 @@ meetingRecordingSchema.statics.findByOrganization = function (
     .populate('participants.userId', 'name email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .skip((page - 1) * limit)
-    .limit(limit);
+    .limit(limit)
+    .lean()
+    .then((recordings) => {
+      // Transform participants to flatten the populated user data
+      return recordings.map((recording) => {
+        if (recording.participants) {
+          recording.participants = recording.participants.map((participant) => {
+            if (participant.userId && typeof participant.userId === 'object') {
+              return {
+                ...participant,
+                name: participant.userId.name || '',
+                email: participant.userId.email || '',
+                userId: participant.userId._id,
+              };
+            }
+            return participant;
+          });
+        }
+        return recording;
+      });
+    });
 };
 
 meetingRecordingSchema.statics.getStorageStats = function (organizationId) {

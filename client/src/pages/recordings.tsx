@@ -1,24 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useWorkspace } from '../contexts/workspace-context';
-import { useMeetingAssets } from '../hooks/useMeetingAssets';
-import { RecordingCard } from '../components/recordings/recording-card';
-import { RecordingsSearch } from '../components/recordings/recordings-search';
-import { RecordingsFilterModal } from '../components/recordings/recordings-filter-modal';
-import { RecordingsExport } from '../components/recordings/recordings-export';
-import { VideoPlayerModal } from '../components/recordings/video-player/video-player-modal';
-import { UploadRecordingModal } from '../components/recordings/upload-recording-modal';
-import { Button } from '../components/ui/button';
+import { useWorkspace } from '@/contexts/workspace-context';
+import { useMeetingAssets } from '@/hooks/useMeetingAssets';
+import { useQueryManager } from '@/hooks/useQueryManager';
+import { RecordingCard } from '@/components/recordings/recording-card';
+import { RecordingsSearch } from '@/components/recordings/recordings-search';
+import { RecordingsFilterModal } from '@/components/recordings/recordings-filter-modal';
+import { RecordingsExport } from '@/components/recordings/recordings-export';
+import { VideoPlayerModal } from '@/components/recordings/video-player/video-player-modal';
+import { UploadRecordingModal } from '@/components/recordings/upload-recording-modal';
+import { Button } from '@/components/ui/button';
 import { Download, FileText, Upload, Video } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
-import type {
-  MeetingAssetsQuery,
-  MeetingRecording,
-} from '../services/meetingAssetsService';
-import { meetingAssetsService } from '../services/meetingAssetsService';
+import type { MeetingRecording } from '@/types/meetingAssets';
+import { meetingAssetsService } from '@/services/meetingAssetsService';
 import { toast } from 'sonner';
 
 export default function Recordings() {
   const { activeOrganization } = useWorkspace();
+
   const {
     recordings,
     stats,
@@ -33,25 +32,19 @@ export default function Recordings() {
   } = useMeetingAssets(activeOrganization?.id);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [currentQuery, setCurrentQuery] = useState<MeetingAssetsQuery>({});
+  const {
+    showArchived,
+    setShowArchived,
+    handleSearchChange,
+    handleFiltersChange,
+    refreshQuery,
+  } = useQueryManager({ onQueryChange: fetchRecordings });
 
   useEffect(() => {
     if (activeOrganization?.id) {
-      const query = { ...currentQuery, isArchived: showArchived };
-      fetchRecordings(query);
+      refreshQuery();
     }
-  }, [activeOrganization?.id, fetchRecordings, currentQuery, showArchived]);
-
-  const handleSearchChange = (searchTerm: string) => {
-    const newQuery = { ...currentQuery, search: searchTerm || undefined };
-    setCurrentQuery(newQuery);
-  };
-
-  const handleFiltersChange = (filters: MeetingAssetsQuery) => {
-    const newQuery = { ...currentQuery, ...filters };
-    setCurrentQuery(newQuery);
-  };
+  }, [activeOrganization?.id, refreshQuery]);
 
   const handleDeleteRecording = async (recording: MeetingRecording) => {
     try {
@@ -63,8 +56,7 @@ export default function Recordings() {
 
       await deleteRecording(recordingId);
       // Refresh recordings list after deletion
-      const query = { ...currentQuery, isArchived: showArchived };
-      fetchRecordings(query);
+      refreshQuery();
     } catch (error: any) {
       console.error('Failed to delete recording:', error);
       toast.error(error.message || 'Failed to delete recording');
@@ -80,8 +72,7 @@ export default function Recordings() {
 
       await archiveRecording(recordingId);
       // Refresh recordings list after archiving
-      const query = { ...currentQuery, isArchived: showArchived };
-      fetchRecordings(query);
+      refreshQuery();
     } catch (error: any) {
       console.error('Failed to archive recording:', error);
       toast.error(error.message || 'Failed to archive recording');
@@ -97,8 +88,7 @@ export default function Recordings() {
 
       await unarchiveRecording(recordingId);
       // Refresh recordings list after unarchiving
-      const query = { ...currentQuery, isArchived: showArchived };
-      fetchRecordings(query);
+      refreshQuery();
     } catch (error: any) {
       console.error('Failed to unarchive recording:', error);
       toast.error(error.message || 'Failed to unarchive recording');
@@ -107,9 +97,82 @@ export default function Recordings() {
 
   const handleUploadSuccess = () => {
     // Refresh recordings list after upload
-    const query = { ...currentQuery, isArchived: showArchived };
-    fetchRecordings(query);
+    refreshQuery();
     setShowUploadModal(false);
+  };
+
+  const handleEditRecording = async (recording: MeetingRecording) => {
+    // TODO: Implement edit recording modal
+    console.log('Edit recording:', recording);
+    toast.info('Edit functionality coming soon');
+  };
+
+  const handleShareRecording = async (recording: MeetingRecording) => {
+    try {
+      const recordingId = recording.id || recording._id;
+      if (!recordingId) {
+        throw new Error('Recording ID not found');
+      }
+
+      const shareData = await meetingAssetsService.generateShareLink(
+        recordingId
+      );
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareData.shareableUrl);
+      toast.success('Share link copied to clipboard!');
+    } catch (error: any) {
+      console.error('Failed to generate share link:', error);
+      toast.error(error.message || 'Failed to generate share link');
+    }
+  };
+
+  const handleDownloadTranscript = async (recording: MeetingRecording) => {
+    try {
+      if (recording.transcript.status !== 'completed') {
+        toast.error('Transcript not available');
+        return;
+      }
+
+      // Create and download transcript file
+      const transcriptText =
+        recording.transcript.text || 'No transcript available';
+      const blob = new Blob([transcriptText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${recording.title}_transcript.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Transcript downloaded successfully');
+    } catch (error: any) {
+      console.error('Failed to download transcript:', error);
+      toast.error('Failed to download transcript');
+    }
+  };
+
+  const handleStartProcessing = async (
+    recording: MeetingRecording,
+    type: 'transcript' | 'summary' | 'both'
+  ) => {
+    try {
+      const recordingId = recording.id || recording._id;
+      if (!recordingId) {
+        throw new Error('Recording ID not found');
+      }
+
+      await meetingAssetsService.startProcessing(recordingId, type);
+      toast.success(`${type} processing started`);
+
+      // Refresh recordings to show updated status
+      refreshQuery();
+    } catch (error: any) {
+      console.error('Failed to start processing:', error);
+      toast.error(error.message || 'Failed to start processing');
+    }
   };
 
   if (!activeOrganization) {
@@ -231,20 +294,20 @@ export default function Recordings() {
               </div>
             ))}
           </div>
-        ) : recordings.length > 0 ? (
+        ) : recordings?.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recordings.map((recording) => (
               <RecordingCard
                 key={recording.id}
                 recording={recording}
                 onPlay={() => setSelectedRecording(recording)}
-                onEdit={() => {}}
+                onEdit={handleEditRecording}
                 onDelete={handleDeleteRecording}
                 onArchive={handleArchiveRecording}
                 onUnarchive={handleUnarchiveRecording}
-                onDownloadTranscript={() => {}}
-                onStartProcessing={() => {}}
-                onShare={() => {}}
+                onDownloadTranscript={handleDownloadTranscript}
+                onStartProcessing={handleStartProcessing}
+                onShare={handleShareRecording}
               />
             ))}
           </div>
@@ -268,8 +331,8 @@ export default function Recordings() {
           recording={selectedRecording}
           open={!!selectedRecording}
           onOpenChange={(open) => !open && setSelectedRecording(null)}
-          onDownloadTranscript={() => {}}
-          onStartProcessing={() => {}}
+          onDownloadTranscript={handleDownloadTranscript}
+          onStartProcessing={handleStartProcessing}
         />
       )}
 

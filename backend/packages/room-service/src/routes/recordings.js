@@ -6,6 +6,7 @@ import {
   uploadVideoFile,
   checkR2Config,
   extractAudioFromVideo,
+  generateSignedUrl,
 } from '../services/cloudflareR2Service.js';
 import {
   transcribeRecording,
@@ -328,7 +329,71 @@ router.get('/:id', async (req, res) => {
   try {
     const recording = await models.MeetingRecording.findById(req.params.id)
       .populate('meetingId', 'title scheduledTime')
-      .populate('participants.userId', 'name email');
+      .populate('participants.userId', 'name email')
+      .lean();
+
+    if (!recording) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recording not found',
+      });
+    }
+
+    // Transform participants to flatten the populated user data
+    if (recording.participants) {
+      recording.participants = recording.participants.map((participant) => {
+        if (participant.userId && typeof participant.userId === 'object') {
+          return {
+            ...participant,
+            name: participant.userId.name || '',
+            email: participant.userId.email || '',
+            userId: participant.userId._id,
+          };
+        }
+        return participant;
+      });
+    }
+
+    // Check access permissions
+    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this recording',
+      });
+    }
+
+    // Increment view count
+    await models.MeetingRecording.findByIdAndUpdate(req.params.id, {
+      $inc: { 'analytics.viewCount': 1 },
+      $set: {
+        'analytics.lastViewed': new Date(),
+        'retentionPolicy.lastAccessDate': new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+      recording,
+    });
+  } catch (error) {
+    console.error('Error fetching recording:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recording',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/recordings/:id/stream
+ * @desc    Get fresh signed URL for video streaming
+ * @access  Private
+ */
+router.get('/:id/stream', async (req, res) => {
+  try {
+    const recording = await models.MeetingRecording.findById(req.params.id);
 
     if (!recording) {
       return res.status(404).json({
@@ -346,18 +411,26 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Increment view count
-    await recording.incrementViewCount();
+    // Generate fresh signed URLs
+    const streamingUrl = await generateSignedUrl(
+      recording.recording.storagePath,
+      3600 // 1 hour expiry
+    );
+
+    const thumbnailUrl = recording.recording.thumbnailPath
+      ? await generateSignedUrl(recording.recording.thumbnailPath, 3600)
+      : null;
 
     res.json({
       success: true,
-      recording,
+      streamingUrl,
+      thumbnailUrl,
     });
   } catch (error) {
-    console.error('Error fetching recording:', error);
+    console.error('Error generating streaming URL:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch recording',
+      message: 'Failed to generate streaming URL',
       error: error.message,
     });
   }
@@ -565,6 +638,58 @@ router.post('/:id/process', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to start processing',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/recordings/:id/share
+ * @desc    Generate shareable link for recording
+ * @access  Private
+ */
+router.post('/:id/share', async (req, res) => {
+  try {
+    const recording = await models.MeetingRecording.findById(req.params.id);
+
+    if (!recording) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recording not found',
+      });
+    }
+
+    // Check access permissions
+    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this recording',
+      });
+    }
+
+    // Generate a shareable token (you might want to store this in DB)
+    const shareToken = Buffer.from(`${recording._id}:${Date.now()}`).toString(
+      'base64'
+    );
+
+    // Generate signed URL with longer expiry for sharing (24 hours)
+    const shareableUrl = await generateSignedUrl(
+      recording.recording.storagePath,
+      86400 // 24 hours expiry
+    );
+
+    res.json({
+      success: true,
+      shareToken,
+      shareableUrl,
+      expiresAt: new Date(Date.now() + 86400 * 1000).toISOString(),
+    });
+  } catch (error) {
+    console.error('Error generating share link:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate share link',
       error: error.message,
     });
   }

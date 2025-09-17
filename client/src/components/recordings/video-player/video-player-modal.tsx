@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { VideoPlayer } from './video-player';
 import { InfoPanel } from './info-panel';
+import { Loader2 } from 'lucide-react';
+import { meetingAssetsService } from '../../../services/meetingAssetsService';
 import type { MeetingRecording } from '../../../services/meetingAssetsService';
 
 interface VideoPlayerModalProps {
@@ -24,9 +26,45 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   onStartProcessing,
   streamingUrl,
 }) => {
+  const [freshUrls, setFreshUrls] = useState<{
+    streamingUrl?: string;
+    thumbnailUrl?: string;
+  }>({});
+  const [isLoadingUrls, setIsLoadingUrls] = useState(false);
+
+  useEffect(() => {
+    if (open && recording) {
+      fetchFreshUrls();
+    }
+  }, [open, recording]);
+
+  const fetchFreshUrls = async () => {
+    if (!recording) return;
+
+    setIsLoadingUrls(true);
+    try {
+      const recordingId = recording.id || recording._id;
+      if (!recordingId) {
+        throw new Error('Recording ID not found');
+      }
+
+      const urls = await meetingAssetsService.getStreamingUrl(recordingId);
+      setFreshUrls(urls);
+    } catch (error) {
+      console.error('Failed to fetch fresh URLs:', error);
+      // Fallback to empty URLs to prevent console errors
+      setFreshUrls({
+        streamingUrl: '',
+        thumbnailUrl: '',
+      });
+    } finally {
+      setIsLoadingUrls(false);
+    }
+  };
+
   if (!recording) return null;
 
-  const videoUrl = streamingUrl || recording.recording.streamingUrl;
+  const videoUrl = freshUrls.streamingUrl || streamingUrl;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,7 +75,18 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
             className="w-full bg-black relative flex-shrink-0"
             style={{ height: '45vh' }}
           >
-            <VideoPlayer recording={recording} videoUrl={videoUrl} />
+            {isLoadingUrls ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                <span className="ml-2 text-white">Loading video...</span>
+              </div>
+            ) : (
+              <VideoPlayer
+                recording={recording}
+                videoUrl={videoUrl}
+                thumbnailUrl={freshUrls.thumbnailUrl}
+              />
+            )}
           </div>
 
           {/* Info Panel Section - Takes 50% of height with scrolling */}

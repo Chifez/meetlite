@@ -7,12 +7,14 @@ import type { MeetingRecording } from '../../../services/meetingAssetsService';
 
 interface VideoPlayerProps {
   recording: MeetingRecording;
-  videoUrl: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   recording,
   videoUrl,
+  thumbnailUrl,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -129,7 +131,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           ref={videoRef}
           src={videoUrl}
           className="w-full h-full object-contain"
-          poster={recording.recording.thumbnailUrl}
+          poster={thumbnailUrl}
           preload="metadata"
         />
       </div>
