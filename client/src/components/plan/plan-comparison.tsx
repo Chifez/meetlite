@@ -40,13 +40,6 @@ export default function PlanComparison({
     return 'outline';
   };
 
-  const getPlanBadgeVariant = (planName: string) => {
-    if (planName === currentPlan) return 'default';
-    if (PLAN_INFO[planName].popular) return 'secondary';
-    if (PLAN_INFO[planName].recommended) return 'destructive';
-    return 'outline';
-  };
-
   return (
     <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${className}`}>
       {plans.map(([planKey, plan]) => (
@@ -108,19 +101,21 @@ export default function PlanComparison({
             )}
 
             {/* Upgrade Button */}
-            {showUpgradeButtons && planKey !== currentPlan && (
-              <div className="pt-3 border-t">
-                <Button
-                  className="w-full"
-                  variant={plan.popular ? 'default' : 'outline'}
-                  onClick={() => handleUpgrade(planKey)}
-                >
-                  {plan.price === 'Custom pricing'
-                    ? 'Contact Sales'
-                    : `Upgrade to ${plan.name}`}
-                </Button>
-              </div>
-            )}
+            {showUpgradeButtons &&
+              planKey !== currentPlan &&
+              planKey !== 'free' && (
+                <div className="pt-3 border-t">
+                  <Button
+                    className="w-full"
+                    variant={plan.popular ? 'default' : 'outline'}
+                    onClick={() => handleUpgrade(planKey)}
+                  >
+                    {plan.price === 'Custom pricing'
+                      ? 'Contact Sales'
+                      : `Upgrade to ${plan.name}`}
+                  </Button>
+                </div>
+              )}
           </CardContent>
         </Card>
       ))}

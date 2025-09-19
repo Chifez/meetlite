@@ -76,7 +76,7 @@ export class OrganizationController {
         });
       }
 
-      // Create organization
+      // Create organization with owner's plan
       const organization = new models.Organization({
         name: name.trim(),
         description: description?.trim(),
@@ -84,10 +84,11 @@ export class OrganizationController {
         size,
         ownerId: userId,
         plan: {
-          type: 'free',
-          startDate: new Date(),
-          status: 'active',
-        }, // Default plan
+          type: req.user.plan.type, // Inherit owner's plan
+          startDate: req.user.plan.startDate || new Date(),
+          endDate: req.user.plan.endDate || null,
+          status: req.user.plan.status || 'active',
+        },
         stats: {
           totalMembers: 1, // Owner is the first member
         },

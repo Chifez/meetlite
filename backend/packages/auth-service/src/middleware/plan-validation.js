@@ -151,8 +151,21 @@ export class PlanExpirationService {
         $inc: { tokenVersion: 1 }, // Invalidate tokens
       });
 
+      // Also downgrade all organizations owned by this user
+      await models.Organization.updateMany(
+        { ownerId: user._id },
+        {
+          'plan.type': 'free',
+          'plan.status': 'active',
+          'plan.startDate': new Date(),
+          'plan.endDate': null,
+        }
+      );
+
       // Send expiration notification (implement email service)
-      console.log(`Plan expired for user: ${user.email}`);
+      console.log(
+        `Plan expired for user: ${user.email} and synced to owned organizations`
+      );
 
       // TODO: Send email notification about plan expiration
       // await sendPlanExpirationEmail(user.email, user.name, user.plan.type);
@@ -182,6 +195,19 @@ export class PlanExpirationService {
         { new: true }
       );
 
+      // Also update all organizations owned by this user
+      if (planType) {
+        await models.Organization.updateMany(
+          { ownerId: userId },
+          {
+            'plan.type': planType,
+            'plan.status': 'active',
+            'plan.startDate': new Date(),
+            'plan.endDate': newEndDate,
+          }
+        );
+      }
+
       return updatedUser;
     } catch (error) {
       console.error('Error extending plan:', error);
@@ -201,6 +227,17 @@ export class PlanExpirationService {
           $inc: { tokenVersion: 1 },
         },
         { new: true }
+      );
+
+      // Also downgrade all organizations owned by this user
+      await models.Organization.updateMany(
+        { ownerId: userId },
+        {
+          'plan.type': 'free',
+          'plan.status': 'active',
+          'plan.startDate': new Date(),
+          'plan.endDate': null,
+        }
       );
 
       return updatedUser;

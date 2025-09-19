@@ -293,7 +293,20 @@ export class PaymentService {
       );
 
       if (user) {
-        console.log(`Plan upgraded for user ${userId} to ${planType}`);
+        // Also update all organizations owned by this user
+        await models.Organization.updateMany(
+          { ownerId: userId },
+          {
+            'plan.type': planType,
+            'plan.status': 'active',
+            'plan.startDate': new Date(),
+            'plan.endDate': endDate,
+          }
+        );
+
+        console.log(
+          `Plan upgraded for user ${userId} to ${planType} and synced to owned organizations`
+        );
         return { handled: true, userId, planType };
       }
 

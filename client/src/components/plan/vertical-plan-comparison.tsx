@@ -118,18 +118,20 @@ export default function VerticalPlanComparison({
                   </div>
                 </div>
 
-                {showUpgradeButtons && planKey !== currentPlan && (
-                  <Button
-                    size="sm"
-                    variant={plan.popular ? 'default' : 'outline'}
-                    onClick={() => handleUpgrade(planKey)}
-                    className="min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm"
-                  >
-                    {plan.price === 'Custom pricing'
-                      ? 'Contact Sales'
-                      : `Upgrade`}
-                  </Button>
-                )}
+                {showUpgradeButtons &&
+                  planKey !== currentPlan &&
+                  planKey !== 'free' && (
+                    <Button
+                      size="sm"
+                      variant={plan.popular ? 'default' : 'outline'}
+                      onClick={() => handleUpgrade(planKey)}
+                      className="min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm"
+                    >
+                      {plan.price === 'Custom pricing'
+                        ? 'Contact Sales'
+                        : `Upgrade`}
+                    </Button>
+                  )}
               </div>
             </div>
           </CardContent>
