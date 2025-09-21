@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
-import { ChevronLeft, ChevronRight, Crown, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizationSwitcher } from './organization-switcher';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,7 +10,8 @@ import UserMenu from '../ui/user-menu';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../logo';
 import { NAVIGATION_ITEMS } from '@/lib/constants';
-import { Badge } from '@/components/ui/badge';
+import PlanBadge, { needsUpgrade } from '@/components/ui/plan-badge';
+import { Badge } from '../ui/badge';
 
 interface SidebarProps {
   mobileMenuOpen: boolean;
@@ -21,8 +22,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const { user } = useAuth();
-  const { activeOrganization, currentWorkspaceName, isPersonalMode } =
-    useWorkspace();
+  const { activeOrganization, isPersonalMode } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -162,32 +162,13 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
                 <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
                   Current Plan
                 </p>
-                {(activeOrganization?.plan?.type ||
-                  user?.plan?.type ||
-                  'free') === 'free' && (
-                  <Badge variant="outline" className="text-xs">
-                    Free
-                  </Badge>
-                )}
-                {(activeOrganization?.plan?.type ||
-                  user?.plan?.type ||
-                  'free') === 'pro' && (
-                  <Badge variant="default" className="text-xs bg-blue-500">
-                    <Zap className="w-3 h-3 mr-1" />
-                    Pro
-                  </Badge>
-                )}
-                {(activeOrganization?.plan?.type ||
-                  user?.plan?.type ||
-                  'free') === 'enterprise' && (
-                  <Badge variant="default" className="text-xs bg-purple-500">
-                    <Crown className="w-3 h-3 mr-1" />
-                    Enterprise
-                  </Badge>
-                )}
+                <PlanBadge
+                  activeOrganization={activeOrganization}
+                  userPlan={user?.plan}
+                />
               </div>
 
-              {user?.plan?.type === 'free' && (
+              {needsUpgrade(activeOrganization, user?.plan) && (
                 <Button
                   variant="outline"
                   size="sm"

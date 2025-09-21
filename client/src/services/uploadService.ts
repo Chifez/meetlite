@@ -1,3 +1,4 @@
+import { env } from '@/config/env';
 import api from '@/lib/axios';
 import { UploadProgress } from '@/types/meetingAssets';
 
@@ -16,7 +17,7 @@ export class UploadService {
   ): Promise<any> {
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('recording', file);
       formData.append('title', metadata.title);
       if (metadata.description) {
         formData.append('description', metadata.description);
@@ -31,23 +32,27 @@ export class UploadService {
         formData.append('visibility', metadata.visibility);
       }
 
-      const response = await api.post('/api/recordings/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          if (onProgress && progressEvent.total) {
-            const progress: UploadProgress = {
-              loaded: progressEvent.loaded,
-              total: progressEvent.total,
-              percentage: Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total
-              ),
-            };
-            onProgress(progress);
-          }
-        },
-      });
+      const response = await api.post(
+        `${env.ROOM_API_URL}/recordings`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            if (onProgress && progressEvent.total) {
+              const progress: UploadProgress = {
+                loaded: progressEvent.loaded,
+                total: progressEvent.total,
+                percentage: Math.round(
+                  (progressEvent.loaded * 100) / progressEvent.total
+                ),
+              };
+              onProgress(progress);
+            }
+          },
+        }
+      );
 
       return response.data;
     } catch (error: any) {

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { FileText } from 'lucide-react';
 import type { MeetingRecording } from '@/types/meetingAssets';
+import { hasValidTags, getValidTags } from '@/utils/tags';
 
 interface RecordingInfoProps {
   recording: MeetingRecording;
@@ -115,22 +116,18 @@ export const RecordingInfo: React.FC<RecordingInfoProps> = ({
       </div>
 
       {/* Tags */}
-      {recording.tags &&
-        recording.tags.length > 0 &&
-        recording.tags.filter((tag) => tag && tag.trim()).length > 0 && (
-          <div>
-            <h3 className="font-semibold text-lg mb-3 text-gray-900">Tags</h3>
-            <div className="flex flex-wrap gap-2">
-              {recording.tags
-                .filter((tag) => tag && tag.trim())
-                .map((tag, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-            </div>
+      {hasValidTags(recording.tags) && (
+        <div>
+          <h3 className="font-semibold text-lg mb-3 text-gray-900">Tags</h3>
+          <div className="flex flex-wrap gap-2">
+            {getValidTags(recording.tags).map((tag, index) => (
+              <Badge key={index} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="space-y-3 pt-4 border-t border-gray-200">

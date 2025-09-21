@@ -173,8 +173,9 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
               </div>
               <div className="text-left">
                 <div className="font-medium">{org.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {org.memberCount || 0} members • {org.plan?.type || 'free'}
+                <div className="text-xs text-muted-foreground ">
+                  {org.memberCount || 0} members •{' '}
+                  {org.plan?.type.toUpperCase() || 'FREE'}
                 </div>
               </div>
             </DropdownMenuItem>

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import type { MeetingRecording } from '@/types/meetingAssets';
 import VideoHeader from './video-player/video-header';
 import { useThumbnailManager } from '@/hooks/useThumbnailManager';
+import { hasValidTags, getValidTags } from '@/utils/tags';
 
 interface RecordingCardProps {
   recording: MeetingRecording;
@@ -105,30 +106,24 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
           <RecordingStats recording={recording} />
 
           {/* Tags */}
-          {recording.tags &&
-            recording.tags.length > 0 &&
-            recording.tags.filter((tag) => tag && tag.trim()).length > 0 && (
-              <div className="h-5 flex items-center gap-1">
-                <div className="flex flex-wrap gap-1">
-                  {recording.tags
-                    .filter((tag) => tag && tag.trim())
-                    .slice(0, 3)
-                    .map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  {recording.tags.filter((tag) => tag && tag.trim()).length >
-                    3 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +
-                      {recording.tags.filter((tag) => tag && tag.trim())
-                        .length - 3}
+          {hasValidTags(recording.tags) && (
+            <div className="h-5 flex items-center gap-1">
+              <div className="flex flex-wrap gap-1">
+                {getValidTags(recording.tags)
+                  .slice(0, 3)
+                  .map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
                     </Badge>
-                  )}
-                </div>
+                  ))}
+                {getValidTags(recording.tags).length > 3 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{getValidTags(recording.tags).length - 3}
+                  </Badge>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
           {/* Analytics */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
