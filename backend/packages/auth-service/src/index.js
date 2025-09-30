@@ -12,6 +12,7 @@ import planManagementRoutes from './routes/v1/plan-management.route.js';
 import multiOrganizationRoutes from './routes/v1/multi-organization.route.js';
 import bulkOperationsRoutes from './routes/v1/bulk-operations.route.js';
 import paymentRoutes from './routes/v1/payment.route.js';
+import pushNotificationsRoutes from './routes/v1/push-notifications.route.js';
 
 // Import simple middleware
 import corsMiddleware from './middleware/cors.js';
@@ -65,6 +66,7 @@ app.use('/api/v1/plan', planRoutes);
 app.use('/api/v1/plan-management', planManagementRoutes);
 app.use('/api/v1/multi-org', multiOrganizationRoutes);
 app.use('/api/v1/bulk', bulkOperationsRoutes);
+app.use('/api/v1/push-notifications', pushNotificationsRoutes);
 
 // Only load payment routes if Stripe is configured
 if (process.env.STRIPE_SECRET_KEY) {

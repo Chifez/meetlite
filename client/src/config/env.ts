@@ -14,6 +14,7 @@ export const env = {
     import.meta.env.VITE_CALENDAR_SERVICE_URL ||
     import.meta.env.VITE_ROOM_API_URL,
   BASE_URL: import.meta.env.VITE_BASE_URL,
+  VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY,
 } as const;
 
 // Type-safe environment variables

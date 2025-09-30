@@ -72,9 +72,15 @@ class MeetingAssetsService {
       meetingId?: string;
       visibility?: 'organization' | 'participants' | 'private';
     },
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    signal?: AbortSignal
   ): Promise<any> {
-    return this.uploadService.uploadRecording(file, metadata, onProgress);
+    return this.uploadService.uploadRecording(
+      file,
+      metadata,
+      onProgress,
+      signal
+    );
   }
 
   // Processing methods

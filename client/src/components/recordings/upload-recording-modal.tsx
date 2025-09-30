@@ -31,15 +31,19 @@ interface UploadFormData {
   tags: string;
 }
 
+type UploadStatus = 'idle' | 'uploading' | 'success' | 'failed';
+
 export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
   open,
   onOpenChange,
   onUploadSuccess,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
 
   const {
     register,
@@ -105,17 +109,15 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
     setDragActive(false);
   };
 
-  const onSubmit = async (data: UploadFormData) => {
-    if (!selectedFile) {
-      alert('Please select a file to upload');
-      return;
-    }
+  const performUpload = async (data: UploadFormData) => {
+    if (!selectedFile) return;
 
-    setUploading(true);
+    const controller = new AbortController();
+    setAbortController(controller);
+    setUploadStatus('uploading');
     setUploadProgress(0);
 
     try {
-      // Upload the file using the real service with progress tracking
       const recording = await meetingAssetsService.uploadRecording(
         selectedFile,
         {
@@ -129,36 +131,66 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
         },
         (progress) => {
           setUploadProgress(progress.percentage);
-        }
+        },
+        controller.signal
       );
 
+      setUploadStatus('success');
       setUploadProgress(100);
-
       toast.success('Recording uploaded successfully!');
 
-      // Call the success callback
       if (onUploadSuccess) {
         onUploadSuccess(recording);
       }
 
-      // Reset form and close modal
-      reset();
-      setSelectedFile(null);
-      onOpenChange(false);
+      // Reset and close
+      setTimeout(() => {
+        reset();
+        setSelectedFile(null);
+        setUploadStatus('idle');
+        setUploadProgress(0);
+        onOpenChange(false);
+      }, 500);
     } catch (error: any) {
-      console.error('Upload failed:', error);
-      toast.error(error.message || 'Failed to upload recording');
+      if (error.name === 'CanceledError' || error.message.includes('cancel')) {
+        toast.info('Upload cancelled');
+        setUploadStatus('idle');
+        setUploadProgress(0);
+      } else {
+        setUploadStatus('failed');
+        toast.error(error.message || 'Failed to upload recording');
+      }
     } finally {
-      setUploading(false);
-      setUploadProgress(0);
+      setAbortController(null);
+    }
+  };
+
+  const onSubmit = async (data: UploadFormData) => {
+    if (!selectedFile) {
+      alert('Please select a file to upload');
+      return;
+    }
+    await performUpload(data);
+  };
+
+  const handleRetry = () => {
+    const formData = watch();
+    performUpload(formData as UploadFormData);
+  };
+
+  const handleCancelUpload = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
     }
   };
 
   const handleClose = () => {
-    if (!uploading) {
+    if (uploadStatus !== 'uploading') {
       reset();
       setSelectedFile(null);
       setUploadProgress(0);
+      setUploadStatus('idle');
       onOpenChange(false);
     }
   };
@@ -181,17 +213,55 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-3">
             <Upload className="h-5 w-5 text-blue-600" />
             Upload Recording
-            {uploading && (
-              <div>
+            {/* Uploading State */}
+            {uploadStatus === 'uploading' && (
+              <div className="flex items-center gap-3 ml-auto">
                 <CircularProgress
                   value={uploadProgress}
-                  size={30}
+                  size={32}
                   strokeWidth={3}
-                  className="text-blue-600 text-xs"
+                  className="text-blue-600"
+                  showPercentage={true}
                 />
+                <span className="text-sm font-medium text-blue-600">
+                  {uploadProgress}% uploaded
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancelUpload}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            {/* Failed State */}
+            {uploadStatus === 'failed' && (
+              <div className="flex items-center gap-3 ml-auto">
+                <CircularProgress
+                  value={uploadProgress}
+                  size={32}
+                  strokeWidth={3}
+                  className="text-red-600"
+                  showPercentage={false}
+                />
+                <span className="text-sm font-medium text-red-600">
+                  Upload failed
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  className="h-8"
+                >
+                  Retry
+                </Button>
               </div>
             )}
           </DialogTitle>
@@ -378,7 +448,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
             type="button"
             variant="outline"
             onClick={handleClose}
-            disabled={uploading}
+            disabled={uploadStatus === 'uploading'}
             className="flex-1"
           >
             Cancel
@@ -386,10 +456,10 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
           <Button
             type="submit"
             onClick={handleSubmit(onSubmit)}
-            disabled={!selectedFile || uploading}
+            disabled={!selectedFile || uploadStatus === 'uploading'}
             className="flex-1"
           >
-            {uploading ? (
+            {uploadStatus === 'uploading' ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Uploading...

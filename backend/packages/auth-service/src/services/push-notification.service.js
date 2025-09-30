@@ -1,0 +1,190 @@
+import webpush from 'web-push';
+import { models } from '../index.js';
+
+// Configure VAPID details
+webpush.setVapidDetails(
+  process.env.VAPID_EMAIL || 'mailto:noreply@meetlite.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+/**
+ * Send push notification to a specific user
+ */
+export const sendNotificationToUser = async (userId, payload) => {
+  try {
+    // Get all active subscriptions for the user
+    const subscriptions = await models.PushSubscription.find({
+      userId,
+      isActive: true,
+    });
+
+    if (subscriptions.length === 0) {
+      console.log(`No active subscriptions for user: ${userId}`);
+      return { success: false, message: 'No active subscriptions' };
+    }
+
+    // Send notification to all user's devices
+    const results = await Promise.allSettled(
+      subscriptions.map(async (subscription) => {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: subscription.endpoint,
+              keys: {
+                p256dh: subscription.keys.p256dh,
+                auth: subscription.keys.auth,
+              },
+            },
+            JSON.stringify(payload)
+          );
+
+          // Update lastUsed
+          subscription.lastUsed = new Date();
+          await subscription.save();
+
+          return { success: true, subscriptionId: subscription._id };
+        } catch (error) {
+          // Handle subscription errors (expired, invalid, etc.)
+          if (error.statusCode === 410 || error.statusCode === 404) {
+            // Subscription expired or invalid, deactivate it
+            subscription.isActive = false;
+            await subscription.save();
+            console.log(
+              `Deactivated invalid subscription: ${subscription._id}`
+            );
+          }
+          throw error;
+        }
+      })
+    );
+
+    const successful = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    return {
+      success: true,
+      sent: successful,
+      failed,
+      total: subscriptions.length,
+    };
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+    throw error;
+  }
+};
+
+/**
+ * Send push notification to multiple users
+ */
+export const sendNotificationToUsers = async (userIds, payload) => {
+  const results = await Promise.allSettled(
+    userIds.map((userId) => sendNotificationToUser(userId, payload))
+  );
+
+  return results;
+};
+
+/**
+ * Send meeting reminder notification
+ */
+export const sendMeetingReminder = async (userId, meetingData) => {
+  const payload = {
+    title: 'Meeting Reminder',
+    body: `${meetingData.title} starts in ${meetingData.minutesUntil} minutes`,
+    icon: '/android-chrome-192x192.png',
+    badge: '/android-chrome-192x192.png',
+    data: {
+      url: `/room/${meetingData.roomId}`,
+      meetingId: meetingData.meetingId,
+      type: 'meeting-reminder',
+    },
+    actions: [
+      {
+        action: 'join',
+        title: 'Join Now',
+      },
+      {
+        action: 'dismiss',
+        title: 'Dismiss',
+      },
+    ],
+  };
+
+  return sendNotificationToUser(userId, payload);
+};
+
+/**
+ * Save push subscription
+ */
+export const saveSubscription = async (
+  userId,
+  subscription,
+  deviceInfo = {}
+) => {
+  try {
+    // Check if subscription already exists
+    let existingSub = await models.PushSubscription.findOne({
+      endpoint: subscription.endpoint,
+    });
+
+    if (existingSub) {
+      // Update existing subscription
+      existingSub.userId = userId;
+      existingSub.keys = {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      };
+      existingSub.deviceInfo = deviceInfo;
+      existingSub.isActive = true;
+      existingSub.lastUsed = new Date();
+      await existingSub.save();
+      return existingSub;
+    }
+
+    // Create new subscription
+    const newSubscription = new models.PushSubscription({
+      userId,
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      },
+      deviceInfo,
+      isActive: true,
+    });
+
+    await newSubscription.save();
+    return newSubscription;
+  } catch (error) {
+    console.error('Error saving subscription:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove push subscription
+ */
+export const removeSubscription = async (endpoint) => {
+  try {
+    const subscription = await models.PushSubscription.findOne({ endpoint });
+
+    if (subscription) {
+      subscription.isActive = false;
+      await subscription.save();
+      return { success: true, message: 'Subscription removed' };
+    }
+
+    return { success: false, message: 'Subscription not found' };
+  } catch (error) {
+    console.error('Error removing subscription:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get user's active subscriptions
+ */
+export const getUserSubscriptions = async (userId) => {
+  return models.PushSubscription.find({ userId, isActive: true });
+};

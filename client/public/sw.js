@@ -20,6 +20,21 @@ self.addEventListener('install', (event) => {
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+  const requestUrl = new URL(event.request.url);
+
+  // Skip service worker for API requests (especially uploads)
+  // This allows Axios to handle progress tracking
+  if (
+    requestUrl.pathname.startsWith('/api/') ||
+    requestUrl.port === '5001' || // room-service
+    requestUrl.port === '5000' || // auth-service
+    requestUrl.port === '5003' || // signaling-service
+    event.request.method !== 'GET' // Skip all non-GET requests (POST, PUT, DELETE)
+  ) {
+    // Let the request go directly to the network without SW intervention
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       // Return cached version or fetch from network

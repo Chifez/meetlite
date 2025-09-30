@@ -1,5 +1,7 @@
 import express from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs/promises';
 import { models } from '../index.js';
 import { AppError } from '@minimeet/shared-models';
 import {
@@ -16,8 +18,25 @@ import {
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
+// Configure multer for file uploads with disk storage for better progress tracking
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error, uploadDir);
+    }
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename with timestamp
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname);
+    cb(null, `upload-${uniqueSuffix}${ext}`);
+  },
+});
+
 const upload = multer({
   storage,
   limits: {
@@ -156,9 +175,16 @@ router.post('/', upload.single('recording'), async (req, res) => {
       );
     }
 
+    // Track file path for cleanup
+    let tempFilePath = req.file.path;
+
     try {
+      // Read file from disk into buffer for R2 upload
+      console.log('Reading file from disk:', tempFilePath);
+      const fileBuffer = await fs.readFile(tempFilePath);
+
       // Upload to Cloudflare R2
-      const uploadResult = await uploadVideoFile(req.file.buffer, {
+      const uploadResult = await uploadVideoFile(fileBuffer, {
         fileName: req.file.originalname,
         organizationId: req.user.organizationId,
         recordingId: recording._id.toString(),
@@ -193,6 +219,14 @@ router.post('/', upload.single('recording'), async (req, res) => {
       recording.recording.downloadUrl = signedDownloadUrl;
       await recording.save();
 
+      // Clean up temporary file after successful upload
+      try {
+        await fs.unlink(tempFilePath);
+        console.log('Temporary file deleted:', tempFilePath);
+      } catch (cleanupError) {
+        console.warn('Failed to delete temporary file:', cleanupError.message);
+      }
+
       // TODO: Start AI processing (transcript/summary)
 
       res.status(201).json({
@@ -215,6 +249,19 @@ router.post('/', upload.single('recording'), async (req, res) => {
     } catch (uploadError) {
       console.error('R2 upload failed:', uploadError);
 
+      // Clean up temporary file on error
+      if (tempFilePath) {
+        try {
+          await fs.unlink(tempFilePath);
+          console.log('Temporary file deleted after error:', tempFilePath);
+        } catch (cleanupError) {
+          console.warn(
+            'Failed to delete temporary file after error:',
+            cleanupError.message
+          );
+        }
+      }
+
       // Update recording status to failed
       recording.processingStatus = 'failed';
       await recording.save();
@@ -227,6 +274,19 @@ router.post('/', upload.single('recording'), async (req, res) => {
     }
   } catch (error) {
     console.error('Error uploading recording:', error);
+
+    // Clean up temporary file if it exists
+    if (req.file?.path) {
+      try {
+        await fs.unlink(req.file.path);
+        console.log('Temporary file cleaned up after error:', req.file.path);
+      } catch (cleanupError) {
+        console.warn(
+          'Failed to delete temporary file in error handler:',
+          cleanupError.message
+        );
+      }
+    }
 
     // Handle specific multer errors
     if (error.code === 'LIMIT_FILE_SIZE') {

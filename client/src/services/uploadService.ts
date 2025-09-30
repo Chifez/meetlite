@@ -13,7 +13,8 @@ export class UploadService {
       meetingId?: string;
       visibility?: 'organization' | 'participants' | 'private';
     },
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    signal?: AbortSignal
   ): Promise<any> {
     try {
       const formData = new FormData();
@@ -39,14 +40,17 @@ export class UploadService {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
+          signal,
           onUploadProgress: (progressEvent) => {
             if (onProgress && progressEvent.total) {
+              const percentage = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+
               const progress: UploadProgress = {
                 loaded: progressEvent.loaded,
                 total: progressEvent.total,
-                percentage: Math.round(
-                  (progressEvent.loaded * 100) / progressEvent.total
-                ),
+                percentage,
               };
               onProgress(progress);
             }
@@ -56,10 +60,11 @@ export class UploadService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Failed to upload recording:', error);
       throw new Error(
         error.response?.data?.message || 'Failed to upload recording'
       );
     }
   }
 }
+
+export const uploadService = new UploadService();

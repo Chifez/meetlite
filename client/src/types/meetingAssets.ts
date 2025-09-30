@@ -91,6 +91,8 @@ export interface MeetingAssetsQuery {
   sortBy?: 'createdAt' | 'title' | 'duration' | 'viewCount';
   sortOrder?: 'asc' | 'desc';
   isArchived?: boolean;
+  hasTranscript?: boolean;
+  hasSummary?: boolean;
 }
 
 export interface MeetingAssetsResponse {
