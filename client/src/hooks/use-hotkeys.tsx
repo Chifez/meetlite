@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from './useAuth';
+import { useNavigate } from 'react-router-dom';
+// import { useAuth } from '@/hooks/use-auth';
 
 interface HotkeyConfig {
   key: string;
@@ -15,8 +15,8 @@ interface HotkeyConfig {
 
 export const useHotkeys = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
+  // const location = useLocation();
+  // const { user } = useAuth();
 
   // Navigation hotkeys
   const navigationHotkeys: HotkeyConfig[] = [

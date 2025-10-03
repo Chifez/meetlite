@@ -8,7 +8,7 @@ import OrganizationSettings from '@/components/settings/organization-settings';
 import { NotificationSettings } from '@/components/settings/notification-settings';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function Settings() {
   const { activeOrganization } = useWorkspace();

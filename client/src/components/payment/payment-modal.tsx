@@ -4,18 +4,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog';
-import { Button } from '../../components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, CreditCard, Check, Zap, Crown } from 'lucide-react';
-import { PaymentService } from '../../services/paymentService';
-import { useToast } from '../../hooks/use-toast';
+import { PaymentService } from '@/services/payment-service';
+import { useToast } from '@/hooks/use-toast';
 
 interface PaymentModalProps {
   open: boolean;

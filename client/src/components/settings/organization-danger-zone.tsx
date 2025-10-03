@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Loader2, AlertTriangle, Trash2 } from 'lucide-react';
-import { OrganizationService } from '@/services/organizationService';
+import { OrganizationService } from '@/services/organization-service';
 
 interface OrganizationDangerZoneProps {
   organization: any;

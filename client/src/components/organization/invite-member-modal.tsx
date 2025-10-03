@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Mail, UserPlus } from 'lucide-react';
-import { useMembers } from '../../hooks/useMembers';
+import { useMembers } from '@/hooks/use-members';
 
 interface InviteMemberModalProps {
   open: boolean;
@@ -116,7 +116,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                     className="pl-10"
                     {...register('email', {
                       required: 'Email is required',
-                      onChange: (e) => {
+                      onChange: () => {
                         if (emailError) setEmailError('');
                       },
                     })}

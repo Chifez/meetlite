@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Filter, X } from 'lucide-react';
-import type { MeetingAssetsQuery } from '../../services/meetingAssetsService';
+import type { MeetingAssetsQuery } from '@/services/meeting-assets-service';
 
 interface RecordingsFilterModalProps {
   onFiltersChange: (filters: MeetingAssetsQuery) => void;

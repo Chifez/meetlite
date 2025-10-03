@@ -17,7 +17,7 @@ import {
   Send,
   XCircle,
 } from 'lucide-react';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 
 export const NotificationSettings: React.FC = () => {
   const {

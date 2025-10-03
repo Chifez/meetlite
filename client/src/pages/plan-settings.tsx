@@ -22,7 +22,7 @@ import {
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
-import { PaymentService } from '@/services/paymentService';
+import { PaymentService } from '@/services/payment-service';
 import { PlanSummary } from '@/types/plan';
 import { toast } from 'sonner';
 

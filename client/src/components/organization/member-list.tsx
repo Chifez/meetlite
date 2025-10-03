@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
+} from '@/components/ui/alert-dialog';
 import {
   Users,
   MoreVertical,
@@ -39,11 +39,11 @@ import {
   Loader2,
   UserPlus,
 } from 'lucide-react';
-import { useMembers } from '../../hooks/useMembers';
+import { useMembers } from '@/hooks/use-members';
 import type {
   OrganizationMember,
   PendingInvitation,
-} from '../../services/memberService';
+} from '@/services/member-service';
 
 interface MemberListProps {
   organizationId: string;

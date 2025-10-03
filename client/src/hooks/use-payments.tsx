@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { PaymentService } from '../services/paymentService';
-import { useToast } from './use-toast';
+import { PaymentService } from '@/services/payment-service';
+import { useToast } from '@/hooks/use-toast';
 
 export const usePayment = () => {
   const [loading, setLoading] = useState(false);

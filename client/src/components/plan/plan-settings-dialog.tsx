@@ -6,8 +6,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import PlanUsageCard from './plan-usage-card';
-import VerticalPlanComparison from './vertical-plan-comparison';
+import PlanUsageCard from '@/components/plan/plan-usage-card';
+import VerticalPlanComparison from '@/components/plan/vertical-plan-comparison';
 import { useState } from 'react';
 
 interface PlanSettingsDialogProps {

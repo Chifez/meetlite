@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { VideoPlayer } from './video-player';
-import { InfoPanel } from './info-panel';
+import { VideoPlayer } from '@/components/recordings/video-player/video-player';
+import { InfoPanel } from '@/components/recordings/video-player/info-panel';
 import { Loader2 } from 'lucide-react';
-import { meetingAssetsService } from '../../../services/meetingAssetsService';
-import type { MeetingRecording } from '../../../services/meetingAssetsService';
+import { meetingAssetsService } from '@/services/meeting-assets-service';
+import type { MeetingRecording } from '@/services/meeting-assets-service';
 
 interface VideoPlayerModalProps {
   recording: MeetingRecording | null;

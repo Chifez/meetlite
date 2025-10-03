@@ -20,8 +20,8 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useRoom } from '@/contexts/room-context';
-import { CustomNode } from './nodes/custom-nodes';
-import { EdgeLabel } from './edges/edge-label';
+import { CustomNode } from '@/components/room/collaboration/nodes/custom-nodes';
+import { EdgeLabel } from '@/components/room/collaboration/edges/edge-label';
 import { Button } from '@/components/ui/button';
 import { Plus, Settings2, ChevronDown, Crown } from 'lucide-react';
 import {
@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 
 interface WorkflowPanelProps {

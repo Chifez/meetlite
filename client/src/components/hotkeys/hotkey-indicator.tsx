@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Badge } from '../../components/ui/badge';
-import { cn } from '../../lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface HotkeyIndicatorProps {
   hotkey: string;

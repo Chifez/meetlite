@@ -432,6 +432,8 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     collaborationState,
     changeCollaborationMode,
     sendWorkflowOperation,
+    applyWorkflowOperation,
+    requestWhiteboardSync,
     sendWhiteboardUpdate,
     startPresenting,
     stopPresenting,

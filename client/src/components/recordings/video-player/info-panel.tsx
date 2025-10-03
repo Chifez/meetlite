@@ -1,9 +1,9 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RecordingInfo } from './recording-info';
-import { TranscriptTab } from './transcript-tab';
-import { SummaryTab } from './summary-tab';
-import type { MeetingRecording } from '../../../services/meetingAssetsService';
+import { RecordingInfo } from '@/components/recordings/video-player/recording-info';
+import { TranscriptTab } from '@/components/recordings/video-player/transcript-tab';
+import { SummaryTab } from '@/components/recordings/video-player/summary-tab';
+import type { MeetingRecording } from '@/services/meeting-assets-service';
 
 interface InfoPanelProps {
   recording: MeetingRecording;

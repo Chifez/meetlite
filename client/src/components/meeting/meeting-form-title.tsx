@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Wand2, Loader2 } from 'lucide-react';
 import React from 'react';
-import { useStreamingAI } from '@/hooks/useStreamingAI';
+import { useStreamingAI } from '@/hooks/use-streaming-ai';
 
 interface MeetingFormTitleProps {
   formData: any;

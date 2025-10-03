@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { meetingAssetsService } from '@/services/meetingAssetsService';
+import { meetingAssetsService } from '@/services/meeting-assets-service';
 
 interface ThumbnailState {
   error: boolean;

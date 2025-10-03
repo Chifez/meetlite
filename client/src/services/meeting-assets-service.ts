@@ -1,7 +1,7 @@
-import { RecordingService } from './recordingService';
-import { UploadService } from './uploadService';
-import { ProcessingService } from './processingService';
-import { AnalyticsService } from './analyticsService';
+import { RecordingService } from './recording-service';
+import { UploadService } from './upload-service';
+import { ProcessingService } from './processing-service';
+import { AnalyticsService } from './analytics-service';
 import {
   MeetingRecording,
   MeetingAssetsQuery,

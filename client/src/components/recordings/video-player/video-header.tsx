@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { MeetingRecording } from '@/services/meetingAssetsService';
+import { MeetingRecording } from '@/services/meeting-assets-service';
 import { Progress } from '@/components/ui/progress';
 import { Video } from 'lucide-react';
 

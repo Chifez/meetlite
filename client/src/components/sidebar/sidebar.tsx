@@ -3,15 +3,15 @@ import { Button } from '@/components/ui/button';
 import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
 import { ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { OrganizationSwitcher } from './organization-switcher';
-import { useAuth } from '@/hooks/useAuth';
+import { OrganizationSwitcher } from '@/components/sidebar/organization-switcher';
+import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
-import UserMenu from '../ui/user-menu';
+import UserMenu from '@/components/ui/user-menu';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Logo from '../logo';
+import Logo from '@/components/logo';
 import { NAVIGATION_ITEMS } from '@/lib/constants';
 import PlanBadge, { needsUpgrade } from '@/components/ui/plan-badge';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
   mobileMenuOpen: boolean;

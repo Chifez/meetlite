@@ -1,7 +1,7 @@
 import { Meeting } from '@/lib/types';
-import MeetingCard from './meeting-card';
+import MeetingCard from '@/components/meeting/meeting-card';
 import { Loader2, CalendarDays } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function MeetingList({
   meetings,

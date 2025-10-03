@@ -3,8 +3,8 @@ import {
   memberService,
   type OrganizationMembersResponse,
   type InviteMemberRequest,
-} from '../services/memberService';
-import { useToast } from './use-toast';
+} from '@/services/member-service';
+import { useToast } from '@/hooks/use-toast';
 
 export const useMembers = () => {
   const [members, setMembers] = useState<OrganizationMembersResponse | null>(

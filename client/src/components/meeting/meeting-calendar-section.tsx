@@ -1,4 +1,4 @@
-import MeetingCalendar from './meeting-calendar';
+import MeetingCalendar from '@/components/meeting/meeting-calendar';
 import { Meeting } from '@/lib/types';
 
 export default function MeetingCalendarSection({

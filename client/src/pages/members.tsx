@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { useWorkspace } from '../contexts/workspace-context';
-import { useAuth } from '../hooks/useAuth';
-import { useMembers } from '../hooks/useMembers';
-import { MemberList } from '../components/organization/member-list';
-import { InviteMemberModal } from '../components/organization/invite-member-modal';
-import { Card, CardContent } from '../components/ui/card';
-import { Skeleton } from '../components/ui/skeleton';
-import { Button } from '../components/ui/button';
-import { Users, ArrowLeft, AlertCircle } from 'lucide-react';
+import { useWorkspace } from '@/contexts/workspace-context';
+// import { useAuth } from '@/hooks/use-auth';
+import { useMembers } from '@/hooks/use-members';
+import { MemberList } from '@/components/organization/member-list';
+import { InviteMemberModal } from '@/components/organization/invite-member-modal';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Users, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 
 const MembersPage: React.FC = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const { activeOrganization, isPersonalMode } = useWorkspace();
   const { members, loading, fetchMembers } = useMembers();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);

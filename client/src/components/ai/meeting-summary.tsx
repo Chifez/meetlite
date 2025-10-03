@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Share2, Copy, Check } from 'lucide-react';
-import { useAIFeatures } from '@/hooks/useAIFeatures';
+import { useAIFeatures } from '@/hooks/use-ai-features';
 import { toast } from 'sonner';
 
 interface MeetingSummaryProps {

@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { meetingAssetsService } from '@/services/meetingAssetsService';
-import { AnalyticsService } from '@/services/analyticsService';
+import { meetingAssetsService } from '@/services/meeting-assets-service';
+import { AnalyticsService } from '@/services/analytics-service';
 import type {
   MeetingRecording,
   MeetingAssetsQuery,

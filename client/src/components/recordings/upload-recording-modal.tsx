@@ -15,7 +15,7 @@ import { CircularProgress } from '@/components/ui/circular-progress';
 
 import { Upload, Video, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { meetingAssetsService } from '@/services/meetingAssetsService';
+import { meetingAssetsService } from '@/services/meeting-assets-service';
 import { toast } from 'sonner';
 
 interface UploadRecordingModalProps {

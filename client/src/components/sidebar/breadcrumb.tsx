@@ -1,6 +1,6 @@
 import { NAVIGATION_ITEMS } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../ui/button';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft, Menu } from 'lucide-react';
 
 const Breadcrumb = ({

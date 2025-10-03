@@ -1,15 +1,15 @@
 import React from 'react';
-import { Card, CardContent, CardHeader } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { RecordingActionsDropdown } from './recording-actions-dropdown';
-import { RecordingMetadata } from './recording-metadata';
-import { RecordingStats } from './recording-stats';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RecordingActionsDropdown } from '@/components/recordings/recording-actions-dropdown';
+import { RecordingMetadata } from '@/components/recordings/recording-metadata';
+import { RecordingStats } from '@/components/recordings/recording-stats';
 import { Play, Eye, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MeetingRecording } from '@/types/meetingAssets';
-import VideoHeader from './video-player/video-header';
-import { useThumbnailManager } from '@/hooks/useThumbnailManager';
+import VideoHeader from '@/components/recordings/video-player/video-header';
+import { useThumbnailManager } from '@/hooks/use-thumbnail-manager';
 import { hasValidTags, getValidTags } from '@/utils/tags';
 
 interface RecordingCardProps {

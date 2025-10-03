@@ -1,5 +1,5 @@
-import { VideoParticipant } from '../video-participant';
-import { Participant } from '../types';
+import { VideoParticipant } from '@/components/room/video-participant';
+import { Participant } from '@/components/room/types';
 
 interface MobileVideoLayoutProps {
   participants: Participant[];

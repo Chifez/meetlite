@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Clock, Users, Calendar, Lightbulb } from 'lucide-react';
-import { useAIFeatures } from '@/hooks/useAIFeatures';
+import { useAIFeatures } from '@/hooks/use-ai-features';
 import { toast } from 'sonner';
 
 interface SmartSchedulingProps {

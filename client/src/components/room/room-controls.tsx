@@ -1,9 +1,9 @@
 import { useRoom } from '@/contexts/room-context';
-import { ParticipantCount } from './participants';
-import { MediaControls } from './media-control';
-import { MoreOptionsMenu } from './more-options-menu';
-import { CollaborationMenu } from './collaboration/collaboration-menu';
-import { useAuth } from '@/hooks/useAuth';
+import { ParticipantCount } from '@/components/room/participants';
+import { MediaControls } from '@/components/room/media-control';
+import { MoreOptionsMenu } from '@/components/room/more-options-menu';
+import { CollaborationMenu } from '@/components/room/collaboration/collaboration-menu';
+import { useAuth } from '@/hooks/use-auth';
 
 interface RoomControlsProps {
   onRefreshConnection: () => void;

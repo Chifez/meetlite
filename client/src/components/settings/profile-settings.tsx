@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 import { Loader2, User } from 'lucide-react';
 import api from '@/lib/axios';
 import { env } from '@/config/env';
-import ProfileDangerZone from './profile-danger-zone';
+import ProfileDangerZone from '@/components/settings/profile-danger-zone';
 
 // User settings schema
 const userSettingsSchema = z.object({

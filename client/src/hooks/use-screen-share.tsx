@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useSound } from '@/hooks/useSound';
+import { useSound } from '@/hooks/use-sound';
 import { Socket } from 'socket.io-client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ScreenShareState {
   stream: MediaStream | null;

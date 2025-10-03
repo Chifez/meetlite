@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { FileText, Brain } from 'lucide-react';
 import type { MeetingRecording } from '@/types/meetingAssets';

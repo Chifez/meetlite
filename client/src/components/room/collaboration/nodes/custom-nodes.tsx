@@ -17,7 +17,7 @@ import {
   X,
   Check,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 
 type NodeData = {
   nodeType?: 'input' | 'default' | 'output';

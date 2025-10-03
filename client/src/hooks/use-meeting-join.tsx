@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useMeetings } from '@/hooks/useMeetings';
-import { useAuth } from '@/hooks/useAuth';
+import { useMeetings } from '@/hooks/use-meetings';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { Meeting } from '@/lib/types';
 

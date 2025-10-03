@@ -9,7 +9,7 @@ import {
   Phone,
   MessageCircle,
 } from 'lucide-react';
-import { ControlButton } from './control-button';
+import { ControlButton } from '@/components/room/control-button';
 import { useRoom } from '@/contexts/room-context';
 import { Badge } from '@/components/ui/badge';
 

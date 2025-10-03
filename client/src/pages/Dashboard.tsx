@@ -1,12 +1,12 @@
 import { useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
+import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
 import { toast } from 'sonner';
 import { env } from '@/config/env';
 import SEO from '@/components/seo';
-import { useMeetingForm } from '@/hooks/useMeetingForm';
+import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import api from '@/lib/axios';
 import WelcomeHeader from '@/components/dashboard/welcome-header';
 import QuickActions from '@/components/dashboard/quick-action';

@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Meeting } from '@/lib/types';
-import { useMeetingsStore } from '@/stores/meetingsStore';
-import { useAuth } from '@/hooks/useAuth';
+import { useMeetingsStore } from '@/stores/meetings-store';
+import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 
 interface MeetingCardProps {

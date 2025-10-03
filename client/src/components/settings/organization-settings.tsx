@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import { Loader2, Building, Users } from 'lucide-react';
 import {
   OrganizationService,
   UpdateOrganizationData,
-} from '@/services/organizationService';
+} from '@/services/organization-service';
 import OrganizationDangerZone from './organization-danger-zone';
 
 const INDUSTRY_OPTIONS = [

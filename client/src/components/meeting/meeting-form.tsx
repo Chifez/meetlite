@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { MeetingFormData } from '@/lib/types';
 import { toast } from 'sonner';
-import MeetingFormTitle from './meeting-form-title';
-import MeetingFormDateTime from './meeting-form-date-time';
-import MeetingFormDurationPrivacy from './meeting-form-duration-privacy';
-import MeetingFormInvite from './meeting-form-invite';
-import MeetingFormFooter from './meeting-form-footer';
-import { useStreamingAI } from '@/hooks/useStreamingAI';
+import MeetingFormTitle from '@/components/meeting/meeting-form-title';
+import MeetingFormDateTime from '@/components/meeting/meeting-form-date-time';
+import MeetingFormDurationPrivacy from '@/components/meeting/meeting-form-duration-privacy';
+import MeetingFormInvite from '@/components/meeting/meeting-form-invite';
+import MeetingFormFooter from '@/components/meeting/meeting-form-footer';
+import { useStreamingAI } from '@/hooks/use-streaming-ai';
 
 interface MeetingFormProps {
   formData: MeetingFormData;

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Badge } from '../ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+// import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '@/components/ui/select';
 import { Search, Filter, X, Download } from 'lucide-react';
-import type { MeetingAssetsQuery } from '../../services/meetingAssetsService';
+import type { MeetingAssetsQuery } from '@/services/meeting-assets-service';
 
 interface RecordingsFiltersProps {
   onFiltersChange: (filters: MeetingAssetsQuery) => void;

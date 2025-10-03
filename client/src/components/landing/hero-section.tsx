@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Play, Video, Users } from 'lucide-react';
-import StatsDisplay from './stats-display';
-import FeaturePills from './feature-pills';
+import StatsDisplay from '@/components/landing/stats-display';
+import FeaturePills from '@/components/landing/feature-pills';
 
 const HeroSection = () => {
   return (

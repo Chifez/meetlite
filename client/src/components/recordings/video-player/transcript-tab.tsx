@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Download, MessageSquare, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { MeetingRecording } from '../../../services/meetingAssetsService';
+import type { MeetingRecording } from '@/services/meeting-assets-service';
 
 interface TranscriptTabProps {
   recording: MeetingRecording;

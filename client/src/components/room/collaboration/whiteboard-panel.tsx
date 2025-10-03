@@ -3,7 +3,7 @@ import { useSync } from '@tldraw/sync';
 import '@tldraw/tldraw/tldraw.css';
 import { useParams } from 'react-router-dom';
 import { useRoom } from '@/contexts/room-context';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { Crown } from 'lucide-react';
 import { getSyncUrl, multiplayerAssets } from '@/lib/tldraw/sync-config';

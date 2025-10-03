@@ -1,4 +1,4 @@
-import PricingCard from './pricing-card';
+import PricingCard from '@/components/landing/pricing-card';
 
 const pricingPlans = [
   {

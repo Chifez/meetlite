@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Socket } from 'socket.io-client';
 import { ChatMessage, ChatState } from '@/types/chat';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/hooks/use-auth';
 
 interface UseChatProps {
   socket: Socket | null;

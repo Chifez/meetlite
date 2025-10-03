@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChatMessage } from './chat-message';
 import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { ChatState } from '@/types/chat';
 import { cn } from '@/lib/utils';
 

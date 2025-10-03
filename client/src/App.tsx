@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
-import { useHotkeys } from './hooks/useHotkeys';
+import { useAuth } from './hooks/use-auth';
+import { useHotkeys } from './hooks/use-hotkeys';
 import { GlobalHotkeyHelp } from './components/hotkeys/hotkey-help';
 import Login from './pages/login';
 import Signup from './pages/signup';
@@ -9,7 +9,7 @@ import ResetPassword from './pages/reset-password';
 import Dashboard from './pages/dashboard';
 import Lobby from './pages/lobby';
 import Room from './pages/room';
-import NotFound from './pages/notfound';
+import NotFound from './pages/not-found';
 import Layout from './components/layout';
 import Meetings from './pages/meeting';
 import MeetingJoin from './pages/meeting-join';

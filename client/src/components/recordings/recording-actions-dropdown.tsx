@@ -5,8 +5,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
-import { Button } from '../ui/button';
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import {
   Play,
   FileText,
@@ -18,11 +18,11 @@ import {
   Archive,
   ArchiveRestore,
 } from 'lucide-react';
-import type { MeetingRecording } from '../../services/meetingAssetsService';
+import type { MeetingRecording } from '@/services/meeting-assets-service';
 import {
   DeleteConfirmationModal,
   ArchiveConfirmationModal,
-} from './confirmation-modal';
+} from '@/components/recordings/confirmation-modal';
 
 interface RecordingActionsDropdownProps {
   recording: MeetingRecording;

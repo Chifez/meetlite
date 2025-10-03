@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
+
 import {
   Card,
   CardContent,
@@ -14,8 +14,8 @@ import {
   CardTitle,
 } from '../../components/ui/card';
 // import { Separator } from '../../components/ui/separator';
-import { useHotkeyHelp } from '../../hooks/useHotkeys';
-import { Keyboard, X } from 'lucide-react';
+import { useHotkeyHelp } from '../../hooks/use-hotkeys';
+import { Keyboard } from 'lucide-react';
 
 interface HotkeyHelpProps {
   open: boolean;

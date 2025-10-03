@@ -1,5 +1,5 @@
 import { Calendar, UserPlus, Shield, Zap, Globe, Lock } from 'lucide-react';
-import FeatureCard from './feature-card';
+import FeatureCard from '@/components/landing/feature-card';
 
 const features = [
   {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { WorkflowPanel } from './collaboration/workflow-panel';
-import { WhiteboardPanel } from './collaboration/whiteboard-panel';
+import { WorkflowPanel } from '@/components/room/collaboration/workflow-panel';
+import { WhiteboardPanel } from '@/components/room/collaboration/whiteboard-panel';
 
 interface SharedPresentationProps {
   mode: 'workflow' | 'whiteboard';

@@ -1,5 +1,5 @@
-import { MobileVideoLayout } from './layouts/mobile-video-layout';
-import { DesktopVideoLayout } from './layouts/desktop-video-layout';
+import { MobileVideoLayout } from '@/components/room/layouts/mobile-video-layout';
+import { DesktopVideoLayout } from '@/components/room/layouts/desktop-video-layout';
 import { useRoom } from '@/contexts/room-context';
 
 export const ParticipantsContainer = () => {

@@ -8,8 +8,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CollaborationSettingsPanel } from './collaboration-settings-panel';
-import { useAuth } from '@/hooks/useAuth';
+import { CollaborationSettingsPanel } from '@/components/room/collaboration/collaboration-settings-panel';
+import { useAuth } from '@/hooks/use-auth';
 
 interface CollaborationMenuProps {
   className?: string;

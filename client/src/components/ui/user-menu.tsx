@@ -1,4 +1,4 @@
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,8 +7,8 @@ import {
   DropdownMenuSeparator,
 } from './dropdown-menu';
 import { Avatar, AvatarFallback } from './avatar';
-import { Settings, LogOut, Menu } from 'lucide-react';
-import ThemeToggle from '../theme-toggle';
+import { Settings, LogOut } from 'lucide-react';
+import ThemeToggle from '@/components/theme-toggle';
 import { useTheme } from 'next-themes';
 
 interface UserMenuProps {

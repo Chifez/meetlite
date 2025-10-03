@@ -2,7 +2,7 @@ import Logo from './logo';
 import { ArrowRight, Menu, X } from 'lucide-react';
 import { Sidebar } from './sidebar/sidebar';
 import { NAV_LINKS } from '@/lib/constants';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import { Link, useLocation } from 'react-router-dom';
 import ThemeToggle from './theme-toggle';
 import { Button } from './ui/button';

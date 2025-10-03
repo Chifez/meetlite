@@ -4,7 +4,7 @@ import SEO from '@/components/seo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, AlertCircle } from 'lucide-react';
-import { useMeetingJoin } from '@/hooks/useMeetingJoin';
+import { useMeetingJoin } from '@/hooks/use-meeting-join';
 
 const MeetingJoin = () => {
   const { meetingId } = useParams<{ meetingId: string }>();

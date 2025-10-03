@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/use-auth';
 import api from '@/lib/axios';
 import { env } from '@/config/env';
 import { useMeetingsStore } from '@/stores';

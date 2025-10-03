@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import api from '@/lib/axios';
 import { env } from '@/config/env';
 import { MeetingFormData } from '@/lib/types';
-import { useCalendarIntegration } from './useCalendarIntegration';
+import { useCalendarIntegration } from './use-calendar-integration';
 import {
   SMART_SCHEDULING_CONFIG,
   ALTERNATIVE_OFFSETS,

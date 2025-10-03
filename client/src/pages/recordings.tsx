@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { useMeetingAssets } from '@/hooks/useMeetingAssets';
-import { useQueryManager } from '@/hooks/useQueryManager';
+import { useMeetingAssets } from '@/hooks/use-meeting-assets';
+import { useQueryManager } from '@/hooks/use-query-manager';
 import { RecordingCard } from '@/components/recordings/recording-card';
 import { RecordingsSearch } from '@/components/recordings/recordings-search';
 import { RecordingsFilterModal } from '@/components/recordings/recordings-filter-modal';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Download, FileText, Upload, Video } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import type { MeetingRecording } from '@/types/meetingAssets';
-import { meetingAssetsService } from '@/services/meetingAssetsService';
+import { meetingAssetsService } from '@/services/meeting-assets-service';
 import { toast } from 'sonner';
 
 export default function Recordings() {

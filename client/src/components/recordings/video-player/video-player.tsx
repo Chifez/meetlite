@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { VideoControls } from './video-controls';
+import { VideoControls } from '@/components/recordings/video-player/video-controls';
 import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import type { MeetingRecording } from '../../../services/meetingAssetsService';
+import type { MeetingRecording } from '@/services/meeting-assets-service';
 
 interface VideoPlayerProps {
   recording: MeetingRecording;

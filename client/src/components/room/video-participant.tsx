@@ -1,6 +1,6 @@
 import { VideoOff, MicOff, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { SpeakingIndicator } from './speaking-indicator';
+import { SpeakingIndicator } from '@/components/room/speaking-indicator';
 
 interface VideoParticipantProps {
   stream: MediaStream | null;

@@ -1,5 +1,5 @@
 import { Calendar } from 'lucide-react';
-import MeetingCard from './meeting-card';
+import MeetingCard from '@/components/meeting/meeting-card';
 import { Meeting } from '@/lib/types';
 
 export default function MeetingListSection({

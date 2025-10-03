@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { Loader2, Sparkles, Calendar } from 'lucide-react';
 import MeetingForm from '@/components/meeting/meeting-form';
 import { MeetingFormData } from '@/lib/types';
-import { useEnhancedSmartScheduling } from '@/hooks/useEnhancedSmartScheduling';
+import { useEnhancedSmartScheduling } from '@/hooks/use-enhanced-smart-scheduling';
 import ConflictResolutionModal from '@/components/scheduling/conflict-resolution-modal';
 
 interface SmartSchedulingModalProps {

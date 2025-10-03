@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Lock, Users, CalendarDays } from 'lucide-react';
-import useResponsiveCalendar from '@/hooks/useReponsiveCalendar';
+import useResponsiveCalendar from '@/hooks/use-responsive-calendar';
 
 function CustomToolbar({ label, onNavigate, onView, view }: any) {
   return (

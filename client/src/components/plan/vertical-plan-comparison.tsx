@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Check, Crown, Star } from 'lucide-react';
 import { PLAN_INFO } from '@/types/plan';
 import { toast } from 'sonner';
-import { PaymentService } from '../../services/paymentService';
+import { PaymentService } from '../../services/payment-service';
 
 interface VerticalPlanComparisonProps {
   currentPlan?: string;

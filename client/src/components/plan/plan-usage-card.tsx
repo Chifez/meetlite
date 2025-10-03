@@ -21,10 +21,10 @@ import {
   TrendingUp,
   Crown,
 } from 'lucide-react';
-import planService from '@/services/planService';
+import planService from '@/services/plan-service';
 import { PlanSummary } from '@/types/plan';
 import { toast } from 'sonner';
-import { PaymentService } from '../../services/paymentService';
+import { PaymentService } from '../../services/payment-service';
 
 interface PlanUsageCardProps {
   className?: string;
@@ -80,12 +80,12 @@ export default function PlanUsageCard({
     return iconMap[constraint] || TrendingUp;
   };
 
-  const getUsageColor = (percentage: number) => {
-    if (percentage >= 100) return 'bg-destructive';
-    if (percentage >= 80) return 'bg-orange-500';
-    if (percentage >= 60) return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
+  // const getUsageColor = (percentage: number) => {
+  //   if (percentage >= 100) return 'bg-destructive';
+  //   if (percentage >= 80) return 'bg-orange-500';
+  //   if (percentage >= 60) return 'bg-yellow-500';
+  //   return 'bg-green-500';
+  // };
 
   const getUsageTextColor = (percentage: number) => {
     if (percentage >= 100) return 'text-destructive';
