@@ -9,7 +9,7 @@ export default function Landing() {
   return (
     <>
       <SEO
-        title="MeetLite - Meet Better, Meet Lighter"
+        title="MeetLite | Video Conferencing Made Simple"
         description="Experience seamless video conferencing with advanced scheduling, smart invites, and enterprise-grade privacy."
       />
       <div className="min-h-screen transition-colors duration-300">
