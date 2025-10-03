@@ -10,10 +10,10 @@ interface SEOProps {
 }
 
 export default function SEO({
-  title = 'MeetLite - Video Conferencing Made Simple',
+  title = 'MeetLite | Video Conferencing Made Simple',
   description = 'High-quality video conferencing solution for seamless online meetings and collaboration.',
   keywords = 'video conferencing, online meetings, web conferencing, video chat, remote collaboration',
-  ogImage = `${env.BASE_URL}/og-image.png`, //
+  ogImage = `${env.BASE_URL}/og-image.png`,
   ogUrl = 'https://meetlite.app',
 }: SEOProps) {
   return (
@@ -28,11 +28,11 @@ export default function SEO({
       <meta property="og:image" content={ogImage} />
 
       {/* Twitter */}
-      <meta property="twitter:card" content="summary_large_image" />
-      <meta property="twitter:url" content={ogUrl} />
-      <meta property="twitter:title" content={title} />
-      <meta property="twitter:description" content={description} />
-      <meta property="twitter:image" content={ogImage} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={ogUrl} />
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={ogImage} />
 
       {/* Additional Meta Tags */}
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
