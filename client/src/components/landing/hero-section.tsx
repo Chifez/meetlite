@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Play, Video, Users } from 'lucide-react';
+import { ArrowRight, Play, Video, Users, Shield, Zap } from 'lucide-react';
 import StatsDisplay from '@/components/landing/stats-display';
 import FeaturePills from '@/components/landing/feature-pills';
 
 const HeroSection = () => {
   return (
-    <div className="relative h-full py-6 bg-gradient-to-br from-slate-50 via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900/20 overflow-hidden transition-colors duration-300">
+    <div className="relative h-full py-6 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20 overflow-hidden transition-colors duration-300">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200/20 dark:bg-purple-400/10 rounded-full blur-3xl"></div>
@@ -22,43 +22,33 @@ const HeroSection = () => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
           <div className="space-y-6 sm:space-y-8">
-            <Badge className="bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700 hover:bg-gradient-to-r hover:from-purple-200 hover:to-blue-200 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 transition-all duration-300">
-              <svg
-                className="w-3 h-3 mr-1"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"
-                  clipRule="evenodd"
-                />
-              </svg>
+            <Badge className="py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800/30 transition-all duration-300 animate-fade-in">
+              <Zap className="w-3 h-3 mr-2" />
               The future of video meetings is here
             </Badge>
 
             <div className="space-y-4 sm:space-y-6">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
-                <span className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-800 bg-clip-text text-transparent">
-                  Meet Better,
+              <h1 className="text-fluid-3xl font-heading font-bold leading-tight tracking-tight">
+                <span className="text-blue-900 dark:text-white">
+                  Stop Hosting,
                 </span>
                 <br />
-                <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Meet Lighter
+                <span className="text-blue-900 dark:text-white">
+                  Boring Meetings
                 </span>
               </h1>
 
-              <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
-                Experience seamless video conferencing with advanced scheduling,
-                smart invites, and enterprise-grade privacy. The Google Meet
-                alternative that actually works better.
+              <p className="text-fluid-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
+                Host engaging, interactive meetings on 4K crystal-clear video.
+                With built-in collaboration tools and conflict-free smart
+                scheduling, every meeting is more productive.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
                 size="lg"
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
+                className="bg-blue-600 text-white rounded-full px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
               >
                 Start Meeting Now
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -87,15 +77,15 @@ const HeroSection = () => {
 
           {/* Right Visual Element */}
           <div className="relative md:block hidden mt-10 lg:mt-0">
-            <div className="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
-              <div className="aspect-video bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-2xl flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-blue-500/10 dark:from-purple-400/20 dark:to-blue-400/20"></div>
+            <div className="relative z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 hover-lift">
+              <div className="aspect-video bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 dark:from-blue-400/10 dark:to-indigo-400/10"></div>
                 <div className="relative z-10 text-center space-y-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center mx-auto">
-                    <Video className="w-8 h-8 text-white" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto">
+                    <Video className="w-10 h-10 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                       Crystal Clear Video
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -106,8 +96,14 @@ const HeroSection = () => {
 
                 {/* Floating Elements */}
                 <div className="absolute top-4 right-4 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <div className="absolute bottom-4 left-4 w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-300"></div>
-                <div className="absolute top-1/2 left-4 w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-700"></div>
+                <div
+                  className="absolute bottom-4 left-4 w-2 h-2 bg-blue-400 rounded-full animate-pulse"
+                  style={{ animationDelay: '0.5s' }}
+                ></div>
+                <div
+                  className="absolute top-1/2 left-4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse"
+                  style={{ animationDelay: '1s' }}
+                ></div>
               </div>
 
               {/* Mock Interface Elements */}
@@ -125,16 +121,16 @@ const HeroSection = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full"></div>
+                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full"></div>
                   <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div className="w-5/6 h-full bg-gradient-to-r from-purple-400 to-pink-500 rounded-full"></div>
+                    <div className="w-5/6 h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"></div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Floating Cards */}
-            <div className="absolute -top-6 -left-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200/50 dark:border-gray-700/50 rotate-[-5deg]">
+            <div className="absolute -top-6 -left-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200/50 dark:border-gray-700/50 rotate-[-3deg] hover-lift">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -143,9 +139,9 @@ const HeroSection = () => {
               </div>
             </div>
 
-            <div className="absolute -bottom-6 -right-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200/50 dark:border-gray-700/50 rotate-[5deg]">
+            <div className="absolute -bottom-6 -right-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200/50 dark:border-gray-700/50 rotate-[3deg] hover-lift">
               <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-purple-600" />
+                <Users className="w-4 h-4 text-blue-600" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   12 participants
                 </span>

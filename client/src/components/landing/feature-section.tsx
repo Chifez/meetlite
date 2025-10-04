@@ -1,48 +1,62 @@
-import { Calendar, UserPlus, Shield, Zap, Globe, Lock } from 'lucide-react';
+import {
+  SmartSchedulingIcon,
+  IntelligentInvitesIcon,
+  PrivacyFirstIcon,
+  LightningFastIcon,
+  GlobalCDNIcon,
+  HDQualityIcon,
+} from '@/components/icons';
 import FeatureCard from '@/components/landing/feature-card';
+import AnimatedSection from '@/components/ui/animated-section';
 
 const features = [
   {
-    icon: Calendar,
-    title: 'Smart Scheduling',
+    icon: SmartSchedulingIcon,
+    title: 'Never waste time scheduling again',
     description:
-      'AI-powered scheduling that finds the perfect time for everyone. Integrates with all major calendars and automatically handles time zones.',
-    gradient: 'from-purple-500 to-pink-500',
+      'Our AI finds the perfect meeting time for everyone in 30 seconds, not 30 emails. Integrates with all major calendars and automatically handles time zones.',
+    gradient: 'from-blue-500 to-indigo-500',
+    trustIndicator: '2x faster than manual scheduling',
   },
   {
-    icon: UserPlus,
-    title: 'Intelligent Invites',
+    icon: IntelligentInvitesIcon,
+    title: 'Beautiful invites that get responses',
     description:
-      'Send beautiful, branded invites with one click. Automatic reminders, join links, and agenda sharing keep everyone prepared.',
-    gradient: 'from-blue-500 to-cyan-500',
+      'Send branded invites with one click. Automatic reminders, join links, and agenda sharing keep everyone prepared and engaged.',
+    gradient: 'from-pink-500 to-rose-500',
+    trustIndicator: '95% response rate',
   },
   {
-    icon: Shield,
-    title: 'Privacy First',
+    icon: PrivacyFirstIcon,
+    title: 'Bank-level security for your conversations',
     description:
-      'End-to-end encryption, secure rooms, and granular permissions. Your conversations stay private with enterprise-grade security.',
+      'End-to-end encryption ensures your sensitive discussions stay private, always. Enterprise-grade security with granular permissions.',
     gradient: 'from-green-500 to-emerald-500',
+    trustIndicator: 'SOC 2 Compliant',
   },
   {
-    icon: Zap,
-    title: 'Lightning Fast',
+    icon: LightningFastIcon,
+    title: 'Join meetings in under 2 seconds',
     description:
-      'Join meetings in under 2 seconds with our optimized infrastructure and smart connection routing.',
+      'Our optimized infrastructure and smart connection routing means no more waiting for connections or dealing with lag.',
     gradient: 'from-yellow-500 to-orange-500',
+    trustIndicator: '99.9% uptime',
   },
   {
-    icon: Globe,
-    title: 'Global CDN',
+    icon: GlobalCDNIcon,
+    title: 'Crystal clear quality worldwide',
     description:
-      'Crystal clear quality worldwide with our global content delivery network and adaptive streaming technology.',
-    gradient: 'from-indigo-500 to-purple-500',
+      'Our global content delivery network ensures perfect video quality everywhere, with adaptive streaming that adjusts to your connection.',
+    gradient: 'from-indigo-500 to-blue-500',
+    trustIndicator: '200+ global locations',
   },
   {
-    icon: Lock,
-    title: 'HD Quality',
+    icon: HDQualityIcon,
+    title: '4K video with spatial audio',
     description:
-      '4K video with spatial audio, screen sharing, and real-time collaboration tools for the best meeting experience.',
-    gradient: 'from-red-500 to-pink-500',
+      'Experience meetings like never before with 4K video, spatial audio, screen sharing, and real-time collaboration tools.',
+    gradient: 'from-red-500 to-orange-500',
+    trustIndicator: 'Up to 4K resolution',
   },
 ];
 
@@ -50,29 +64,39 @@ const FeaturesSection = () => {
   return (
     <section
       id="features"
-      className="py-10 bg-white dark:bg-gray-900 relative overflow-hidden transition-colors duration-300"
+      className="py-20 bg-white dark:bg-gray-900 relative overflow-hidden transition-colors duration-300"
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-50/30 dark:from-purple-900/10 to-transparent"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-50/30 dark:from-blue-900/10 to-transparent"></div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-4 mb-16">
-          <h2 className="text-3xl py-2 sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+        <AnimatedSection
+          animationType="fadeIn"
+          className="text-center space-y-6 mb-20"
+        >
+          <h2 className="text-4xl font-heading font-bold bg-gradient-to-r from-gray-900 to-blue-900 dark:from-white dark:to-blue-100 bg-clip-text text-transparent">
             Everything you need for perfect meetings
           </h2>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="text-fluid-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Powerful features designed to make your video meetings more
             productive, secure, and enjoyable than ever before.
           </p>
-        </div>
+        </AnimatedSection>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <FeatureCard
+            <AnimatedSection
               key={index}
-              icon={feature.icon}
-              title={feature.title}
-              description={feature.description}
-              gradient={feature.gradient}
-            />
+              animationType="slideUp"
+              delay={index * 150}
+            >
+              <FeatureCard
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                gradient={feature.gradient}
+                trustIndicator={feature.trustIndicator}
+                delay={0}
+              />
+            </AnimatedSection>
           ))}
         </div>
       </div>

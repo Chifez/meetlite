@@ -28,13 +28,13 @@ const PricingCard = ({
     <Card
       className={`relative border-2 ${
         isPopular
-          ? 'border-purple-300 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 bg-white dark:bg-gray-800 shadow-xl scale-105'
-          : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm'
+          ? 'border-blue-300 dark:border-blue-600 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-gray-800 shadow-xl scale-105'
+          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm'
       } transition-all duration-300`}
     >
       {isPopular && (
         <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-          <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1">
+          <Badge className="bg-blue-600 text-white px-4 py-1">
             Most Popular
           </Badge>
         </div>
@@ -46,7 +46,7 @@ const PricingCard = ({
           </h3>
           <div className="space-y-1">
             <div className="flex items-baseline space-x-1">
-              <span className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">
                 {price}
               </span>
               {period && (
@@ -73,8 +73,8 @@ const PricingCard = ({
         <Button
           className={`w-full rounded-full py-6 ${
             buttonVariant === 'outline'
-              ? 'border-2 border-purple-600 dark:border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 bg-transparent'
-              : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
+              ? 'border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 bg-transparent'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
           variant={buttonVariant}
         >

@@ -36,7 +36,7 @@ const Navbar = ({
   // Landing page navbar design
   if (isLandingPage) {
     return (
-      <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
+      <header className="border-b border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-30">
         <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 py-4 max-w-7xl mx-auto">
           <Logo variant="gradient" />
 
@@ -46,13 +46,15 @@ const Navbar = ({
               <a
                 key={link.href}
                 href={link.href}
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors font-medium"
+                className="relative text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors font-medium group"
                 onClick={(e) => {
                   e.preventDefault();
                   scrollToSection(link.href.replace('#', ''));
                 }}
               >
                 {link.label}
+                {/* Hover underline effect */}
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 dark:bg-blue-400 transition-all duration-300 group-hover:w-full"></span>
               </a>
             ))}
           </nav>
@@ -77,7 +79,7 @@ const Navbar = ({
 
             {/* Desktop Login Button */}
             <Link to={isLoginPage ? '/signup' : '/login'}>
-              <Button className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-6 text-base">
+              <Button className="hidden md:flex bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 text-base">
                 {isLoginPage ? 'Sign Up' : 'Login'}{' '}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -113,7 +115,7 @@ const Navbar = ({
               className="w-full"
               onClick={closeMobileMenu}
             >
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-6 mt-4 w-full">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 mt-4 w-full">
                 {isLoginPage ? 'Sign Up' : 'Login'}{' '}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
