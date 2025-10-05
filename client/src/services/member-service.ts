@@ -61,7 +61,7 @@ class MemberService {
   ): Promise<OrganizationMembersResponse> {
     try {
       const response = await api.get(
-        `${env.AUTH_API_URL}/organizations/members/${organizationId}`
+        `/api/organizations/members/${organizationId}`
       );
       return response.data;
     } catch (error: any) {
@@ -76,7 +76,7 @@ class MemberService {
   async inviteMember(data: InviteMemberRequest): Promise<InviteMemberResponse> {
     try {
       const response = await api.post(
-        `${env.AUTH_API_URL}/organizations/members/invite`,
+        `/api/organizations/members/invite`,
         data
       );
       return response.data;
@@ -98,7 +98,7 @@ class MemberService {
   }> {
     try {
       const response = await api.delete(
-        `${env.AUTH_API_URL}/organizations/members/${organizationId}/${memberId}`
+        `/api/organizations/members/${organizationId}/${memberId}`
       );
       return response.data;
     } catch (error: any) {
@@ -116,7 +116,7 @@ class MemberService {
   }> {
     try {
       const response = await api.delete(
-        `${env.AUTH_API_URL}/organizations/members/invitations/${invitationId}`
+        `/api/organizations/members/invitations/${invitationId}`
       );
       return response.data;
     } catch (error: any) {
@@ -138,14 +138,11 @@ class MemberService {
     token?: string;
   }> {
     try {
-      const response = await api.put(
-        `${env.AUTH_API_URL}/multi-org/update-role`,
-        {
-          userId: memberId,
-          organizationId,
-          newRole,
-        }
-      );
+      const response = await api.put(`/api/multi-org/update-role`, {
+        userId: memberId,
+        organizationId,
+        newRole,
+      });
       return response.data;
     } catch (error: any) {
       console.error('Failed to update member role:', error);

@@ -25,7 +25,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
+// import { env } from '@/config/env';
 
 const settingsSchema = z.object({
   name: z
@@ -60,7 +60,7 @@ export default function SettingsModal({
   const onSubmit = async (data: SettingsFormValues) => {
     setIsLoading(true);
     try {
-      await api.put(`${env.AUTH_API_URL}/auth/profile`, data, {
+      await api.put('/api/auth/profile', data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },

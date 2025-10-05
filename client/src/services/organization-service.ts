@@ -19,26 +19,19 @@ export class OrganizationService {
     orgId: string,
     data: UpdateOrganizationData
   ): Promise<any> {
-    const response = await api.put(
-      `${env.AUTH_API_URL}/organizations/${orgId}`,
-      data
-    );
+    const response = await api.put(`/api/organizations/${orgId}`, data);
     return response.data;
   }
 
   static async deleteOrganization(
     orgId: string
   ): Promise<DeleteOrganizationResponse> {
-    const response = await api.delete(
-      `${env.AUTH_API_URL}/organizations/${orgId}`
-    );
+    const response = await api.delete(`/api/organizations/${orgId}`);
     return response.data;
   }
 
   static async getOrganizationDetails(orgId: string): Promise<any> {
-    const response = await api.get(
-      `${env.AUTH_API_URL}/organizations/${orgId}`
-    );
+    const response = await api.get(`/api/organizations/${orgId}`);
     return response.data;
   }
 }

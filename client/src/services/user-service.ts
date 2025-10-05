@@ -12,7 +12,7 @@ export const fetchUserProfile = async (
   token: string
 ): Promise<UserProfile | null> => {
   try {
-    const response = await api.get(`${env.AUTH_API_URL}/auth/profile`, {
+    const response = await api.get('/api/auth/profile', {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data.user;
@@ -29,7 +29,7 @@ export const fetchUserProfileByEmail = async (
   try {
     // Note: This endpoint doesn't exist yet, we'll need to create it
     const response = await api.get(
-      `${env.AUTH_API_URL}/auth/user-by-email/${encodeURIComponent(email)}`,
+      `/api/auth/user-by-email/${encodeURIComponent(email)}`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }

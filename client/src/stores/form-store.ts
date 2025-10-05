@@ -161,10 +161,7 @@ export const useFormStore = create<FormState>((set, get) => ({
     };
 
     try {
-      const response = await api.post(
-        `${env.ROOM_API_URL}/meetings`,
-        meetingData
-      );
+      const response = await api.post(`/api/meetings`, meetingData);
       toast.success('Meeting created successfully!');
       onSuccess?.(response.data.meetingId);
       get().resetForm();

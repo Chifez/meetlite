@@ -118,7 +118,7 @@ export const usePushNotifications = () => {
         browser: getBrowserName(),
       };
 
-      await api.post(`${env.AUTH_API_URL}/push-notifications/subscribe`, {
+      await api.post('/api/push-notifications/subscribe', {
         subscription: subscription.toJSON(),
         deviceInfo,
       });
@@ -150,7 +150,7 @@ export const usePushNotifications = () => {
         await subscription.unsubscribe();
 
         // Remove from backend
-        await api.post(`${env.AUTH_API_URL}/push-notifications/unsubscribe`, {
+        await api.post('/api/push-notifications/unsubscribe', {
           endpoint: subscription.endpoint,
         });
 
@@ -170,7 +170,7 @@ export const usePushNotifications = () => {
   // Send test notification
   const sendTestNotification = useCallback(async () => {
     try {
-      await api.post(`${env.AUTH_API_URL}/push-notifications/send`, {
+      await api.post('/api/push-notifications/send', {
         title: 'Test Notification',
         body: 'This is a test notification from MeetLite!',
         data: { type: 'test' },

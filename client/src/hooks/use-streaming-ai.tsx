@@ -40,7 +40,7 @@ export const useStreamingAI = () => {
         }
 
         const response = await fetch(
-          `${env.AI_SERVICE_URL}/description?stream=true`,
+          `${env.API_GATEWAY_URL}/api/ai/description?stream=true`,
           {
             method: 'POST',
             headers,
@@ -117,7 +117,7 @@ export const useStreamingAI = () => {
 
       setIsStreaming(true);
       try {
-        const response = await api.post(`${env.AI_SERVICE_URL}/description`, {
+        const response = await api.post('/api/ai/description', {
           title,
         });
         return response.data.description || '';

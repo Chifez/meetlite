@@ -37,7 +37,7 @@ const ForgotPassword = () => {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      await api.post(`${env.AUTH_API_URL}/auth/forgot-password`, {
+      await api.post('/api/auth/forgot-password', {
         email: data.email,
       });
 

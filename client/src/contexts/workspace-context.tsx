@@ -8,7 +8,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
+// import { env } from '@/config/env';
 import { Organization } from '@/types/organization';
 
 interface WorkspaceContextType {
@@ -96,7 +96,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
 
     setLoading(true);
     try {
-      const response = await api.get(`${env.AUTH_API_URL}/organizations`);
+      const response = await api.get('/api/organizations');
       const orgs: Organization[] = response.data.organizations.map(
         (org: any) => ({
           id: org.id,
@@ -132,7 +132,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
 
     setSwitchingOrg(true);
     try {
-      const response = await api.post(`${env.AUTH_API_URL}/workspace/switch`, {
+      const response = await api.post('/api/workspace/switch', {
         type: 'organization',
         organizationId: orgId,
       });
@@ -167,7 +167,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
 
     setSwitchingOrg(true);
     try {
-      const response = await api.post(`${env.AUTH_API_URL}/workspace/switch`, {
+      const response = await api.post('/api/workspace/switch', {
         type: 'personal',
       });
 
@@ -205,10 +205,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     size?: string;
   }): Promise<Organization | null> => {
     try {
-      const response = await api.post(
-        `${env.AUTH_API_URL}/organizations`,
-        data
-      );
+      const response = await api.post(`/api/organizations`, data);
       const newOrg: Organization = {
         id: response.data.organization.id,
         name: response.data.organization.name,

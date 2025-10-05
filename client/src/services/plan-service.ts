@@ -11,7 +11,7 @@ class PlanService {
    * Get current user's plan usage summary
    */
   async getPlanUsage(): Promise<PlanSummary> {
-    const response = await api.get(`${env.AUTH_API_URL}/plan/usage`);
+    const response = await api.get('/api/plan/usage');
     return response.data.data;
   }
 
@@ -22,7 +22,7 @@ class PlanService {
     plan: string;
     constraints: PlanConstraints;
   }> {
-    const response = await api.get(`${env.AUTH_API_URL}/plan/constraints`);
+    const response = await api.get('/api/plan/constraints');
     return response.data.data;
   }
 
@@ -33,7 +33,7 @@ class PlanService {
     action: 'send_invitation' | 'accept_invitation' | 'organization_capacity',
     data?: any
   ): Promise<PlanValidationResult> {
-    const response = await api.post(`${env.AUTH_API_URL}/plan/validate`, {
+    const response = await api.post('/api/plan/validate', {
       action,
       data,
     });

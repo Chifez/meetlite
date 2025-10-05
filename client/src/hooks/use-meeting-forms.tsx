@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
+// import { env } from '@/config/env';
 
 interface MeetingFormData {
   title: string;
@@ -186,10 +186,7 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
     };
 
     try {
-      const response = await api.post(
-        `${env.ROOM_API_URL}/meetings`,
-        meetingData
-      );
+      const response = await api.post(`/api/meetings`, meetingData);
 
       toast.success('Meeting created successfully!');
       onSuccess?.(response.data.meetingId);

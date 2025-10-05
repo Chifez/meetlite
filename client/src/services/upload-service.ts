@@ -33,30 +33,26 @@ export class UploadService {
         formData.append('visibility', metadata.visibility);
       }
 
-      const response = await api.post(
-        `${env.ROOM_API_URL}/recordings`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          signal,
-          onUploadProgress: (progressEvent) => {
-            if (onProgress && progressEvent.total) {
-              const percentage = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total
-              );
+      const response = await api.post(`/api/recordings`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        signal,
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percentage = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
 
-              const progress: UploadProgress = {
-                loaded: progressEvent.loaded,
-                total: progressEvent.total,
-                percentage,
-              };
-              onProgress(progress);
-            }
-          },
-        }
-      );
+            const progress: UploadProgress = {
+              loaded: progressEvent.loaded,
+              total: progressEvent.total,
+              percentage,
+            };
+            onProgress(progress);
+          }
+        },
+      });
 
       return response.data;
     } catch (error: any) {

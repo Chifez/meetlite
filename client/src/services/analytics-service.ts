@@ -12,7 +12,7 @@ export class AnalyticsService {
   }> {
     try {
       const response = await api.get(
-        `${env.ROOM_API_URL}/analytics/organization/${organizationId}`
+        `/api/analytics/organization/${organizationId}`
       );
       return response.data.analytics;
     } catch (error: any) {
@@ -32,12 +32,9 @@ export class AnalyticsService {
     completedSummaries: number;
   }> {
     try {
-      const response = await api.get(
-        `${env.ROOM_API_URL}/analytics/recordings/stats`,
-        {
-          params: { organizationId },
-        }
-      );
+      const response = await api.get(`/api/analytics/recordings/stats`, {
+        params: { organizationId },
+      });
       return response.data.stats;
     } catch (error: any) {
       console.error('Failed to fetch recording stats:', error);

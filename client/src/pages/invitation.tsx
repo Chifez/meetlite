@@ -58,9 +58,7 @@ export default function InvitationPage() {
       }
 
       try {
-        const response = await api.get(
-          `${env.AUTH_API_URL}/invitations/${token}`
-        );
+        const response = await api.get(`/api/invitations/${token}`);
         setInvitation(response.data.invitation);
         setIsValid(response.data.isValid);
       } catch (error: any) {
@@ -89,7 +87,7 @@ export default function InvitationPage() {
     setAccepting(true);
     try {
       const response = await api.post(
-        `${env.AUTH_API_URL}/invitations/${token}/accept`,
+        `/api/invitations/${token}/accept`,
         {},
         {
           headers: {
@@ -129,7 +127,7 @@ export default function InvitationPage() {
     setDeclining(true);
     try {
       await api.post(
-        `${env.AUTH_API_URL}/invitations/${token}/decline`,
+        `/api/invitations/${token}/decline`,
         {},
         {
           headers: {

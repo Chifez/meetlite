@@ -23,7 +23,7 @@ export class RecordingService {
         }
       });
 
-      const response = await api.get(`${env.ROOM_API_URL}/recordings`, {
+      const response = await api.get('/api/recordings', {
         params,
       });
       return response.data;
@@ -38,9 +38,7 @@ export class RecordingService {
   // Get a specific recording by ID
   async getRecordingById(recordingId: string): Promise<MeetingRecording> {
     try {
-      const response = await api.get(
-        `${env.ROOM_API_URL}/recordings/${recordingId}`
-      );
+      const response = await api.get(`/api/recordings/${recordingId}`);
       return response.data;
     } catch (error: any) {
       console.error('Failed to fetch recording:', error);
@@ -53,7 +51,7 @@ export class RecordingService {
   // Delete a recording
   async deleteRecording(recordingId: string): Promise<void> {
     try {
-      await api.delete(`${env.ROOM_API_URL}/recordings/${recordingId}`);
+      await api.delete(`/api/recordings/${recordingId}`);
     } catch (error: any) {
       console.error('Failed to delete recording:', error);
       throw new Error(
@@ -65,7 +63,7 @@ export class RecordingService {
   // Archive a recording
   async archiveRecording(recordingId: string): Promise<void> {
     try {
-      await api.post(`${env.ROOM_API_URL}/recordings/${recordingId}/archive`);
+      await api.post(`/api/recordings/${recordingId}/archive`);
     } catch (error: any) {
       console.error('Failed to archive recording:', error);
       throw new Error(
@@ -77,7 +75,7 @@ export class RecordingService {
   // Unarchive a recording
   async unarchiveRecording(recordingId: string): Promise<void> {
     try {
-      await api.post(`${env.ROOM_API_URL}/recordings/${recordingId}/unarchive`);
+      await api.post(`/api/recordings/${recordingId}/unarchive`);
     } catch (error: any) {
       console.error('Failed to unarchive recording:', error);
       throw new Error(
@@ -92,9 +90,7 @@ export class RecordingService {
     thumbnailUrl?: string;
   }> {
     try {
-      const response = await api.get(
-        `${env.ROOM_API_URL}/recordings/${recordingId}/stream`
-      );
+      const response = await api.get(`/api/recordings/${recordingId}/stream`);
       return response.data;
     } catch (error: any) {
       console.error('Failed to get streaming URL:', error);
@@ -110,9 +106,7 @@ export class RecordingService {
     expiresAt: Date;
   }> {
     try {
-      const response = await api.post(
-        `${env.ROOM_API_URL}/recordings/${recordingId}/share`
-      );
+      const response = await api.post(`/api/recordings/${recordingId}/share`);
       return response.data;
     } catch (error: any) {
       console.error('Failed to generate share link:', error);
@@ -126,7 +120,7 @@ export class RecordingService {
   async downloadRecording(recordingId: string): Promise<void> {
     try {
       const response = await api.get(
-        `${env.ROOM_API_URL}/recordings/${recordingId}/download`,
+        `/api/recordings/${recordingId}/download`,
         {
           responseType: 'blob',
         }

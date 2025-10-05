@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
+// import { env } from '@/config/env';
 
 interface AISummary {
   id: string;
@@ -50,10 +50,7 @@ export const useAIFeatures = () => {
           formData.append('video', videoBlob, 'meeting-video.webm');
         }
 
-        const response = await api.post(
-          `${env.AI_SERVICE_URL}/summarize`,
-          formData
-        );
+        const response = await api.post(`/api/ai/summarize`, formData);
 
         return response.data;
       } catch (error) {
@@ -90,10 +87,7 @@ export const useAIFeatures = () => {
           formData.append('meetingId', meetingId);
 
           try {
-            const response = await api.post(
-              `${env.AI_SERVICE_URL}/transcribe`,
-              formData
-            );
+            const response = await api.post(`/api/ai/transcribe`, formData);
 
             if (response.data) {
               // Emit transcription event
@@ -133,7 +127,7 @@ export const useAIFeatures = () => {
       topic?: string
     ): Promise<SmartSuggestion[]> => {
       try {
-        const response = await api.post(`${env.AI_SERVICE_URL}/suggest`, {
+        const response = await api.post('/api/ai/suggest', {
           participants,
           duration,
           topic,
@@ -160,9 +154,7 @@ export const useAIFeatures = () => {
       recommendations: string[];
     }> => {
       try {
-        const response = await api.get(
-          `${env.AI_SERVICE_URL}/insights/${meetingId}`
-        );
+        const response = await api.get(`/api/ai/insights/${meetingId}`);
 
         return response.data;
       } catch (error) {

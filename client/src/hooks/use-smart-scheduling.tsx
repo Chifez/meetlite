@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
+// import { env } from '@/config/env';
 import { MeetingFormData } from '@/lib/types';
 import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
 
@@ -36,7 +36,7 @@ export const useSmartScheduling = () => {
       try {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        const response = await api.post(`${env.AI_SERVICE_URL}/parse-meeting`, {
+        const response = await api.post('/api/ai/parse-meeting', {
           input,
           timezone,
         });

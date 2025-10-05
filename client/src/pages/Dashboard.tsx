@@ -107,7 +107,7 @@ const Dashboard = () => {
   const handleQuickMeeting = async () => {
     try {
       setGlobalLoading(true);
-      const response = await api.post(`${env.ROOM_API_URL}/rooms`, {});
+      const response = await api.post('/api/rooms', {});
       const { roomId } = response.data;
       navigate(`/lobby/${roomId}`);
     } catch (error) {

@@ -62,7 +62,7 @@ const ResetPassword = () => {
       }
 
       try {
-        await api.post(`${env.AUTH_API_URL}/auth/validate-reset-token`, {
+        await api.post('/api/auth/validate-reset-token', {
           token,
         });
         setIsValidToken(true);
@@ -85,7 +85,7 @@ const ResetPassword = () => {
 
     setIsLoading(true);
     try {
-      await api.post(`${env.AUTH_API_URL}/auth/reset-password`, {
+      await api.post('/api/auth/reset-password', {
         token,
         newPassword: data.password,
       });

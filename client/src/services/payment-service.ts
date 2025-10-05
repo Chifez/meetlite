@@ -42,7 +42,7 @@ export class PaymentService {
   ): Promise<CreateCheckoutSessionResponse> {
     try {
       const response = await api.post(
-        `${env.AUTH_API_URL}/payment/create-checkout-session`,
+        `/api/payment/create-checkout-session`,
         data
       );
       return response.data;
@@ -59,9 +59,7 @@ export class PaymentService {
    */
   static async createBillingPortalSession(): Promise<CreateBillingPortalResponse> {
     try {
-      const response = await api.post(
-        `${env.AUTH_API_URL}/payment/create-billing-portal`
-      );
+      const response = await api.post(`/api/payment/create-billing-portal`);
       return response.data;
     } catch (error: any) {
       console.error('Error creating billing portal session:', error);
@@ -80,7 +78,7 @@ export class PaymentService {
   ): Promise<PaymentSuccessResponse> {
     try {
       const response = await api.get(
-        `${env.AUTH_API_URL}/payment/success?session_id=${sessionId}`
+        `/api/payment/success?session_id=${sessionId}`
       );
       return response.data;
     } catch (error: any) {

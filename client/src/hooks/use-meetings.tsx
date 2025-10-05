@@ -5,43 +5,35 @@ import { Meeting } from '@/lib/types';
 
 export const useMeetings = () => {
   const fetchMeetings = useCallback(async () => {
-    const res = await api.get<Meeting[]>(`${env.ROOM_API_URL}/meetings`);
+    const res = await api.get<Meeting[]>('/api/meetings');
     return res.data;
   }, []);
 
   const createMeeting = useCallback(async (data: Record<string, any>) => {
-    const res = await api.post<{ meetingId: string }>(
-      `${env.ROOM_API_URL}/meetings`,
-      data
-    );
+    const res = await api.post<{ meetingId: string }>('/api/meetings', data);
     return res.data.meetingId;
   }, []);
 
   const getMeeting = useCallback(async (meetingId: string) => {
-    const res = await api.get<Meeting>(
-      `${env.ROOM_API_URL}/meetings/${meetingId}`
-    );
+    const res = await api.get<Meeting>(`/api/meetings/${meetingId}`);
     return res.data;
   }, []);
 
   const updateMeeting = useCallback(
     async (meetingId: string, updates: Partial<Meeting>) => {
-      const res = await api.put<Meeting>(
-        `${env.ROOM_API_URL}/meetings/${meetingId}`,
-        updates
-      );
+      const res = await api.put<Meeting>(`/api/meetings/${meetingId}`, updates);
       return res.data;
     },
     []
   );
 
   const deleteMeeting = useCallback(async (meetingId: string) => {
-    await api.delete(`${env.ROOM_API_URL}/meetings/${meetingId}`);
+    await api.delete(`/api/meetings/${meetingId}`);
   }, []);
 
   const startMeeting = useCallback(async (meetingId: string) => {
     const res = await api.post<{ roomId: string }>(
-      `${env.ROOM_API_URL}/meetings/${meetingId}/start`,
+      `/api/meetings/${meetingId}/start`,
       {}
     );
     return res.data.roomId;
@@ -49,7 +41,7 @@ export const useMeetings = () => {
 
   const completeMeeting = useCallback(async (meetingId: string) => {
     const res = await api.post<{ message: string }>(
-      `${env.ROOM_API_URL}/meetings/${meetingId}/complete`,
+      `/api/meetings/${meetingId}/complete`,
       {}
     );
     return res.data;
@@ -58,7 +50,7 @@ export const useMeetings = () => {
   const validateInviteToken = useCallback(
     async (meetingId: string, token: string) => {
       const res = await api.post<{ valid: boolean; meeting: Meeting }>(
-        `${env.ROOM_API_URL}/meetings/${meetingId}/validate-token`,
+        `/api/meetings/${meetingId}/validate-token`,
         { token }
       );
       return res.data;

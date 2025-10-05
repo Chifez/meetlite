@@ -70,7 +70,7 @@ const Onboarding = () => {
     setIsLoading(true);
     try {
       // Post onboarding data to backend
-      await api.post(`${env.AUTH_API_URL}/auth/onboarding`, data);
+      await api.post('/api/auth/onboarding', data);
 
       // Refresh profile/token-backed state
       await validateToken();

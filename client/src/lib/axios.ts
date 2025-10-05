@@ -3,8 +3,11 @@ import Cookies from 'js-cookie';
 
 import { env } from '@/config/env';
 
-// Create axios instance
-const api = axios.create();
+// Create axios instance with API Gateway as base URL
+const api = axios.create({
+  baseURL: env.API_GATEWAY_URL,
+  timeout: 60000, // 60 second timeout to match API gateway
+});
 
 // Token refresh state
 let isRefreshing = false;
@@ -76,7 +79,7 @@ api.interceptors.response.use(
 
       try {
         // Try to refresh the token
-        const response = await axios.post(`${env.AUTH_API_URL}/auth/refresh`, {
+        const response = await axios.post('/api/auth/refresh', {
           token,
         });
 

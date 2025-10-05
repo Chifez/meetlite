@@ -25,7 +25,7 @@ import {
 import { toast } from 'sonner';
 import { Loader2, User } from 'lucide-react';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
+// import { env } from '@/config/env';
 import ProfileDangerZone from '@/components/settings/profile-danger-zone';
 
 // User settings schema
@@ -59,7 +59,7 @@ export default function ProfileSettings() {
   const onUserSubmit = async (data: UserSettingsFormValues) => {
     setUserLoading(true);
     try {
-      await api.put(`${env.AUTH_API_URL}/auth/profile`, data, {
+      await api.put('/api/auth/profile', data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },

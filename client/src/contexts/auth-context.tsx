@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Helper to fetch latest user profile
   const fetchUserProfile = async (token: string) => {
     try {
-      const response = await api.get(`${env.AUTH_API_URL}/auth/profile`, {
+      const response = await api.get('/api/auth/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const profile = response.data.user;
@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!token) return false;
 
     try {
-      const response = await api.post(`${env.AUTH_API_URL}/auth/validate`, {
+      const response = await api.post('/api/auth/validate', {
         token,
       });
       if (response.data.valid) {
@@ -183,7 +183,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login user
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post(`${env.AUTH_API_URL}/auth/login`, {
+      const response = await api.post('/api/auth/login', {
         email,
         password,
       });
@@ -213,7 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Register user
   const signup = async (email: string, password: string) => {
     try {
-      const response = await api.post(`${env.AUTH_API_URL}/auth/signup`, {
+      const response = await api.post('/api/auth/signup', {
         email,
         password,
       });
