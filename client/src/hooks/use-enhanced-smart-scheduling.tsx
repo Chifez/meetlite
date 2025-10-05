@@ -8,7 +8,7 @@ import {
   SMART_SCHEDULING_CONFIG,
   ALTERNATIVE_OFFSETS,
   MAX_ALTERNATIVES,
-} from '@/config/smartScheduling';
+} from '@/config/smart-scheduling';
 
 interface ParsedMeetingData {
   title: string;
