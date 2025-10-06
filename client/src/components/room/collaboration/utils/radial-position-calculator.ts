@@ -16,7 +16,7 @@ const getMobileRadialPosition = (
   total: number
 ): { x: number; y: number } => {
   // Mobile: distribute vertically along the right side
-  // Angles from -45° (upper-right) to 45° (lower-right)
+  // Angles from -90° (upper-right) to 90° (lower-right)
   const startAngle = -90;
   const endAngle = 90;
   const angleSpread = endAngle - startAngle;
