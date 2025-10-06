@@ -4,6 +4,10 @@ export const env = {
   API_GATEWAY_URL:
     import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:3000',
 
+  // Signaling Service URL - for Socket.IO connections
+  SIGNALING_SERVER_URL:
+    import.meta.env.VITE_SIGNALING_SERVER_URL || 'http://localhost:5002',
+
   // Other configuration
   BASE_URL: import.meta.env.VITE_BASE_URL,
   VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY,
