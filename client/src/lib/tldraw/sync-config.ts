@@ -13,7 +13,7 @@ export const multiplayerAssets: TLAssetStore = {
     formData.append('file', file);
 
     const response = await fetch(
-      `${env.SIGNALING_SERVER_URL}/uploads/${encodeURIComponent(objectName)}`,
+      `${env.API_GATEWAY_URL}/uploads/${encodeURIComponent(objectName)}`,
       {
         method: 'PUT',
         body: formData,
@@ -36,8 +36,9 @@ export const multiplayerAssets: TLAssetStore = {
 
 // Helper to get sync URI for a room
 export const getSyncUrl = (roomId: string) => {
-  // Convert HTTP URL to WebSocket URL and use the correct path format
-  const baseUrl = env.SIGNALING_SERVER_URL.replace('http', 'ws').replace(
+  // Use API Gateway for WebSocket connections to signaling service
+  // The API Gateway now properly handles WebSocket upgrades for /connect
+  const baseUrl = env.API_GATEWAY_URL.replace('http', 'ws').replace(
     'https',
     'wss'
   );

@@ -93,6 +93,46 @@ function setupServiceRouting(app) {
 }
 
 /**
+ * Setup WebSocket proxy for /connect endpoints
+ * @param {http.Server} server - HTTP server instance
+ */
+function setupWebSocketProxy(server) {
+  const { createProxyMiddleware } = require('http-proxy-middleware');
+
+  // Create WebSocket proxy for /connect endpoints
+  const wsProxy = createProxyMiddleware({
+    target: config.services.signaling,
+    ws: true, // Enable WebSocket proxying
+    changeOrigin: true,
+    pathRewrite: {},
+    onError: (err, req, res) => {
+      console.error('[WS PROXY ERROR] /connect:', err.message);
+      if (!res.headersSent) {
+        res.status(503).json({
+          success: false,
+          message: 'WebSocket proxy error',
+          error:
+            config.server.nodeEnv === 'development' ? err.message : undefined,
+        });
+      }
+    },
+  });
+
+  // Handle WebSocket upgrade requests
+  server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url, `http://${request.headers.host}`)
+      .pathname;
+
+    if (pathname.startsWith('/connect')) {
+      console.log(`[WS PROXY] Upgrading WebSocket connection: ${pathname}`);
+      wsProxy.upgrade(request, socket, head);
+    } else {
+      socket.destroy();
+    }
+  });
+}
+
+/**
  * Start the API Gateway server
  */
 function startServer() {
@@ -121,8 +161,11 @@ function startServer() {
     console.log('   /api/* - API routes (routed to appropriate service)');
     console.log('   /socket.io - WebSocket connections');
     console.log('   /uploads - File uploads');
-    console.log('   /connect - Connection endpoints');
+    console.log('   /connect - WebSocket endpoints (with upgrade support)');
   });
+
+  // Setup WebSocket proxy
+  setupWebSocketProxy(server);
 
   // Graceful shutdown
   process.on('SIGTERM', () => {

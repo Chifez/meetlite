@@ -22,7 +22,7 @@ export const useSocketSetup = ({ roomId }: UseSocketSetupProps) => {
       return;
     }
 
-    const newSocket = io(env.SIGNALING_SERVER_URL, {
+    const newSocket = io(env.MEDIASOUP_SERVER_URL, {
       auth: { token },
       query: { roomId },
     });

@@ -91,6 +91,7 @@ export interface RoomContextType {
   peerMediaState: Map<string, MediaState>;
   isScreenSharing: boolean;
   screenSharingUser: string | null;
+  isMediaSoupConnected: boolean;
   getParticipantEmail: (userId: string) => string | undefined;
   toggleAudio: () => void;
   toggleVideo: () => void;

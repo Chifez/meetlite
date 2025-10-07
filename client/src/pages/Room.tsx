@@ -3,6 +3,7 @@ import { useMemo, useCallback } from 'react';
 import { VideoGrid } from '@/components/room/video-grid';
 import { RoomControls } from '@/components/room/room-controls';
 import { ChatPanel } from '@/components/chat/chat-panel';
+import { useMediaSoup } from '@/hooks/use-mediasoup';
 import { useWebRTC } from '@/hooks/use-web-rtc';
 import { useScreenShareRTC } from '@/hooks/use-screen-share-rtc';
 import { useSocketSetup } from '@/hooks/use-socket-setup';
@@ -64,13 +65,20 @@ const Room = () => {
     canEdit,
   } = useCollaboration({ socket, roomId });
 
-  // Use WebRTC hooks with localStream and participant info callback
-  const { peers, peerMediaState } = useWebRTC(
+  // Use MediaSoup hook with localStream and participant info callback
+  const { peers: mediaSoupPeers, isConnected: isMediaSoupConnected } =
+    useMediaSoup(socket, localStream, roomId, updateParticipantInfo);
+
+  // Fallback to P2P WebRTC if MediaSoup is not connected
+  const { peers: p2pPeers, peerMediaState } = useWebRTC(
     socket,
     localStream,
     updateParticipantInfo
   );
   const { screenPeers } = useScreenShareRTC(socket, screenShareState.stream);
+
+  // Use MediaSoup peers if connected, otherwise fallback to P2P
+  const peers = isMediaSoupConnected ? mediaSoupPeers : p2pPeers;
 
   // Memoized leave meeting function to prevent unnecessary re-renders
   const leaveMeeting = useCallback(() => {
@@ -108,6 +116,7 @@ const Room = () => {
       peerMediaState,
       isScreenSharing: screenShareState.isSharing,
       screenSharingUser: screenShareState.sharingUser,
+      isMediaSoupConnected,
       getParticipantEmail,
       toggleAudio,
       toggleVideo,
@@ -142,6 +151,7 @@ const Room = () => {
       mediaState.audioEnabled,
       mediaState.videoEnabled,
       peerMediaState,
+      isMediaSoupConnected,
       getParticipantEmail,
       toggleAudio,
       toggleVideo,
