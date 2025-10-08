@@ -68,7 +68,7 @@ export const config = {
   // Health Check
   healthCheck: {
     status: 'healthy',
-    services: ['auth', 'room', 'signaling'],
+    services: ['auth', 'room', 'mediasoup'],
   },
 };
 

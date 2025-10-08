@@ -70,7 +70,7 @@ function setupServiceRouting(app) {
   app.use(
     '/socket.io',
     createServiceProxy({
-      target: config.services.signaling,
+      target: config.services.mediasoup,
       pathRewrite: {},
     })
   );
@@ -78,7 +78,7 @@ function setupServiceRouting(app) {
   app.use(
     '/uploads',
     createServiceProxy({
-      target: config.services.signaling,
+      target: config.services.mediasoup,
       pathRewrite: {},
     })
   );
@@ -86,7 +86,7 @@ function setupServiceRouting(app) {
   app.use(
     '/connect',
     createServiceProxy({
-      target: config.services.signaling,
+      target: config.services.mediasoup,
       pathRewrite: {},
     })
   );
