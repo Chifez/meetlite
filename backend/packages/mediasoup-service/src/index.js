@@ -3,7 +3,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
 
 import { logger, requestLogger } from './utils/logger.js';
@@ -22,6 +21,7 @@ import { mediasoupConfig } from './config/mediasoup.js';
 import { MediaController } from './controllers/MediaController.js';
 import { CollaborationController } from './controllers/CollaborationController.js';
 import { RoomController } from './controllers/RoomController.js';
+import { FileHandler } from './handlers/FileHandler.js';
 
 // Import routes
 import { createMediaRoutes } from './routes/media.js';
@@ -34,18 +34,19 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-// Security middleware
-app.use(
-  helmet({
-    contentSecurityPolicy: false, // Disable for WebSocket connections
-  })
-);
+// Security middleware - Disabled due to CORS conflicts
+// Helmet's Cross-Origin-Resource-Policy: same-origin blocks file serving to frontend
+// For production, consider custom security headers or Helmet with proper CORP configuration
+// app.use(helmet());
 
-// CORS configuration
+// CORS configuration - Allow frontend to access MediaSoup service directly
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5174',
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Length', 'Content-Type'],
   })
 );
 
@@ -87,6 +88,9 @@ const mediaSoupService = new MediaSoupService(collaborationStateManager);
 // Initialize Tldraw service
 const tldrawService = new TldrawService();
 
+// Initialize FileHandler
+const fileHandler = new FileHandler();
+
 // ============================================================================
 // CONTROLLER INITIALIZATION
 // ============================================================================
@@ -125,6 +129,30 @@ wss.on('connection', (ws, req) => {
 });
 
 // ============================================================================
+// FILE UPLOAD/SERVE HANDLING
+// ============================================================================
+
+// Handle file uploads and serving for Tldraw (must be BEFORE API routes)
+app.use((req, res, next) => {
+  if (!req.url.startsWith('/uploads/')) {
+    return next();
+  }
+
+  // Handle file uploads
+  if (req.method === 'POST' || req.method === 'PUT') {
+    return fileHandler.handleUpload(req, res);
+  }
+
+  // Handle file serving
+  if (req.method === 'GET') {
+    return fileHandler.handleFileServe(req, res);
+  }
+
+  // Continue for other methods (OPTIONS handled by CORS middleware)
+  next();
+});
+
+// ============================================================================
 // ROUTES SETUP
 // ============================================================================
 
@@ -138,6 +166,7 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     memory: process.memoryUsage(),
     mediasoup: stats,
+    tldrawRooms: tldrawService.getRoomStats(),
     config: {
       port: PORT,
       environment: process.env.NODE_ENV,

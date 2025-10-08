@@ -3,17 +3,17 @@ import { env } from '@/config/env';
 
 // Asset store configuration for handling uploads
 export const multiplayerAssets: TLAssetStore = {
-  // Upload assets through our existing infrastructure
+  // Upload assets through API Gateway
   async upload(_asset, file) {
     const id = uniqueId();
     const objectName = `${id}-${file.name}`;
 
-    // We can adapt this to use our existing upload endpoints
+    // Upload directly to MediaSoup service to avoid proxy CORS issues
     const formData = new FormData();
     formData.append('file', file);
 
     const response = await fetch(
-      `${env.API_GATEWAY_URL}/uploads/${encodeURIComponent(objectName)}`,
+      `http://localhost:3003/uploads/${encodeURIComponent(objectName)}`,
       {
         method: 'PUT',
         body: formData,

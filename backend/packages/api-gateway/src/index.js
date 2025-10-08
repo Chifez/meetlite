@@ -67,6 +67,7 @@ function setupServiceRouting(app) {
   });
 
   // Handle WebSocket and file upload routes
+  // Socket.IO connections - proxy to MediaSoup service
   app.use(
     '/socket.io',
     createServiceProxy({
@@ -75,14 +76,7 @@ function setupServiceRouting(app) {
     })
   );
 
-  app.use(
-    '/uploads',
-    createServiceProxy({
-      target: config.services.mediasoup,
-      pathRewrite: {},
-    })
-  );
-
+  // Tldraw WebSocket connections - proxy to MediaSoup service
   app.use(
     '/connect',
     createServiceProxy({
@@ -90,6 +84,10 @@ function setupServiceRouting(app) {
       pathRewrite: {},
     })
   );
+
+  // NOTE: /uploads routes are NOT proxied
+  // Files are served directly from MediaSoup service (port 3003)
+  // to avoid proxy streaming issues with CORS
 }
 
 /**

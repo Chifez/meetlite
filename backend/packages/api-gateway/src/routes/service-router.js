@@ -61,9 +61,10 @@ const SERVICE_ROUTES = {
     },
   },
 
-  // MediaSoup Service Routes (WebSocket, file uploads, and Tldraw)
+  // MediaSoup Service Routes (WebSocket and Tldraw)
+  // NOTE: /uploads is NOT proxied - files served directly from MediaSoup:3003
   mediasoup: {
-    paths: ['/socket.io', '/uploads', '/connect'],
+    paths: ['/socket.io', '/connect'],
     target: config.services.mediasoup,
     pathRewrite: {},
   },

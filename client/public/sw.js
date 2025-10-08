@@ -26,9 +26,12 @@ self.addEventListener('fetch', (event) => {
   // This allows Axios to handle progress tracking
   if (
     requestUrl.pathname.startsWith('/api/') ||
+    requestUrl.pathname.startsWith('/uploads/') || // Skip file uploads/downloads
     requestUrl.port === '5001' || // room-service
     requestUrl.port === '5000' || // auth-service
-    requestUrl.port === '5003' || // signaling-service
+    requestUrl.port === '5003' || // signaling-service (old)
+    requestUrl.port === '3003' || // mediasoup-service
+    requestUrl.port === '3000' || // api-gateway
     event.request.method !== 'GET' // Skip all non-GET requests (POST, PUT, DELETE)
   ) {
     // Let the request go directly to the network without SW intervention
