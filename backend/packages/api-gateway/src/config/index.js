@@ -19,7 +19,7 @@ export const config = {
   services: {
     auth: process.env.AUTH_SERVICE_URL || 'http://localhost:5000',
     room: process.env.ROOM_SERVICE_URL || 'http://localhost:5001',
-    signaling: process.env.SIGNALING_SERVICE_URL || 'http://localhost:5002',
+    mediasoup: process.env.MEDIASOUP_SERVICE_URL || 'http://localhost:3003',
   },
 
   // CORS Configuration

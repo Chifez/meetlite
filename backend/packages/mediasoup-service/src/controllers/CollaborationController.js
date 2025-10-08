@@ -1,0 +1,512 @@
+import { logger } from '../utils/logger.js';
+
+/**
+ * CollaborationController - Handles all chat and collaboration-related Socket.IO events
+ * Extracted from index.js for better separation of concerns
+ */
+export class CollaborationController {
+  constructor(mediaSoupService, collaborationStateManager, io) {
+    this.mediaSoupService = mediaSoupService;
+    this.collaborationStateManager = collaborationStateManager;
+    this.io = io;
+  }
+
+  /**
+   * Handle chat message
+   */
+  async handleChatMessage(socket, data) {
+    try {
+      const { roomId, message, timestamp, type = 'text' } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !message || message.trim().length === 0) {
+        return;
+      }
+
+      // Verify user is in room
+      if (!socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Broadcast message to all users in room (including sender for confirmation)
+      this.io.to(roomId).emit('chat:message', {
+        userId,
+        userEmail: socket.user.email,
+        message: message.trim(),
+        timestamp,
+        type,
+      });
+
+      logger.info('Chat message sent', {
+        roomId,
+        userId,
+        messageLength: message.trim().length,
+      });
+    } catch (error) {
+      logger.error('Failed to handle chat message', error);
+    }
+  }
+
+  /**
+   * Handle typing start
+   */
+  async handleTypingStart(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Broadcast typing indicator to others (not to sender)
+      socket.to(roomId).emit('chat:typing-start', {
+        userId,
+        userEmail: socket.user.email,
+      });
+
+      logger.debug('Typing started', { roomId, userId });
+    } catch (error) {
+      logger.error('Failed to handle typing start', error);
+    }
+  }
+
+  /**
+   * Handle typing stop
+   */
+  async handleTypingStop(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Broadcast stop typing to others (not to sender)
+      socket.to(roomId).emit('chat:typing-stop', {
+        userId,
+      });
+
+      logger.debug('Typing stopped', { roomId, userId });
+    } catch (error) {
+      logger.error('Failed to handle typing stop', error);
+    }
+  }
+
+  /**
+   * Handle collaboration mode change
+   */
+  async handleCollaborationMode(socket, data) {
+    try {
+      const { roomId, mode } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update collaboration state
+      const updatedState =
+        this.collaborationStateManager.updateCollaborationMode(
+          roomId,
+          mode,
+          userId
+        );
+
+      // Broadcast mode change with proper state to all clients
+      this.io.to(roomId).emit('collaboration:mode-changed', {
+        mode,
+        activeTool: mode,
+        presenter: updatedState.presenter,
+        changedBy: userId,
+        timestamp: Date.now(),
+      });
+
+      logger.info('Collaboration mode changed', {
+        roomId,
+        userId,
+        mode,
+      });
+    } catch (error) {
+      logger.error('Failed to handle collaboration mode change', error);
+    }
+  }
+
+  /**
+   * Handle collaboration tool change
+   */
+  async handleCollaborationTool(socket, data) {
+    try {
+      const { roomId, tool } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Broadcast tool change to all clients
+      this.io.to(roomId).emit('collaboration:tool-changed', {
+        tool,
+        changedBy: userId,
+        timestamp: Date.now(),
+      });
+
+      logger.info('Collaboration tool changed', {
+        roomId,
+        userId,
+        tool,
+      });
+    } catch (error) {
+      logger.error('Failed to handle collaboration tool change', error);
+    }
+  }
+
+  /**
+   * Handle presentation settings
+   */
+  async handlePresentationSettings(socket, data) {
+    try {
+      const { roomId, settings } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update collaboration settings
+      const success =
+        this.collaborationStateManager.updateCollaborationSettings(
+          roomId,
+          settings,
+          userId
+        );
+
+      if (success) {
+        // Broadcast settings update to all clients
+        this.io.to(roomId).emit('collaboration:settings-changed', {
+          settings,
+          changedBy: userId,
+          timestamp: Date.now(),
+        });
+
+        logger.info('Presentation settings updated', {
+          roomId,
+          userId,
+          settings,
+        });
+      } else {
+        logger.warn(
+          'Failed to update presentation settings - user not authorized',
+          {
+            roomId,
+            userId,
+          }
+        );
+      }
+    } catch (error) {
+      logger.error('Failed to handle presentation settings', error);
+    }
+  }
+
+  /**
+   * Handle collaboration state request
+   */
+  async handleCollaborationStateRequest(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Get current collaboration state
+      const state =
+        this.collaborationStateManager.getCollaborationState(roomId);
+
+      socket.emit('collaboration:state', state);
+
+      logger.debug('Collaboration state requested', {
+        roomId,
+        userId,
+        mode: state.mode,
+      });
+    } catch (error) {
+      logger.error('Failed to handle collaboration state request', error);
+    }
+  }
+
+  /**
+   * Handle workflow operation
+   */
+  async handleWorkflowOperation(socket, data) {
+    try {
+      const { roomId, operation } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Check if user can edit
+      if (!this.collaborationStateManager.canEdit(roomId, userId)) {
+        logger.warn('Workflow operation rejected - user not authorized', {
+          roomId,
+          userId,
+          operationType: operation.type,
+        });
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update workflow data
+      const updatedData = this.collaborationStateManager.updateWorkflowData(
+        roomId,
+        {
+          ...operation,
+          version: operation.version || 1,
+        },
+        userId
+      );
+
+      // Broadcast workflow operation to all clients
+      this.io.to(roomId).emit('workflow:operation', {
+        operation,
+        userId,
+        timestamp: Date.now(),
+        version: updatedData.version,
+      });
+
+      logger.info('Workflow operation', {
+        roomId,
+        userId,
+        operationType: operation.type,
+        version: updatedData.version,
+      });
+    } catch (error) {
+      logger.error('Failed to handle workflow operation', error);
+    }
+  }
+
+  /**
+   * Handle workflow sync request
+   */
+  async handleWorkflowSyncRequest(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Get current collaboration state
+      const state =
+        this.collaborationStateManager.getCollaborationState(roomId);
+
+      socket.emit('workflow:state-sync', state);
+
+      logger.debug('Workflow state sync requested', {
+        roomId,
+        userId,
+        mode: state.mode,
+        hasWorkflowData: !!state.workflowData,
+      });
+    } catch (error) {
+      logger.error('Failed to handle workflow state sync request', error);
+    }
+  }
+
+  /**
+   * Handle whiteboard update
+   */
+  async handleWhiteboardUpdate(socket, data) {
+    try {
+      const { roomId, update } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Check if user can edit
+      if (!this.collaborationStateManager.canEdit(roomId, userId)) {
+        logger.warn('Whiteboard update rejected - user not authorized', {
+          roomId,
+          userId,
+        });
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update whiteboard data
+      const updatedData = this.collaborationStateManager.updateWhiteboardData(
+        roomId,
+        {
+          ...update,
+          version: update.version || 1,
+        },
+        userId
+      );
+
+      // Broadcast whiteboard update to all clients
+      this.io.to(roomId).emit('whiteboard:update', {
+        update,
+        userId,
+        timestamp: Date.now(),
+        version: updatedData.version,
+      });
+
+      logger.info('Whiteboard update', {
+        roomId,
+        userId,
+        updateVersion: updatedData.version,
+      });
+    } catch (error) {
+      logger.error('Failed to handle whiteboard update', error);
+    }
+  }
+
+  /**
+   * Handle whiteboard sync request
+   */
+  async handleWhiteboardSyncRequest(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Get current collaboration state
+      const state =
+        this.collaborationStateManager.getCollaborationState(roomId);
+
+      // Send whiteboard data specifically
+      socket.emit(
+        'whiteboard:state-sync',
+        state.whiteboardData || {
+          version: 0,
+          data: null,
+          lastModified: new Date(),
+          lastModifiedBy: null,
+        }
+      );
+
+      logger.debug('Whiteboard state sync requested', {
+        roomId,
+        userId,
+        hasWhiteboardData: !!state.whiteboardData,
+      });
+    } catch (error) {
+      logger.error('Failed to handle whiteboard state sync request', error);
+    }
+  }
+
+  /**
+   * Handle presentation start
+   */
+  async handlePresentationStart(socket, data) {
+    try {
+      const { roomId, mode } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update collaboration mode
+      const updatedState =
+        this.collaborationStateManager.updateCollaborationMode(
+          roomId,
+          mode,
+          userId
+        );
+
+      // Broadcast presentation start to all clients
+      this.io.to(roomId).emit('collaboration:mode-changed', {
+        mode,
+        activeTool: mode,
+        presenter: updatedState.presenter,
+        changedBy: userId,
+        timestamp: Date.now(),
+      });
+
+      logger.info('Presentation started', {
+        roomId,
+        userId,
+        mode,
+      });
+    } catch (error) {
+      logger.error('Failed to handle presentation start', error);
+    }
+  }
+
+  /**
+   * Handle presentation stop
+   */
+  async handlePresentationStop(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update collaboration mode to none
+      const updatedState =
+        this.collaborationStateManager.updateCollaborationMode(
+          roomId,
+          'none',
+          userId
+        );
+
+      // Broadcast presentation stop to all clients
+      this.io.to(roomId).emit('collaboration:mode-changed', {
+        mode: 'none',
+        activeTool: 'none',
+        presenter: updatedState.presenter,
+        changedBy: userId,
+        timestamp: Date.now(),
+      });
+
+      logger.info('Presentation stopped', {
+        roomId,
+        userId,
+      });
+    } catch (error) {
+      logger.error('Failed to handle presentation stop', error);
+    }
+  }
+}

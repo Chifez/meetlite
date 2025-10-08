@@ -20,7 +20,7 @@ import {
   setupErrorHandlingMiddleware,
   setupRequestLoggingMiddleware,
 } from './middleware/index.js';
-
+import { createProxyMiddleware } from 'http-proxy-middleware';
 // Load environment variables
 dotenv.config();
 
@@ -97,11 +97,9 @@ function setupServiceRouting(app) {
  * @param {http.Server} server - HTTP server instance
  */
 function setupWebSocketProxy(server) {
-  const { createProxyMiddleware } = require('http-proxy-middleware');
-
   // Create WebSocket proxy for /connect endpoints
   const wsProxy = createProxyMiddleware({
-    target: config.services.signaling,
+    target: config.services.mediasoup,
     ws: true, // Enable WebSocket proxying
     changeOrigin: true,
     pathRewrite: {},
@@ -124,7 +122,9 @@ function setupWebSocketProxy(server) {
       .pathname;
 
     if (pathname.startsWith('/connect')) {
-      console.log(`[WS PROXY] Upgrading WebSocket connection: ${pathname}`);
+      console.log(
+        `[WS PROXY] Upgrading WebSocket connection: ${pathname} -> MediaSoup service`
+      );
       wsProxy.upgrade(request, socket, head);
     } else {
       socket.destroy();

@@ -36,8 +36,8 @@ export const multiplayerAssets: TLAssetStore = {
 
 // Helper to get sync URI for a room
 export const getSyncUrl = (roomId: string) => {
-  // Use API Gateway for WebSocket connections to signaling service
-  // The API Gateway now properly handles WebSocket upgrades for /connect
+  // Use API Gateway for WebSocket connections to MediaSoup service
+  // The API Gateway now routes /connect to MediaSoup service for Tldraw
   const baseUrl = env.API_GATEWAY_URL.replace('http', 'ws').replace(
     'https',
     'wss'

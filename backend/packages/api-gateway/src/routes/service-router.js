@@ -61,10 +61,10 @@ const SERVICE_ROUTES = {
     },
   },
 
-  // Signaling Service Routes (WebSocket and file uploads)
-  signaling: {
+  // MediaSoup Service Routes (WebSocket, file uploads, and Tldraw)
+  mediasoup: {
     paths: ['/socket.io', '/uploads', '/connect'],
-    target: config.services.signaling,
+    target: config.services.mediasoup,
     pathRewrite: {},
   },
 };
