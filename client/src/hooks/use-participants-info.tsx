@@ -3,6 +3,8 @@ import { useState, useCallback } from 'react';
 interface ParticipantInfo {
   email: string;
   userId: string;
+  name?: string;
+  useNameInMeetings?: boolean;
 }
 
 export const useParticipantInfo = () => {
@@ -24,6 +26,22 @@ export const useParticipantInfo = () => {
     [participantInfo]
   );
 
+  const getParticipantDisplayName = useCallback(
+    (userId: string): string | undefined => {
+      const info = participantInfo.get(userId);
+      if (!info) return undefined;
+
+      // Use name if available and useNameInMeetings is true
+      if (info.useNameInMeetings && info.name) {
+        return info.name;
+      }
+
+      // Fallback to email
+      return info.email;
+    },
+    [participantInfo]
+  );
+
   const clearParticipantInfo = useCallback(() => {
     setParticipantInfo(new Map());
   }, []);
@@ -32,6 +50,7 @@ export const useParticipantInfo = () => {
     participantInfo,
     updateParticipantInfo,
     getParticipantEmail,
+    getParticipantDisplayName,
     clearParticipantInfo,
   };
 };

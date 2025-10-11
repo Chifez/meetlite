@@ -11,6 +11,7 @@ export const VideoGrid = () => {
     videoEnabled,
     audioEnabled,
     getParticipantEmail,
+    getParticipantDisplayName,
     screenStream,
     screenSharingUser,
     screenPeers,
@@ -40,6 +41,7 @@ export const VideoGrid = () => {
     },
     ...Array.from(peers.entries()).map(([peerId, peer]) => {
       const participantEmail = getParticipantEmail(peer.id);
+      const participantDisplayName = getParticipantDisplayName(peer.id);
 
       return {
         id: peerId,
@@ -51,7 +53,7 @@ export const VideoGrid = () => {
         isLocal: false,
         isLoading: peer.isLoading || false,
         userEmail: participantEmail,
-        userName: participantEmail || 'Participant',
+        userName: participantDisplayName || participantEmail || 'Participant',
       };
     }),
   ];

@@ -93,6 +93,7 @@ export interface RoomContextType {
   screenSharingUser: string | null;
   isMediaSoupConnected: boolean;
   getParticipantEmail: (userId: string) => string | undefined;
+  getParticipantDisplayName: (userId: string) => string | undefined;
   toggleAudio: () => void;
   toggleVideo: () => void;
   leaveMeeting: () => void;

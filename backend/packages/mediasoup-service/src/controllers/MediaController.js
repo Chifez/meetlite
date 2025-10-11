@@ -107,6 +107,14 @@ export class MediaController {
       await this.mediaSoupService.addParticipant(roomId, userId, {
         email: socket.user.email,
         userId: socket.user.userId,
+        name: socket.user.name,
+        useNameInMeetings: socket.user.useNameInMeetings,
+      });
+
+      // CRITICAL FIX: Store initial media state (like signaling service does)
+      await this.mediaSoupService.updateParticipantMediaState(roomId, userId, {
+        audioEnabled: mediaState?.audioEnabled ?? true,
+        videoEnabled: mediaState?.videoEnabled ?? true,
       });
 
       // Join socket room
@@ -147,6 +155,8 @@ export class MediaController {
           acc[p.userId] = {
             email: p.userInfo.email,
             userId: p.userInfo.userId,
+            name: p.userInfo.name,
+            useNameInMeetings: p.userInfo.useNameInMeetings,
           };
           return acc;
         }, {}),
@@ -156,11 +166,23 @@ export class MediaController {
         existingProducers, // Existing producers for the new user to consume
       });
 
-      // Notify other participants
+      // Notify other participants with full participant info and media state
       if (participants.length > 1) {
         socket.to(roomId).emit('user-joined', {
           userId,
           userEmail: socket.user.email,
+          // CRITICAL FIX: Include participant info for display names
+          participantInfo: {
+            email: socket.user.email,
+            userId: socket.user.userId,
+            name: socket.user.name,
+            useNameInMeetings: socket.user.useNameInMeetings,
+          },
+          // CRITICAL FIX: Include initial media state
+          mediaState: {
+            audioEnabled: mediaState?.audioEnabled ?? true,
+            videoEnabled: mediaState?.videoEnabled ?? true,
+          },
         });
       }
 
@@ -180,7 +202,7 @@ export class MediaController {
    */
   async handleJoinRoom(socket, data) {
     try {
-      const { roomId } = data;
+      const { roomId, mediaState } = data;
       const userId = socket.user.userId;
 
       if (!roomId) {
@@ -211,7 +233,21 @@ export class MediaController {
       await this.mediaSoupService.addParticipant(roomId, userId, {
         email: socket.user.email,
         userId: socket.user.userId,
+        name: socket.user.name,
+        useNameInMeetings: socket.user.useNameInMeetings,
       });
+
+      // CRITICAL FIX: Store initial media state (like signaling service does)
+      if (mediaState) {
+        await this.mediaSoupService.updateParticipantMediaState(
+          roomId,
+          userId,
+          {
+            audioEnabled: mediaState.audioEnabled ?? true,
+            videoEnabled: mediaState.videoEnabled ?? true,
+          }
+        );
+      }
 
       // Join socket room
       socket.join(roomId);
@@ -239,7 +275,7 @@ export class MediaController {
         existingProducers, // CRITICAL FIX: Include existing producers
       });
 
-      // Notify other participants
+      // Notify other participants with full participant info and media state
       socket.to(roomId).emit('participant-joined', {
         userId,
         userInfo: {
@@ -248,6 +284,23 @@ export class MediaController {
         },
         joinedAt: Date.now(),
         isMediaSoupConnected: true,
+        // CRITICAL FIX: Include participant info for display names
+        participantInfo: {
+          email: socket.user.email,
+          userId: socket.user.userId,
+          name: socket.user.name,
+          useNameInMeetings: socket.user.useNameInMeetings,
+        },
+        // CRITICAL FIX: Include initial media state
+        mediaState: mediaState
+          ? {
+              audioEnabled: mediaState.audioEnabled ?? true,
+              videoEnabled: mediaState.videoEnabled ?? true,
+            }
+          : {
+              audioEnabled: true,
+              videoEnabled: true,
+            },
       });
 
       logger.info('User joined room via Socket.IO', {

@@ -37,6 +37,11 @@ export const useMediaSoup = (
     isLoading: false,
   });
 
+  // Track media state for each peer
+  const [peerMediaState, setPeerMediaState] = useState<
+    Map<string, { audioEnabled: boolean; videoEnabled: boolean }>
+  >(new Map());
+
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -584,6 +589,22 @@ export const useMediaSoup = (
           onParticipantInfoUpdate(data.participantInfo);
         }
 
+        // CRITICAL FIX: Update peer media states
+        if (data.mediaState) {
+          console.log('📱 [ROOM-DATA] Updating media states:', data.mediaState);
+          const newMediaState = new Map<
+            string,
+            { audioEnabled: boolean; videoEnabled: boolean }
+          >();
+          Object.entries(data.mediaState).forEach(([userId, state]) => {
+            newMediaState.set(
+              userId,
+              state as { audioEnabled: boolean; videoEnabled: boolean }
+            );
+          });
+          setPeerMediaState(newMediaState);
+        }
+
         // Produce local stream if available - pass device directly
         if (localStream && roomId && device) {
           await produceLocalStream(roomId, localStream, device);
@@ -662,8 +683,42 @@ export const useMediaSoup = (
     };
 
     // Handle user joined
-    const handleUserJoined = (data: { userId: string; userEmail: string }) => {
-      console.log('👋 User joined:', data);
+    const handleUserJoined = (data: {
+      userId: string;
+      userEmail: string;
+      participantInfo?: {
+        email: string;
+        userId: string;
+        name?: string;
+        useNameInMeetings?: boolean;
+      };
+      mediaState?: {
+        audioEnabled: boolean;
+        videoEnabled: boolean;
+      };
+    }) => {
+      console.log('👋 [USER-JOINED] User joined:', data);
+
+      // CRITICAL FIX: Update participant info for display names
+      if (data.participantInfo && onParticipantInfoUpdate) {
+        const info: Record<string, any> = {};
+        info[data.userId] = data.participantInfo;
+        onParticipantInfoUpdate(info);
+        console.log(
+          '👋 [USER-JOINED] Updated participant info:',
+          data.participantInfo
+        );
+      }
+
+      // CRITICAL FIX: Update media state
+      if (data.mediaState) {
+        setPeerMediaState((prev) => {
+          const newState = new Map(prev);
+          newState.set(data.userId, data.mediaState!);
+          return newState;
+        });
+        console.log('👋 [USER-JOINED] Updated media state:', data.mediaState);
+      }
     };
 
     // Handle user left
@@ -705,8 +760,17 @@ export const useMediaSoup = (
       audioEnabled: boolean;
       videoEnabled: boolean;
     }) => {
-      console.log('📱 Media state update:', data);
-      // Media state is handled by the main room context
+      console.log('📱 [MEDIA-STATE] Update received:', data);
+
+      // CRITICAL FIX: Update peer media state
+      setPeerMediaState((prev) => {
+        const newState = new Map(prev);
+        newState.set(data.userId, {
+          audioEnabled: data.audioEnabled,
+          videoEnabled: data.videoEnabled,
+        });
+        return newState;
+      });
     };
 
     // Handle screen share events
@@ -727,6 +791,7 @@ export const useMediaSoup = (
     socket.on('room-data', handleRoomData);
     socket.on('new-producer', handleNewProducer);
     socket.on('user-joined', handleUserJoined);
+    socket.on('participant-joined', handleUserJoined); // CRITICAL FIX: Also handle participant-joined
     socket.on('user-left', handleUserLeft);
     socket.on('media-state-update', handleMediaStateUpdate);
     socket.on('screen-share-started', handleScreenShareStarted);
@@ -738,6 +803,7 @@ export const useMediaSoup = (
       socket.off('room-data', handleRoomData);
       socket.off('new-producer', handleNewProducer);
       socket.off('user-joined', handleUserJoined);
+      socket.off('participant-joined', handleUserJoined);
       socket.off('user-left', handleUserLeft);
       socket.off('media-state-update', handleMediaStateUpdate);
       socket.off('screen-share-started', handleScreenShareStarted);
@@ -795,6 +861,7 @@ export const useMediaSoup = (
 
   return {
     peers,
+    peerMediaState,
     isConnected: state.isConnected,
     isLoading: state.isLoading,
     device: state.device,

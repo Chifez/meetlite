@@ -29,7 +29,11 @@ const Room = () => {
   const { socket } = useSocketSetup({ roomId });
 
   // Setup participant info management
-  const { getParticipantEmail, updateParticipantInfo } = useParticipantInfo();
+  const {
+    getParticipantEmail,
+    getParticipantDisplayName,
+    updateParticipantInfo,
+  } = useParticipantInfo();
 
   // Setup screen sharing
   const { screenShareState, shareScreen, cleanupScreenShare } = useScreenShare({
@@ -66,11 +70,20 @@ const Room = () => {
   } = useCollaboration({ socket, roomId });
 
   // Use MediaSoup hook with localStream and participant info callback
-  const { peers: mediaSoupPeers, isConnected: isMediaSoupConnected } =
-    useMediaSoup(socket, localStream, roomId, user?.id, updateParticipantInfo);
+  const {
+    peers: mediaSoupPeers,
+    peerMediaState: mediaSoupMediaState,
+    isConnected: isMediaSoupConnected,
+  } = useMediaSoup(
+    socket,
+    localStream,
+    roomId,
+    user?.id,
+    updateParticipantInfo
+  );
 
   // Fallback to P2P WebRTC if MediaSoup is not connected
-  const { peers: p2pPeers, peerMediaState } = useWebRTC(
+  const { peers: p2pPeers, peerMediaState: p2pMediaState } = useWebRTC(
     socket,
     localStream,
     updateParticipantInfo
@@ -79,6 +92,9 @@ const Room = () => {
 
   // Use MediaSoup peers if connected, otherwise fallback to P2P
   const peers = isMediaSoupConnected ? mediaSoupPeers : p2pPeers;
+  const peerMediaState = isMediaSoupConnected
+    ? mediaSoupMediaState
+    : p2pMediaState;
 
   // Memoized leave meeting function to prevent unnecessary re-renders
   const leaveMeeting = useCallback(() => {
@@ -121,6 +137,7 @@ const Room = () => {
       screenSharingUser: screenShareState.sharingUser,
       isMediaSoupConnected,
       getParticipantEmail,
+      getParticipantDisplayName,
       toggleAudio,
       toggleVideo,
       leaveMeeting,
@@ -156,6 +173,7 @@ const Room = () => {
       peerMediaState,
       isMediaSoupConnected,
       getParticipantEmail,
+      getParticipantDisplayName,
       toggleAudio,
       toggleVideo,
       leaveMeeting,
