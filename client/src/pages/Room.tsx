@@ -67,7 +67,7 @@ const Room = () => {
 
   // Use MediaSoup hook with localStream and participant info callback
   const { peers: mediaSoupPeers, isConnected: isMediaSoupConnected } =
-    useMediaSoup(socket, localStream, roomId, updateParticipantInfo);
+    useMediaSoup(socket, localStream, roomId, user?.id, updateParticipantInfo);
 
   // Fallback to P2P WebRTC if MediaSoup is not connected
   const { peers: p2pPeers, peerMediaState } = useWebRTC(
@@ -85,7 +85,10 @@ const Room = () => {
     cleanupScreenShare();
 
     peers.forEach((peer) => {
-      peer.connection.close();
+      // CRITICAL FIX: MediaSoup peers have connection: null, check before closing
+      if (peer.connection) {
+        peer.connection.close();
+      }
     });
 
     if (socket?.connected) {

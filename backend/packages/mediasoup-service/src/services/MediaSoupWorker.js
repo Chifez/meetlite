@@ -167,8 +167,8 @@ export class MediaSoupWorker {
         },
       });
 
-      const transportId = `${roomId}_${direction}_${Date.now()}`;
-      this.transports.set(transportId, {
+      // Use actual MediaSoup transport ID (critical for client-side compatibility)
+      this.transports.set(transport.id, {
         transport,
         roomId,
         direction,
@@ -176,14 +176,14 @@ export class MediaSoupWorker {
       });
 
       logger.info('WebRTC transport created', {
-        transportId,
+        transportId: transport.id,
         roomId,
         direction,
         iceParameters: transport.iceParameters,
       });
 
       return {
-        id: transportId,
+        id: transport.id,
         iceParameters: transport.iceParameters,
         iceCandidates: transport.iceCandidates,
         dtlsParameters: transport.dtlsParameters,
@@ -246,10 +246,8 @@ export class MediaSoupWorker {
         },
       });
 
-      const producerId = `${
-        transportData.roomId
-      }_${userId}_${kind}_${Date.now()}`;
-      this.producers.set(producerId, {
+      // Use actual MediaSoup producer ID (critical for client-side compatibility)
+      this.producers.set(producer.id, {
         producer,
         roomId: transportData.roomId,
         userId,
@@ -264,13 +262,13 @@ export class MediaSoupWorker {
       }
 
       logger.info('Producer created', {
-        producerId,
+        producerId: producer.id,
         roomId: transportData.roomId,
         userId,
         kind,
       });
 
-      return { id: producerId };
+      return { id: producer.id };
     } catch (error) {
       logger.error('Failed to create producer', {
         transportId,
@@ -297,9 +295,15 @@ export class MediaSoupWorker {
         throw new Error(`Producer not found: ${producerId}`);
       }
 
+      // Get the router for this room
+      const routerData = this.routers.get(transportData.roomId);
+      if (!routerData) {
+        throw new Error(`Router not found for room: ${transportData.roomId}`);
+      }
+
       // Check if router can consume this producer
       if (
-        !transportData.transport.router.canConsume({
+        !routerData.router.canConsume({
           producerId: producerData.producer.id,
           rtpCapabilities,
         })
@@ -319,8 +323,8 @@ export class MediaSoupWorker {
         },
       });
 
-      const consumerId = `${transportData.roomId}_${userId}_${Date.now()}`;
-      this.consumers.set(consumerId, {
+      // Use actual MediaSoup consumer ID (critical for client-side compatibility)
+      this.consumers.set(consumer.id, {
         consumer,
         roomId: transportData.roomId,
         userId,
@@ -329,14 +333,14 @@ export class MediaSoupWorker {
       });
 
       logger.info('Consumer created', {
-        consumerId,
+        consumerId: consumer.id,
         roomId: transportData.roomId,
         userId,
         producerId,
       });
 
       return {
-        id: consumerId,
+        id: consumer.id,
         producerId,
         kind: consumer.kind,
         rtpParameters: consumer.rtpParameters,
@@ -452,6 +456,23 @@ export class MediaSoupWorker {
       logger.error('Failed to cleanup room resources', { roomId, error });
       throw error;
     }
+  }
+
+  /**
+   * Get all producers for a room
+   */
+  getProducersForRoom(roomId) {
+    const producers = [];
+    for (const [producerId, producerData] of this.producers.entries()) {
+      if (producerData.roomId === roomId) {
+        producers.push({
+          id: producerId,
+          userId: producerData.userId,
+          kind: producerData.kind,
+        });
+      }
+    }
+    return producers;
   }
 
   /**

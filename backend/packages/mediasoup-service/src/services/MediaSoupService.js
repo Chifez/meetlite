@@ -658,4 +658,11 @@ export class MediaSoupService {
       throw error;
     }
   }
+
+  /**
+   * Get all producers for a room
+   */
+  getProducersForRoom(roomId) {
+    return this.worker.getProducersForRoom(roomId);
+  }
 }

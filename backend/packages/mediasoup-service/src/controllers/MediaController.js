@@ -118,16 +118,29 @@ export class MediaController {
       );
       const participants = this.mediaSoupService.getParticipants(roomId);
 
-      // Send room data to ALL participants (matches original signaling service)
-      this.io.to(roomId).emit('room-data', {
+      // Get existing producers in the room (CRITICAL FIX: Notify about existing producers)
+      const existingProducers =
+        this.mediaSoupService.getProducersForRoom(roomId);
+
+      // CRITICAL FIX: Send room data ONLY to the newly joined user, not ALL participants
+      // This prevents existing users from receiving room-data and trying to re-consume producers
+      socket.emit('room-data', {
         participants: participants.map((p) => p.userId),
         mediaState: participants.reduce((acc, p) => {
-          acc[p.userId] = {
-            audioEnabled:
-              p.userId === userId ? mediaState?.audioEnabled ?? true : true,
-            videoEnabled:
-              p.userId === userId ? mediaState?.videoEnabled ?? true : true,
-          };
+          // CRITICAL FIX: Use actual participant media state from stored data
+          if (p.userId === userId) {
+            // For current user, use the mediaState from the request
+            acc[p.userId] = {
+              audioEnabled: mediaState?.audioEnabled ?? true,
+              videoEnabled: mediaState?.videoEnabled ?? true,
+            };
+          } else {
+            // For other users, use their stored media state
+            acc[p.userId] = p.mediaState || {
+              audioEnabled: true,
+              videoEnabled: true,
+            };
+          }
           return acc;
         }, {}),
         participantInfo: participants.reduce((acc, p) => {
@@ -140,6 +153,7 @@ export class MediaController {
         rtpCapabilities,
         iceServers: mediasoupConfig.iceServers,
         mediaSoupEnabled: true,
+        existingProducers, // Existing producers for the new user to consume
       });
 
       // Notify other participants
@@ -208,6 +222,10 @@ export class MediaController {
       );
       const participants = this.mediaSoupService.getParticipants(roomId);
 
+      // Get existing producers in the room (CRITICAL FIX: Notify about existing producers)
+      const existingProducers =
+        this.mediaSoupService.getProducersForRoom(roomId);
+
       socket.emit('room-joined', {
         roomId,
         rtpCapabilities,
@@ -218,6 +236,7 @@ export class MediaController {
           joinedAt: p.joinedAt,
         })),
         mediaSoupEnabled: true,
+        existingProducers, // CRITICAL FIX: Include existing producers
       });
 
       // Notify other participants
@@ -316,6 +335,16 @@ export class MediaController {
       socket.emit('producer-created', producerData);
 
       // Notify other participants about new producer
+      logger.info('[NEW-PRODUCER] Emitting to room:', {
+        roomId,
+        producerId: producerData.id,
+        userId,
+        kind,
+        targetSockets: Array.from(
+          this.io.sockets.adapter.rooms.get(roomId) || []
+        ).filter((id) => id !== socket.id),
+      });
+
       socket.to(roomId).emit('new-producer', {
         producerId: producerData.id,
         userId,
