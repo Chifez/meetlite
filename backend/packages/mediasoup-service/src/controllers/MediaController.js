@@ -104,6 +104,13 @@ export class MediaController {
       }
 
       // Add participant
+      logger.info('🔍 [READY] Adding participant with user data:', {
+        email: socket.user.email,
+        userId: socket.user.userId,
+        name: socket.user.name,
+        useNameInMeetings: socket.user.useNameInMeetings,
+      });
+
       await this.mediaSoupService.addParticipant(roomId, userId, {
         email: socket.user.email,
         userId: socket.user.userId,
@@ -152,12 +159,19 @@ export class MediaController {
           return acc;
         }, {}),
         participantInfo: participants.reduce((acc, p) => {
-          acc[p.userId] = {
+          const participantInfo = {
             email: p.userInfo.email,
             userId: p.userInfo.userId,
             name: p.userInfo.name,
             useNameInMeetings: p.userInfo.useNameInMeetings,
           };
+
+          logger.info('🔍 [READY] Participant info being sent:', {
+            participantUserId: p.userId,
+            participantInfo,
+          });
+
+          acc[p.userId] = participantInfo;
           return acc;
         }, {}),
         rtpCapabilities,
@@ -168,7 +182,7 @@ export class MediaController {
 
       // Notify other participants with full participant info and media state
       if (participants.length > 1) {
-        socket.to(roomId).emit('user-joined', {
+        const userJoinedData = {
           userId,
           userEmail: socket.user.email,
           // CRITICAL FIX: Include participant info for display names
@@ -183,7 +197,14 @@ export class MediaController {
             audioEnabled: mediaState?.audioEnabled ?? true,
             videoEnabled: mediaState?.videoEnabled ?? true,
           },
+        };
+
+        logger.info('🔍 [READY] Emitting user-joined to other participants:', {
+          userId,
+          data: userJoinedData,
         });
+
+        socket.to(roomId).emit('user-joined', userJoinedData);
       }
 
       logger.info('User ready and joined room', {

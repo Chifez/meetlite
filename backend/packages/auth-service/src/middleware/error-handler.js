@@ -7,7 +7,7 @@ export const errorHandler = (err, req, res, next) => {
 
   // Log error in development
   if (process.env.NODE_ENV === 'development') {
-    console.error('❌ Error Stack:', err.stack);
+    console.error('Error:', err.stack);
   }
 
   // MongoDB Validation Error
@@ -82,7 +82,7 @@ const sendErrorResponse = (err, req, res) => {
   }
 
   // Programming or unknown errors - don't leak details in production
-  console.error('💥 Unknown Error:', err);
+  console.error('Unknown Error:', err);
 
   res.status(500).json({
     success: false,

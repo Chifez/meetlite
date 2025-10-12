@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 /**
  * Shared MongoDB Connection Pool
- * 
+ *
  * This creates a connection pool that can be shared across services
  * while maintaining service independence
  */
@@ -20,8 +20,6 @@ class ConnectionPool {
    */
   async getConnection(serviceName, uri) {
     if (!this.connections.has(serviceName)) {
-      console.log(`🔌 Creating new MongoDB connection for ${serviceName} service`);
-      
       const connection = await mongoose.createConnection(uri, {
         maxPoolSize: 5,
         serverSelectionTimeoutMS: 5000,
@@ -31,19 +29,14 @@ class ConnectionPool {
 
       // Handle connection events
       connection.on('error', (err) => {
-        console.error(`❌ MongoDB connection error for ${serviceName}:`, err);
+        console.error(`MongoDB connection error for ${serviceName}:`, err);
       });
 
-      connection.on('disconnected', () => {
-        console.log(`⚠️ MongoDB disconnected for ${serviceName}`);
-      });
+      connection.on('disconnected', () => {});
 
-      connection.on('reconnected', () => {
-        console.log(`🔄 MongoDB reconnected for ${serviceName}`);
-      });
+      connection.on('reconnected', () => {});
 
       this.connections.set(serviceName, connection);
-      console.log(`✅ MongoDB connection established for ${serviceName} service`);
     }
 
     return this.connections.get(serviceName);
@@ -53,10 +46,11 @@ class ConnectionPool {
    * Close all connections
    */
   async closeAll() {
-    const closePromises = Array.from(this.connections.values()).map(conn => conn.close());
+    const closePromises = Array.from(this.connections.values()).map((conn) =>
+      conn.close()
+    );
     await Promise.all(closePromises);
     this.connections.clear();
-    console.log('✅ All MongoDB connections closed');
   }
 
   /**
@@ -69,7 +63,7 @@ class ConnectionPool {
         readyState: connection.readyState,
         host: connection.host,
         port: connection.port,
-        name: connection.name
+        name: connection.name,
       };
     }
     return status;

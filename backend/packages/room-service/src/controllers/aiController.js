@@ -195,7 +195,6 @@ Rules:
 export const parseMeeting = async (req, res) => {
   try {
     const { input, timezone = 'UTC' } = req.body;
-    console.log('Parse meeting request:', { input, timezone });
 
     if (!input || typeof input !== 'string' || !input.trim()) {
       return res
@@ -211,10 +210,8 @@ export const parseMeeting = async (req, res) => {
         .json({ error: 'AI service not configured properly.' });
     }
 
-    console.log('Calling OpenAI API...');
     const parsedData = await parseMeetingDescription(input, timezone);
 
-    console.log('Successfully parsed meeting data');
     res.json({
       success: true,
       data: parsedData,

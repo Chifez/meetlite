@@ -108,11 +108,9 @@ export const uploadFile = async (fileBuffer, options = {}) => {
         const ffmpegAvailable = await checkFFmpegAvailability();
 
         if (ffmpegAvailable) {
-          console.log('Processing video with FFmpeg...');
 
           // Get video metadata
           videoMetadata = await getVideoMetadata(fileBuffer);
-          console.log('Video metadata:', videoMetadata);
 
           // Generate thumbnail
           thumbnailBuffer = await generateThumbnail(fileBuffer, {
@@ -138,10 +136,9 @@ export const uploadFile = async (fileBuffer, options = {}) => {
 
             await r2Client.send(thumbnailCommand);
             thumbnailUrl = `https://${R2_CONFIG.bucketName}.${R2_CONFIG.accountId}.r2.cloudflarestorage.com/${thumbnailKey}`;
-            console.log('Thumbnail uploaded:', thumbnailUrl);
           }
         } else {
-          console.warn(
+          // 
             'FFmpeg not available, using fallback duration estimation'
           );
           // Fallback to file size estimation

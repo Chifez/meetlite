@@ -49,11 +49,7 @@ export const handleGoogleCallback = async (req, res) => {
       const userInfo = await oauth2.userinfo.get();
       finalEmail = userInfo.data.email; // Use Google's email if available
     } catch (emailError) {
-      console.warn(
-        'Could not fetch user email from Google:',
-        emailError.message
-      );
-      // Continue with email from JWT
+      // Could not fetch user email from Google, continue with email from JWT
     }
 
     // Save tokens to database

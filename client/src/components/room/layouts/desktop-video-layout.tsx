@@ -29,6 +29,7 @@ export const DesktopVideoLayout = ({
                   isLocal={participant.isLocal}
                   isLoading={participant.isLoading}
                   userEmail={participant.userEmail}
+                  userName={participant.userName}
                 />
               </div>
             ))}
@@ -63,6 +64,7 @@ export const DesktopVideoLayout = ({
                     isLocal={participant.isLocal}
                     isLoading={participant.isLoading}
                     userEmail={participant.userEmail}
+                    userName={participant.userName}
                   />
                 </div>
               ))}
@@ -84,6 +86,7 @@ export const DesktopVideoLayout = ({
                       isLocal={participant.isLocal}
                       isLoading={participant.isLoading}
                       userEmail={participant.userEmail}
+                      userName={participant.userName}
                     />
                   </div>
                 ))}

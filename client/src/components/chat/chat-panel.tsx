@@ -7,6 +7,7 @@ import { ChatMessage } from './chat-message';
 import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
 import { useAuth } from '@/hooks/use-auth';
+import { useRoom } from '@/contexts/room-context';
 import { ChatState } from '@/types/chat';
 import { cn } from '@/lib/utils';
 
@@ -30,14 +31,18 @@ export const ChatPanel = ({
   className,
 }: ChatPanelProps) => {
   const { user } = useAuth();
+  const { getParticipantDisplayName } = useRoom();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Memoized computations to prevent unnecessary re-renders
   const memoizedValues = useMemo(() => {
-    // Get typing users (exclude current user)
+    // Get typing users with display names (exclude current user)
     const typingUsers = Object.entries(chatState.isTyping)
       .filter(([userId, email]) => email && userId !== user?.id)
-      .map(([_, email]) => email as string);
+      .map(([userId, email]) => {
+        const displayName = getParticipantDisplayName(userId);
+        return displayName || (email as string);
+      });
 
     // Group consecutive messages from the same user
     const groupedMessages: Array<{
@@ -60,7 +65,12 @@ export const ChatPanel = ({
     });
 
     return { typingUsers, groupedMessages };
-  }, [chatState.isTyping, chatState.messages, user?.id]);
+  }, [
+    chatState.isTyping,
+    chatState.messages,
+    user?.id,
+    getParticipantDisplayName,
+  ]);
 
   // Consolidated effect for scroll behavior and read status
   useEffect(() => {
@@ -131,6 +141,7 @@ export const ChatPanel = ({
                         message={message}
                         isOwn={message.userId === user?.id}
                         showAvatar={messageIndex === 0}
+                        displayName={getParticipantDisplayName(message.userId)}
                       />
                     ))}
                   </div>

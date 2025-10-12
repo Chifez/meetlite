@@ -140,16 +140,9 @@ export function setupErrorHandlingMiddleware(app) {
  * Request logging middleware
  */
 export function setupRequestLoggingMiddleware(app) {
+  // Request logging disabled for performance
+  // Enable in development if needed
   app.use((req, res, next) => {
-    const startTime = Date.now();
-
-    res.on('finish', () => {
-      const duration = Date.now() - startTime;
-      console.log(
-        `[REQUEST] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
-      );
-    });
-
     next();
   });
 }

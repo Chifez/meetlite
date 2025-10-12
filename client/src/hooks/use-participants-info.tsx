@@ -29,7 +29,10 @@ export const useParticipantInfo = () => {
   const getParticipantDisplayName = useCallback(
     (userId: string): string | undefined => {
       const info = participantInfo.get(userId);
-      if (!info) return undefined;
+
+      if (!info) {
+        return undefined;
+      }
 
       // Use name if available and useNameInMeetings is true
       if (info.useNameInMeetings && info.name) {

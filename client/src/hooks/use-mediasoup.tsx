@@ -84,11 +84,9 @@ export const useMediaSoup = (
           isLoading: false,
         });
 
-        console.log('🎥 MediaSoup device initialized');
-
         return device;
       } catch (error) {
-        console.error('❌ Failed to initialize MediaSoup device:', error);
+        console.error('Failed to initialize MediaSoup device:', error);
         updateState({ isLoading: false });
         throw error;
       }
@@ -256,7 +254,6 @@ export const useMediaSoup = (
         const canProduceVideo = videoTrack && device.canProduce('video');
 
         if (!canProduceAudio && !canProduceVideo) {
-          console.warn('⚠️ Device cannot produce audio or video');
           return;
         }
 
@@ -269,13 +266,11 @@ export const useMediaSoup = (
         // Produce audio
         if (canProduceAudio && audioTrack) {
           audioProducer = await sendTransport.produce({ track: audioTrack });
-          console.log('🎤 Audio producer created:', audioProducer.id);
         }
 
         // Produce video
         if (canProduceVideo && videoTrack) {
           videoProducer = await sendTransport.produce({ track: videoTrack });
-          console.log('📹 Video producer created:', videoProducer.id);
         }
 
         // Update local peer state
@@ -311,10 +306,8 @@ export const useMediaSoup = (
             peers: new Map(prev.peers).set(localPeerId, newPeer),
           }));
         }
-
-        console.log('✅ Local stream produced successfully');
       } catch (error) {
-        console.error('❌ Failed to produce local stream:', error);
+        console.error('Failed to produce local stream:', error);
         throw error;
       }
     },
@@ -332,35 +325,18 @@ export const useMediaSoup = (
       if (!device || !socket) return;
 
       try {
-        console.log(
-          `🔍 [CONSUME] START - Producer: ${producerId}, User: ${userId}`
-        );
-        console.log(
-          `🔍 [CONSUME] Currently consumed:`,
-          Array.from(consumedProducers.current)
-        );
-        console.log(
-          `🔍 [CONSUME] Current peers:`,
-          Array.from(stateRef.current.peers.keys())
-        );
-
         // CRITICAL FIX: Prevent duplicate consumption using Set
         if (consumedProducers.current.has(producerId)) {
-          console.log(
-            `⚠️ [CONSUME] Producer ${producerId} already consumed, skipping`
-          );
           return;
         }
 
         // Mark as consumed immediately to prevent race conditions
         consumedProducers.current.add(producerId);
-        console.log(`✅ [CONSUME] Marked producer ${producerId} as consumed`);
 
         let peer = stateRef.current.peers.get(userId);
 
         // Create peer if doesn't exist
         if (!peer) {
-          console.log(`👤 [CONSUME] Creating new peer for user ${userId}`);
           peer = {
             id: userId,
             sendTransport: null,
@@ -382,9 +358,6 @@ export const useMediaSoup = (
         if (!recvTransport) {
           // Check if we're already creating a transport for this user
           if (creatingTransports.current.has(userId)) {
-            console.log(
-              `⏳ [CONSUME] Transport creation in progress for ${userId}, waiting...`
-            );
             // Wait for the other call to finish creating the transport
             let attempts = 0;
             while (!recvTransport && attempts < 20) {
@@ -399,13 +372,7 @@ export const useMediaSoup = (
                 `Timeout waiting for transport creation for user ${userId}`
               );
             }
-            console.log(
-              `✅ [CONSUME] Transport ready for ${userId} after waiting`
-            );
           } else {
-            console.log(
-              `🔧 [CONSUME] Creating receive transport for user ${userId}`
-            );
             creatingTransports.current.add(userId);
 
             try {
@@ -417,21 +384,9 @@ export const useMediaSoup = (
               peer.recvTransport = recvTransport;
             } finally {
               creatingTransports.current.delete(userId);
-              console.log(
-                `✅ [CONSUME] Transport creation completed for ${userId}`
-              );
             }
           }
-        } else {
-          console.log(
-            `♻️ [CONSUME] Reusing existing receive transport for user ${userId}`
-          );
         }
-
-        // Create consumer
-        console.log(
-          `📡 [CONSUME] Creating consumer for producer ${producerId} from user ${userId}`
-        );
 
         // CRITICAL FIX: Create unique event handlers to avoid cross-contamination
         const consumerData = await new Promise<{
@@ -445,12 +400,6 @@ export const useMediaSoup = (
           let resolved = false;
 
           const handleConsumerCreated = (data: any) => {
-            console.log(`📨 [CONSUME] Received consumer-created:`, {
-              receivedProducerId: data.producerId,
-              expectedProducerId: producerId,
-              matches: data.producerId === producerId,
-            });
-
             // Ensure this response is for OUR producer
             if (data.producerId === producerId) {
               if (!resolved) {
@@ -458,15 +407,8 @@ export const useMediaSoup = (
                 socket.off('consumer-created', handleConsumerCreated);
                 socket.off('error', handleError);
                 clearTimeout(timeoutId);
-                console.log(
-                  `✅ [CONSUME] Consumer data received for ${producerId}`
-                );
                 resolve(data);
               }
-            } else {
-              console.log(
-                `⚠️ [CONSUME] Ignoring consumer-created for different producer: ${data.producerId}`
-              );
             }
           };
 
@@ -497,9 +439,6 @@ export const useMediaSoup = (
           socket.on('consumer-created', handleConsumerCreated);
           socket.on('error', handleError);
 
-          console.log(
-            `📤 [CONSUME] Emitting create-consumer for ${producerId}`
-          );
           socket.emit('mediasoup:create-consumer', {
             roomId,
             transportId: recvTransport!.id,
@@ -532,18 +471,8 @@ export const useMediaSoup = (
           stream: peer.stream,
           isLoading: false,
         });
-
-        console.log(`✅ Consumer created successfully:`, {
-          consumerId: consumer.id,
-          producerId: consumer.producerId,
-          userId,
-          kind: consumer.kind,
-        });
       } catch (error) {
-        console.error(
-          `❌ Failed to consume remote stream for ${userId}:`,
-          error
-        );
+        console.error(`Failed to consume remote stream for ${userId}:`, error);
         // Remove from consumed set on error to allow retry
         consumedProducers.current.delete(producerId);
         updatePeers(userId, { isLoading: false });
@@ -591,7 +520,6 @@ export const useMediaSoup = (
 
         // CRITICAL FIX: Update peer media states
         if (data.mediaState) {
-          console.log('📱 [ROOM-DATA] Updating media states:', data.mediaState);
           const newMediaState = new Map<
             string,
             { audioEnabled: boolean; videoEnabled: boolean }
@@ -617,20 +545,11 @@ export const useMediaSoup = (
           device &&
           roomId
         ) {
-          console.log(
-            `📺 Found ${data.existingProducers.length} existing producers`
-          );
-
           for (const producer of data.existingProducers) {
             // Skip our own producers
             if (producer.userId === currentUserId) {
-              console.log(`⏭️ Skipping own producer: ${producer.id}`);
               continue;
             }
-
-            console.log(
-              `📺 Consuming existing producer: ${producer.id} (${producer.kind}) from ${producer.userId}`
-            );
 
             await consumeRemoteStream(
               roomId,
@@ -641,7 +560,7 @@ export const useMediaSoup = (
           }
         }
       } catch (error) {
-        console.error('❌ Failed to handle room data:', error);
+        console.error('Failed to handle room data:', error);
         updateState({ isConnected: false });
       }
     };
@@ -652,33 +571,15 @@ export const useMediaSoup = (
       userId: string;
       kind: 'audio' | 'video';
     }) => {
-      console.log('📺 [NEW-PRODUCER EVENT] Received:', {
-        producerId: data.producerId,
-        userId: data.userId,
-        kind: data.kind,
-        isOwnProducer: data.userId === currentUserId,
-        alreadyConsumed: consumedProducers.current.has(data.producerId),
-      });
-
       // CRITICAL FIX: Skip our own producers using actual userId
       if (data.userId === currentUserId) {
-        console.log(
-          `⏭️ [NEW-PRODUCER] Skipping own producer: ${data.producerId}`
-        );
         return;
       }
 
       // Use device from state (safe after initialization)
       const device = stateRef.current.device;
       if (roomId && device) {
-        console.log(
-          `🎯 [NEW-PRODUCER] Calling consumeRemoteStream for ${data.producerId}`
-        );
         consumeRemoteStream(roomId, data.producerId, data.userId, device);
-      } else {
-        console.warn(
-          '⚠️ [NEW-PRODUCER] Device not ready for consuming new producer'
-        );
       }
     };
 
@@ -697,17 +598,11 @@ export const useMediaSoup = (
         videoEnabled: boolean;
       };
     }) => {
-      console.log('👋 [USER-JOINED] User joined:', data);
-
       // CRITICAL FIX: Update participant info for display names
       if (data.participantInfo && onParticipantInfoUpdate) {
         const info: Record<string, any> = {};
         info[data.userId] = data.participantInfo;
         onParticipantInfoUpdate(info);
-        console.log(
-          '👋 [USER-JOINED] Updated participant info:',
-          data.participantInfo
-        );
       }
 
       // CRITICAL FIX: Update media state
@@ -717,14 +612,11 @@ export const useMediaSoup = (
           newState.set(data.userId, data.mediaState!);
           return newState;
         });
-        console.log('👋 [USER-JOINED] Updated media state:', data.mediaState);
       }
     };
 
     // Handle user left
     const handleUserLeft = (userId: string) => {
-      console.log('👋 User left:', userId);
-
       // Clean up peer
       setState((prev) => {
         const newPeers = new Map(prev.peers);
@@ -760,8 +652,6 @@ export const useMediaSoup = (
       audioEnabled: boolean;
       videoEnabled: boolean;
     }) => {
-      console.log('📱 [MEDIA-STATE] Update received:', data);
-
       // CRITICAL FIX: Update peer media state
       setPeerMediaState((prev) => {
         const newState = new Map(prev);
@@ -774,16 +664,16 @@ export const useMediaSoup = (
     };
 
     // Handle screen share events
-    const handleScreenShareStarted = (data: { userId: string }) => {
-      console.log('🖥️ Screen share started:', data);
+    const handleScreenShareStarted = (_data: { userId: string }) => {
+      // Screen share started
     };
 
     const handleScreenShareStopped = () => {
-      console.log('🖥️ Screen share stopped');
+      // Screen share stopped
     };
 
     const handleError = (error: { message: string }) => {
-      console.error('❌ MediaSoup error:', error);
+      console.error('MediaSoup error:', error);
       updateState({ isConnected: false, isLoading: false });
     };
 

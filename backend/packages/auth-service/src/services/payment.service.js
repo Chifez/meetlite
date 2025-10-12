@@ -248,7 +248,6 @@ export class PaymentService {
           return await this.handleInvoicePaymentFailed(event.data.object);
 
         default:
-          console.log(`Unhandled event type: ${event.type}`);
           return { handled: false };
       }
     } catch (error) {
@@ -304,9 +303,6 @@ export class PaymentService {
           }
         );
 
-        console.log(
-          `Plan upgraded for user ${userId} to ${planType} and synced to owned organizations`
-        );
         return { handled: true, userId, planType };
       }
 
@@ -325,11 +321,6 @@ export class PaymentService {
       const { userId } = paymentIntent.metadata;
 
       if (userId) {
-        console.log(
-          `Payment failed for user ${userId}:`,
-          paymentIntent.last_payment_error?.message
-        );
-
         // Send failure notification email
         const { models } = await import('../index.js');
         const { PlanEmailService } = await import('./plan-email.service.js');
@@ -361,8 +352,6 @@ export class PaymentService {
           'plan.stripeSubscriptionId': subscription.id,
           'plan.status': 'active',
         });
-
-        console.log(`Subscription created for user ${userId}`);
       }
 
       return { handled: true };
@@ -388,8 +377,6 @@ export class PaymentService {
           'plan.status': status,
           $inc: { tokenVersion: 1 },
         });
-
-        console.log(`Subscription updated for user ${userId}: ${status}`);
       }
 
       return { handled: true };
@@ -413,8 +400,6 @@ export class PaymentService {
           'plan.stripeSubscriptionId': null,
           $inc: { tokenVersion: 1 },
         });
-
-        console.log(`Subscription cancelled for user ${userId}`);
       }
 
       return { handled: true };
@@ -437,8 +422,6 @@ export class PaymentService {
           'plan.status': 'active',
           'plan.lastPaymentDate': new Date(),
         });
-
-        console.log(`Invoice payment succeeded for user ${userId}`);
       }
 
       return { handled: true };
@@ -460,8 +443,6 @@ export class PaymentService {
         await models.User.findByIdAndUpdate(userId, {
           'plan.status': 'past_due',
         });
-
-        console.log(`Invoice payment failed for user ${userId}`);
       }
 
       return { handled: true };

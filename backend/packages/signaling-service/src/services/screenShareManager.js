@@ -8,10 +8,6 @@ export class ScreenShareManager {
 
   handleScreenShareStart(socket, { roomId }) {
     try {
-      console.log(
-        `Screen sharing started by ${socket.user.userId} in room ${roomId}`
-      );
-
       // Update screen sharing state
       this.stateManager.setScreenSharing(roomId, socket.user.userId);
 
@@ -81,10 +77,6 @@ export class ScreenShareManager {
 
   handleScreenShareStop(socket, { roomId }) {
     try {
-      console.log(
-        `Screen sharing stopped by ${socket.user.userId} in room ${roomId}`
-      );
-
       // Clear screen sharing state
       this.stateManager.stopScreenSharing(roomId);
 

@@ -166,7 +166,6 @@ export class ConnectionManager {
 
       // Handle stale connections
       for (const { key, connection } of staleConnections) {
-        console.log(`⚠️ Stale connection detected: ${key}`);
         this.handleStaleConnection(key, connection);
       }
 
@@ -182,12 +181,6 @@ export class ConnectionManager {
       );
 
       // Log performance metrics
-      if (monitoringTime > 100) {
-        // Log if monitoring takes more than 100ms
-        console.log(
-          `📊 Connection health monitoring completed in ${monitoringTime}ms (${connections.size} connections)`
-        );
-      }
     } catch (error) {
       console.error('❌ Error monitoring connection health:', error);
     }
@@ -221,7 +214,6 @@ export class ConnectionManager {
       // If recovery fails, cleanup
       setTimeout(() => {
         if (this.isConnectionStale(connection)) {
-          console.log(`🗑️ Cleaning up stale connection: ${key}`);
           this.stateManager.deleteConnection(key);
         }
       }, 30000); // Wait 30 seconds before cleanup
@@ -261,8 +253,6 @@ export class ConnectionManager {
           }
         }
       }
-
-      console.log(`🔄 Recovery attempt for connection: ${key}`);
     } catch (error) {
       console.error(
         `❌ Error attempting connection recovery for ${key}:`,
@@ -334,13 +324,6 @@ export class ConnectionManager {
     this.healthCheckMetrics.totalConnections += totalConnections;
     this.healthCheckMetrics.totalStaleConnections += staleConnections;
     this.healthCheckMetrics.totalRecoveredConnections += recoveredConnections;
-
-    // Log performance warnings
-    if (duration > 5000) {
-      console.warn(
-        `⚠️ Slow health check detected: ${duration}ms for ${totalConnections} connections`
-      );
-    }
   }
 
   // Get performance metrics

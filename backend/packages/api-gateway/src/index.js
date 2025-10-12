@@ -120,9 +120,6 @@ function setupWebSocketProxy(server) {
       .pathname;
 
     if (pathname.startsWith('/connect')) {
-      console.log(
-        `[WS PROXY] Upgrading WebSocket connection: ${pathname} -> MediaSoup service`
-      );
       wsProxy.upgrade(request, socket, head);
     } else {
       socket.destroy();
@@ -144,22 +141,9 @@ function startServer() {
 
   // Start server
   const server = app.listen(config.server.port, () => {
-    console.log('🚀 API Gateway started successfully');
-    console.log(`📡 Port: ${config.server.port}`);
-    console.log(`🌍 Environment: ${config.server.nodeEnv}`);
-    console.log(`🔗 Frontend URL: ${config.server.frontendUrl}`);
-    console.log('');
-    console.log('📋 Service Configuration:');
-    console.log(`   Auth Service: ${config.services.auth}`);
-    console.log(`   Room Service: ${config.services.room}`);
-    console.log(`   Signaling Service: ${config.services.signaling}`);
-    console.log('');
-    console.log('🛣️  Available Routes:');
-    console.log('   /health - Health check');
-    console.log('   /api/* - API routes (routed to appropriate service)');
-    console.log('   /socket.io - WebSocket connections');
-    console.log('   /uploads - File uploads');
-    console.log('   /connect - WebSocket endpoints (with upgrade support)');
+    console.log(
+      `API Gateway started on port ${config.server.port} (${config.server.nodeEnv})`
+    );
   });
 
   // Setup WebSocket proxy
@@ -167,17 +151,13 @@ function startServer() {
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received, shutting down gracefully');
     server.close(() => {
-      console.log('✅ Process terminated');
       process.exit(0);
     });
   });
 
   process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received, shutting down gracefully');
     server.close(() => {
-      console.log('✅ Process terminated');
       process.exit(0);
     });
   });

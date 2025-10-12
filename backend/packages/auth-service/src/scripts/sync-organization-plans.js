@@ -9,8 +9,6 @@ dotenv.config();
  */
 async function syncOrganizationPlans() {
   try {
-    console.log('Starting organization plan sync...');
-
     // Connect to database
     await connectionPool.connect();
     const models = createModelFactory(connectionPool);
@@ -21,13 +19,10 @@ async function syncOrganizationPlans() {
       'plan'
     );
 
-    console.log(`Found ${organizations.length} organizations to check`);
-
     let syncedCount = 0;
 
     for (const org of organizations) {
       if (!org.ownerId) {
-        console.log(`Organization ${org.name} has no owner, skipping`);
         continue;
       }
 
@@ -39,10 +34,6 @@ async function syncOrganizationPlans() {
         orgPlan.type !== ownerPlan.type ||
         orgPlan.status !== ownerPlan.status
       ) {
-        console.log(
-          `Syncing ${org.name}: ${orgPlan.type} -> ${ownerPlan.type}`
-        );
-
         await models.Organization.findByIdAndUpdate(org._id, {
           'plan.type': ownerPlan.type,
           'plan.status': ownerPlan.status,
@@ -54,7 +45,7 @@ async function syncOrganizationPlans() {
       }
     }
 
-    console.log(`Sync completed. Updated ${syncedCount} organizations`);
+    // Sync completed
   } catch (error) {
     console.error('Error syncing organization plans:', error);
   } finally {

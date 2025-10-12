@@ -83,6 +83,13 @@ export const VideoParticipant = ({
   const getDisplayName = () => {
     if (isLocal) return 'You';
 
+    // CRITICAL FIX: Use userName if available (respects useNameInMeetings setting)
+    if (userName) {
+      return userName.length > 20
+        ? `${userName.substring(0, 20)}...`
+        : userName;
+    }
+
     if (userEmail) {
       // Truncate email if too long, show up to 20 characters
       return userEmail.length > 20
@@ -130,7 +137,7 @@ export const VideoParticipant = ({
       )}
 
       <div className="absolute bottom-2 left-2 flex items-center gap-2 text-sm text-white bg-black/50 px-2 py-1 rounded max-w-[calc(100%-1rem)]">
-        <span className="truncate" title={userEmail}>
+        <span className="truncate" title={userName || userEmail}>
           {getDisplayName()}
         </span>
         {!mediaState.audioEnabled && (

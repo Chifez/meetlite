@@ -95,7 +95,6 @@ export class TldrawService {
             return null; // all good
           }
         }
-        console.log('Loading Tldraw room', validatedRoomId);
         const initialSnapshot = await this.readSnapshotIfExists(
           validatedRoomId
         );
@@ -103,20 +102,13 @@ export class TldrawService {
         const room = new TLSocketRoom({
           initialSnapshot,
           onSessionRemoved: (room, args) => {
-            console.log(
-              'Tldraw client disconnected',
-              args.sessionId,
-              validatedRoomId
-            );
             if (args.numSessionsRemaining === 0) {
-              console.log('Closing Tldraw room', validatedRoomId);
               room.close();
               this.tldrawRooms.delete(validatedRoomId);
               this.cleanupRoomMutex(validatedRoomId);
             }
           },
           onDataChange: () => {
-            console.log('Tldraw data changed in room', validatedRoomId);
             // Mark for persistence
             room.needsPersist = true;
           },
@@ -148,11 +140,9 @@ export class TldrawService {
         if (room.needsPersist) {
           // persist room
           room.needsPersist = false;
-          console.log('Saving Tldraw snapshot', roomId);
           this.saveSnapshot(roomId, room.getCurrentSnapshot());
         }
         if (room.isClosed()) {
-          console.log('Deleting Tldraw room', roomId);
           this.tldrawRooms.delete(roomId);
           this.cleanupRoomMutex(roomId);
         }
@@ -161,8 +151,6 @@ export class TldrawService {
   }
 
   handleWebSocketConnection(ws, req) {
-    console.log('Tldraw WebSocket connection established');
-
     const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
     const rawRoomId = pathname.split('/connect/')[1];
 
@@ -184,7 +172,6 @@ export class TldrawService {
 
           // Handle socket close events manually if needed
           ws.on('close', () => {
-            console.log(`Tldraw socket closed for session: ${sessionId}`);
             room.handleSocketClose(sessionId);
           });
 
@@ -222,10 +209,8 @@ export class TldrawService {
 
   // Cleanup method for graceful shutdown
   cleanup() {
-    console.log('Cleaning up Tldraw service...');
     for (const [roomId, room] of this.tldrawRooms.entries()) {
       if (room.needsPersist) {
-        console.log('Saving final snapshot for room:', roomId);
         this.saveSnapshot(roomId, room.getCurrentSnapshot());
       }
       room.close();

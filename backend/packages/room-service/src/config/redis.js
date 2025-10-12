@@ -36,21 +36,19 @@ class RedisClient {
 
       // Handle connection events
       this.client.on('error', (err) => {
-        console.error('Redis Client Error:', err);
+        console.error('Redis error:', err);
         this.isConnected = false;
       });
 
       this.client.on('connect', () => {
-        console.log('�� Room Service Redis client connecting...');
+        // Connecting
       });
 
       this.client.on('ready', () => {
-        console.log('✅ Room Service Redis connected successfully');
         this.isConnected = true;
       });
 
       this.client.on('end', () => {
-        console.log('❌ Room Service Redis disconnected');
         this.isConnected = false;
       });
 
@@ -73,7 +71,6 @@ class RedisClient {
     if (this.client) {
       await this.client.quit();
       this.isConnected = false;
-      console.log('Room Service Redis connection closed');
     }
   }
 

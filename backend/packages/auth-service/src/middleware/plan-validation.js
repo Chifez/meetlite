@@ -127,8 +127,6 @@ export class PlanExpirationService {
         'plan.type': { $ne: 'free' },
       });
 
-      console.log(`Found ${expiredUsers.length} users with expired plans`);
-
       for (const user of expiredUsers) {
         await this.handleExpiredPlan(user);
       }
@@ -160,11 +158,6 @@ export class PlanExpirationService {
           'plan.startDate': new Date(),
           'plan.endDate': null,
         }
-      );
-
-      // Send expiration notification (implement email service)
-      console.log(
-        `Plan expired for user: ${user.email} and synced to owned organizations`
       );
 
       // TODO: Send email notification about plan expiration

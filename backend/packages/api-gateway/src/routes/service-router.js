@@ -105,27 +105,11 @@ export function createServiceProxy(serviceConfig) {
       });
     },
 
-    // Request logging
-    onProxyReq: (proxyReq, req, res) => {
-      const serviceName = Object.keys(SERVICE_ROUTES).find(
-        (key) => SERVICE_ROUTES[key].target === serviceConfig.target
-      );
+    // Request logging (disabled for performance)
+    // onProxyReq: (proxyReq, req, res) => {},
 
-      console.log(
-        `[PROXY] ${req.method} ${req.path} -> ${serviceName} service`
-      );
-    },
-
-    // Response logging
-    onProxyRes: (proxyRes, req, res) => {
-      const serviceName = Object.keys(SERVICE_ROUTES).find(
-        (key) => SERVICE_ROUTES[key].target === serviceConfig.target
-      );
-
-      console.log(
-        `[PROXY RESPONSE] ${req.method} ${req.path} <- ${serviceName} service (${proxyRes.statusCode})`
-      );
-    },
+    // Response logging (disabled for performance)
+    // onProxyRes: (proxyRes, req, res) => {},
   });
 }
 

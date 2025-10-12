@@ -7,8 +7,6 @@ export class RoomHandler {
   }
 
   async handleJoinRoom(socket, { roomId, mediaState }) {
-    console.log(`User ${socket.user.userId} joining room ${roomId}`);
-
     socket.join(roomId);
 
     // Initialize room state
@@ -105,22 +103,7 @@ export class RoomHandler {
       for (const connection of userConnections) {
         // Check if connection is stale and attempt recovery
         if (this.isConnectionStale(connection)) {
-          console.log(
-            `🔄 Attempting to recover connection ${connection.key} for user ${userId}`
-          );
-          const recovered = await this.stateManager.attemptConnectionRecovery(
-            connection.key
-          );
-
-          if (recovered) {
-            console.log(
-              `✅ Successfully recovered connection ${connection.key} for user ${userId}`
-            );
-          } else {
-            console.log(
-              `❌ Failed to recover connection ${connection.key} for user ${userId}`
-            );
-          }
+          await this.stateManager.attemptConnectionRecovery(connection.key);
         }
       }
     } catch (error) {
@@ -139,8 +122,6 @@ export class RoomHandler {
   }
 
   handleUserLeaving(socket, roomId, emitUserLeft = true) {
-    console.log(`User ${socket.user.userId} leaving room ${roomId}`);
-
     // Remove user from room state
     const room = this.stateManager.getRoomState(roomId);
     if (!room) return;
@@ -184,8 +165,6 @@ export class RoomHandler {
   }
 
   handleDisconnect(socket) {
-    console.log('User disconnected:', socket.user.email);
-
     // Leave all rooms
     const rooms = Array.from(socket.rooms);
     rooms.forEach((roomId) => {

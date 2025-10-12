@@ -59,7 +59,6 @@ export class FileHandler {
     const filePath = path.join(uploadsDir, filename);
 
     if (!fs.existsSync(filePath)) {
-      console.log('❌ File not found:', filePath);
       return res.status(404).json({ error: 'File not found' });
     }
 
@@ -79,7 +78,7 @@ export class FileHandler {
 
     res.sendFile(filename, options, (err) => {
       if (err) {
-        console.error('❌ Error sending file:', err);
+        console.error('Error sending file:', err);
         if (!res.headersSent) {
           res.status(500).json({ error: 'Failed to serve file' });
         }

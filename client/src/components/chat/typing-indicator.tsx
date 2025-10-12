@@ -1,7 +1,7 @@
 import { memo } from 'react';
 
 interface TypingIndicatorProps {
-  typingUsers: string[]; // Array of user emails who are typing
+  typingUsers: string[]; // Array of display names (or emails) who are typing
 }
 
 const TypingIndicator = memo(({ typingUsers }: TypingIndicatorProps) => {
@@ -9,11 +9,10 @@ const TypingIndicator = memo(({ typingUsers }: TypingIndicatorProps) => {
 
   const getTypingText = () => {
     if (typingUsers.length === 1) {
-      return `${typingUsers[0].split('@')[0]} is typing...`;
+      // Already processed display name from chat-panel
+      return `${typingUsers[0]} is typing...`;
     } else if (typingUsers.length === 2) {
-      return `${typingUsers[0].split('@')[0]} and ${
-        typingUsers[1].split('@')[0]
-      } are typing...`;
+      return `${typingUsers[0]} and ${typingUsers[1]} are typing...`;
     } else {
       return `${typingUsers.length} people are typing...`;
     }

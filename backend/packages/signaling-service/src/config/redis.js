@@ -58,12 +58,10 @@ const subClient = redisClient.duplicate();
 
 // Connection event handlers for main client
 redisClient.on('connect', () => {
-  console.log('🔄 Redis client connecting...');
   updateCircuitBreaker(); // Reset error count on successful connection
 });
 
 redisClient.on('ready', () => {
-  console.log('✅ Redis client ready');
   updateCircuitBreaker(); // Reset error count on ready state
 });
 
@@ -71,32 +69,26 @@ redisClient.on('error', (err) => {
   console.error('❌ Redis client error:', err);
   updateCircuitBreaker(err);
 
-  // Log specific error types
-  if (err.code === 'ECONNREFUSED') {
-    console.error('🚨 Redis connection refused - server may be down');
-  } else if (err.code === 'ETIMEDOUT') {
-    console.error('⏰ Redis connection timeout');
-  } else if (err.code === 'ENOTFOUND') {
+  // Handle specific error types silently else if (err.code === 'ENOTFOUND') {
     console.error('🔍 Redis host not found');
   }
 });
 
 redisClient.on('end', () => {
-  console.log('⚠️ Redis client disconnected');
   updateCircuitBreaker(new Error('Connection ended'));
 });
 
 redisClient.on('reconnecting', () => {
-  console.log('🔄 Redis client reconnecting...');
+  // Redis client reconnecting
 });
 
 // Connection event handlers for pub client
 pubClient.on('connect', () => {
-  console.log('🔄 Redis pub client connecting...');
+  // Redis pub client connecting
 });
 
 pubClient.on('ready', () => {
-  console.log('✅ Redis pub client ready');
+  // Redis pub client ready
 });
 
 pubClient.on('error', (err) => {
@@ -105,11 +97,11 @@ pubClient.on('error', (err) => {
 
 // Connection event handlers for sub client
 subClient.on('connect', () => {
-  console.log('🔄 Redis sub client connecting...');
+  // Redis sub client connecting
 });
 
 subClient.on('ready', () => {
-  console.log('✅ Redis sub client ready');
+  // Redis sub client ready
 });
 
 subClient.on('error', (err) => {
@@ -164,9 +156,6 @@ const monitorPerformance = async () => {
       performanceMetrics.latencyChecks;
 
     // Log performance warnings
-    if (latency > 100) {
-      console.warn(`⚠️ High Redis latency detected: ${latency}ms`);
-    }
 
     return latency;
   } catch (error) {
@@ -178,7 +167,6 @@ const monitorPerformance = async () => {
 // Start performance monitoring
 const startPerformanceMonitoring = () => {
   setInterval(monitorPerformance, 30000); // Check every 30 seconds
-  console.log('📊 Redis performance monitoring started');
 };
 
 // Circuit breaker logic
@@ -196,9 +184,6 @@ const updateCircuitBreaker = (error = null) => {
     ) {
       errorMetrics.circuitBreakerState = CIRCUIT_BREAKER_STATES.OPEN;
       errorMetrics.circuitBreakerOpenedAt = Date.now();
-      console.error(
-        `🚨 Circuit breaker OPENED after ${errorMetrics.consecutiveErrors} consecutive errors`
-      );
     }
   } else {
     // Reset consecutive errors on success
@@ -208,7 +193,6 @@ const updateCircuitBreaker = (error = null) => {
     // Check if circuit breaker should close
     if (errorMetrics.circuitBreakerState === CIRCUIT_BREAKER_STATES.HALF_OPEN) {
       errorMetrics.circuitBreakerState = CIRCUIT_BREAKER_STATES.CLOSED;
-      console.log('✅ Circuit breaker CLOSED - Redis is healthy again');
     }
   }
 };
@@ -221,7 +205,6 @@ const isCircuitBreakerOpen = () => {
     // Check if timeout has passed to move to HALF_OPEN
     if (timeSinceOpened >= errorMetrics.circuitBreakerTimeout) {
       errorMetrics.circuitBreakerState = CIRCUIT_BREAKER_STATES.HALF_OPEN;
-      console.log('🔄 Circuit breaker moved to HALF_OPEN state');
       return false;
     }
 
@@ -239,9 +222,6 @@ const attemptRecovery = async () => {
 
   try {
     errorMetrics.recoveryAttempts++;
-    console.log(
-      `🔄 Attempting Redis recovery (attempt ${errorMetrics.recoveryAttempts})`
-    );
 
     // Test connection
     await redisClient.ping();
@@ -251,7 +231,6 @@ const attemptRecovery = async () => {
     errorMetrics.consecutiveErrors = 0;
     errorMetrics.lastRecoveryTime = Date.now();
 
-    console.log('✅ Redis recovery successful - circuit breaker CLOSED');
     return true;
   } catch (error) {
     console.error('❌ Redis recovery failed:', error);
@@ -266,25 +245,14 @@ const startRecoveryMonitoring = () => {
       await attemptRecovery();
     }
   }, 10000); // Check every 10 seconds
-  console.log('🔄 Redis recovery monitoring started');
 };
 
 // Connection management functions
 const connectRedis = async () => {
   try {
-    console.log('🔄 Connecting to Redis...');
-    const startTime = Date.now();
-
     await redisClient.connect();
     await pubClient.connect();
     await subClient.connect();
-
-    const connectionTime = Date.now() - startTime;
-    performanceMetrics.connectionTime = connectionTime;
-
-    console.log(
-      `✅ All Redis clients connected successfully in ${connectionTime}ms`
-    );
 
     // Start performance monitoring after connection
     startPerformanceMonitoring();
@@ -301,11 +269,9 @@ const connectRedis = async () => {
 
 const disconnectRedis = async () => {
   try {
-    console.log('🔄 Disconnecting Redis clients...');
     await redisClient.disconnect();
     await pubClient.disconnect();
     await subClient.disconnect();
-    console.log('✅ All Redis clients disconnected successfully');
   } catch (error) {
     console.error('❌ Error disconnecting Redis clients:', error);
   }
@@ -336,16 +302,13 @@ const getRedisHealth = () => {
 const testRedisConnection = async () => {
   try {
     if (!redisClient.isReady) {
-      console.log('⚠️ Redis client not ready, attempting connection...');
       await connectRedis();
     }
 
     if (redisClient.isReady) {
       await redisClient.ping();
-      console.log('✅ Redis connection test successful');
       return true;
     } else {
-      console.log('❌ Redis connection test failed');
       return false;
     }
   } catch (error) {

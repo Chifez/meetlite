@@ -21,7 +21,6 @@ export class SessionManager {
       if (redisClient.isReady) {
         await redisClient.ping();
         this.isAvailable = true;
-        console.log('✅ Session manager Redis connection established');
       } else {
         this.isAvailable = false;
         console.warn('⚠️ Session manager Redis not available');
@@ -103,7 +102,6 @@ export class SessionManager {
       await redisClient.sAdd(userSessionsKey, sessionId);
       await redisClient.expire(userSessionsKey, SESSION_CONFIG.TTL);
 
-      console.log(`✅ Session created for user ${userId}: ${sessionId}`);
       return true;
     } catch (error) {
       console.error('❌ Error creating session:', error);
@@ -195,7 +193,6 @@ export class SessionManager {
         // Remove from user's session list
         await redisClient.sRem(userSessionsKey, sessionId);
 
-        console.log(`✅ Session removed: ${sessionId}`);
         return true;
       }
 
@@ -309,7 +306,6 @@ export class SessionManager {
       }
 
       if (cleanedCount > 0) {
-        console.log(`🧹 Cleaned up ${cleanedCount} expired sessions`);
       }
     } catch (error) {
       console.error('❌ Error during session cleanup:', error);
@@ -368,9 +364,6 @@ export class SessionManager {
         await this.removeSession(session.sessionId);
       }
 
-      console.log(
-        `✅ Invalidated ${userSessions.length} sessions for user ${userId}`
-      );
       return true;
     } catch (error) {
       console.error('❌ Error invalidating user sessions:', error);
@@ -381,6 +374,5 @@ export class SessionManager {
   // Graceful shutdown
   async shutdown() {
     this.stopCleanupInterval();
-    console.log('✅ Session manager shutdown completed');
   }
 }

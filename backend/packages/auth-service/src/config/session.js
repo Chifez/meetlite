@@ -46,13 +46,11 @@ export async function createSessionStore() {
       },
     };
 
-    console.log('✅ Session store configured with Redis');
     return session(sessionConfig);
   } catch (error) {
-    console.error('❌ Failed to create session store:', error);
+    console.error('Failed to create session store:', error);
 
     // Fallback to memory store (for development only)
-    console.warn('🚨 Falling back to memory session store');
     return session({
       secret: process.env.SESSION_SECRET,
       name: process.env.SESSION_NAME,

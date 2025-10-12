@@ -94,20 +94,7 @@ export class OrganizationController {
         },
       });
 
-      console.log('Organization before save:', {
-        name: organization.name,
-        slug: organization.slug,
-        hasSlug: !!organization.slug,
-      });
-
       await organization.save();
-
-      console.log('Organization after save:', {
-        id: organization._id,
-        name: organization.name,
-        slug: organization.slug,
-        hasSlug: !!organization.slug,
-      });
 
       // Update user to be part of this organization and increment token version
       const updatedUser = await models.User.findByIdAndUpdate(

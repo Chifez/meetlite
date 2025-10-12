@@ -40,6 +40,7 @@ export interface ChatMessageComponentProps {
   message: ChatMessage;
   isOwn: boolean;
   showAvatar?: boolean;
+  displayName?: string;
 }
 
 export interface ChatInputProps {

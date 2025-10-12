@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { io, Socket } from 'socket.io-client';
 import { env } from '@/config/env';
 import Cookies from 'js-cookie';
+import api from '@/lib/axios';
 
 interface UseSocketSetupProps {
   roomId: string | undefined;
@@ -22,26 +23,54 @@ export const useSocketSetup = ({ roomId }: UseSocketSetupProps) => {
       return;
     }
 
-    const newSocket = io(env.MEDIASOUP_SERVER_URL, {
-      auth: { token },
-      query: { roomId },
-    });
+    const setupSocket = async () => {
+      try {
+        // Fetch fresh profile data from auth service
+        // Then send it to MediaSoup (MediaSoup doesn't fetch from DB)
+        const profileResponse = await api.get('/api/auth/profile');
+        const profile = profileResponse.data.user || profileResponse.data;
 
-    socketRef.current = newSocket;
+        // Connect to MediaSoup with token AND profile data
+        const newSocket = io(env.MEDIASOUP_SERVER_URL, {
+          auth: {
+            token,
+            // Send fresh profile data to MediaSoup
+            profile: {
+              name: profile.name,
+              useNameInMeetings: profile.useNameInMeetings,
+            },
+          },
+          query: { roomId },
+        });
 
-    newSocket.on('connect', () => {
-      setSocket(newSocket);
-    });
+        socketRef.current = newSocket;
 
-    newSocket.on('connect_error', (err) => {
-      console.error('Connection error:', err);
-      toast({
-        variant: 'destructive',
-        title: 'Connection Error',
-        description: 'Could not connect to meeting server. Please try again.',
-      });
-      navigate('/dashboard');
-    });
+        newSocket.on('connect', () => {
+          setSocket(newSocket);
+        });
+
+        newSocket.on('connect_error', (err) => {
+          console.error('Connection error:', err);
+          toast({
+            variant: 'destructive',
+            title: 'Connection Error',
+            description:
+              'Could not connect to meeting server. Please try again.',
+          });
+          navigate('/dashboard');
+        });
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Setup Error',
+          description: 'Could not load user profile. Please try again.',
+        });
+        navigate('/dashboard');
+      }
+    };
+
+    setupSocket();
 
     return () => {
       if (socketRef.current) {

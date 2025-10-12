@@ -78,9 +78,6 @@ app.get('/health', (req, res) => {
 // Connect to MongoDB using shared connection pool
 const connectDB = async () => {
   try {
-    console.log('Connecting to MongoDB via shared connection pool...');
-    const startTime = Date.now();
-
     roomConnection = await connectionPool.getConnection(
       'room',
       process.env.MONGODB_URI
@@ -95,41 +92,26 @@ const connectDB = async () => {
     // Merge shared models with local models
     models = { ...models, ...localModels };
 
-    const connectionTime = Date.now() - startTime;
-    console.log(
-      `✅ Connected to MongoDB via shared pool in ${connectionTime}ms`
-    );
-
     // Handle connection events
     roomConnection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
-    });
-
-    roomConnection.on('disconnected', () => {
-      console.log('⚠️ MongoDB disconnected');
-    });
-
-    roomConnection.on('reconnected', () => {
-      console.log('🔄 MongoDB reconnected');
+      console.error('MongoDB connection error:', err);
     });
   } catch (error) {
-    console.error('❌ Failed to connect to MongoDB:', error.message);
+    console.error('Failed to connect to MongoDB:', error.message);
     process.exit(1);
   }
 };
 
 // Process error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  // Don't exit immediately, give time for cleanup
+  console.error('Uncaught Exception:', error);
   setTimeout(() => {
     process.exit(1);
   }, 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit immediately, give time for cleanup
+  console.error('Unhandled Rejection:', reason);
   setTimeout(() => {
     process.exit(1);
   }, 1000);
@@ -141,7 +123,6 @@ const startServer = async () => {
     await connectDB();
 
     // Connect to Redis
-    console.log('Connecting to Redis...');
     await redisClient.connect();
 
     // Setup session middleware after Redis connection
@@ -149,31 +130,25 @@ const startServer = async () => {
     app.use(sessionMiddleware);
 
     const server = app.listen(PORT, () => {
-      console.log(`🚀 Room service running on port ${PORT}`);
+      console.log(`Room service started on port ${PORT}`);
     });
 
     // Graceful shutdown
     process.on('SIGTERM', () => {
-      console.log('🛑 SIGTERM received, shutting down gracefully...');
       server.close(async () => {
-        console.log('✅ Server closed');
         await redisClient.disconnect();
-        console.log('✅ Redis connection closed');
         process.exit(0);
       });
     });
 
     process.on('SIGINT', () => {
-      console.log('🛑 SIGINT received, shutting down gracefully...');
       server.close(async () => {
-        console.log('✅ Server closed');
         await redisClient.disconnect();
-        console.log('✅ Redis connection closed');
         process.exit(0);
       });
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 };

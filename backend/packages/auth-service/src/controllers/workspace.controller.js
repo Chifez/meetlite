@@ -29,7 +29,6 @@ export class WorkspaceController {
 
       if (type === 'personal') {
         // Switch to personal workspace
-        console.log('Switching to personal workspace for user:', userId);
 
         updatedUser = await models.User.findByIdAndUpdate(
           userId,
@@ -45,11 +44,8 @@ export class WorkspaceController {
           type: 'personal',
           role: 'owner',
         };
-
-        console.log('Successfully switched to personal workspace');
       } else {
         // Switch to organization workspace
-        console.log('Switching to organization workspace:', organizationId);
 
         const organization = await models.Organization.findOne({
           _id: organizationId,
@@ -95,11 +91,6 @@ export class WorkspaceController {
           memberCount: organization.stats.totalMembers,
           settings: organization.settings,
         };
-
-        console.log(
-          'Successfully switched to organization workspace:',
-          organization.name
-        );
       }
 
       // Generate new token

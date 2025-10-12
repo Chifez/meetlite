@@ -281,8 +281,6 @@ export class PlanValidationService {
           },
         }
       );
-
-      console.log('Daily usage counters reset successfully');
     } catch (error) {
       console.error('Error resetting daily usage:', error);
     }
@@ -306,8 +304,6 @@ export class PlanValidationService {
           },
         }
       );
-
-      console.log('Monthly usage counters reset successfully');
     } catch (error) {
       console.error('Error resetting monthly usage:', error);
     }

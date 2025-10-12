@@ -40,15 +40,8 @@ let redisConnected = false;
 const initializeRedis = async () => {
   try {
     redisConnected = await connectRedis();
-    if (redisConnected) {
-      console.log('✅ Redis initialized successfully');
-    } else {
-      console.log(
-        '⚠️ Redis initialization failed, running in memory-only mode'
-      );
-    }
   } catch (error) {
-    console.error('❌ Redis initialization error:', error);
+    console.error('Redis initialization error:', error);
     redisConnected = false;
   }
 };
@@ -181,53 +174,19 @@ const setupRedisAdapter = () => {
     try {
       const redisAdapter = createAdapter(pubClient, subClient);
 
-      // Monitor Redis client health instead of adapter events
+      // Monitor Redis client health
       const healthCheckInterval = setInterval(async () => {
         if (!isRedisReady()) {
-          console.log(
-            '⚠️ Redis clients disconnected, falling back to memory adapter'
-          );
           clearInterval(healthCheckInterval);
           fallbackToMemoryAdapter();
-        } else if (isRedisAdapterActive()) {
-          // Log adapter status periodically
-          console.log(
-            '📊 Redis adapter active - rooms:',
-            io.sockets.adapter.rooms.size
-          );
-
-          // Performance monitoring
-          try {
-            const performanceStats =
-              await stateManager.redisState.getPerformanceStats();
-            if (
-              performanceStats.available &&
-              performanceStats.responseTime > 100
-            ) {
-              console.log(
-                `⚠️ Redis response time: ${performanceStats.responseTime}ms`
-              );
-            }
-          } catch (error) {
-            // Silently handle performance monitoring errors
-          }
-        } else {
-          // Adapter is not Redis, might have fallen back
-          console.log(
-            '⚠️ Current adapter type:',
-            io.sockets.adapter.constructor.name
-          );
         }
       }, 30000); // Check every 30 seconds
 
       io.adapter(redisAdapter);
-      console.log('✅ Socket.IO Redis adapter configured successfully');
     } catch (error) {
-      console.error('❌ Failed to setup Redis adapter:', error);
+      console.error('Failed to setup Redis adapter:', error);
       fallbackToMemoryAdapter();
     }
-  } else {
-    console.log('⚠️ Redis not ready, using Socket.IO memory adapter');
   }
 };
 
@@ -241,17 +200,15 @@ const fallbackToMemoryAdapter = () => {
   try {
     // Remove Redis adapter
     io.adapter();
-    console.log('⚠️ Fallback to Socket.IO memory adapter');
 
     // Attempt to reconnect Redis adapter after delay
     setTimeout(() => {
       if (redisConnected && isRedisReady()) {
-        console.log('🔄 Attempting to restore Redis adapter...');
         setupRedisAdapter();
       }
     }, 5000); // Wait 5 seconds before retry
   } catch (error) {
-    console.error('❌ Error during fallback to memory adapter:', error);
+    console.error('Error during fallback to memory adapter:', error);
   }
 };
 
@@ -314,8 +271,6 @@ io.use(authMiddleware);
 
 // Handle socket connections
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.user.email, 'Socket ID:', socket.id);
-
   // Initialize user state
   stateManager.setUserSocket(socket.user.userId, socket.id);
   stateManager.setUserInfo(socket.user.userId, {
@@ -336,7 +291,6 @@ io.on('connection', (socket) => {
 
 // Graceful shutdown handling
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully...');
   tldrawService.cleanup();
   await stateManager.shutdown();
   await sessionManager.shutdown();
@@ -349,12 +303,10 @@ process.on('SIGTERM', async () => {
   if (redisConnected) {
     await disconnectRedis();
   }
-  console.log('✅ Graceful shutdown completed');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down gracefully...');
   tldrawService.cleanup();
   await stateManager.shutdown();
   await sessionManager.shutdown();
@@ -367,14 +319,13 @@ process.on('SIGINT', async () => {
   if (redisConnected) {
     await disconnectRedis();
   }
-  console.log('✅ Graceful shutdown completed');
   process.exit(0);
 });
 
 // Start server
 const PORT = process.env.PORT || 5002;
 httpServer.listen(PORT, async () => {
-  console.log(`🚀 Signaling server running on port ${PORT}`);
+  console.log(`Signaling server started on port ${PORT}`);
 
   // Initialize Redis after server starts
   await initializeRedis();
@@ -392,6 +343,4 @@ httpServer.listen(PORT, async () => {
 
   // Wait for session manager to be ready
   await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  console.log('✅ Signaling server initialization completed');
 });

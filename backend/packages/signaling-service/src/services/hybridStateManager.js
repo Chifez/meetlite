@@ -86,8 +86,6 @@ export class HybridStateManager {
 
       // Track performance
       await this.trackSyncOperation('full_sync', startTime);
-
-      console.log('🔄 Redis sync completed');
     } catch (error) {
       console.error('❌ Redis sync error:', error);
     }
@@ -96,13 +94,10 @@ export class HybridStateManager {
   // Load state from Redis on startup
   async loadFromRedis() {
     if (!this.redisState.isAvailable) {
-      console.log('⚠️ Redis not available, starting with empty state');
       return;
     }
 
     try {
-      console.log('🔄 Loading state from Redis...');
-
       // Load room participants
       const roomKeys = await this.redisState.redisClient.keys('room:*');
       for (const key of roomKeys) {
@@ -148,8 +143,6 @@ export class HybridStateManager {
           this.screenSharingState.set(roomId, screenData);
         }
       }
-
-      console.log('✅ Redis state loaded successfully');
     } catch (error) {
       console.error('❌ Error loading from Redis:', error);
     }
@@ -368,9 +361,6 @@ export class HybridStateManager {
           };
 
           this.setConnection(key, recoveredConnection);
-          console.log(
-            `✅ Connection ${key} recovered with ${activeUsers.length} active users`
-          );
           return true;
         }
       }
@@ -765,27 +755,20 @@ export class HybridStateManager {
       this.recoveryAttempts++;
       this.lastRecoveryTime = Date.now();
 
-      console.log(
-        `🔄 Attempting error recovery (attempt ${this.recoveryAttempts})`
-      );
-
       // Check Redis availability
       if (this.redisState.isAvailable) {
         // Try to sync state to Redis
         await this.syncToRedis();
         this.successfulRecoveries++;
-        console.log('✅ Error recovery successful - Redis sync completed');
         return true;
       } else {
         // Try to reconnect Redis
         await this.redisState.checkAvailability();
         if (this.redisState.isAvailable) {
           this.successfulRecoveries++;
-          console.log('✅ Error recovery successful - Redis reconnected');
           return true;
         } else {
           this.failedRecoveries++;
-          console.log('❌ Error recovery failed - Redis still unavailable');
           return false;
         }
       }
@@ -809,13 +792,6 @@ export class HybridStateManager {
     this.averageSyncTime =
       (this.averageSyncTime * (this.syncOperations - 1) + duration) /
       this.syncOperations;
-
-    // Log slow operations
-    if (duration > 1000) {
-      console.warn(
-        `⚠️ Slow sync operation detected: ${operation} took ${duration}ms`
-      );
-    }
 
     return duration;
   }

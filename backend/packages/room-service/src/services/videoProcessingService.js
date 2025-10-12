@@ -22,9 +22,7 @@ export const getVideoMetadata = async (input) => {
       if (tempFile) {
         try {
           await fs.unlink(tempFile);
-        } catch (error) {
-          console.warn('Failed to cleanup temp file:', error.message);
-        }
+        } catch (error) {}
       }
     };
 
@@ -145,7 +143,7 @@ export const generateThumbnail = async (input, options = {}) => {
         if (tempFile) await fs.unlink(tempFile);
         if (outputPath) await fs.unlink(outputPath);
       } catch (error) {
-        console.warn('Failed to cleanup temp files:', error.message);
+        // Failed to cleanup temp files
       }
     };
 
@@ -253,7 +251,7 @@ export const extractAudioFromVideo = async (input, options = {}) => {
         if (tempFile) await fs.unlink(tempFile);
         if (outputPath) await fs.unlink(outputPath);
       } catch (error) {
-        console.warn('Failed to cleanup temp files:', error.message);
+        // Failed to cleanup temp files
       }
     };
 

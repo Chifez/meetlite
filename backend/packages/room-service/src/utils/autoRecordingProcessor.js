@@ -11,8 +11,6 @@ import fs from 'fs/promises';
  */
 export async function processAutoRecording(roomId, recordingData) {
   try {
-    console.log(`Starting auto-recording processing for room: ${roomId}`);
-
     // Find the associated meeting
     const meeting = await models.Meeting.findOne({ roomId });
     if (!meeting) {
@@ -83,7 +81,6 @@ export async function processAutoRecording(roomId, recordingData) {
     });
 
     await recording.save();
-    console.log(`Created recording document: ${recording._id}`);
 
     try {
       // Upload to Cloudflare R2
@@ -104,16 +101,12 @@ export async function processAutoRecording(roomId, recordingData) {
       recording.processingStatus = 'completed';
 
       await recording.save();
-      console.log(`Updated recording with R2 URLs: ${recording._id}`);
 
       // Clean up local file
       try {
         await fs.unlink(recordingData.filePath);
-        console.log(
-          `Cleaned up local recording file: ${recordingData.filePath}`
-        );
       } catch (cleanupError) {
-        console.warn(`Failed to cleanup local file: ${cleanupError.message}`);
+        // Failed to cleanup local file
       }
 
       // Start automatic AI processing in background
@@ -150,8 +143,6 @@ export async function processAutoRecording(roomId, recordingData) {
  */
 async function startAutoAIProcessing(recordingId) {
   try {
-    console.log(`Starting auto AI processing for recording: ${recordingId}`);
-
     const recording = await models.MeetingRecording.findById(recordingId);
     if (!recording || !recording.recording.streamingUrl) {
       console.error('Recording not found or no streaming URL available');
@@ -171,8 +162,6 @@ async function startAutoAIProcessing(recordingId) {
 
     // Process in background
     await processRecordingAI(recording, 'both', processingId);
-
-    console.log(`Auto AI processing completed for recording: ${recordingId}`);
   } catch (error) {
     console.error('Auto AI processing failed:', error);
 

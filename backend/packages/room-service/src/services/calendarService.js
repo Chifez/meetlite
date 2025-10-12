@@ -30,7 +30,6 @@ export const getUserCalendarTokens = async (
     // Check if token is expired
     if (integration.isTokenExpired()) {
       // TODO: Implement token refresh logic
-      console.log(`Token expired for user ${userId}, need to refresh`);
       return null;
     }
 
@@ -67,8 +66,6 @@ export const saveCalendarTokens = async (
       },
       { upsert: true, new: true }
     );
-
-    console.log(`Calendar tokens saved for user ${userId}`);
   } catch (error) {
     console.error('Error saving calendar tokens:', error);
     throw error;
@@ -83,8 +80,6 @@ export const disconnectCalendar = async (userId, calendarType) => {
       { isConnected: false },
       { new: true }
     );
-
-    console.log(`Calendar disconnected for user ${userId}`);
   } catch (error) {
     console.error('Error disconnecting calendar:', error);
     throw error;

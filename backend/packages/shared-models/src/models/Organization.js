@@ -209,10 +209,7 @@ organizationSchema.methods.canCreateMeeting = function () {
 
 // Static methods
 organizationSchema.statics.generateSlug = function (name) {
-  console.log('generateSlug called with name:', name);
-
   if (!name || typeof name !== 'string') {
-    console.error('Invalid name provided to generateSlug:', name);
     return 'default-slug';
   }
 
@@ -224,7 +221,6 @@ organizationSchema.statics.generateSlug = function (name) {
     .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
     .slice(0, 50); // Limit length
 
-  console.log('Generated slug result:', slug);
   return slug;
 };
 

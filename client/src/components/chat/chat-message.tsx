@@ -16,7 +16,12 @@ const getInitials = (email: string): string => {
 };
 
 const ChatMessage = memo(
-  ({ message, isOwn, showAvatar = true }: ChatMessageComponentProps) => {
+  ({
+    message,
+    isOwn,
+    showAvatar = true,
+    displayName,
+  }: ChatMessageComponentProps) => {
     const { userEmail, message: text, timestamp, type } = message;
 
     // Handle system messages differently
@@ -58,7 +63,7 @@ const ChatMessage = memo(
             )}
           >
             <span className="text-sm font-medium text-foreground">
-              {isOwn ? 'You' : userEmail.split('@')[0]}
+              {isOwn ? 'You' : displayName || userEmail.split('@')[0]}
             </span>
             <span className="text-xs text-muted-foreground">
               {formatTime(timestamp)}
@@ -70,7 +75,7 @@ const ChatMessage = memo(
               'max-w-[280px] break-words rounded-lg px-3 py-2 text-sm',
               isOwn
                 ? 'bg-primary text-primary-foreground ml-auto'
-                : 'bg-muted text-foreground'
+                : 'bg-muted text-foreground mr-auto'
             )}
           >
             {text}

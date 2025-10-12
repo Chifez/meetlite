@@ -20,7 +20,6 @@ export const sendNotificationToUser = async (userId, payload) => {
     });
 
     if (subscriptions.length === 0) {
-      console.log(`No active subscriptions for user: ${userId}`);
       return { success: false, message: 'No active subscriptions' };
     }
 
@@ -50,9 +49,6 @@ export const sendNotificationToUser = async (userId, payload) => {
             // Subscription expired or invalid, deactivate it
             subscription.isActive = false;
             await subscription.save();
-            console.log(
-              `Deactivated invalid subscription: ${subscription._id}`
-            );
           }
           throw error;
         }

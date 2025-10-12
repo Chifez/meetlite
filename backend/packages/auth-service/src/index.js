@@ -71,9 +71,9 @@ app.use('/api/v1/push-notifications', pushNotificationsRoutes);
 // Only load payment routes if Stripe is configured
 if (process.env.STRIPE_SECRET_KEY) {
   app.use('/api/v1/payment', paymentRoutes);
-  console.log('✅ Payment routes loaded (Stripe configured)');
+  // Payment routes loaded
 } else {
-  console.log('⚠️  Payment routes skipped (STRIPE_SECRET_KEY not configured)');
+  // Payment routes skipped (Stripe not configured)
 }
 
 // ================================
@@ -92,9 +92,6 @@ export let models = null;
 
 const connectDB = async () => {
   try {
-    console.log('Connecting to MongoDB via shared connection pool...');
-    const startTime = Date.now();
-
     authConnection = await connectionPool.getConnection(
       'auth',
       process.env.MONGODB_URI
@@ -103,25 +100,12 @@ const connectDB = async () => {
     // Create all shared models with this specific connection
     models = createModelFactory(authConnection);
 
-    const connectionTime = Date.now() - startTime;
-    console.log(
-      `✅ Connected to MongoDB via shared pool in ${connectionTime}ms`
-    );
-
     // Handle connection events
     authConnection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
-    });
-
-    authConnection.on('disconnected', () => {
-      console.log('⚠️ MongoDB disconnected');
-    });
-
-    authConnection.on('reconnected', () => {
-      console.log('🔄 MongoDB reconnected');
+      console.error('MongoDB connection error:', err);
     });
   } catch (error) {
-    console.error('❌ Failed to connect to MongoDB:', error.message);
+    console.error('Failed to connect to MongoDB:', error.message);
     process.exit(1);
   }
 };
@@ -136,7 +120,6 @@ const startServer = async () => {
     await connectDB();
 
     // Connect to Redis
-    console.log('Connecting to Redis...');
     await redisClient.connect();
 
     // Setup session middleware after Redis connection
@@ -145,11 +128,10 @@ const startServer = async () => {
 
     // Start server
     app.listen(PORT, () => {
-      console.log(`🚀 Auth service running on port ${PORT}`);
-      console.log(`❤️  Health Check: http://localhost:${PORT}/health`);
+      console.log(`Auth service started on port ${PORT}`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 };

@@ -32,17 +32,30 @@ export const authMiddleware = async (socket, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // CLEAN ARCHITECTURE: Client sends fresh profile data in socket.handshake.auth.profile
+    // MediaSoup service stays lightweight - no database/API fetching
+    const profileFromClient = socket.handshake.auth.profile || {};
+
     // Attach user info to socket
     socket.user = {
       userId: decoded.userId,
       email: decoded.email,
       organizationId: decoded.organizationId,
+      // Use profile data from client (fresher than JWT)
+      name: profileFromClient.name || decoded.name || null,
+      useNameInMeetings:
+        profileFromClient.useNameInMeetings ??
+        decoded.useNameInMeetings ??
+        false,
       ...decoded,
     };
 
-    logger.info('User authenticated successfully', {
+    logger.info('✅ [AUTH] User authenticated successfully:', {
       userId: socket.user.userId,
       email: socket.user.email,
+      name: socket.user.name,
+      useNameInMeetings: socket.user.useNameInMeetings,
+      profileFromClient: !!profileFromClient.name,
       socketId: socket.id,
     });
 

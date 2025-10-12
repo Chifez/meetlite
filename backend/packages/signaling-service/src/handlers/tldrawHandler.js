@@ -14,8 +14,6 @@ export class TldrawHandler {
 
   handleConnection(socket) {
     try {
-      console.log('Tldraw Socket.IO connection established');
-
       const roomId = socket.handshake.query.roomId;
       const userId = socket.user?.userId;
 
@@ -118,7 +116,6 @@ export class TldrawHandler {
     // Handle disconnection
     socket.on('disconnect', () => {
       try {
-        console.log('Tldraw Socket.IO connection closed');
         this.handleDisconnect(socket, roomId);
       } catch (error) {
         console.error('Error handling disconnect:', error);

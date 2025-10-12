@@ -62,14 +62,6 @@ const upload = multer({
  */
 router.post('/', upload.single('recording'), async (req, res) => {
   try {
-    console.log('Upload request received:', {
-      hasFile: !!req.file,
-      fileName: req.file?.originalname,
-      fileSize: req.file?.size,
-      user: req.user,
-      body: req.body,
-    });
-
     if (!req.file) {
       throw new AppError('FILE_6001', 'No recording file provided');
     }
@@ -124,13 +116,6 @@ router.post('/', upload.single('recording'), async (req, res) => {
     }
 
     // Create recording document first
-    console.log('Creating recording document with:', {
-      meetingId: meetingId || null,
-      organizationId: req.user.organizationId || null,
-      title: title.trim(),
-      userId: req.user.userId,
-    });
-
     const recording = new models.MeetingRecording({
       meetingId: meetingId || null,
       organizationId: req.user.organizationId || null,
@@ -163,10 +148,8 @@ router.post('/', upload.single('recording'), async (req, res) => {
       ],
     });
 
-    console.log('Saving recording to database...');
     try {
       await recording.save();
-      console.log('Recording saved successfully with ID:', recording._id);
     } catch (saveError) {
       console.error('Database save error:', saveError);
       throw new AppError(
@@ -180,7 +163,6 @@ router.post('/', upload.single('recording'), async (req, res) => {
 
     try {
       // Read file from disk into buffer for R2 upload
-      console.log('Reading file from disk:', tempFilePath);
       const fileBuffer = await fs.readFile(tempFilePath);
 
       // Upload to Cloudflare R2
@@ -222,9 +204,8 @@ router.post('/', upload.single('recording'), async (req, res) => {
       // Clean up temporary file after successful upload
       try {
         await fs.unlink(tempFilePath);
-        console.log('Temporary file deleted:', tempFilePath);
       } catch (cleanupError) {
-        console.warn('Failed to delete temporary file:', cleanupError.message);
+        // Failed to delete temporary file
       }
 
       // TODO: Start AI processing (transcript/summary)
@@ -253,12 +234,8 @@ router.post('/', upload.single('recording'), async (req, res) => {
       if (tempFilePath) {
         try {
           await fs.unlink(tempFilePath);
-          console.log('Temporary file deleted after error:', tempFilePath);
         } catch (cleanupError) {
-          console.warn(
-            'Failed to delete temporary file after error:',
-            cleanupError.message
-          );
+          // Failed to delete temporary file after error
         }
       }
 
@@ -279,12 +256,8 @@ router.post('/', upload.single('recording'), async (req, res) => {
     if (req.file?.path) {
       try {
         await fs.unlink(req.file.path);
-        console.log('Temporary file cleaned up after error:', req.file.path);
       } catch (cleanupError) {
-        console.warn(
-          'Failed to delete temporary file in error handler:',
-          cleanupError.message
-        );
+        // Failed to delete temporary file in error handler
       }
     }
 
@@ -589,9 +562,8 @@ router.delete('/:id', async (req, res) => {
     if (recording.recording.storagePath) {
       try {
         await deleteFile(recording.recording.storagePath);
-        console.log('Deleted file from R2:', recording.recording.storagePath);
       } catch (error) {
-        console.warn('Failed to delete file from R2:', error.message);
+        // Failed to delete file from R2
       }
     }
 
@@ -603,9 +575,8 @@ router.delete('/:id', async (req, res) => {
           .slice(-2)
           .join('/');
         await deleteFile(thumbnailPath);
-        console.log('Deleted thumbnail from R2:', thumbnailPath);
       } catch (error) {
-        console.warn('Failed to delete thumbnail from R2:', error.message);
+        // Failed to delete thumbnail from R2
       }
     }
 
@@ -988,10 +959,6 @@ router.get('/:id/download', async (req, res) => {
  */
 async function processRecordingAI(recording, type, processingId) {
   try {
-    console.log(
-      `Starting AI processing for recording ${recording._id}, type: ${type}`
-    );
-
     let transcriptData = null;
 
     // Step 1: Generate transcript if needed
@@ -1005,7 +972,6 @@ async function processRecordingAI(recording, type, processingId) {
           recording.recording.format !== 'mp3' &&
           recording.recording.format !== 'wav'
         ) {
-          console.log('Extracting audio from video...');
           const audioResult = await extractAudioFromVideo(
             recording.recording.storagePath
           );
@@ -1014,14 +980,10 @@ async function processRecordingAI(recording, type, processingId) {
           if (audioResult.success && audioResult.audioUrl) {
             audioUrl = audioResult.audioUrl;
           } else {
-            console.log(
-              'Audio extraction not available, using video URL for transcription'
-            );
             // The transcription service should handle video files directly
           }
         }
 
-        console.log('Transcribing audio...');
         transcriptData = await transcribeRecording(audioUrl);
 
         // Update recording with transcript
@@ -1030,8 +992,6 @@ async function processRecordingAI(recording, type, processingId) {
         recording.transcript.language = transcriptData.language;
         recording.transcript.status = 'completed';
         recording.transcript.processingProvider = 'openai';
-
-        console.log(`Transcript completed for recording ${recording._id}`);
       } catch (transcriptError) {
         console.error('Transcript processing failed:', transcriptError);
         recording.transcript.status = 'failed';
@@ -1049,7 +1009,6 @@ async function processRecordingAI(recording, type, processingId) {
           throw new Error('No transcript available for summary generation');
         }
 
-        console.log('Generating AI summary...');
         const summaryData = await generateRecordingSummary(transcriptText, {
           meetingContext: recording.description || recording.title,
           participantCount: recording.participants.length,
@@ -1064,8 +1023,6 @@ async function processRecordingAI(recording, type, processingId) {
         recording.aiSummary.sentiment = summaryData.sentiment;
         recording.aiSummary.status = 'completed';
         recording.aiSummary.processingProvider = 'openai';
-
-        console.log(`Summary completed for recording ${recording._id}`);
       } catch (summaryError) {
         console.error('Summary processing failed:', summaryError);
         recording.aiSummary.status = 'failed';
@@ -1088,8 +1045,6 @@ async function processRecordingAI(recording, type, processingId) {
     }
 
     await recording.save();
-
-    console.log(`AI processing completed for recording ${recording._id}`);
 
     // TODO: Send notification email or webhook about completion
   } catch (error) {

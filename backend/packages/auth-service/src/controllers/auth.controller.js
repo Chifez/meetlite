@@ -233,7 +233,6 @@ export class AuthController {
 
       // Get frontend URL with fallback
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-      console.log('🔗 Redirecting to frontend URL:', frontendUrl);
 
       const result = await this.authService.handleGoogleOAuth(code);
       const { token, error } = result;

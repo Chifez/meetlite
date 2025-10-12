@@ -49,10 +49,6 @@ export class RedisStateManager {
     } catch (error) {
       this.isAvailable = false;
       this.handleError(error, 'checkAvailability');
-      console.warn(
-        '⚠️ Redis not available, falling back to memory:',
-        error.message
-      );
     }
   }
 
@@ -561,7 +557,6 @@ export class RedisStateManager {
 
     try {
       // This is a simple cleanup - in production you might want more sophisticated cleanup
-      console.log('🧹 Redis cleanup completed');
     } catch (error) {
       console.error('❌ Redis cleanup error:', error);
     }

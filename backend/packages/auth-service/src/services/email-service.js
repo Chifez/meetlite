@@ -52,7 +52,6 @@ export const sendWelcomeEmail = async (userEmail, userName = '') => {
     };
 
     await transporter.sendMail(emailContent);
-    console.log(`Welcome email sent to ${userEmail}`);
   } catch (error) {
     console.error('Welcome email error:', error);
     throw error;
@@ -78,7 +77,6 @@ export const sendPasswordResetEmail = async (
     };
 
     await transporter.sendMail(emailContent);
-    console.log(`Password reset email sent to ${userEmail}`);
   } catch (error) {
     console.error('Password reset email error:', error);
     throw error;
@@ -120,9 +118,6 @@ export const sendOrganizationInviteEmail = async ({
     };
 
     await transporter.sendMail(emailContent);
-    console.log(
-      `Organization invite email sent to ${email} for ${organizationName}`
-    );
   } catch (error) {
     console.error('Organization invite email error:', error);
     throw error;
@@ -149,7 +144,6 @@ export const sendPlanUpgradeEmail = async (
     };
 
     await transporter.sendMail(emailContent);
-    console.log(`Plan upgrade email sent to ${userEmail}`);
   } catch (error) {
     console.error('Plan upgrade email error:', error);
     throw error;
@@ -179,7 +173,6 @@ export const sendPlanCancellationEmail = async (
     };
 
     await transporter.sendMail(emailContent);
-    console.log(`Plan cancellation email sent to ${userEmail}`);
   } catch (error) {
     console.error('Plan cancellation email error:', error);
     throw error;
@@ -209,7 +202,6 @@ export const sendPlanExpirationWarningEmail = async (
     };
 
     await transporter.sendMail(emailContent);
-    console.log(`Plan expiration warning email sent to ${userEmail}`);
   } catch (error) {
     console.error('Plan expiration warning email error:', error);
     throw error;
