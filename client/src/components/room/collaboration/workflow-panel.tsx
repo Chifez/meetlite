@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   Connection,
   Edge,
   Node,
@@ -17,19 +18,14 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   EdgeTypes,
+  BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useRoom } from '@/contexts/room-context';
 import { CustomNode } from '@/components/room/collaboration/nodes/custom-nodes';
 import { EdgeLabel } from '@/components/room/collaboration/edges/edge-label';
-import { Button } from '@/components/ui/button';
-import { Plus, Settings2, ChevronDown, Crown } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { NodeToolbar } from '@/components/room/collaboration/nodes/node-toolbar';
+import { Crown, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 
@@ -84,6 +80,7 @@ const Flow = ({ className }: WorkflowPanelProps) => {
   const [nodes, setNodes] = useState<Node<NodeData | any>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smoothstep');
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const reactFlowInstance = useReactFlow();
   const isInitialized = useRef(false);
 
@@ -361,59 +358,35 @@ const Flow = ({ className }: WorkflowPanelProps) => {
           zoomOnPinch={true}
           panOnScroll={true}
         >
-          <Background />
-          {canUserEdit && <Controls />}
-          {/* Only show panel with controls if user can edit */}
-
-          {canUserEdit && (
-            <Panel
-              position="top-left"
-              className="flex gap-2 bg-white p-2 rounded shadow-lg"
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color={isDarkMode ? '#555' : '#aaa'}
+            style={{ backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff' }}
+          />
+          <Controls>
+            <ControlButton
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              title={
+                isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'
+              }
             >
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Node
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => createNode('input')}>
-                    Input Node
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => createNode('default')}>
-                    Default Node
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => createNode('output')}>
-                    Output Node
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setEdgeStyle('default')}>
-                    Default Edge
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEdgeStyle('straight')}>
-                    Straight Edge
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEdgeStyle('step')}>
-                    Step Edge
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEdgeStyle('smoothstep')}>
-                    Smooth Step Edge
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEdgeStyle('bezier')}>
-                    Bezier Edge
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {isDarkMode ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </ControlButton>
+          </Controls>
+
+          {/* Node Toolbar - Only show if user can edit */}
+          {canUserEdit && (
+            <Panel position="top-left">
+              <NodeToolbar
+                onCreateNode={createNode}
+                onEdgeStyleChange={setEdgeStyle}
+              />
             </Panel>
           )}
 

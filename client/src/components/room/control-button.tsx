@@ -10,6 +10,7 @@ interface ControlButtonProps {
   disabled?: boolean;
   className?: string;
   title?: string;
+  children?: React.ReactNode;
 }
 
 export const ControlButton = ({
@@ -21,12 +22,13 @@ export const ControlButton = ({
   disabled = false,
   className = '',
   title,
+  children,
 }: ControlButtonProps) => {
   const activeState = Boolean(isActive);
 
   const getVariantStyles = () => {
     if (isDestructive) {
-      return 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive';
+      return 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive text-white';
     }
     if (activeState) {
       return 'bg-primary text-primary-foreground hover:bg-primary/90 border-primary';
@@ -43,13 +45,16 @@ export const ControlButton = ({
       size="icon"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full h-12 w-12 transition-all duration-200 ${getVariantStyles()} ${className}`}
+      className={`flex items-center gap-2 rounded-full h-12 w-12 transition-all duration-200 ${getVariantStyles()} ${className}`}
       title={title}
     >
       {IconAlt && !activeState ? (
         <IconAlt className="h-5 w-5" />
       ) : (
-        <Icon className="h-5 w-5" />
+        <>
+          {children}
+          <Icon className="h-5 w-5" />
+        </>
       )}
     </Button>
   );

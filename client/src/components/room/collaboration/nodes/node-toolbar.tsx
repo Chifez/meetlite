@@ -1,57 +1,73 @@
-import { DragEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Plus, Settings2, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-interface NodeType {
-  type: string;
-  label: string;
-  nodeType?: 'input' | 'output' | 'default';
+type NodeType = 'input' | 'default' | 'output';
+type EdgeStyle = 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier';
+
+interface NodeToolbarProps {
+  onCreateNode: (type: NodeType) => void;
+  onEdgeStyleChange: (style: EdgeStyle) => void;
 }
 
-const nodeTypes: NodeType[] = [
-  { type: 'input', label: 'Input', nodeType: 'input' },
-  { type: 'process', label: 'Process' },
-  { type: 'output', label: 'Output', nodeType: 'output' },
-];
-
-export const NodeToolbar = () => {
-  const onDragStart = (
-    event: DragEvent<HTMLDivElement>,
-    nodeType: NodeType
-  ) => {
-    const data = {
-      type: 'custom',
-      data: {
-        label: nodeType.label,
-        type: nodeType.nodeType || 'default',
-      },
-    };
-
-    event.dataTransfer.setData('application/reactflow', JSON.stringify(data));
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
+export const NodeToolbar = ({
+  onCreateNode,
+  onEdgeStyleChange,
+}: NodeToolbarProps) => {
   return (
-    <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
-      <h3 className="text-sm font-semibold mb-2">Node Types</h3>
-      <div className="flex flex-col gap-2">
-        {nodeTypes.map((type) => (
-          <div
-            key={type.type}
-            className={`p-2 border-2 rounded cursor-move text-sm
-              ${
-                type.nodeType === 'input'
-                  ? 'bg-green-100 border-green-200'
-                  : type.nodeType === 'output'
-                  ? 'bg-orange-100 border-orange-200'
-                  : 'bg-blue-100 border-blue-200'
-              }
-            `}
-            draggable
-            onDragStart={(e) => onDragStart(e, type)}
-          >
-            {type.label}
-          </div>
-        ))}
-      </div>
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
+      {/* Add Node - Pill shaped */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="rounded-full gap-2 px-4">
+            <Plus className="h-4 w-4" />
+            Add Node
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => onCreateNode('input')}>
+            Input Node
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onCreateNode('default')}>
+            Default Node
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onCreateNode('output')}>
+            Output Node
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Settings - Fully rounded */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="rounded-full">
+            <Settings2 className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => onEdgeStyleChange('default')}>
+            Default Edge
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onEdgeStyleChange('straight')}>
+            Straight Edge
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onEdgeStyleChange('step')}>
+            Step Edge
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onEdgeStyleChange('smoothstep')}>
+            Smooth Step Edge
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onEdgeStyleChange('bezier')}>
+            Bezier Edge
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

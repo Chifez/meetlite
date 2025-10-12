@@ -1,11 +1,12 @@
 import { useState, useRef, KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Send, Smile } from 'lucide-react';
 import { ChatInputProps } from '@/types/chat';
-
-// Common emojis for quick access
-const QUICK_EMOJIS = ['👍', '👎', '😂', '❤️', '😮', '😢', '😡', '👏'];
+import {
+  IconEmojiPicker,
+  emojiLibrary,
+} from '@/components/ui/icon-emoji-picker';
 
 export const ChatInput = ({
   onSendMessage,
@@ -17,7 +18,7 @@ export const ChatInput = ({
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
   const handleSendMessage = () => {
@@ -64,18 +65,22 @@ export const ChatInput = ({
     }
   };
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  const addEmoji = (emoji: string) => {
-    const newMessage = message + emoji;
-    setMessage(newMessage);
+  const addEmoji = (iconName: string) => {
+    const emoji = emojiLibrary[iconName];
+    if (emoji) {
+      const newMessage = message + emoji;
+      setMessage(newMessage);
+      handleInputChange(newMessage);
+    }
     setShowEmojiPicker(false);
-    inputRef.current?.focus();
+    textareaRef.current?.focus();
   };
 
   const handleEmojiToggle = () => {
@@ -86,49 +91,44 @@ export const ChatInput = ({
 
   return (
     <div className="relative border-t bg-background p-4">
-      {/* Quick Emoji Picker */}
-      {showEmojiPicker && (
-        <div className="absolute bottom-full left-4 right-4 mb-2 p-3 bg-popover border rounded-lg shadow-lg">
-          <div className="grid grid-cols-8 gap-2">
-            {QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => addEmoji(emoji)}
-                className="text-lg hover:bg-muted rounded p-1 transition-colors"
-                disabled={disabled}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="flex gap-2 items-end">
         {/* Emoji Button */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={handleEmojiToggle}
-          disabled={disabled}
-          className="shrink-0"
-        >
-          <Smile className="h-5 w-5" />
-        </Button>
+        <div className="relative shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleEmojiToggle}
+            disabled={disabled}
+            className="shrink-0"
+          >
+            <Smile className="h-5 w-5" />
+          </Button>
+
+          {/* Emoji Picker */}
+          {showEmojiPicker && (
+            <div className="absolute bottom-full mb-12 left-0 z-50">
+              <IconEmojiPicker
+                onSelect={addEmoji}
+                onClose={() => setShowEmojiPicker(false)}
+                className="max-h-64"
+              />
+            </div>
+          )}
+        </div>
 
         {/* Message Input */}
         <div className="flex-1">
-          <Input
-            ref={inputRef}
+          <Textarea
+            ref={textareaRef}
             value={message}
             onChange={(e) => handleInputChange(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder={placeholder}
             disabled={disabled}
-            className="w-full"
+            className="w-full resize-none"
             autoComplete="off"
+            rows={3}
           />
         </div>
 

@@ -4,6 +4,12 @@ import { cn } from '@/lib/utils';
 import { useRoom } from '@/contexts/room-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  IconEmojiPicker,
+  iconLibrary,
+  renderIconOrEmoji,
+} from '@/components/ui/icon-emoji-picker';
 
 import {
   MoreHorizontal,
@@ -11,8 +17,6 @@ import {
   FileText,
   Image,
   Zap,
-  Settings as SettingsIcon,
-  Send,
   Plus,
   X,
   Check,
@@ -25,6 +29,7 @@ type NodeData = {
   description?: string;
   tags?: string[];
   icon?: string;
+  color?: string;
   showAllFields?: boolean;
   details?: Array<{
     label: string;
@@ -33,17 +38,25 @@ type NodeData = {
   }>;
 };
 
-const nodeIcons = {
-  input: Zap,
-  default: SettingsIcon,
-  output: Send,
-};
-
 const nodeColors = {
   input: 'bg-green-50 border-green-200',
   default: 'bg-blue-50 border-blue-200',
   output: 'bg-orange-50 border-orange-200',
 };
+
+// Color options for custom node colors
+const colorOptions = [
+  { name: 'Default', bg: 'bg-white', border: 'border-gray-200' },
+  { name: 'Blue', bg: 'bg-blue-50', border: 'border-blue-200' },
+  { name: 'Green', bg: 'bg-green-50', border: 'border-green-200' },
+  { name: 'Orange', bg: 'bg-orange-50', border: 'border-orange-200' },
+  { name: 'Purple', bg: 'bg-purple-50', border: 'border-purple-200' },
+  { name: 'Pink', bg: 'bg-pink-50', border: 'border-pink-200' },
+  { name: 'Yellow', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+  { name: 'Red', bg: 'bg-red-50', border: 'border-red-200' },
+  { name: 'Indigo', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  { name: 'Teal', bg: 'bg-teal-50', border: 'border-teal-200' },
+];
 
 interface CustomNodeProps {
   id: string;
@@ -136,6 +149,9 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
   // Icon selection state
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [editingValue, setEditingValue] = useState('');
+
+  // Color picker state
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Compute derived values from props using useMemo
   const title = useMemo(() => nodeData.title || '', [nodeData.title]);
@@ -297,10 +313,80 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
     [id, nodeData, position, sendWorkflowOperation]
   );
 
+  // Change color
+  const changeColor = useCallback(
+    (colorName: string) => {
+      sendWorkflowOperation({
+        type: 'update_node',
+        nodeId: id,
+        node: {
+          id,
+          type: 'custom',
+          position,
+          data: {
+            ...nodeData,
+            color: colorName,
+          },
+        },
+      });
+      setShowColorPicker(false);
+    },
+    [id, nodeData, position, sendWorkflowOperation]
+  );
+
+  // Enable showAllFields when editing description or tags
+  const enableFieldsAndEdit = useCallback(
+    (field: 'description' | 'tags') => {
+      setShowOptions(false);
+
+      // First ensure showAllFields is true
+      if (!nodeData.showAllFields) {
+        sendWorkflowOperation({
+          type: 'update_node',
+          nodeId: id,
+          node: {
+            id,
+            type: 'custom',
+            position,
+            data: {
+              ...nodeData,
+              showAllFields: true,
+            },
+          },
+        });
+      }
+
+      // Then set editing mode
+      if (field === 'description') {
+        setEditingField('description');
+        setEditingValue(description);
+      } else {
+        startEditingTags();
+      }
+    },
+    [
+      id,
+      nodeData,
+      position,
+      sendWorkflowOperation,
+      description,
+      startEditingTags,
+    ]
+  );
+
   const type = nodeData.nodeType || 'default';
-  const currentIcon = nodeData.icon
-    ? nodeIcons[nodeData.icon as keyof typeof nodeIcons]
-    : nodeIcons[type];
+
+  // Get custom color or use default based on type
+  const customColor = nodeData.color
+    ? colorOptions.find((c) => c.name === nodeData.color)
+    : null;
+  const cardColors = customColor
+    ? `${customColor.bg} ${customColor.border}`
+    : nodeColors[type];
+
+  // Check if any field is being edited or if fields are visible
+  const isAnyFieldActive =
+    editingField !== null || isEditingTags || showAllFields;
 
   return (
     <div
@@ -310,11 +396,11 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
         !canUserEdit && 'cursor-default',
         canUserEdit && 'cursor-grab active:cursor-grabbing',
         'hover:shadow-xl',
-        nodeColors[type]
+        cardColors
       )}
     >
-      {/* Input Handle */}
-      {type !== 'output' && (
+      {/* Left Handle - Only for output and default nodes (target) */}
+      {type !== 'input' && (
         <Handle
           type="target"
           position={Position.Left}
@@ -327,14 +413,18 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
       )}
 
       {/* Header with Title and Options Button */}
-      <div className="flex items-center justify-between p-3 pb-2">
+      <div
+        className={cn(
+          'flex items-center justify-between p-3 pb-2',
+          isAnyFieldActive && 'bg-white/50 border-b border-gray-200'
+        )}
+      >
         <div className="flex items-center gap-2 flex-1">
-          {(() => {
-            const IconComponent = currentIcon;
-            return IconComponent ? (
-              <IconComponent className="w-4 h-4 text-gray-600" />
-            ) : null;
-          })()}
+          {renderIconOrEmoji(
+            nodeData.icon,
+            type as keyof typeof iconLibrary,
+            'w-4 h-4 text-gray-600'
+          )}
           <div className="flex-1">
             {editingField === 'title' ? (
               <Input
@@ -433,7 +523,7 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
               </div>
             ) : (
               // Tag display mode
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 mt-1">
                 {tags.map((tag, index) => (
                   <span
                     key={index}
@@ -448,13 +538,9 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
                     {tag}
                   </span>
                 ))}
-                {tags.length === 0 && canUserEdit && (
-                  <span
-                    className="px-2 py-1 text-xs text-gray-400 border border-dashed border-gray-300 rounded cursor-pointer hover:border-gray-400"
-                    onClick={() => startEditingTags()}
-                    title="Click to add tags"
-                  >
-                    + Add tags
+                {tags.length === 0 && !canUserEdit && (
+                  <span className="px-2 py-1 text-xs text-gray-400">
+                    No tags
                   </span>
                 )}
               </div>
@@ -465,13 +551,14 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
           <div className="px-3 pb-2">
             <div className="mb-2">
               {editingField === 'description' ? (
-                <Input
+                <Textarea
                   value={editingValue}
                   onChange={(e) => setEditingValue(e.target.value)}
                   onBlur={() => handleFieldEdit('description', editingValue)}
-                  className="text-xs text-gray-500 bg-transparent border-none outline-none w-full"
+                  className="text-xs text-gray-500 bg-transparent border-none outline-none w-full resize-none"
                   autoFocus
                   placeholder="Add description..."
+                  rows={3}
                 />
               ) : (
                 <div
@@ -483,7 +570,7 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
                     canUserEdit && startEditing('description')
                   }
                 >
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 whitespace-pre-wrap">
                     {description ||
                       (canUserEdit
                         ? 'Double-click to add description...'
@@ -515,10 +602,7 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setShowOptions(false);
-                startEditing('description');
-              }}
+              onClick={() => enableFieldsAndEdit('description')}
               className="w-full justify-start"
             >
               <FileText className="w-4 h-4 mr-2" />
@@ -527,10 +611,7 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setShowOptions(false);
-                startEditingTags();
-              }}
+              onClick={() => enableFieldsAndEdit('tags')}
               className="w-full justify-start"
             >
               <Tag className="w-4 h-4 mr-2" />
@@ -548,6 +629,18 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
               <Image className="w-4 h-4 mr-2" />
               Change Icon
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowOptions(false);
+                setShowColorPicker(true);
+              }}
+              className="w-full justify-start"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Change Color
+            </Button>
             {canUserEdit && (
               <Button
                 variant="ghost"
@@ -564,39 +657,51 @@ export const CustomNode = ({ id, data, isConnectable }: CustomNodeProps) => {
 
       {/* Icon Picker - Only show if user can edit */}
       {showIconPicker && canUserEdit && (
-        <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg z-10 min-w-[200px]">
+        <div className="absolute top-full left-0 mt-1 z-50">
+          <IconEmojiPicker
+            onSelect={changeIcon}
+            onClose={() => setShowIconPicker(false)}
+            iconsOnly={true}
+            className="w-[260px]"
+          />
+        </div>
+      )}
+
+      {/* Color Picker - Only show if user can edit */}
+      {showColorPicker && canUserEdit && (
+        <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg z-50 min-w-[200px]">
           <div className="p-2">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-medium">Select Icon:</div>
+              <div className="text-xs font-medium">Select Color:</div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowIconPicker(false)}
+                onClick={() => setShowColorPicker(false)}
                 className="h-6 w-6 p-0"
               >
                 <X className="h-3 w-3" />
               </Button>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {Object.entries(nodeIcons).map(([name, IconComponent]) => (
-                <Button
-                  key={name}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => changeIcon(name)}
-                  className="h-8 w-8 p-0"
-                  title={name}
-                >
-                  <IconComponent className="h-4 w-4" />
-                </Button>
+            <div className="grid grid-cols-3 gap-2">
+              {colorOptions.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => changeColor(color.name)}
+                  className={cn(
+                    'h-10 w-full rounded border-2 transition-all hover:scale-105',
+                    color.bg,
+                    color.border
+                  )}
+                  title={color.name}
+                />
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* Output Handle */}
-      {type !== 'input' && (
+      {/* Right Handle - Only for input and default nodes (source) */}
+      {type !== 'output' && (
         <Handle
           type="source"
           position={Position.Right}

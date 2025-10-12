@@ -58,7 +58,16 @@ export const MediaControls = ({
         isActive={videoEnabled}
       />
 
-      <ControlButton icon={Phone} onClick={onLeaveMeeting} isDestructive />
+      <ControlButton
+        icon={Phone}
+        onClick={onLeaveMeeting}
+        isDestructive
+        title="leave"
+        className="flex items-center gap-2 w-fit px-4"
+      >
+        <div className="text-white">Leave</div>
+        {/* <Phone className="h-5 w-5" /> */}
+      </ControlButton>
 
       {showScreenShare && (
         <ControlButton
