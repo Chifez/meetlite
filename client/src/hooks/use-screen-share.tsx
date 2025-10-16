@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSound } from '@/hooks/use-sound';
 import { Socket } from 'socket.io-client';
@@ -13,9 +13,18 @@ interface ScreenShareState {
 interface UseScreenShareProps {
   socket: Socket | null;
   roomId: string | undefined;
+  produceScreenStream?: (stream: MediaStream) => Promise<any>;
+  stopScreenProduction?: () => Promise<void>;
+  screenSharingUserId?: string | null;
 }
 
-export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
+export const useScreenShare = ({
+  socket,
+  roomId,
+  produceScreenStream,
+  stopScreenProduction,
+  screenSharingUserId,
+}: UseScreenShareProps) => {
   const { toast } = useToast();
   const { playUserJoinSound, playUserLeaveSound } = useSound();
   const { user } = useAuth();
@@ -23,20 +32,22 @@ export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
   const [screenShareState, setScreenShareState] = useState<ScreenShareState>({
     stream: null,
     isSharing: false,
-    sharingUser: null,
+    sharingUser: screenSharingUserId || null,
   });
 
-  // Handle screen sharing events
+  // Sync sharingUser with screenSharingUserId from MediaSoup
+  useEffect(() => {
+    if (screenSharingUserId !== undefined) {
+      setScreenShareState((prev) => ({
+        ...prev,
+        sharingUser: screenSharingUserId,
+      }));
+    }
+  }, [screenSharingUserId]);
+
+  // Handle sound effects
   useEffect(() => {
     if (!socket) return;
-
-    const handleScreenShareStarted = (data: { userId: string }) => {
-      setScreenShareState((prev) => ({ ...prev, sharingUser: data.userId }));
-    };
-
-    const handleScreenShareStopped = () => {
-      setScreenShareState((prev) => ({ ...prev, sharingUser: null }));
-    };
 
     const handleUserJoined = () => {
       playUserJoinSound();
@@ -46,30 +57,17 @@ export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
       playUserLeaveSound();
     };
 
-    socket.on('screen-share-started', handleScreenShareStarted);
-    socket.on('screen-share-stopped', handleScreenShareStopped);
     socket.on('user-joined', handleUserJoined);
     socket.on('user-left', handleUserLeft);
 
     return () => {
-      socket.off('screen-share-started', handleScreenShareStarted);
-      socket.off('screen-share-stopped', handleScreenShareStopped);
       socket.off('user-joined', handleUserJoined);
       socket.off('user-left', handleUserLeft);
     };
   }, [socket, playUserJoinSound, playUserLeaveSound]);
 
-  // Effect to signal server when screen stream is ready for connections
-  useEffect(() => {
-    if (!socket || !roomId) return;
-
-    if (screenShareState.stream && screenShareState.isSharing) {
-      socket.emit('screen-share-ready', { roomId });
-    }
-  }, [socket, roomId, screenShareState.stream, screenShareState.isSharing]);
-
-  // Share screen function
-  const shareScreen = async () => {
+  // Share screen function using MediaSoup
+  const shareScreen = useCallback(async () => {
     try {
       if (
         screenShareState.sharingUser &&
@@ -84,37 +82,69 @@ export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
       }
 
       if (screenShareState.isSharing) {
+        // Stop sharing
         if (screenShareState.stream) {
+          // Stop browser tracks
           screenShareState.stream.getTracks().forEach((track) => track.stop());
+
+          // Stop MediaSoup production
+          if (stopScreenProduction) {
+            await stopScreenProduction();
+          }
+
+          // Notify server
+          socket?.emit('screen-share-stopped', { roomId });
+
+          // Update local state
           setScreenShareState({
             stream: null,
             isSharing: false,
             sharingUser: null,
           });
-          socket?.emit('screen-share-stopped', { roomId });
         }
       } else {
+        // Start sharing
         const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30 },
+          },
           audio: true,
         });
 
-        stream.getVideoTracks()[0].onended = () => {
+        // Handle user clicking browser's stop sharing button
+        stream.getVideoTracks()[0].onended = async () => {
           stream.getTracks().forEach((track) => track.stop());
+
+          if (stopScreenProduction) {
+            await stopScreenProduction();
+          }
+
+          socket?.emit('screen-share-stopped', { roomId });
+
           setScreenShareState({
             stream: null,
             isSharing: false,
             sharingUser: null,
           });
-          socket?.emit('screen-share-stopped', { roomId });
         };
 
+        // Update local state
         setScreenShareState({
           stream,
           isSharing: true,
           sharingUser: user?.id || null,
         });
+
+        // Notify server we're starting
         socket?.emit('screen-share-started', { roomId });
+
+        // Produce through MediaSoup
+        if (produceScreenStream) {
+          await produceScreenStream(stream);
+          console.log('✅ Screen share produced through MediaSoup');
+        }
       }
     } catch (error) {
       console.error('Error sharing screen:', error);
@@ -124,19 +154,32 @@ export const useScreenShare = ({ socket, roomId }: UseScreenShareProps) => {
         description: 'Could not share your screen. Please try again.',
       });
     }
-  };
+  }, [
+    screenShareState,
+    user,
+    socket,
+    roomId,
+    produceScreenStream,
+    stopScreenProduction,
+    toast,
+  ]);
 
   // Leave meeting cleanup
-  const cleanupScreenShare = () => {
+  const cleanupScreenShare = useCallback(async () => {
     if (screenShareState.stream) {
       screenShareState.stream.getTracks().forEach((track) => track.stop());
+
+      if (stopScreenProduction) {
+        await stopScreenProduction();
+      }
+
       setScreenShareState({
         stream: null,
         isSharing: false,
         sharingUser: null,
       });
     }
-  };
+  }, [screenShareState.stream, stopScreenProduction]);
 
   return {
     screenShareState,

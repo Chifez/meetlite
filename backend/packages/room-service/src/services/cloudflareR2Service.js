@@ -108,7 +108,6 @@ export const uploadFile = async (fileBuffer, options = {}) => {
         const ffmpegAvailable = await checkFFmpegAvailability();
 
         if (ffmpegAvailable) {
-
           // Get video metadata
           videoMetadata = await getVideoMetadata(fileBuffer);
 
@@ -138,9 +137,6 @@ export const uploadFile = async (fileBuffer, options = {}) => {
             thumbnailUrl = `https://${R2_CONFIG.bucketName}.${R2_CONFIG.accountId}.r2.cloudflarestorage.com/${thumbnailKey}`;
           }
         } else {
-          // 
-            'FFmpeg not available, using fallback duration estimation'
-          );
           // Fallback to file size estimation
           const fileSizeMB = fileBuffer.length / (1024 * 1024);
           videoMetadata = {

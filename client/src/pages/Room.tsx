@@ -5,7 +5,6 @@ import { RoomControls } from '@/components/room/room-controls';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import { useMediaSoup } from '@/hooks/use-mediasoup';
 import { useWebRTC } from '@/hooks/use-web-rtc';
-import { useScreenShareRTC } from '@/hooks/use-screen-share-rtc';
 import { useSocketSetup } from '@/hooks/use-socket-setup';
 import { useScreenShare } from '@/hooks/use-screen-share';
 import { useMediaSetup } from '@/hooks/use-media-setup';
@@ -34,12 +33,6 @@ const Room = () => {
     getParticipantDisplayName,
     updateParticipantInfo,
   } = useParticipantInfo();
-
-  // Setup screen sharing
-  const { screenShareState, shareScreen, cleanupScreenShare } = useScreenShare({
-    socket,
-    roomId,
-  });
 
   // Setup media first
   const { localStream, mediaState, toggleAudio, toggleVideo } = useMediaSetup({
@@ -74,6 +67,10 @@ const Room = () => {
     peers: mediaSoupPeers,
     peerMediaState: mediaSoupMediaState,
     isConnected: isMediaSoupConnected,
+    screenShareStream,
+    screenSharingUserId,
+    produceScreenStream,
+    stopScreenProduction,
   } = useMediaSoup(
     socket,
     localStream,
@@ -82,19 +79,32 @@ const Room = () => {
     updateParticipantInfo
   );
 
+  // Setup screen sharing with MediaSoup functions
+  const { screenShareState, shareScreen, cleanupScreenShare } = useScreenShare({
+    socket,
+    roomId,
+    produceScreenStream,
+    stopScreenProduction,
+    screenSharingUserId,
+  });
+
   // Fallback to P2P WebRTC if MediaSoup is not connected
   const { peers: p2pPeers, peerMediaState: p2pMediaState } = useWebRTC(
     socket,
     localStream,
     updateParticipantInfo
   );
-  const { screenPeers } = useScreenShareRTC(socket, screenShareState.stream);
 
   // Use MediaSoup peers if connected, otherwise fallback to P2P
   const peers = isMediaSoupConnected ? mediaSoupPeers : p2pPeers;
   const peerMediaState = isMediaSoupConnected
     ? mediaSoupMediaState
     : p2pMediaState;
+
+  // Use MediaSoup screen share stream (no more P2P screen sharing!)
+  const actualScreenStream = isMediaSoupConnected
+    ? screenShareStream
+    : screenShareState.stream;
 
   // Memoized leave meeting function to prevent unnecessary re-renders
   const leaveMeeting = useCallback(() => {
@@ -127,14 +137,14 @@ const Room = () => {
     () => ({
       socket,
       localStream,
-      screenStream: screenShareState.stream,
+      screenStream: actualScreenStream,
       peers,
-      screenPeers,
+      screenPeers: new Map() as any, // Deprecated - screen share now through MediaSoup
       audioEnabled: mediaState.audioEnabled,
       videoEnabled: mediaState.videoEnabled,
       peerMediaState,
       isScreenSharing: screenShareState.isSharing,
-      screenSharingUser: screenShareState.sharingUser,
+      screenSharingUser: screenSharingUserId || screenShareState.sharingUser,
       isMediaSoupConnected,
       getParticipantEmail,
       getParticipantDisplayName,
@@ -163,11 +173,11 @@ const Room = () => {
     [
       socket,
       localStream,
-      screenShareState.stream,
+      actualScreenStream,
       screenShareState.isSharing,
+      screenSharingUserId,
       screenShareState.sharingUser,
       peers,
-      screenPeers,
       mediaState.audioEnabled,
       mediaState.videoEnabled,
       peerMediaState,

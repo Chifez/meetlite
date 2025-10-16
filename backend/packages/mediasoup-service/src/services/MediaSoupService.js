@@ -12,6 +12,7 @@ export class MediaSoupService {
     this.worker = new MediaSoupWorker();
     this.rooms = new Map();
     this.participants = new Map();
+    this.screenSharing = new Map(); // Track screen sharing per room
     this.roomServiceUrl =
       process.env.ROOM_SERVICE_URL || 'http://localhost:5001';
     this.collaborationStateManager = collaborationStateManager;
@@ -326,19 +327,52 @@ export class MediaSoupService {
   /**
    * Create producer
    */
-  async createProducer(roomId, transportId, rtpParameters, kind, userId) {
+  async createProducer(
+    roomId,
+    transportId,
+    rtpParameters,
+    kind,
+    userId,
+    appData = {}
+  ) {
     try {
       const roomData = this.rooms.get(roomId);
       if (!roomData || !roomData.participants.has(userId)) {
         throw new Error(`User not authorized for room: ${roomId}`);
       }
 
+      // Check if user is already screen sharing (single sharer enforcement)
+      if (appData.source === 'screen') {
+        const currentSharer = this.screenSharing.get(roomId);
+        if (currentSharer && currentSharer.userId !== userId) {
+          throw new Error('Another user is already sharing their screen');
+        }
+      }
+
       const producerData = await this.worker.createProducer(
         transportId,
         rtpParameters,
         kind,
-        userId
+        userId,
+        appData
       );
+
+      // Track screen sharing state
+      if (appData.source === 'screen') {
+        const screenShareData = this.screenSharing.get(roomId) || {
+          userId,
+          producers: {},
+          startedAt: Date.now(),
+        };
+
+        if (appData.mediaType === 'screen-video') {
+          screenShareData.videoProducerId = producerData.id;
+        } else if (appData.mediaType === 'screen-audio') {
+          screenShareData.audioProducerId = producerData.id;
+        }
+
+        this.screenSharing.set(roomId, screenShareData);
+      }
 
       // Track producer for participant
       const participantKey = `${roomId}_${userId}`;
@@ -351,6 +385,8 @@ export class MediaSoupService {
         roomId,
         userId,
         kind,
+        source: appData.source || 'camera',
+        mediaType: appData.mediaType || `camera-${kind}`,
         producerId: producerData.id,
       });
 
@@ -664,5 +700,40 @@ export class MediaSoupService {
    */
   getProducersForRoom(roomId) {
     return this.worker.getProducersForRoom(roomId);
+  }
+
+  /**
+   * Get screen sharing info for a room
+   */
+  getScreenSharing(roomId) {
+    return this.screenSharing.get(roomId) || null;
+  }
+
+  /**
+   * Stop screen sharing in a room
+   */
+  stopScreenSharing(roomId, userId) {
+    const screenShareData = this.screenSharing.get(roomId);
+
+    if (screenShareData && screenShareData.userId === userId) {
+      this.screenSharing.delete(roomId);
+
+      logger.info('Screen sharing stopped', {
+        roomId,
+        userId,
+      });
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a user is currently screen sharing
+   */
+  isUserScreenSharing(roomId, userId) {
+    const screenShareData = this.screenSharing.get(roomId);
+    return screenShareData && screenShareData.userId === userId;
   }
 }

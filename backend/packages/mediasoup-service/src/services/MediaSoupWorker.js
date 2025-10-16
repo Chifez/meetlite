@@ -229,7 +229,7 @@ export class MediaSoupWorker {
   /**
    * Create producer
    */
-  async createProducer(transportId, rtpParameters, kind, userId) {
+  async createProducer(transportId, rtpParameters, kind, userId, appData = {}) {
     try {
       const transportData = this.transports.get(transportId);
       if (!transportData) {
@@ -243,6 +243,9 @@ export class MediaSoupWorker {
           userId,
           roomId: transportData.roomId,
           createdAt: Date.now(),
+          source: appData.source || 'camera', // 'camera' or 'screen'
+          mediaType: appData.mediaType || `camera-${kind}`, // e.g., 'screen-video'
+          ...appData,
         },
       });
 
@@ -252,6 +255,8 @@ export class MediaSoupWorker {
         roomId: transportData.roomId,
         userId,
         kind,
+        source: appData.source || 'camera',
+        mediaType: appData.mediaType || `camera-${kind}`,
         createdAt: Date.now(),
       });
 
@@ -266,9 +271,15 @@ export class MediaSoupWorker {
         roomId: transportData.roomId,
         userId,
         kind,
+        source: appData.source || 'camera',
+        mediaType: appData.mediaType || `camera-${kind}`,
       });
 
-      return { id: producer.id };
+      return {
+        id: producer.id,
+        source: appData.source || 'camera',
+        mediaType: appData.mediaType || `camera-${kind}`,
+      };
     } catch (error) {
       logger.error('Failed to create producer', {
         transportId,
@@ -469,6 +480,8 @@ export class MediaSoupWorker {
           id: producerId,
           userId: producerData.userId,
           kind: producerData.kind,
+          source: producerData.source,
+          mediaType: producerData.mediaType,
         });
       }
     }

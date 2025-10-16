@@ -68,10 +68,6 @@ redisClient.on('ready', () => {
 redisClient.on('error', (err) => {
   console.error('❌ Redis client error:', err);
   updateCircuitBreaker(err);
-
-  // Handle specific error types silently else if (err.code === 'ENOTFOUND') {
-    console.error('🔍 Redis host not found');
-  }
 });
 
 redisClient.on('end', () => {
@@ -80,15 +76,18 @@ redisClient.on('end', () => {
 
 redisClient.on('reconnecting', () => {
   // Redis client reconnecting
+  console.info('🔗 Redis client reconnecting');
 });
 
 // Connection event handlers for pub client
 pubClient.on('connect', () => {
   // Redis pub client connecting
+  console.info('🔗 Redis pub client connected');
 });
 
 pubClient.on('ready', () => {
   // Redis pub client ready
+  console.info('🔗 Redis pub client ready');
 });
 
 pubClient.on('error', (err) => {
@@ -98,10 +97,12 @@ pubClient.on('error', (err) => {
 // Connection event handlers for sub client
 subClient.on('connect', () => {
   // Redis sub client connecting
+  console.info('🔗 Redis sub client connected');
 });
 
 subClient.on('ready', () => {
   // Redis sub client ready
+  console.info('🔗 Redis sub client ready');
 });
 
 subClient.on('error', (err) => {

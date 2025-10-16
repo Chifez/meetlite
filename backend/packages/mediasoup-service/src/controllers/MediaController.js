@@ -137,6 +137,9 @@ export class MediaController {
       const existingProducers =
         this.mediaSoupService.getProducersForRoom(roomId);
 
+      // Get screen sharing info
+      const screenShareInfo = this.mediaSoupService.getScreenSharing(roomId);
+
       // CRITICAL FIX: Send room data ONLY to the newly joined user, not ALL participants
       // This prevents existing users from receiving room-data and trying to re-consume producers
       socket.emit('room-data', {
@@ -178,6 +181,7 @@ export class MediaController {
         iceServers: mediasoupConfig.iceServers,
         mediaSoupEnabled: true,
         existingProducers, // Existing producers for the new user to consume
+        screenSharing: screenShareInfo, // Include screen sharing info
       });
 
       // Notify other participants with full participant info and media state
@@ -395,7 +399,7 @@ export class MediaController {
    */
   async handleCreateProducer(socket, data) {
     try {
-      const { roomId, transportId, rtpParameters, kind } = data;
+      const { roomId, transportId, rtpParameters, kind, appData } = data;
       const userId = socket.user.userId;
 
       const producerData = await this.mediaSoupService.createProducer(
@@ -403,17 +407,20 @@ export class MediaController {
         transportId,
         rtpParameters,
         kind,
-        userId
+        userId,
+        appData || {}
       );
 
       socket.emit('producer-created', producerData);
 
-      // Notify other participants about new producer
+      // Notify other participants about new producer with metadata
       logger.info('[NEW-PRODUCER] Emitting to room:', {
         roomId,
         producerId: producerData.id,
         userId,
         kind,
+        source: producerData.source,
+        mediaType: producerData.mediaType,
         targetSockets: Array.from(
           this.io.sockets.adapter.rooms.get(roomId) || []
         ).filter((id) => id !== socket.id),
@@ -423,17 +430,23 @@ export class MediaController {
         producerId: producerData.id,
         userId,
         kind,
+        source: producerData.source,
+        mediaType: producerData.mediaType,
       });
 
       logger.info('Producer created', {
         roomId,
         userId,
         kind,
+        source: producerData.source,
+        mediaType: producerData.mediaType,
         producerId: producerData.id,
       });
     } catch (error) {
       logger.error('Failed to create producer', error);
-      socket.emit('error', { message: 'Failed to create producer' });
+      socket.emit('error', {
+        message: error.message || 'Failed to create producer',
+      });
     }
   }
 
@@ -591,11 +604,41 @@ export class MediaController {
         return;
       }
 
+      // Get screen share info
+      const screenShareInfo = this.mediaSoupService.getScreenSharing(roomId);
+
+      if (screenShareInfo && screenShareInfo.userId === userId) {
+        // Close screen producers (MediaSoup will auto-close consumers)
+        const allProducers = this.mediaSoupService.getProducersForRoom(roomId);
+
+        for (const producer of allProducers) {
+          if (producer.userId === userId && producer.source === 'screen') {
+            try {
+              await this.mediaSoupService.worker.closeProducer(producer.id);
+              logger.info('Screen producer closed', {
+                roomId,
+                userId,
+                producerId: producer.id,
+                mediaType: producer.mediaType,
+              });
+            } catch (error) {
+              logger.error('Failed to close screen producer', {
+                producerId: producer.id,
+                error,
+              });
+            }
+          }
+        }
+
+        // Clear screen sharing state
+        this.mediaSoupService.stopScreenSharing(roomId, userId);
+      }
+
       // Update participant activity
       await this.mediaSoupService.updateParticipantActivity(roomId, userId);
 
       // Broadcast to other participants
-      socket.to(roomId).emit('screen-share-stopped');
+      socket.to(roomId).emit('screen-share-stopped', { userId });
 
       logger.info('Screen share stopped', {
         roomId,
@@ -609,6 +652,8 @@ export class MediaController {
 
   /**
    * Handle screen share ready
+   * DEPRECATED: Screen sharing now uses MediaSoup producers/consumers
+   * Kept for backward compatibility only
    */
   async handleScreenShareReady(socket, data) {
     try {
@@ -623,7 +668,7 @@ export class MediaController {
       // Update participant activity
       await this.mediaSoupService.updateParticipantActivity(roomId, userId);
 
-      logger.info('Screen share ready', {
+      logger.info('Screen share ready (DEPRECATED - using MediaSoup now)', {
         roomId,
         userId,
       });

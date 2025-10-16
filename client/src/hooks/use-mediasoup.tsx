@@ -12,12 +12,22 @@ interface MediaSoupPeer {
   isLoading: boolean;
 }
 
+interface ScreenShareState {
+  stream: MediaStream | null;
+  sharingUserId: string | null;
+  videoProducer: mediasoupClient.types.Producer | null;
+  audioProducer: mediasoupClient.types.Producer | null;
+  videoConsumer: mediasoupClient.types.Consumer | null;
+  audioConsumer: mediasoupClient.types.Consumer | null;
+}
+
 interface MediaSoupState {
   device: mediasoupClient.types.Device | null;
   rtpCapabilities: mediasoupClient.types.RtpCapabilities | null;
   peers: Map<string, MediaSoupPeer>;
   isConnected: boolean;
   isLoading: boolean;
+  screenShare: ScreenShareState;
 }
 
 export const useMediaSoup = (
@@ -35,6 +45,14 @@ export const useMediaSoup = (
     peers: new Map(),
     isConnected: false,
     isLoading: false,
+    screenShare: {
+      stream: null,
+      sharingUserId: null,
+      videoProducer: null,
+      audioProducer: null,
+      videoConsumer: null,
+      audioConsumer: null,
+    },
   });
 
   // Track media state for each peer
@@ -150,7 +168,7 @@ export const useMediaSoup = (
       // Handle produce events
       sendTransport.on(
         'produce',
-        async ({ kind, rtpParameters }, callback, errback) => {
+        async ({ kind, rtpParameters, appData }, callback, errback) => {
           try {
             const producerData = await new Promise<{ id: string }>(
               (resolve, reject) => {
@@ -159,6 +177,7 @@ export const useMediaSoup = (
                   transportId: transportData.id,
                   rtpParameters,
                   kind,
+                  appData, // Forward appData to server for screen share identification
                 });
 
                 socket.once('producer-created', resolve);
@@ -313,6 +332,233 @@ export const useMediaSoup = (
     },
     [createSendTransport, updatePeers]
   );
+
+  // Produce screen share stream
+  const produceScreenStream = useCallback(
+    async (screenStream: MediaStream) => {
+      if (!socket || !roomId || !screenStream) {
+        console.warn('Cannot produce screen stream: missing requirements');
+        return;
+      }
+
+      try {
+        const device = stateRef.current.device;
+        if (!device) {
+          throw new Error('MediaSoup device not initialized');
+        }
+
+        // Get local peer's send transport (reuse existing transport!)
+        const localPeer = stateRef.current.peers.get('local');
+        let sendTransport = localPeer?.sendTransport;
+
+        // Create transport if not exists
+        if (!sendTransport) {
+          sendTransport = await createSendTransport(roomId, device);
+        }
+
+        const videoTrack = screenStream.getVideoTracks()[0];
+        const audioTrack = screenStream.getAudioTracks()[0];
+
+        let videoProducer: mediasoupClient.types.Producer | null = null;
+        let audioProducer: mediasoupClient.types.Producer | null = null;
+
+        // Produce screen video
+        if (videoTrack && device.canProduce('video')) {
+          videoProducer = await sendTransport.produce({
+            track: videoTrack,
+            encodings: [
+              {
+                maxBitrate: 3000000, // 3 Mbps for screen share
+                scaleResolutionDownBy: 1.0,
+              },
+            ],
+            appData: {
+              source: 'screen',
+              mediaType: 'screen-video',
+            },
+          });
+
+          console.log('✅ Screen video producer created:', videoProducer.id);
+        }
+
+        // Produce screen audio (if available)
+        if (audioTrack && device.canProduce('audio')) {
+          audioProducer = await sendTransport.produce({
+            track: audioTrack,
+            appData: {
+              source: 'screen',
+              mediaType: 'screen-audio',
+            },
+          });
+
+          console.log('✅ Screen audio producer created:', audioProducer.id);
+        }
+
+        // Update screen share state
+        setState((prev) => ({
+          ...prev,
+          screenShare: {
+            ...prev.screenShare,
+            stream: screenStream,
+            sharingUserId: currentUserId || null,
+            videoProducer,
+            audioProducer,
+          },
+        }));
+
+        return { videoProducer, audioProducer };
+      } catch (error) {
+        console.error('Failed to produce screen stream:', error);
+        throw error;
+      }
+    },
+    [socket, roomId, currentUserId, createSendTransport]
+  );
+
+  // Stop screen share production
+  const stopScreenProduction = useCallback(async () => {
+    try {
+      const { videoProducer, audioProducer } = stateRef.current.screenShare;
+
+      if (videoProducer) {
+        videoProducer.close();
+        console.log('✅ Screen video producer closed');
+      }
+
+      if (audioProducer) {
+        audioProducer.close();
+        console.log('✅ Screen audio producer closed');
+      }
+
+      // Clear screen share state
+      setState((prev) => ({
+        ...prev,
+        screenShare: {
+          stream: null,
+          sharingUserId: null,
+          videoProducer: null,
+          audioProducer: null,
+          videoConsumer: prev.screenShare.videoConsumer,
+          audioConsumer: prev.screenShare.audioConsumer,
+        },
+      }));
+    } catch (error) {
+      console.error('Failed to stop screen production:', error);
+    }
+  }, []);
+
+  // Consume screen share stream
+  const consumeScreenStream = useCallback(
+    async (producerId: string, userId: string, mediaType: string) => {
+      if (!socket || !roomId) {
+        console.warn('Cannot consume screen stream: missing socket or roomId');
+        return;
+      }
+
+      try {
+        const device = stateRef.current.device;
+        if (!device) {
+          throw new Error('MediaSoup device not initialized');
+        }
+
+        // Get or create receive transport
+        let recvTransport = stateRef.current.peers.get('local')?.recvTransport;
+        if (!recvTransport) {
+          recvTransport = await createRecvTransport(roomId, device);
+        }
+
+        // Request consumer from server
+        socket.emit('mediasoup:create-consumer', {
+          roomId,
+          transportId: recvTransport.id,
+          producerId,
+          rtpCapabilities: device.rtpCapabilities,
+        });
+
+        // Wait for consumer creation response
+        const consumerData: any = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Consumer creation timeout'));
+          }, 10000);
+
+          socket.once('consumer-created', (data) => {
+            clearTimeout(timeout);
+            resolve(data);
+          });
+        });
+
+        // Create consumer
+        const consumer = await recvTransport.consume({
+          id: consumerData.id,
+          producerId: consumerData.producerId,
+          kind: consumerData.kind,
+          rtpParameters: consumerData.rtpParameters,
+        });
+
+        // Update screen share state based on media type
+        setState((prev) => {
+          const screenShare = { ...prev.screenShare };
+
+          if (mediaType === 'screen-video') {
+            screenShare.videoConsumer = consumer;
+            screenShare.sharingUserId = userId;
+          } else if (mediaType === 'screen-audio') {
+            screenShare.audioConsumer = consumer;
+          }
+
+          // Build screen stream if we have video
+          if (screenShare.videoConsumer) {
+            const tracks = [screenShare.videoConsumer.track];
+            if (screenShare.audioConsumer) {
+              tracks.push(screenShare.audioConsumer.track);
+            }
+            screenShare.stream = new MediaStream(tracks);
+          }
+
+          return { ...prev, screenShare };
+        });
+
+        console.log('✅ Screen consumer created:', {
+          consumerId: consumer.id,
+          mediaType,
+          userId,
+        });
+
+        return consumer;
+      } catch (error) {
+        console.error('Failed to consume screen stream:', error);
+        throw error;
+      }
+    },
+    [socket, roomId, createRecvTransport]
+  );
+
+  // Stop screen consumption
+  const stopScreenConsumption = useCallback(() => {
+    const { videoConsumer, audioConsumer } = stateRef.current.screenShare;
+
+    if (videoConsumer) {
+      videoConsumer.close();
+      console.log('✅ Screen video consumer closed');
+    }
+
+    if (audioConsumer) {
+      audioConsumer.close();
+      console.log('✅ Screen audio consumer closed');
+    }
+
+    setState((prev) => ({
+      ...prev,
+      screenShare: {
+        stream: null,
+        sharingUserId: null,
+        videoProducer: prev.screenShare.videoProducer,
+        audioProducer: prev.screenShare.audioProducer,
+        videoConsumer: null,
+        audioConsumer: null,
+      },
+    }));
+  }, []);
 
   // Consume remote stream
   const consumeRemoteStream = useCallback(
@@ -499,7 +745,14 @@ export const useMediaSoup = (
         id: string;
         userId: string;
         kind: 'audio' | 'video';
+        source?: string;
+        mediaType?: string;
       }>;
+      screenSharing?: {
+        userId: string;
+        videoProducerId?: string;
+        audioProducerId?: string;
+      } | null;
     }) => {
       console.log('📡 Received room data:', data);
 
@@ -551,13 +804,29 @@ export const useMediaSoup = (
               continue;
             }
 
-            await consumeRemoteStream(
-              roomId,
-              producer.id,
-              producer.userId,
-              device
-            );
+            // Check if this is a screen share producer
+            if (producer.source === 'screen' && producer.mediaType) {
+              await consumeScreenStream(
+                producer.id,
+                producer.userId,
+                producer.mediaType
+              );
+            } else {
+              // Regular camera/mic producer
+              await consumeRemoteStream(
+                roomId,
+                producer.id,
+                producer.userId,
+                device
+              );
+            }
           }
+        }
+
+        // Handle screen sharing info from room data
+        if (data.screenSharing && data.screenSharing.userId !== currentUserId) {
+          console.log('📺 Active screen share detected:', data.screenSharing);
+          // Consumers will be created from existing producers above
         }
       } catch (error) {
         console.error('Failed to handle room data:', error);
@@ -570,6 +839,8 @@ export const useMediaSoup = (
       producerId: string;
       userId: string;
       kind: 'audio' | 'video';
+      source?: string;
+      mediaType?: string;
     }) => {
       // CRITICAL FIX: Skip our own producers using actual userId
       if (data.userId === currentUserId) {
@@ -579,7 +850,14 @@ export const useMediaSoup = (
       // Use device from state (safe after initialization)
       const device = stateRef.current.device;
       if (roomId && device) {
-        consumeRemoteStream(roomId, data.producerId, data.userId, device);
+        // Check if this is a screen share producer
+        if (data.source === 'screen' && data.mediaType) {
+          // Consume screen stream
+          consumeScreenStream(data.producerId, data.userId, data.mediaType);
+        } else {
+          // Consume regular camera/mic stream
+          consumeRemoteStream(roomId, data.producerId, data.userId, device);
+        }
       }
     };
 
@@ -664,12 +942,34 @@ export const useMediaSoup = (
     };
 
     // Handle screen share events
-    const handleScreenShareStarted = (_data: { userId: string }) => {
-      // Screen share started
+    const handleScreenShareStarted = (data: { userId: string }) => {
+      console.log('📺 Screen share started by:', data.userId);
+      // Update screen share state to track who's sharing
+      setState((prev) => ({
+        ...prev,
+        screenShare: {
+          ...prev.screenShare,
+          sharingUserId: data.userId,
+        },
+      }));
     };
 
-    const handleScreenShareStopped = () => {
-      // Screen share stopped
+    const handleScreenShareStopped = (data: { userId: string }) => {
+      console.log('📺 Screen share stopped by:', data.userId);
+
+      // If we're the viewer, close consumers
+      if (data.userId !== currentUserId) {
+        stopScreenConsumption();
+      }
+
+      // Clear sharing user
+      setState((prev) => ({
+        ...prev,
+        screenShare: {
+          ...prev.screenShare,
+          sharingUserId: null,
+        },
+      }));
     };
 
     const handleError = (error: { message: string }) => {
@@ -707,6 +1007,14 @@ export const useMediaSoup = (
         peer.producers.forEach((producer) => producer.close());
         peer.consumers.forEach((consumer) => consumer.close());
       });
+
+      // Cleanup screen share
+      const { videoProducer, audioProducer, videoConsumer, audioConsumer } =
+        stateRef.current.screenShare;
+      videoProducer?.close();
+      audioProducer?.close();
+      videoConsumer?.close();
+      audioConsumer?.close();
 
       // Clear tracking sets
       consumedProducers.current.clear();
@@ -755,5 +1063,12 @@ export const useMediaSoup = (
     isConnected: state.isConnected,
     isLoading: state.isLoading,
     device: state.device,
+    // Screen share functions and state
+    screenShareStream: state.screenShare.stream,
+    screenSharingUserId: state.screenShare.sharingUserId,
+    produceScreenStream,
+    stopScreenProduction,
+    consumeScreenStream,
+    stopScreenConsumption,
   };
 };

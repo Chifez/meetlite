@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { applyWorkflowOperation } from './workflow-controller.js';
 
 /**
  * CollaborationController - Handles all chat and collaboration-related Socket.IO events
@@ -267,6 +268,21 @@ export class CollaborationController {
         return;
       }
 
+      // Get current collaboration state
+      const collabState =
+        this.collaborationStateManager.getCollaborationState(roomId);
+
+      // Validate mode
+      if (!collabState || collabState.mode !== 'workflow') {
+        logger.warn('Workflow operation rejected - not in workflow mode', {
+          roomId,
+          userId,
+          operationType: operation.type,
+          currentMode: collabState?.mode,
+        });
+        return;
+      }
+
       // Check if user can edit
       if (!this.collaborationStateManager.canEdit(roomId, userId)) {
         logger.warn('Workflow operation rejected - user not authorized', {
@@ -280,17 +296,34 @@ export class CollaborationController {
       // Update participant activity
       await this.mediaSoupService.updateParticipantActivity(roomId, userId);
 
-      // Update workflow data
+      // Initialize workflow data if needed
+      if (!collabState.workflowData) {
+        collabState.workflowData = {
+          nodes: [],
+          edges: [],
+          version: 0,
+          lastModified: new Date(),
+          lastModifiedBy: userId,
+        };
+      }
+
+      // Apply operation to current workflow data
+      const newWorkflowData = applyWorkflowOperation(
+        collabState.workflowData,
+        operation
+      );
+
+      // Update state with new workflow data
       const updatedData = this.collaborationStateManager.updateWorkflowData(
         roomId,
         {
-          ...operation,
-          version: operation.version || 1,
+          ...newWorkflowData,
+          version: (collabState.workflowData.version || 0) + 1,
         },
         userId
       );
 
-      // Broadcast workflow operation to all clients
+      // Broadcast workflow operation to all clients including sender for confirmation
       this.io.to(roomId).emit('workflow:operation', {
         operation,
         userId,
@@ -298,14 +331,20 @@ export class CollaborationController {
         version: updatedData.version,
       });
 
-      logger.info('Workflow operation', {
+      logger.info('Workflow operation applied', {
         roomId,
         userId,
         operationType: operation.type,
         version: updatedData.version,
+        nodesCount: newWorkflowData.nodes?.length || 0,
+        edgesCount: newWorkflowData.edges?.length || 0,
       });
     } catch (error) {
       logger.error('Failed to handle workflow operation', error);
+      socket.emit('error', {
+        message: 'Failed to apply workflow operation',
+        timestamp: Date.now(),
+      });
     }
   }
 
