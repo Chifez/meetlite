@@ -8,18 +8,20 @@ export const useCollaborationState = (currentUserId?: string) => {
   const isPresenting = currentMode !== 'none';
   const presenterUserId = collaborationState?.presenter?.userId;
 
-  // Debug logging
-  console.log('CollaborationMenu Debug:', {
-    currentMode,
-    isPresenting,
-    presenterUserId,
-    currentUserId,
-    socket,
-    socketId: socket?.id,
-    isScreenSharing,
-    screenSharingUser,
-    isPresenter: presenterUserId === currentUserId,
-  });
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('CollaborationMenu Debug:', {
+      currentMode,
+      isPresenting,
+      presenterUserId,
+      currentUserId,
+      socket,
+      socketId: socket?.id,
+      isScreenSharing,
+      screenSharingUser,
+      isPresenter: presenterUserId === currentUserId,
+    });
+  }
 
   // Disable controls if:
   // 1. Someone is screen sharing (not us) OR

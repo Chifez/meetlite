@@ -37,7 +37,8 @@ export const useMediaSoup = (
   currentUserId: string | undefined,
   onParticipantInfoUpdate?: (
     info: Record<string, { email: string; userId: string }>
-  ) => void
+  ) => void,
+  onParticipantInfoRemove?: (userId: string) => void
 ) => {
   const [state, setState] = useState<MediaSoupState>({
     device: null,
@@ -895,6 +896,11 @@ export const useMediaSoup = (
 
     // Handle user left
     const handleUserLeft = (userId: string) => {
+      // Clean up participant info
+      if (onParticipantInfoRemove) {
+        onParticipantInfoRemove(userId);
+      }
+
       // Clean up peer
       setState((prev) => {
         const newPeers = new Map(prev.peers);
@@ -1037,6 +1043,7 @@ export const useMediaSoup = (
     consumeRemoteStream,
     updateState,
     onParticipantInfoUpdate,
+    onParticipantInfoRemove,
   ]);
 
   // Convert MediaSoup peers to format expected by VideoGrid

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMemo, useCallback } from 'react';
-import { VideoGrid } from '@/components/room/video-grid';
+import { useMemo, useCallback, useRef } from 'react';
+import { ResponsiveVideoGrid } from '@/components/room/responsive-video-grid';
 import { RoomControls } from '@/components/room/room-controls';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import { useMediaSoup } from '@/hooks/use-mediasoup';
@@ -13,10 +13,7 @@ import { useChat } from '@/hooks/use-chat';
 import { useCollaboration } from '@/hooks/use-collaboration';
 import SEO from '@/components/seo';
 import { RoomProvider } from '@/contexts/room-context';
-import { WorkflowPanel } from '@/components/room/collaboration/workflow-panel';
-import { WhiteboardPanel } from '@/components/room/collaboration/whiteboard-panel';
 import { SharedPresentation } from '@/components/room/shared-presentation';
-import { ParticipantsContainer } from '@/components/room/participants-container';
 import { useAuth } from '@/hooks/use-auth';
 
 const Room = () => {
@@ -32,6 +29,7 @@ const Room = () => {
     getParticipantEmail,
     getParticipantDisplayName,
     updateParticipantInfo,
+    removeParticipantInfo,
   } = useParticipantInfo();
 
   // Setup media first
@@ -76,7 +74,8 @@ const Room = () => {
     localStream,
     roomId,
     user?.id,
-    updateParticipantInfo
+    updateParticipantInfo,
+    removeParticipantInfo
   );
 
   // Setup screen sharing with MediaSoup functions
@@ -106,11 +105,15 @@ const Room = () => {
     ? screenShareStream
     : screenShareState.stream;
 
+  // Use ref to avoid dependency on peers Map in leaveMeeting callback
+  const peersRef = useRef(peers);
+  peersRef.current = peers;
+
   // Memoized leave meeting function to prevent unnecessary re-renders
   const leaveMeeting = useCallback(() => {
     cleanupScreenShare();
 
-    peers.forEach((peer) => {
+    peersRef.current.forEach((peer) => {
       // CRITICAL FIX: MediaSoup peers have connection: null, check before closing
       if (peer.connection) {
         peer.connection.close();
@@ -121,7 +124,7 @@ const Room = () => {
       socket.emit('user-left', { roomId });
     }
     navigate('/dashboard');
-  }, [cleanupScreenShare, peers, socket, roomId, navigate]);
+  }, [cleanupScreenShare, socket, roomId, navigate]);
 
   // Memoized navigation callbacks
   const handleRefreshConnection = useCallback(() => {
@@ -225,76 +228,29 @@ const Room = () => {
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-hidden bg-[#121212] p-4">
               {collaborationState?.mode === 'workflow' ? (
-                // Check if current user is the presenter
-                collaborationState?.presenter?.userId === user?.id ? (
-                  // Presenter: Full screen workflow
-                  <WorkflowPanel className="w-full h-full" />
-                ) : (
-                  // Viewer: Split layout with workflow + participants (like screen sharing)
-                  <div className="flex flex-col w-full h-full overflow-hidden">
-                    {/* Mobile: Presentation takes 65% height */}
-                    <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
-                      <SharedPresentation mode="workflow" />
-                    </div>
-
-                    {/* Layout Container */}
-                    <div className="md:flex md:flex-row md:h-full h-[35%]">
-                      {/* Mobile: Participants */}
-                      <div className="md:hidden w-full h-full">
-                        <ParticipantsContainer />
-                      </div>
-                      {/* Desktop: Shared Presentation */}
-                      <div className="hidden md:block w-[68%] h-full flex-shrink-0 pr-2">
-                        <SharedPresentation mode="workflow" />
-                      </div>
-
-                      {/* Participants Container */}
-                      <div className="md:w-[32%] h-full flex-1 overflow-hidden">
-                        <ParticipantsContainer />
-                      </div>
-                    </div>
-                  </div>
-                )
+                <SharedPresentation
+                  mode="workflow"
+                  isPresenter={
+                    collaborationState?.presenter?.userId === user?.id
+                  }
+                />
               ) : collaborationState?.mode === 'whiteboard' ? (
-                // Check if current user is the presenter
-                collaborationState?.presenter?.userId === user?.id ? (
-                  // Presenter: Full screen whiteboard
-                  <WhiteboardPanel className="w-full h-full" />
-                ) : (
-                  // Viewer: Split layout with whiteboard + participants (like screen sharing)
-                  <div className="flex flex-col w-full h-full overflow-hidden">
-                    {/* Mobile: Presentation takes 65% height */}
-                    <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
-                      <SharedPresentation mode="whiteboard" />
-                    </div>
-
-                    {/* Layout Container */}
-                    <div className="md:flex md:flex-row md:h-full h-[35%]">
-                      {/* Mobile: Participants */}
-                      <div className="md:hidden w-full h-full">
-                        <ParticipantsContainer />
-                      </div>
-                      {/* Desktop: Shared Presentation */}
-                      <div className="hidden md:block w-[68%] h-full flex-shrink-0 pr-2">
-                        <SharedPresentation mode="whiteboard" />
-                      </div>
-
-                      {/* Participants Container */}
-                      <div className="md:w-[32%] h-full flex-1 overflow-hidden">
-                        <ParticipantsContainer />
-                      </div>
-                    </div>
-                  </div>
-                )
+                <SharedPresentation
+                  mode="whiteboard"
+                  isPresenter={
+                    collaborationState?.presenter?.userId === user?.id
+                  }
+                />
               ) : (
-                // No presentation mode: Regular video grid
-                <VideoGrid />
+                // No presentation mode: Enhanced video grid with layout options
+                <ResponsiveVideoGrid />
               )}
             </div>
 
             <RoomControls
               onRefreshConnection={handleRefreshConnection}
               onReturnToLobby={handleReturnToLobby}
+              roomId={roomId}
             />
           </div>
 

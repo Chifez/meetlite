@@ -1,22 +1,12 @@
-import React from 'react';
-import { WorkflowPanel } from '@/components/room/collaboration/workflow-panel';
-import { WhiteboardPanel } from '@/components/room/collaboration/whiteboard-panel';
 import { MobileVideoLayout } from '@/components/room/layouts/mobile-video-layout';
 import { AdvancedLayoutRenderer } from '@/components/room/advanced-layout-renderer';
+import { SharedScreen } from '@/components/room/shared-screen';
 import { useRoom } from '@/contexts/room-context';
 import { useLayoutManager } from '@/hooks/use-layout-manager';
 import { useBandwidthOptimization } from '@/hooks/use-bandwidth-optimization';
 import { useMemo } from 'react';
 
-interface SharedPresentationProps {
-  mode: 'workflow' | 'whiteboard';
-  isPresenter?: boolean;
-}
-
-export const SharedPresentation: React.FC<SharedPresentationProps> = ({
-  mode,
-  isPresenter = false,
-}) => {
+export const ResponsiveVideoGrid = () => {
   const {
     localStream,
     peers,
@@ -25,6 +15,9 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
     audioEnabled,
     getParticipantEmail,
     getParticipantDisplayName,
+    screenStream,
+    screenSharingUser,
+    screenPeers,
   } = useRoom();
 
   const { layoutMode, screenSize } = useLayoutManager();
@@ -45,6 +38,14 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
 
   // Bandwidth optimization
   const { bandwidthSettings } = useBandwidthOptimization(bandwidthOptions);
+
+  // Get the screen sharing stream from peers if we're not the one sharing
+  const sharedScreenStream =
+    screenStream ||
+    (screenSharingUser &&
+      Array.from(screenPeers.values()).find((p) => p.id === screenSharingUser)
+        ?.stream) ||
+    null;
 
   // Create array of all participants (local + peers) with user info
   const allParticipants = useMemo(
@@ -97,75 +98,42 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
     [layoutMode]
   );
 
-  // Render collaboration tool
-  const renderCollaborationTool = () => (
-    <div className="w-full h-full bg-[#121212] rounded-lg overflow-hidden border border-gray-700">
-      {mode === 'workflow' ? (
-        <WorkflowPanel className="w-full h-full" />
-      ) : (
-        <WhiteboardPanel className="w-full h-full" />
-      )}
-    </div>
-  );
-
-  if (isPresenter) {
-    // Presenter: Same layout on mobile and desktop (collaboration tool + participants)
-    return (
-      <div className="flex flex-col w-full h-full overflow-hidden">
-        {/* Collaboration Tool - 70% height */}
-        <div className="flex-1 mb-2" style={{ height: '70%' }}>
-          {renderCollaborationTool()}
-        </div>
-
-        {/* Participants underneath - 30% height */}
-        <div className="flex-shrink-0" style={{ height: '30%' }}>
-          {/* Desktop: AdvancedLayoutRenderer */}
-          <div className="hidden md:block w-full h-full">
-            <AdvancedLayoutRenderer
-              participants={allParticipants}
-              layoutMode={layoutMode}
-              screenSize={screenSize}
-              isPresenting={true}
-              hasActiveSpeaker={false}
-              bandwidthMode={bandwidthSettings.mode}
-              userPreferences={userPreferences}
-            />
-          </div>
-
-          {/* Mobile: MobileVideoLayout */}
-          <MobileVideoLayout />
-        </div>
-      </div>
-    );
-  }
-
-  // Viewer: Different layouts on mobile and desktop
   return (
     <div className="flex flex-col w-full h-full overflow-hidden">
-      {/* Mobile: Collaboration tool takes 65% height */}
-      <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
-        {renderCollaborationTool()}
-      </div>
+      {/* Mobile: Screen sharing takes 65% height */}
+      {sharedScreenStream && (
+        <div className="md:hidden w-full h-[65%] mb-2 flex-shrink-0">
+          <SharedScreen stream={sharedScreenStream} />
+        </div>
+      )}
 
       {/* Layout Container */}
       <div
-        className={`flex-1 overflow-hidden ${'md:flex md:flex-row'} ${'md:h-full h-[35%]'}`}
+        className={`flex-1 overflow-hidden ${
+          sharedScreenStream ? 'md:flex md:flex-row' : 'flex flex-col'
+        } ${sharedScreenStream ? 'md:h-full h-[35%]' : 'h-full'}`}
       >
-        {/* Desktop: Collaboration Tool */}
-        <div className="hidden md:block w-[68%] h-full flex-shrink-0 pr-2">
-          {renderCollaborationTool()}
-        </div>
+        {/* Desktop: Shared Screen */}
+        {sharedScreenStream && (
+          <div className="hidden md:block w-[65%] h-full flex-shrink-0 pr-2">
+            <SharedScreen stream={sharedScreenStream} />
+          </div>
+        )}
 
         {/* Participants Container */}
-        <div className="md:w-[32%] h-full flex-1 overflow-hidden">
+        <div
+          className={`flex-1 overflow-hidden ${
+            sharedScreenStream ? 'md:w-[35%] h-full' : 'w-full h-full'
+          }`}
+        >
           {/* Advanced Layout Renderer */}
           <div className="hidden md:block w-full h-full">
             <AdvancedLayoutRenderer
               participants={allParticipants}
               layoutMode={layoutMode}
               screenSize={screenSize}
-              isPresenting={true}
-              hasActiveSpeaker={false}
+              isPresenting={!!sharedScreenStream}
+              hasActiveSpeaker={false} // Will be calculated internally by the renderer
               bandwidthMode={bandwidthSettings.mode}
               userPreferences={userPreferences}
             />

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface ParticipantInfo {
   email: string;
@@ -12,23 +12,33 @@ export const useParticipantInfo = () => {
     Map<string, ParticipantInfo>
   >(new Map());
 
+  // Use ref to avoid dependency on participantInfo Map in callbacks
+  const participantInfoRef = useRef(participantInfo);
+  participantInfoRef.current = participantInfo;
+
   const updateParticipantInfo = useCallback(
     (info: Record<string, ParticipantInfo>) => {
-      setParticipantInfo(new Map(Object.entries(info)));
+      setParticipantInfo((prev) => {
+        const newMap = new Map(prev);
+        Object.entries(info).forEach(([userId, participantInfo]) => {
+          newMap.set(userId, participantInfo);
+        });
+        return newMap;
+      });
     },
     []
   );
 
   const getParticipantEmail = useCallback(
     (userId: string): string | undefined => {
-      return participantInfo.get(userId)?.email;
+      return participantInfoRef.current.get(userId)?.email;
     },
-    [participantInfo]
+    []
   );
 
   const getParticipantDisplayName = useCallback(
     (userId: string): string | undefined => {
-      const info = participantInfo.get(userId);
+      const info = participantInfoRef.current.get(userId);
 
       if (!info) {
         return undefined;
@@ -42,8 +52,16 @@ export const useParticipantInfo = () => {
       // Fallback to email
       return info.email;
     },
-    [participantInfo]
+    []
   );
+
+  const removeParticipantInfo = useCallback((userId: string) => {
+    setParticipantInfo((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(userId);
+      return newMap;
+    });
+  }, []);
 
   const clearParticipantInfo = useCallback(() => {
     setParticipantInfo(new Map());
@@ -52,6 +70,7 @@ export const useParticipantInfo = () => {
   return {
     participantInfo,
     updateParticipantInfo,
+    removeParticipantInfo,
     getParticipantEmail,
     getParticipantDisplayName,
     clearParticipantInfo,

@@ -493,13 +493,17 @@ export const useWebRTC = (
     };
 
     // Register event listeners
-    console.log(`🎧 [WebRTC] Registering event listeners...`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎧 [WebRTC] Registering event listeners...`);
+    }
 
-    // Add a generic listener to catch all events for debugging
-    const handleAnyEvent = (eventName: string, ...args: any[]) => {
-      console.log(`📡 [WebRTC] Received socket event: ${eventName}`, args);
-    };
-    socket.onAny(handleAnyEvent);
+    // Add a generic listener to catch all events for debugging (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      const handleAnyEvent = (eventName: string, ...args: any[]) => {
+        console.log(`📡 [WebRTC] Received socket event: ${eventName}`, args);
+      };
+      socket.onAny(handleAnyEvent);
+    }
 
     socket.on('call-user', handleCallUser);
     socket.on('answer-made', handleAnswerMade);
@@ -511,9 +515,11 @@ export const useWebRTC = (
 
     // Cleanup
     return () => {
-      console.log(
-        `🧹 [WebRTC] Cleaning up event listeners for socket ${socket.id}`
-      );
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `🧹 [WebRTC] Cleaning up event listeners for socket ${socket.id}`
+        );
+      }
       // socket.offAny(handleAnyEvent);
       socket.off('call-user', handleCallUser);
       socket.off('answer-made', handleAnswerMade);
