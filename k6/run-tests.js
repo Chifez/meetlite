@@ -159,7 +159,7 @@ function runTest(scenarioName) {
       `   Room Service: ${colors.cyan}http://localhost:5001${colors.reset}`
     );
     console.log(
-      `   Signaling Service: ${colors.cyan}http://localhost:5002${colors.reset}`
+      `   MediaSoup Service: ${colors.cyan}http://localhost:3003${colors.reset}`
     );
     console.log('');
 

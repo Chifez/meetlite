@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js';
 
 /**
  * TldrawService - Handles Tldraw whiteboard functionality
- * Migrated from signaling service to MediaSoup service
+ * Tldraw Service - Handles Tldraw WebSocket connections
  */
 export class TldrawService {
   constructor() {

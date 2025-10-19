@@ -10,10 +10,9 @@
     "dev": "npm run dev --workspaces",
     "dev:auth": "npm run dev --workspace=@minimeet/auth-service",
     "dev:room": "npm run dev --workspace=@minimeet/room-service",
-    "dev:signaling": "npm run dev --workspace=@minimeet/signaling-service",
     "dev:mediasoup": "npm run dev --workspace=@minimeet/mediasoup-service",
     "dev:gateway": "npm run dev --workspace=@minimeet/api-gateway",
-    "dev:all": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:signaling\" \"npm run dev:mediasoup\"",
+    "dev:all": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:mediasoup\"",
     "install:all": "npm install",
     "build:all": "npm run build --workspaces",
     "test:all": "npm run test --workspaces"

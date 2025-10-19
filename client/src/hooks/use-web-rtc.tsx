@@ -35,7 +35,7 @@ const createConnectionId = (localId: string, remoteId: string) => {
   return [localId, remoteId].sort().join('_');
 };
 
-// Connection states to track signaling flow
+// Connection states to track WebRTC flow
 enum ConnectionState {
   INITIALIZING = 'initializing',
   CREATING_OFFER = 'creating_offer',

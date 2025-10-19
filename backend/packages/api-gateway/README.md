@@ -6,7 +6,7 @@ A clean, production-ready API Gateway built from scratch with focus on reliabili
 
 - **Clean Architecture**: Modular, well-organized code structure
 - **Production Ready**: Proper error handling, logging, and monitoring
-- **Service Routing**: Intelligent routing to auth, room, and signaling services
+- **Service Routing**: Intelligent routing to auth, room, and mediasoup services
 - **CORS Handling**: Comprehensive CORS configuration
 - **Rate Limiting**: Built-in protection against abuse
 - **Health Monitoring**: Service health checks and status reporting
@@ -40,7 +40,7 @@ FRONTEND_URL=http://localhost:5174
 # Service URLs
 AUTH_SERVICE_URL=http://localhost:5000
 ROOM_SERVICE_URL=http://localhost:5001
-SIGNALING_SERVICE_URL=http://localhost:5002
+MEDIASOUP_SERVICE_URL=http://localhost:3003
 ```
 
 ### Service Routing
@@ -69,11 +69,11 @@ The gateway automatically routes requests based on path patterns:
 - `/api/analytics/*` → `/api/analytics/*`
 - `/api/calendar/*` → `/api/calendar/*`
 
-#### Signaling Service
+#### MediaSoup Service
 
-- `/socket.io` → WebSocket connections
-- `/uploads` → File uploads
-- `/connect` → Connection endpoints
+- `/socket.io` → WebSocket connections (proxied)
+- `/connect` → Tldraw WebSocket connections (proxied)
+- `/uploads` → File uploads (served directly from MediaSoup:3003)
 
 ## 🚀 Usage
 
@@ -104,7 +104,7 @@ GET /health
   "status": "healthy",
   "timestamp": "2024-01-01T00:00:00.000Z",
   "uptime": 123.456,
-  "services": ["auth", "room", "signaling"],
+  "services": ["auth", "room", "mediasoup"],
   "environment": "development"
 }
 ```

@@ -240,11 +240,11 @@ export const ERROR_CODES = {
       message: 'Unable to establish peer-to-peer connection',
       description: 'ICE connection establishment failed',
     },
-    SIGNALING_ERROR: {
+    WEBSOCKET_ERROR: {
       code: 'ROOM_5007',
       statusCode: 500,
       message: 'Communication error with meeting server',
-      description: 'WebSocket signaling error',
+      description: 'WebSocket connection error',
     },
   },
 

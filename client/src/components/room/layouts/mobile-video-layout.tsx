@@ -114,6 +114,7 @@ export const MobileVideoLayout = ({
                   userName={participant.userName}
                   layoutMode="presentation"
                 />
+                
               </div>
             ))}
 

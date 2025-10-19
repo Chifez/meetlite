@@ -21,7 +21,7 @@ export const TEST_CONFIG = {
   baseUrls: {
     auth: 'http://localhost:5000', // Fixed: auth service runs on 5000
     room: 'http://localhost:5001', // Fixed: room service runs on 5001
-    signaling: 'http://localhost:5002', // Fixed: signaling service runs on 5002
+    mediasoup: 'http://localhost:3003', // MediaSoup service runs on 3003
   },
 
   // API endpoints
@@ -39,8 +39,8 @@ export const TEST_CONFIG = {
       collaboration: '/api/rooms/:roomId/collaboration',
       settings: '/api/rooms/:roomId/settings',
     },
-    signaling: {
-      ws: 'ws://localhost:5002', // Fixed: signaling service runs on 5002
+    mediasoup: {
+      ws: 'ws://localhost:3003', // MediaSoup service runs on 3003
     },
   },
 

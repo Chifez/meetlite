@@ -95,7 +95,7 @@ k6 --version
 # Start all services (make sure Redis is running)
 npm run dev:auth
 npm run dev:room
-npm run dev:signaling
+npm run dev:mediasoup
 ```
 
 ### **4. Create Test Users**
@@ -266,12 +266,12 @@ where k6  # Windows
 # Check if services are running
 curl http://localhost:5001  # Auth service
 curl http://localhost:5002  # Room service
-curl http://localhost:5003  # Signaling service
+curl http://localhost:3003  # MediaSoup service
 
 # Start services if needed
 npm run dev:auth
 npm run dev:room
-npm run dev:signaling
+npm run dev:mediasoup
 ```
 
 #### **Redis Connection Issues**
@@ -377,4 +377,3 @@ node utils/create-test-users.js
 **Happy Testing! 🚀**
 
 Your K6 performance testing suite is now ready to help you validate your MiniMeet application's scalability and reliability.
-

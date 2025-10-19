@@ -118,7 +118,7 @@ export class MediaController {
         useNameInMeetings: socket.user.useNameInMeetings,
       });
 
-      // CRITICAL FIX: Store initial media state (like signaling service does)
+      // Store initial media state
       await this.mediaSoupService.updateParticipantMediaState(roomId, userId, {
         audioEnabled: mediaState?.audioEnabled ?? true,
         videoEnabled: mediaState?.videoEnabled ?? true,
@@ -262,7 +262,7 @@ export class MediaController {
         useNameInMeetings: socket.user.useNameInMeetings,
       });
 
-      // CRITICAL FIX: Store initial media state (like signaling service does)
+      // Store initial media state
       if (mediaState) {
         await this.mediaSoupService.updateParticipantMediaState(
           roomId,

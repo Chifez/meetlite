@@ -17,7 +17,7 @@ const operationTime = new Trend('operation_time');
 
 // Initialize helpers
 const roomHelper = new RoomHelper(TEST_CONFIG.baseUrls.room);
-const wsHelper = new WebSocketHelper(TEST_CONFIG.baseUrls.signaling);
+const wsHelper = new WebSocketHelper(TEST_CONFIG.baseUrls.mediasoup);
 
 export const options = {
   stages: [
