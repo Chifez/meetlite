@@ -14,7 +14,6 @@ interface EnhancedVideoParticipantProps {
   userName?: string;
   layoutMode?: 'grid' | 'speaker' | 'presentation';
   isMainSpeaker?: boolean;
-  className?: string;
 }
 
 export const EnhancedVideoParticipant = ({
@@ -26,7 +25,6 @@ export const EnhancedVideoParticipant = ({
   userName,
   layoutMode = 'grid',
   isMainSpeaker = false,
-  className = '',
 }: EnhancedVideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -104,6 +102,42 @@ export const EnhancedVideoParticipant = ({
     return 'Participant';
   };
 
+  // Generate dynamic background color based on user name/email (Google Meet color scheme)
+  const getDynamicBackgroundColor = () => {
+    const name = userName || userEmail || 'Participant';
+    const colors = [
+      'bg-blue-500', // Google Blue
+      'bg-green-500', // Google Green
+      'bg-purple-500', // Google Purple
+      'bg-yellow-500', // Google Yellow
+      'bg-pink-500', // Google Pink
+      'bg-indigo-500', // Google Indigo
+      'bg-teal-500', // Google Teal
+      'bg-orange-500', // Google Orange
+      'bg-cyan-500', // Google Cyan
+      'bg-emerald-500', // Google Emerald
+    ];
+
+    // Simple hash function to get consistent color for same name
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Get camera-off icon size based on layout mode
+  const getCameraOffIconSize = () => {
+    if (layoutMode === 'presentation') {
+      return 'h-8 w-8'; // Smaller for presentation mode
+    }
+    if (layoutMode === 'speaker' && !isMainSpeaker) {
+      return 'h-6 w-6'; // Smaller for speaker thumbnails
+    }
+    return 'h-12 w-12'; // Default size for main grids
+  };
+
   // Get appropriate styling based on layout mode and speaker status
   const getContainerClasses = () => {
     const baseClasses =
@@ -159,19 +193,21 @@ export const EnhancedVideoParticipant = ({
 
       {/* Video Off / Error / Loading States */}
       {(showVideoOff || showError || showLoading) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#26262b]">
+        <div
+          className={`absolute inset-0 flex items-center justify-center ${getDynamicBackgroundColor()}`}
+        >
           {showLoading ? (
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
-              <span className="text-sm text-muted-foreground">
-                Connecting...
-              </span>
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+              <span className="text-sm text-white">Connecting...</span>
             </div>
           ) : showVideoOff ? (
-            <VideoOff className="h-12 w-12 text-muted-foreground" />
+            <div className="bg-white/20 rounded-full p-3">
+              <VideoOff className={`${getCameraOffIconSize()} text-white`} />
+            </div>
           ) : null}
           {showError && (
-            <div className="absolute bottom-2 left-2 text-xs text-red-500">
+            <div className="absolute bottom-2 left-2 text-xs text-red-200">
               Video Error
             </div>
           )}
@@ -202,14 +238,7 @@ export const EnhancedVideoParticipant = ({
         </div>
       )}
 
-      {/* Main Speaker Indicator */}
-      {isMainSpeaker && (
-        <div className="absolute top-2 left-2">
-          <div className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
-            Speaking
-          </div>
-        </div>
-      )}
+      {/* Main Speaker Indicator - Only border and audio visualizer */}
     </div>
   );
 };

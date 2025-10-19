@@ -228,19 +228,9 @@ const Room = () => {
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-hidden bg-[#121212] p-4">
               {collaborationState?.mode === 'workflow' ? (
-                <SharedPresentation
-                  mode="workflow"
-                  isPresenter={
-                    collaborationState?.presenter?.userId === user?.id
-                  }
-                />
+                <SharedPresentation mode="workflow" />
               ) : collaborationState?.mode === 'whiteboard' ? (
-                <SharedPresentation
-                  mode="whiteboard"
-                  isPresenter={
-                    collaborationState?.presenter?.userId === user?.id
-                  }
-                />
+                <SharedPresentation mode="whiteboard" />
               ) : (
                 // No presentation mode: Enhanced video grid with layout options
                 <ResponsiveVideoGrid />

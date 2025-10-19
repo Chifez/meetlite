@@ -189,10 +189,10 @@ export class LayoutEngine {
       gridRows = Math.min(participantCount, 6); // Show up to 6 participants
       maxVisibleParticipants = Math.min(participantCount, 6);
     } else {
-      // Large screens: 2x2 grid (4 participants visible)
+      // Large screens: 2x2 grid (8 participants visible)
       gridCols = 2;
-      gridRows = 2;
-      maxVisibleParticipants = 4;
+      gridRows = 4; // 2 rows of 4 = 8 participants
+      maxVisibleParticipants = 8;
     }
 
     return {

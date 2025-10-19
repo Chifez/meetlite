@@ -10,12 +10,10 @@ import { useMemo } from 'react';
 
 interface SharedPresentationProps {
   mode: 'workflow' | 'whiteboard';
-  isPresenter?: boolean;
 }
 
 export const SharedPresentation: React.FC<SharedPresentationProps> = ({
   mode,
-  isPresenter = false,
 }) => {
   const {
     localStream,
@@ -108,38 +106,7 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
     </div>
   );
 
-  if (isPresenter) {
-    // Presenter: Same layout on mobile and desktop (collaboration tool + participants)
-    return (
-      <div className="flex flex-col w-full h-full overflow-hidden">
-        {/* Collaboration Tool - 70% height */}
-        <div className="flex-1 mb-2" style={{ height: '70%' }}>
-          {renderCollaborationTool()}
-        </div>
-
-        {/* Participants underneath - 30% height */}
-        <div className="flex-shrink-0" style={{ height: '30%' }}>
-          {/* Desktop: AdvancedLayoutRenderer */}
-          <div className="hidden md:block w-full h-full">
-            <AdvancedLayoutRenderer
-              participants={allParticipants}
-              layoutMode={layoutMode}
-              screenSize={screenSize}
-              isPresenting={true}
-              hasActiveSpeaker={false}
-              bandwidthMode={bandwidthSettings.mode}
-              userPreferences={userPreferences}
-            />
-          </div>
-
-          {/* Mobile: MobileVideoLayout */}
-          <MobileVideoLayout />
-        </div>
-      </div>
-    );
-  }
-
-  // Viewer: Different layouts on mobile and desktop
+  // Unified layout: Same for both presenter and viewer, following screen sharing pattern
   return (
     <div className="flex flex-col w-full h-full overflow-hidden">
       {/* Mobile: Collaboration tool takes 65% height */}
@@ -152,12 +119,12 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
         className={`flex-1 overflow-hidden ${'md:flex md:flex-row'} ${'md:h-full h-[35%]'}`}
       >
         {/* Desktop: Collaboration Tool */}
-        <div className="hidden md:block w-[68%] h-full flex-shrink-0 pr-2">
+        <div className="hidden md:block w-[65%] h-full flex-shrink-0 pr-2">
           {renderCollaborationTool()}
         </div>
 
         {/* Participants Container */}
-        <div className="md:w-[32%] h-full flex-1 overflow-hidden">
+        <div className="md:w-[35%] h-full flex-1 overflow-hidden">
           {/* Advanced Layout Renderer */}
           <div className="hidden md:block w-full h-full">
             <AdvancedLayoutRenderer
@@ -172,7 +139,7 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
           </div>
 
           {/* Mobile Layout */}
-          <MobileVideoLayout />
+          <MobileVideoLayout isPresenting={true} />
         </div>
       </div>
     </div>
