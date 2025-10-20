@@ -467,6 +467,145 @@ export class CollaborationController {
   }
 
   /**
+   * Handle code update
+   */
+  async handleCodeUpdate(socket, data) {
+    try {
+      const { roomId, update } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Check if user can edit
+      if (!this.collaborationStateManager.canEdit(roomId, userId)) {
+        logger.warn('Code update rejected - user not authorized', {
+          roomId,
+          userId,
+        });
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Update code data
+      const updatedData = this.collaborationStateManager.updateCodeData(
+        roomId,
+        {
+          ...update,
+          version: update.version || 1,
+        },
+        userId
+      );
+
+      // Broadcast code update to all clients
+      this.io.to(roomId).emit('code:update', {
+        update,
+        userId,
+        timestamp: Date.now(),
+        version: updatedData.version,
+      });
+
+      logger.info('Code update', {
+        roomId,
+        userId,
+        updateVersion: updatedData.version,
+        language: update.language,
+      });
+    } catch (error) {
+      logger.error('Failed to handle code update', error);
+    }
+  }
+
+  /**
+   * Handle code language change
+   */
+  async handleCodeLanguageChange(socket, data) {
+    try {
+      const { roomId, language, userId: requestUserId, timestamp } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Check if user can edit
+      if (!this.collaborationStateManager.canEdit(roomId, userId)) {
+        logger.warn('Code language change rejected - user not authorized', {
+          roomId,
+          userId,
+        });
+        return;
+      }
+
+      // Update participant activity
+      await this.mediaSoupService.updateParticipantActivity(roomId, userId);
+
+      // Change code language
+      const updatedData = this.collaborationStateManager.changeCodeLanguage(
+        roomId,
+        language,
+        userId
+      );
+
+      // Broadcast language change to all clients
+      this.io.to(roomId).emit('code:language-change', {
+        language,
+        userId,
+        timestamp: timestamp || Date.now(),
+      });
+
+      logger.info('Code language changed', {
+        roomId,
+        userId,
+        language,
+      });
+    } catch (error) {
+      logger.error('Failed to handle code language change', error);
+    }
+  }
+
+  /**
+   * Handle code sync request
+   */
+  async handleCodeSyncRequest(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Get current collaboration state
+      const state =
+        this.collaborationStateManager.getCollaborationState(roomId);
+
+      // Send code data specifically
+      socket.emit(
+        'code:state-sync',
+        state.codeData || {
+          code: '',
+          language: 'javascript',
+          version: 0,
+          lastModified: new Date(),
+          lastModifiedBy: null,
+        }
+      );
+
+      logger.debug('Code state sync requested', {
+        roomId,
+        userId,
+        hasCodeData: !!state.codeData,
+      });
+    } catch (error) {
+      logger.error('Failed to handle code state sync request', error);
+    }
+  }
+
+  /**
    * Handle presentation start
    */
   async handlePresentationStart(socket, data) {

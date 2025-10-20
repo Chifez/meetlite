@@ -24,12 +24,12 @@ const roomSchema = new mongoose.Schema({
   // Enhanced room state for collaboration
   collaborationMode: {
     type: String,
-    enum: ['none', 'workflow', 'whiteboard'],
+    enum: ['none', 'workflow', 'whiteboard', 'code'],
     default: 'none',
   },
   activeTool: {
     type: String,
-    enum: ['none', 'workflow', 'whiteboard'],
+    enum: ['none', 'workflow', 'whiteboard', 'code'],
     default: 'none',
   },
   participants: [
@@ -85,6 +85,22 @@ const roomSchema = new mongoose.Schema({
       type: Number,
       default: 0,
     },
+  },
+  codeData: {
+    code: {
+      type: String,
+      default: '',
+    },
+    language: {
+      type: String,
+      default: 'javascript',
+    },
+    version: {
+      type: Number,
+      default: 0,
+    },
+    lastModified: Date,
+    lastModifiedBy: String,
   },
   settings: {
     allowCollaboration: {

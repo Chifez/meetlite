@@ -20,6 +20,7 @@ export class CollaborationStateManager {
         activeTool: 'none',
         workflowData: null,
         whiteboardData: null,
+        codeData: null,
         presenter: {
           userId: null,
           mode: null,
@@ -151,6 +152,71 @@ export class CollaborationStateManager {
     });
 
     return state.whiteboardData;
+  }
+
+  /**
+   * Update code data
+   */
+  updateCodeData(roomId, data, userId) {
+    this.initializeRoom(roomId);
+    const state = this.collaborationState.get(roomId);
+
+    state.codeData = {
+      ...data,
+      lastModified: new Date(),
+      lastModifiedBy: userId,
+    };
+    state.lastUpdated = Date.now();
+
+    logger.debug('Code data updated', {
+      roomId,
+      userId,
+      version: data.version,
+      language: data.language,
+    });
+
+    return state.codeData;
+  }
+
+  /**
+   * Get code data
+   */
+  getCodeData(roomId) {
+    this.initializeRoom(roomId);
+    const state = this.collaborationState.get(roomId);
+    return state.codeData;
+  }
+
+  /**
+   * Change code language
+   */
+  changeCodeLanguage(roomId, language, userId) {
+    this.initializeRoom(roomId);
+    const state = this.collaborationState.get(roomId);
+
+    if (state.codeData) {
+      state.codeData.language = language;
+      state.codeData.lastModified = new Date();
+      state.codeData.lastModifiedBy = userId;
+    } else {
+      state.codeData = {
+        code: '',
+        language: language,
+        version: 0,
+        lastModified: new Date(),
+        lastModifiedBy: userId,
+      };
+    }
+
+    state.lastUpdated = Date.now();
+
+    logger.debug('Code language changed', {
+      roomId,
+      userId,
+      language,
+    });
+
+    return state.codeData;
   }
 
   /**

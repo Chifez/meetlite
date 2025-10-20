@@ -54,6 +54,9 @@ const Room = () => {
     changeCollaborationMode,
     sendWorkflowOperation,
     sendWhiteboardUpdate,
+    sendCodeUpdate,
+    changeCodeLanguage,
+    requestCodeSync,
     startPresenting,
     stopPresenting,
     updateCollaborationSettings,
@@ -167,6 +170,9 @@ const Room = () => {
       changeCollaborationMode,
       sendWorkflowOperation,
       sendWhiteboardUpdate,
+      sendCodeUpdate,
+      changeCodeLanguage,
+      requestCodeSync,
       // Presenter functionality
       startPresenting,
       stopPresenting,
@@ -201,6 +207,9 @@ const Room = () => {
       changeCollaborationMode,
       sendWorkflowOperation,
       sendWhiteboardUpdate,
+      sendCodeUpdate,
+      changeCodeLanguage,
+      requestCodeSync,
       startPresenting,
       stopPresenting,
       updateCollaborationSettings,
@@ -231,6 +240,8 @@ const Room = () => {
                 <SharedPresentation mode="workflow" />
               ) : collaborationState?.mode === 'whiteboard' ? (
                 <SharedPresentation mode="whiteboard" />
+              ) : collaborationState?.mode === 'code' ? (
+                <SharedPresentation mode="code" />
               ) : (
                 // No presentation mode: Enhanced video grid with layout options
                 <ResponsiveVideoGrid />

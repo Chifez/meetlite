@@ -1,4 +1,4 @@
-import { Network, PenTool, Settings2, X, BarChart3 } from 'lucide-react';
+import { Network, PenTool, Settings2, X, BarChart3, Code } from 'lucide-react';
 import { useRoom } from '@/contexts/room-context';
 
 export interface MenuItem {
@@ -12,7 +12,7 @@ export interface MenuItem {
 
 interface UseCollaborationMenuItemsProps {
   isPresenting: boolean;
-  onModeChange: (mode: 'workflow' | 'whiteboard') => void;
+  onModeChange: (mode: 'workflow' | 'whiteboard' | 'code') => void;
   onStopPresenting: () => void;
   onClose: () => void;
 }
@@ -40,6 +40,13 @@ export const useCollaborationMenuItems = ({
       onClick: () => onModeChange('whiteboard'),
       isActive: currentMode === 'whiteboard',
       title: 'Whiteboard',
+    },
+    {
+      key: 'code',
+      icon: Code,
+      onClick: () => onModeChange('code'),
+      isActive: currentMode === 'code',
+      title: 'Code Editor',
     },
     {
       key: 'poll',

@@ -29,6 +29,7 @@
   "license": "ISC",
   "description": "A real-time video conferencing application with multiple services",
   "dependencies": {
+    "prismjs": "^1.30.0",
     "tldraw": "^3.14.2"
   }
 }

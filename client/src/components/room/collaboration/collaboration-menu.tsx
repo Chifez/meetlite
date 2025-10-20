@@ -412,7 +412,7 @@ export const CollaborationMenu = ({
 
   const menuItems = useCollaborationMenuItems({
     isPresenting,
-    onModeChange: (mode: 'workflow' | 'whiteboard') => {
+    onModeChange: (mode: 'workflow' | 'whiteboard' | 'code') => {
       if (isDisabled) return;
       changeCollaborationMode(mode);
       setIsOpen(false);

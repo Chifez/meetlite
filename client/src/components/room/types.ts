@@ -31,15 +31,32 @@ export interface WhiteboardData {
   lastModifiedBy?: string;
 }
 
+export interface CodeData {
+  code: string;
+  language: string;
+  version: number;
+  lastModified?: Date;
+  lastModifiedBy?: string | null;
+}
+
+export interface CodeUpdate {
+  code: string;
+  language?: string;
+  version: number;
+  timestamp: number;
+  userId: string;
+}
+
 export interface CollaborationState {
-  mode: 'none' | 'workflow' | 'whiteboard';
-  activeTool: 'none' | 'workflow' | 'whiteboard';
+  mode: 'none' | 'workflow' | 'whiteboard' | 'code';
+  activeTool: 'none' | 'workflow' | 'whiteboard' | 'code';
   workflowData: WorkflowData | null;
   whiteboardData: WhiteboardData | null;
+  codeData: CodeData | null;
   // New presenter-related fields
   presenter: {
     userId: string | null;
-    mode: 'workflow' | 'whiteboard' | null;
+    mode: 'workflow' | 'whiteboard' | 'code' | null;
     collaborationSettings: {
       mode: 'view-only' | 'allow-edit' | 'selective-edit';
       allowedUsers: string[];
@@ -107,11 +124,16 @@ export interface RoomContextType {
   stopTyping: () => void;
   // Collaboration functionality
   collaborationState: CollaborationState;
-  changeCollaborationMode: (mode: 'none' | 'workflow' | 'whiteboard') => void;
+  changeCollaborationMode: (
+    mode: 'none' | 'workflow' | 'whiteboard' | 'code'
+  ) => void;
   sendWorkflowOperation: (operation: WorkflowOperation) => void;
   sendWhiteboardUpdate: (update: WhiteboardUpdate) => void;
+  sendCodeUpdate: (update: CodeUpdate) => void;
+  changeCodeLanguage: (language: string) => void;
+  requestCodeSync: () => void;
   // Presenter functionality
-  startPresenting: (mode: 'workflow' | 'whiteboard') => void;
+  startPresenting: (mode: 'workflow' | 'whiteboard' | 'code') => void;
   stopPresenting: () => void;
   updateCollaborationSettings: (settings: {
     mode: 'view-only' | 'allow-edit' | 'selective-edit';

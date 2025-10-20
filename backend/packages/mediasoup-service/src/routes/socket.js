@@ -137,6 +137,19 @@ export const setupSocketRoutes = (
       collaborationController.handleWhiteboardSyncRequest(socket, data)
     );
 
+    // Code editor events
+    socket.on('code:update', (data) =>
+      collaborationController.handleCodeUpdate(socket, data)
+    );
+
+    socket.on('code:language-change', (data) =>
+      collaborationController.handleCodeLanguageChange(socket, data)
+    );
+
+    socket.on('code:request-sync', (data) =>
+      collaborationController.handleCodeSyncRequest(socket, data)
+    );
+
     // Presentation events
     socket.on('presentation:start', (data) =>
       collaborationController.handlePresentationStart(socket, data)

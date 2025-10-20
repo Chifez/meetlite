@@ -1,6 +1,7 @@
 import React from 'react';
 import { WorkflowPanel } from '@/components/room/collaboration/workflow-panel';
 import { WhiteboardPanel } from '@/components/room/collaboration/whiteboard-panel';
+import { CodePanel } from '@/components/room/collaboration/code-panel';
 import { MobileVideoLayout } from '@/components/room/layouts/mobile-video-layout';
 import { AdvancedLayoutRenderer } from '@/components/room/advanced-layout-renderer';
 import { useRoom } from '@/contexts/room-context';
@@ -9,7 +10,7 @@ import { useBandwidthOptimization } from '@/hooks/use-bandwidth-optimization';
 import { useMemo } from 'react';
 
 interface SharedPresentationProps {
-  mode: 'workflow' | 'whiteboard';
+  mode: 'workflow' | 'whiteboard' | 'code';
 }
 
 export const SharedPresentation: React.FC<SharedPresentationProps> = ({
@@ -100,8 +101,10 @@ export const SharedPresentation: React.FC<SharedPresentationProps> = ({
     <div className="w-full h-full bg-[#121212] rounded-lg overflow-hidden border border-gray-700">
       {mode === 'workflow' ? (
         <WorkflowPanel className="w-full h-full" />
-      ) : (
+      ) : mode === 'whiteboard' ? (
         <WhiteboardPanel className="w-full h-full" />
+      ) : (
+        <CodePanel className="w-full h-full" />
       )}
     </div>
   );

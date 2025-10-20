@@ -1,11 +1,11 @@
-import { Button } from '@/components/ui/button';
-import { Plus, Settings2, ChevronDown } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type NodeType = 'input' | 'default' | 'output';
 type EdgeStyle = 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier';
@@ -21,53 +21,39 @@ export const NodeToolbar = ({
 }: NodeToolbarProps) => {
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
-      {/* Add Node - Pill shaped */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="rounded-full gap-2 px-4">
-            <Plus className="h-4 w-4" />
-            Add Node
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => onCreateNode('input')}>
-            Input Node
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onCreateNode('default')}>
-            Default Node
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onCreateNode('output')}>
-            Output Node
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Add Node - Styled like language selector */}
+      <div className="flex items-center gap-2">
+        <Select onValueChange={(value) => onCreateNode(value as NodeType)}>
+          <SelectTrigger className="w-40 h-10 rounded-full bg-white text-black">
+            <Plus className="h-4 w-4 " />
+            <SelectValue placeholder="Add Node" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="input">Input Node</SelectItem>
+            <SelectItem value="default">Default Node</SelectItem>
+            <SelectItem value="output">Output Node</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Settings - Fully rounded */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="rounded-full">
-            <Settings2 className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => onEdgeStyleChange('default')}>
-            Default Edge
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onEdgeStyleChange('straight')}>
-            Straight Edge
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onEdgeStyleChange('step')}>
-            Step Edge
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onEdgeStyleChange('smoothstep')}>
-            Smooth Step Edge
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onEdgeStyleChange('bezier')}>
-            Bezier Edge
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Edge Style - Styled like language selector */}
+      <div className="flex items-center gap-2">
+        <Select
+          onValueChange={(value) => onEdgeStyleChange(value as EdgeStyle)}
+        >
+          <SelectTrigger className="w-40 h-10 rounded-full bg-white text-black">
+            <Settings2 className="h-4 w-4 " />
+            <SelectValue placeholder="Edge Style" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default Edge</SelectItem>
+            <SelectItem value="straight">Straight Edge</SelectItem>
+            <SelectItem value="step">Step Edge</SelectItem>
+            <SelectItem value="smoothstep">Smooth Step Edge</SelectItem>
+            <SelectItem value="bezier">Bezier Edge</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 };

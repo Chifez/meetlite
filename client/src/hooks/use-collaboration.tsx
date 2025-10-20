@@ -4,6 +4,7 @@ import {
   WorkflowData,
   WorkflowOperation,
   WhiteboardUpdate,
+  CodeUpdate,
   ExtendedSocket,
 } from '@/components/room/types';
 
@@ -19,6 +20,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       activeTool: 'none',
       workflowData: null,
       whiteboardData: null,
+      codeData: null,
       presenter: {
         userId: null,
         mode: null,
@@ -37,7 +39,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
   }, [socket, roomId]);
 
   const changeCollaborationMode = useCallback(
-    (mode: 'none' | 'workflow' | 'whiteboard') => {
+    (mode: 'none' | 'workflow' | 'whiteboard' | 'code') => {
       if (!socket || !roomId) return;
       socket.emit('collaboration:mode', { roomId, mode });
     },
@@ -219,9 +221,83 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     socket.emit('whiteboard:request-sync', { roomId });
   }, [socket, roomId]);
 
+  // Code editor functionality
+  const sendCodeUpdate = useCallback(
+    (update: CodeUpdate) => {
+      if (!socket || !roomId || collaborationState.mode !== 'code') {
+        console.warn('Cannot send code update:', {
+          socketConnected: !!socket,
+          roomId,
+          mode: collaborationState.mode,
+        });
+        return;
+      }
+
+      const versionedUpdate = {
+        ...update,
+        version: update.version + 1,
+        timestamp: Date.now(),
+      };
+
+      // Send update
+      socket.emit('code:update', {
+        roomId,
+        update: versionedUpdate,
+      });
+
+      // Apply update locally immediately
+      setCollaborationState((prev) => {
+        if (!prev.codeData) {
+          return {
+            ...prev,
+            codeData: {
+              code: update.code,
+              language: update.language || 'javascript',
+              version: versionedUpdate.version,
+              lastModified: new Date(versionedUpdate.timestamp),
+              lastModifiedBy: socket.user?.id || null,
+            },
+          };
+        }
+
+        return {
+          ...prev,
+          codeData: {
+            ...prev.codeData,
+            code: update.code,
+            language: update.language || prev.codeData.language,
+            version: versionedUpdate.version,
+            lastModified: new Date(versionedUpdate.timestamp),
+            lastModifiedBy: socket.user?.id || null,
+          },
+        };
+      });
+    },
+    [socket, roomId, collaborationState.mode]
+  );
+
+  const changeCodeLanguage = useCallback(
+    (language: string) => {
+      if (!socket || !roomId) return;
+
+      socket.emit('code:language-change', {
+        roomId,
+        language,
+        userId: socket.user?.id,
+        timestamp: Date.now(),
+      });
+    },
+    [socket, roomId]
+  );
+
+  const requestCodeSync = useCallback(() => {
+    if (!socket || !roomId) return;
+    socket.emit('code:request-sync', { roomId });
+  }, [socket, roomId]);
+
   // Presenter functionality
   const startPresenting = useCallback(
-    (mode: 'workflow' | 'whiteboard') => {
+    (mode: 'workflow' | 'whiteboard' | 'code') => {
       if (!socket || !roomId) return;
 
       socket.emit('presentation:start', { roomId, mode });
@@ -284,11 +360,11 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     };
 
     const handleCollaborationModeChanged = (data: {
-      mode: 'none' | 'workflow' | 'whiteboard';
-      activeTool: 'none' | 'workflow' | 'whiteboard';
+      mode: 'none' | 'workflow' | 'whiteboard' | 'code';
+      activeTool: 'none' | 'workflow' | 'whiteboard' | 'code';
       presenter?: {
         userId: string | null;
-        mode: 'workflow' | 'whiteboard' | null;
+        mode: 'workflow' | 'whiteboard' | 'code' | null;
         collaborationSettings: {
           mode: 'view-only' | 'allow-edit' | 'selective-edit';
           allowedUsers: string[];
@@ -386,6 +462,60 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       }));
     };
 
+    const handleCodeUpdate = (data: {
+      update: CodeUpdate;
+      userId: string;
+      timestamp: number;
+      version: number;
+    }) => {
+      // Only apply update if it's newer than our current version
+      if (data.version <= (collaborationState.codeData?.version || 0)) {
+        return;
+      }
+
+      setCollaborationState((prev) => ({
+        ...prev,
+        codeData: {
+          code: data.update.code,
+          language:
+            data.update.language || prev.codeData?.language || 'javascript',
+          version: data.version,
+          lastModified: new Date(data.timestamp),
+          lastModifiedBy: data.userId,
+        },
+      }));
+    };
+
+    const handleCodeLanguageChange = (data: {
+      language: string;
+      userId: string;
+      timestamp: number;
+    }) => {
+      console.log('Received code language change event:', data);
+      setCollaborationState((prev) => {
+        const newState = {
+          ...prev,
+          codeData: prev.codeData
+            ? {
+                ...prev.codeData,
+                language: data.language,
+                lastModified: new Date(data.timestamp),
+                lastModifiedBy: data.userId,
+              }
+            : {
+                // Create new codeData if it doesn't exist
+                code: '',
+                language: data.language,
+                version: 0,
+                lastModified: new Date(data.timestamp),
+                lastModifiedBy: data.userId,
+              },
+        };
+        console.log('Updated collaboration state:', newState);
+        return newState;
+      });
+    };
+
     // Request initial state sync
     requestStateSync();
 
@@ -397,6 +527,8 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     );
     socket.on('workflow:operation', handleWorkflowOperation);
     socket.on('whiteboard:update', handleWhiteboardUpdate);
+    socket.on('code:update', handleCodeUpdate);
+    socket.on('code:language-change', handleCodeLanguageChange);
 
     // Handle state sync response
     socket.on('workflow:state-sync', (state: CollaborationState) => {
@@ -414,6 +546,14 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       }));
     });
 
+    // Handle code state sync response
+    socket.on('code:state-sync', (codeData: any) => {
+      setCollaborationState((prev) => ({
+        ...prev,
+        codeData,
+      }));
+    });
+
     return () => {
       socket.off('collaboration:state', handleCollaborationState);
       socket.off('collaboration:mode-changed', handleCollaborationModeChanged);
@@ -423,10 +563,19 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       );
       socket.off('workflow:operation', handleWorkflowOperation);
       socket.off('whiteboard:update', handleWhiteboardUpdate);
+      socket.off('code:update', handleCodeUpdate);
+      socket.off('code:language-change', handleCodeLanguageChange);
       socket.off('workflow:state-sync');
       socket.off('whiteboard:state-sync');
+      socket.off('code:state-sync');
     };
-  }, [socket, operationVersion, applyWorkflowOperation, requestStateSync]);
+  }, [
+    socket,
+    operationVersion,
+    applyWorkflowOperation,
+    requestStateSync,
+    collaborationState.codeData?.version,
+  ]);
 
   return {
     collaborationState,
@@ -435,6 +584,9 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     applyWorkflowOperation,
     requestWhiteboardSync,
     sendWhiteboardUpdate,
+    sendCodeUpdate,
+    changeCodeLanguage,
+    requestCodeSync,
     startPresenting,
     stopPresenting,
     updateCollaborationSettings,
