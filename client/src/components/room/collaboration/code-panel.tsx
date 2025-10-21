@@ -28,13 +28,13 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
   const currentLanguage = collaborationState.codeData?.language || 'javascript';
 
   // Initialize Yjs for code editing (pure YJS, no legacy callbacks)
-  const { yText, isReady, docId, setActive } = useYjsCode(
+  const { yText, isReady, docId, setActive, updateCursor } = useYjsCode(
     roomId,
     collaborationState?.mode === 'code'
   );
 
   // Get awareness data for active editors
-  const { activeUserCount } = useYjsAwareness(docId, isReady);
+  const { activeUserCount, remoteUsers } = useYjsAwareness(docId, isReady);
 
   // Get code value from Y.Text - always use YJS as the source of truth
   const codeValue = isReady && yText ? yText.toString() : '';
@@ -68,6 +68,15 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     [canUserEdit, changeCodeLanguage]
   );
 
+  // Handle cursor position changes
+  const handleCursorChange = useCallback(
+    (line: number, column: number, index: number) => {
+      console.log('[CodePanel] Cursor changed:', { line, column, index });
+      updateCursor(line, column, index);
+    },
+    [updateCursor]
+  );
+
   return (
     <div
       className={`h-full flex flex-col bg-white dark:bg-gray-900 ${className}`}
@@ -96,6 +105,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
                 : 'Code editor is in view-only mode'
             }
             theme="dark"
+            onCursorChange={handleCursorChange}
+            remoteUsers={remoteUsers}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">

@@ -3,6 +3,8 @@ import CodeEditor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import * as Y from 'yjs';
 import { createEditorBinding } from '@/lib/yjs/bindings/react-simple-code-editor-binding';
+import { CursorOverlay } from './cursor-overlay';
+import { UserAwareness } from '@/lib/yjs/types';
 
 interface CodeEditorProps {
   value: string;
@@ -11,6 +13,8 @@ interface CodeEditorProps {
   readOnly?: boolean;
   placeholder?: string;
   theme?: 'light' | 'dark';
+  onCursorChange?: (line: number, column: number, index: number) => void;
+  remoteUsers?: UserAwareness[];
 }
 
 export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
@@ -20,6 +24,8 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
   readOnly = false,
   placeholder = 'Start coding...',
   theme = 'dark',
+  onCursorChange,
+  remoteUsers = [],
 }) => {
   const [localValue, setLocalValue] = useState(value);
   const bindingRef = useRef<ReturnType<typeof createEditorBinding> | null>(
@@ -42,7 +48,8 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
       },
       () =>
         document.getElementById('code-editor-textarea') as HTMLTextAreaElement,
-      readOnly // Pass readOnly flag to binding
+      readOnly, // Pass readOnly flag to binding
+      onCursorChange // Pass cursor change callback
     );
 
     bindingRef.current = binding;
@@ -121,7 +128,7 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
   const themeStyles = getThemeStyles();
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
       <CodeEditor
         value={localValue}
         onValueChange={handleChange}
@@ -141,6 +148,9 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
         preClassName="focus:outline-none"
         textareaId="code-editor-textarea"
       />
+
+      {/* Remote cursors overlay */}
+      <CursorOverlay remoteUsers={remoteUsers} editorValue={localValue} />
     </div>
   );
 };
