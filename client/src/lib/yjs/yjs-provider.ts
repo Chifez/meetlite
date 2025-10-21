@@ -4,7 +4,6 @@ import {
   YjsProvider as IYjsProvider,
   YjsDocument,
   YjsDocumentConfig,
-  YjsSyncMessage,
   YjsMessageType,
   YjsError,
   YjsErrorCode,
@@ -75,7 +74,7 @@ export class YjsProvider implements IYjsProvider {
     console.log('[YjsProvider] Disconnecting...');
 
     // Cleanup all documents
-    this.documents.forEach((doc, docId) => {
+    this.documents.forEach((_doc, docId) => {
       this.destroyDocument(docId);
     });
 
@@ -149,7 +148,7 @@ export class YjsProvider implements IYjsProvider {
     awarenessManager.register(docId, awareness);
 
     // Setup document update listener
-    doc.on('update', (update: Uint8Array, origin: any) => {
+    doc.on('update', (update: Uint8Array, origin: unknown) => {
       // Don't broadcast updates that came from remote
       if (origin === 'remote') return;
 
@@ -201,11 +200,17 @@ export class YjsProvider implements IYjsProvider {
   private broadcastUpdate(docId: string, update: Uint8Array): void {
     if (!this.config.socket || !this.connected) return;
 
-    const message: YjsSyncMessage = {
+    // Convert Uint8Array to ArrayBuffer for proper Socket.IO binary transmission
+    const updateBuffer = update.buffer.slice(
+      update.byteOffset,
+      update.byteOffset + update.byteLength
+    );
+
+    const message = {
       type: YjsMessageType.SYNC_UPDATE,
       roomId: this.config.roomId,
       docId,
-      update,
+      update: updateBuffer,
       timestamp: Date.now(),
     };
 
@@ -222,11 +227,17 @@ export class YjsProvider implements IYjsProvider {
   private broadcastAwarenessUpdate(docId: string, update: Uint8Array): void {
     if (!this.config.socket || !this.connected) return;
 
-    const message: YjsSyncMessage = {
+    // Convert Uint8Array to ArrayBuffer for proper Socket.IO binary transmission
+    const updateBuffer = update.buffer.slice(
+      update.byteOffset,
+      update.byteOffset + update.byteLength
+    );
+
+    const message = {
       type: YjsMessageType.AWARENESS,
       roomId: this.config.roomId,
       docId,
-      update,
+      update: updateBuffer,
       timestamp: Date.now(),
     };
 
@@ -244,11 +255,17 @@ export class YjsProvider implements IYjsProvider {
 
     const stateVector = encodeStateVector(yjsDoc.doc);
 
-    const message: YjsSyncMessage = {
+    // Convert Uint8Array to ArrayBuffer for proper Socket.IO binary transmission
+    const stateVectorBuffer = stateVector.buffer.slice(
+      stateVector.byteOffset,
+      stateVector.byteOffset + stateVector.byteLength
+    );
+
+    const message = {
       type: YjsMessageType.SYNC_STEP1,
       roomId: this.config.roomId,
       docId,
-      update: stateVector,
+      update: stateVectorBuffer,
       timestamp: Date.now(),
     };
 
@@ -264,17 +281,25 @@ export class YjsProvider implements IYjsProvider {
     if (!this.config.socket) return;
 
     // Sync Step 2: Receive full state from server
-    this.config.socket.on('yjs:sync-step2', (message: YjsSyncMessage) => {
+    this.config.socket.on('yjs:sync-step2', (message: any) => {
+      console.log('[YjsProvider] Received yjs:sync-step2', {
+        docId: message.docId,
+        hasUpdate: !!message.update,
+      });
       this.handleSyncStep2(message);
     });
 
     // Receive incremental updates
-    this.config.socket.on('yjs:update', (message: YjsSyncMessage) => {
+    this.config.socket.on('yjs:update', (message: any) => {
+      console.log('[YjsProvider] Received yjs:update', {
+        docId: message.docId,
+        hasUpdate: !!message.update,
+      });
       this.handleUpdate(message);
     });
 
     // Receive awareness updates
-    this.config.socket.on('yjs:awareness', (message: YjsSyncMessage) => {
+    this.config.socket.on('yjs:awareness', (message: any) => {
       this.handleAwarenessUpdate(message);
     });
   }
@@ -282,7 +307,7 @@ export class YjsProvider implements IYjsProvider {
   /**
    * Handle Sync Step 2 (full state from server)
    */
-  private handleSyncStep2(message: YjsSyncMessage): void {
+  private handleSyncStep2(message: any): void {
     const { docId, update } = message;
     const yjsDoc = this.documents.get(docId);
 
@@ -293,49 +318,76 @@ export class YjsProvider implements IYjsProvider {
       return;
     }
 
-    console.log(`[YjsProvider] Applying full sync for ${docId}`, {
-      updateSize: update.length,
-    });
+    try {
+      // Convert ArrayBuffer back to Uint8Array if needed
+      const updateArray =
+        update instanceof Uint8Array ? update : new Uint8Array(update);
 
-    // Apply update from server
-    applyUpdate(yjsDoc.doc, update, 'remote');
+      console.log(`[YjsProvider] Applying full sync for ${docId}`, {
+        updateSize: updateArray.length,
+      });
 
-    // Mark as synced
-    yjsDoc.synced = true;
-    this.emit('synced', docId);
+      // Apply update from server
+      applyUpdate(yjsDoc.doc, updateArray, 'remote');
 
-    console.log(`[YjsProvider] Document ${docId} synced successfully`);
+      // Mark as synced
+      yjsDoc.synced = true;
+      this.emit('synced', docId);
+
+      console.log(`[YjsProvider] Document ${docId} synced successfully`);
+    } catch (error) {
+      console.error(`[YjsProvider] Error applying sync for ${docId}:`, error);
+    }
   }
 
   /**
    * Handle incremental update from server
    */
-  private handleUpdate(message: YjsSyncMessage): void {
+  private handleUpdate(message: any): void {
     const { docId, update } = message;
     const yjsDoc = this.documents.get(docId);
 
     if (!yjsDoc || !update) return;
 
-    console.log(`[YjsProvider] Applying update for ${docId}`, {
-      updateSize: update.length,
-    });
+    try {
+      // Convert ArrayBuffer back to Uint8Array if needed
+      const updateArray =
+        update instanceof Uint8Array ? update : new Uint8Array(update);
 
-    // Apply update from server
-    applyUpdate(yjsDoc.doc, update, 'remote');
-    this.emit('update', docId, update);
+      console.log(`[YjsProvider] Applying update for ${docId}`, {
+        updateSize: updateArray.length,
+      });
+
+      // Apply update from server
+      applyUpdate(yjsDoc.doc, updateArray, 'remote');
+      this.emit('update', docId, updateArray);
+    } catch (error) {
+      console.error(`[YjsProvider] Error applying update for ${docId}:`, error);
+    }
   }
 
   /**
    * Handle awareness update from server
    */
-  private handleAwarenessUpdate(message: YjsSyncMessage): void {
+  private handleAwarenessUpdate(message: any): void {
     const { docId, update } = message;
     const awareness = this.awareness.get(docId);
 
     if (!awareness || !update) return;
 
-    // Apply awareness update
-    applyAwarenessUpdate(awareness, update, 'remote');
+    try {
+      // Convert ArrayBuffer back to Uint8Array if needed
+      const updateArray =
+        update instanceof Uint8Array ? update : new Uint8Array(update);
+
+      // Apply awareness update
+      applyAwarenessUpdate(awareness, updateArray, 'remote');
+    } catch (error) {
+      console.error(
+        `[YjsProvider] Error applying awareness update for ${docId}:`,
+        error
+      );
+    }
   }
 
   /**

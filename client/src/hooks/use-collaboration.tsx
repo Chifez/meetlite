@@ -4,7 +4,6 @@ import {
   WorkflowData,
   WorkflowOperation,
   WhiteboardUpdate,
-  CodeUpdate,
   ExtendedSocket,
 } from '@/components/room/types';
 
@@ -229,60 +228,9 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     socket.emit('whiteboard:request-sync', { roomId });
   }, [socket, roomId]);
 
-  // Code editor functionality
-  const sendCodeUpdate = useCallback(
-    (update: CodeUpdate) => {
-      if (!socket || !roomId || collaborationState.mode !== 'code') {
-        console.warn('Cannot send code update:', {
-          socketConnected: !!socket,
-          roomId,
-          mode: collaborationState.mode,
-        });
-        return;
-      }
-
-      const versionedUpdate = {
-        ...update,
-        version: update.version + 1,
-        timestamp: Date.now(),
-      };
-
-      // Send update
-      socket.emit('code:update', {
-        roomId,
-        update: versionedUpdate,
-      });
-
-      // Apply update locally immediately
-      setCollaborationState((prev) => {
-        if (!prev.codeData) {
-          return {
-            ...prev,
-            codeData: {
-              code: update.code,
-              language: update.language || 'javascript',
-              version: versionedUpdate.version,
-              lastModified: new Date(versionedUpdate.timestamp),
-              lastModifiedBy: socket.user?.id || null,
-            },
-          };
-        }
-
-        return {
-          ...prev,
-          codeData: {
-            ...prev.codeData,
-            code: update.code,
-            language: update.language || prev.codeData.language,
-            version: versionedUpdate.version,
-            lastModified: new Date(versionedUpdate.timestamp),
-            lastModifiedBy: socket.user?.id || null,
-          },
-        };
-      });
-    },
-    [socket, roomId, collaborationState.mode]
-  );
+  // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
+  // Code content is synchronized via YJS binary protocol (yjs:update events)
+  // Only language changes use legacy events
 
   const changeCodeLanguage = useCallback(
     (language: string) => {
@@ -469,29 +417,9 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       }));
     };
 
-    const handleCodeUpdate = (data: {
-      update: CodeUpdate;
-      userId: string;
-      timestamp: number;
-      version: number;
-    }) => {
-      // Only apply update if it's newer than our current version
-      if (data.version <= (collaborationState.codeData?.version || 0)) {
-        return;
-      }
-
-      setCollaborationState((prev) => ({
-        ...prev,
-        codeData: {
-          code: data.update.code,
-          language:
-            data.update.language || prev.codeData?.language || 'javascript',
-          version: data.version,
-          lastModified: new Date(data.timestamp),
-          lastModifiedBy: data.userId,
-        },
-      }));
-    };
+    // REMOVED: handleCodeUpdate - Now using pure YJS for code synchronization
+    // Code content is synchronized via YJS binary protocol
+    // Only metadata (language, permissions) uses legacy events
 
     const handleCodeLanguageChange = (data: {
       language: string;
@@ -546,7 +474,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     );
     socket.on('workflow:operation', handleWorkflowOperation);
     socket.on('whiteboard:update', handleWhiteboardUpdate);
-    socket.on('code:update', handleCodeUpdate);
+    // REMOVED: 'code:update' - Now using pure YJS for code synchronization
     socket.on('code:language-change', handleCodeLanguageChange);
 
     // Handle state sync response
@@ -583,7 +511,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       );
       socket.off('workflow:operation', handleWorkflowOperation);
       socket.off('whiteboard:update', handleWhiteboardUpdate);
-      socket.off('code:update', handleCodeUpdate);
+      // REMOVED: 'code:update' - Now using pure YJS for code synchronization
       socket.off('code:language-change', handleCodeLanguageChange);
       socket.off('workflow:state-sync');
       socket.off('whiteboard:state-sync');
@@ -604,7 +532,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     applyWorkflowOperation,
     requestWhiteboardSync,
     sendWhiteboardUpdate,
-    sendCodeUpdate,
+    // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
     changeCodeLanguage,
     requestCodeSync,
     startPresenting,

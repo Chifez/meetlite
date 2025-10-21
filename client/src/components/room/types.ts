@@ -130,7 +130,7 @@ export interface RoomContextType {
   ) => void;
   sendWorkflowOperation: (operation: WorkflowOperation) => void;
   sendWhiteboardUpdate: (update: WhiteboardUpdate) => void;
-  sendCodeUpdate: (update: CodeUpdate) => void;
+  // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
   changeCodeLanguage: (language: string) => void;
   requestCodeSync: () => void;
   // Presenter functionality

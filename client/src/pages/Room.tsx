@@ -64,7 +64,7 @@ const Room = () => {
     changeCollaborationMode,
     sendWorkflowOperation,
     sendWhiteboardUpdate,
-    sendCodeUpdate,
+    // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
     changeCodeLanguage,
     requestCodeSync,
     startPresenting,
@@ -180,7 +180,7 @@ const Room = () => {
       changeCollaborationMode,
       sendWorkflowOperation,
       sendWhiteboardUpdate,
-      sendCodeUpdate,
+      // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
       changeCodeLanguage,
       requestCodeSync,
       // Presenter functionality
@@ -217,7 +217,7 @@ const Room = () => {
       changeCollaborationMode,
       sendWorkflowOperation,
       sendWhiteboardUpdate,
-      sendCodeUpdate,
+      // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
       changeCodeLanguage,
       requestCodeSync,
       startPresenting,

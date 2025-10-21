@@ -27,25 +27,38 @@ export class YjsController {
         return;
       }
 
+      // Convert ArrayBuffer to Uint8Array if needed
+      const stateVectorArray = stateVector
+        ? stateVector instanceof Uint8Array
+          ? stateVector
+          : new Uint8Array(stateVector)
+        : null;
+
       logger.debug('Sync step 1 received', {
         roomId,
         docId,
         userId,
-        stateVectorSize: stateVector?.length || 0,
+        stateVectorSize: stateVectorArray?.length || 0,
       });
 
       // Get document state based on client's state vector
       const docState = this.yjsSyncService.getDocumentState(
         roomId,
         docId,
-        stateVector
+        stateVectorArray
+      );
+
+      // Convert Uint8Array to ArrayBuffer for Socket.IO
+      const docStateBuffer = docState.buffer.slice(
+        docState.byteOffset,
+        docState.byteOffset + docState.byteLength
       );
 
       // Send sync step 2 back to client
       const response = {
         roomId,
         docId,
-        update: docState,
+        update: docStateBuffer,
         timestamp: Date.now(),
       };
 
@@ -78,26 +91,40 @@ export class YjsController {
         return;
       }
 
+      // Convert ArrayBuffer to Uint8Array if needed
+      const updateArray =
+        update instanceof Uint8Array ? update : new Uint8Array(update);
+
       logger.debug('Update received', {
         roomId,
         docId,
         userId,
-        updateSize: update.length,
+        updateSize: updateArray.length,
       });
 
       // Apply update to server-side document
-      const success = this.yjsSyncService.applyUpdate(roomId, docId, update);
+      const success = this.yjsSyncService.applyUpdate(
+        roomId,
+        docId,
+        updateArray
+      );
 
       if (!success) {
         logger.error('Failed to apply update', { roomId, docId, userId });
         return;
       }
 
+      // Convert back to ArrayBuffer for broadcasting
+      const updateBuffer = updateArray.buffer.slice(
+        updateArray.byteOffset,
+        updateArray.byteOffset + updateArray.byteLength
+      );
+
       // Broadcast update to all other clients in the room
       socket.to(roomId).emit('yjs:update', {
         roomId,
         docId,
-        update,
+        update: updateBuffer,
         timestamp: Date.now(),
       });
 
@@ -105,7 +132,7 @@ export class YjsController {
         roomId,
         docId,
         userId,
-        updateSize: update.length,
+        updateSize: updateArray.length,
       });
     } catch (error) {
       logger.error('Failed to handle update', {
@@ -128,19 +155,34 @@ export class YjsController {
         return;
       }
 
+      // Convert ArrayBuffer to Uint8Array if needed
+      const updateArray = awarenessUpdate
+        ? awarenessUpdate instanceof Uint8Array
+          ? awarenessUpdate
+          : new Uint8Array(awarenessUpdate)
+        : null;
+
       logger.debug('Awareness update received', {
         roomId,
         docId,
         userId,
-        updateSize: awarenessUpdate?.length || 0,
+        updateSize: updateArray?.length || 0,
       });
+
+      // Convert back to ArrayBuffer for broadcasting
+      const updateBuffer = updateArray
+        ? updateArray.buffer.slice(
+            updateArray.byteOffset,
+            updateArray.byteOffset + updateArray.byteLength
+          )
+        : null;
 
       // Simply broadcast awareness update to all other clients in the room
       // No need to decode - clients handle their own awareness states
       socket.to(roomId).emit('yjs:awareness', {
         roomId,
         docId,
-        update: awarenessUpdate,
+        update: updateBuffer,
         timestamp: Date.now(),
       });
 

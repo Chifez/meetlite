@@ -5,6 +5,7 @@ import { awarenessManager } from '@/lib/yjs/yjs-awareness-manager';
 
 /**
  * Hook for collaborative code editing with Yjs
+ * Pure YJS implementation - no legacy callback system
  */
 export function useYjsCode(
   roomId: string | undefined,
@@ -31,11 +32,14 @@ export function useYjsCode(
     setYText(text);
     setIsReady(true);
 
-    console.log('[useYjsCode] Y.Text ready');
+    console.log('[useYjsCode] Y.Text ready', {
+      docId,
+      content: text.toString(),
+    });
 
     // Cleanup
     return () => {
-      console.log('[useYjsCode] Cleanup');
+      console.log('[useYjsCode] Cleaning up');
       // Don't destroy here - let the provider/document manager handle it
       setYText(null);
       setIsReady(false);

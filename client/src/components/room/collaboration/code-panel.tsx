@@ -24,7 +24,10 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     return null;
   }
 
-  // Initialize Yjs for code editing
+  // Get current language from collaboration state
+  const currentLanguage = collaborationState.codeData?.language || 'javascript';
+
+  // Initialize Yjs for code editing (pure YJS, no legacy callbacks)
   const { yText, isReady, docId, setActive } = useYjsCode(
     roomId,
     collaborationState?.mode === 'code'
@@ -33,17 +36,15 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
   // Get awareness data for active editors
   const { activeUserCount } = useYjsAwareness(docId, isReady);
 
-  // Get current code data (fallback if Yjs not ready)
-  const codeData = collaborationState.codeData || {
-    code: '',
-    language: 'javascript',
-    version: 0,
-    lastModified: new Date(),
-    lastModifiedBy: null,
-  };
+  // Get code value from Y.Text - always use YJS as the source of truth
+  const codeValue = isReady && yText ? yText.toString() : '';
 
-  // Get code value from Y.Text if ready, otherwise fallback
-  const codeValue = isReady && yText ? yText.toString() : codeData.code;
+  console.log('[CodePanel] Render state:', {
+    isReady,
+    hasYText: !!yText,
+    codeLength: codeValue.length,
+    language: currentLanguage,
+  });
 
   // Set active status when component mounts/user starts editing
   useEffect(() => {
@@ -61,7 +62,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
       if (canUserEdit) {
         changeCodeLanguage(language);
       } else {
-        console.log('User cannot edit, language change blocked');
+        console.log('[CodePanel] User cannot edit, language change blocked');
       }
     },
     [canUserEdit, changeCodeLanguage]
@@ -73,7 +74,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     >
       {/* Toolbar */}
       <CodeEditorToolbar
-        language={codeData.language}
+        language={currentLanguage}
         onLanguageChange={handleLanguageChange}
         canEdit={canUserEdit}
         activeEditors={[user?.name || user?.email || 'You']}
@@ -83,18 +84,27 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
 
       {/* Code Editor */}
       <div className="flex-1 min-h-0">
-        <CodeEditorComponent
-          value={codeValue}
-          yText={yText}
-          language={codeData.language}
-          readOnly={!canUserEdit}
-          placeholder={
-            canUserEdit
-              ? 'Start coding here...'
-              : 'Code editor is in view-only mode'
-          }
-          theme="dark"
-        />
+        {isReady ? (
+          <CodeEditorComponent
+            value={codeValue}
+            yText={yText}
+            language={currentLanguage}
+            readOnly={!canUserEdit}
+            placeholder={
+              canUserEdit
+                ? 'Start coding here...'
+                : 'Code editor is in view-only mode'
+            }
+            theme="dark"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-700 mx-auto mb-2"></div>
+              <p>Connecting to collaboration service...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

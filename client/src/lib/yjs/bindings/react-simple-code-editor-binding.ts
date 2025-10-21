@@ -22,7 +22,8 @@ export function createEditorBinding(
   yText: Y.Text,
   getValue: () => string,
   onLocalChange: (value: string) => void,
-  getTextarea: () => HTMLTextAreaElement | null
+  getTextarea: () => HTMLTextAreaElement | null,
+  readOnly: boolean = false
 ): EditorBinding {
   let isUpdating = false;
 
@@ -33,7 +34,10 @@ export function createEditorBinding(
       return;
     }
 
-    console.log('[EditorBinding] Y.Text changed from remote');
+    console.log('[EditorBinding] Y.Text changed from remote', {
+      readOnly,
+      length: yText.toString().length,
+    });
 
     // Get current textarea
     const textarea = getTextarea();
@@ -41,8 +45,9 @@ export function createEditorBinding(
       console.warn('[EditorBinding] No textarea found for cursor adjustment');
     }
 
-    // Store current cursor position
-    const cursorPosition = textarea ? textarea.selectionStart : null;
+    // Store current cursor position (only if not read-only)
+    const cursorPosition =
+      textarea && !readOnly ? textarea.selectionStart : null;
 
     // Update editor value
     const newValue = yText.toString();
@@ -50,8 +55,8 @@ export function createEditorBinding(
     onLocalChange(newValue);
     isUpdating = false;
 
-    // Restore cursor position with adjustment
-    if (textarea && cursorPosition !== null) {
+    // Restore cursor position with adjustment (only if not read-only)
+    if (textarea && cursorPosition !== null && !readOnly) {
       requestAnimationFrame(() => {
         const adjustment = calculateCursorAdjustment(cursorPosition, event);
         const newPosition = Math.max(0, cursorPosition + adjustment);
@@ -60,12 +65,18 @@ export function createEditorBinding(
     }
   };
 
-  // Observe Y.Text changes
+  // Observe Y.Text changes - ALWAYS observe, even in read-only mode
   yText.observe(yTextObserver);
 
   // Method to handle local editor changes
   const handleLocalChange = (newValue: string) => {
     if (isUpdating) return;
+
+    // Block local changes if read-only
+    if (readOnly) {
+      console.log('[EditorBinding] Blocked local change - read-only mode');
+      return;
+    }
 
     const oldValue = yText.toString();
 

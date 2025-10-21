@@ -28,22 +28,21 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
 
   // Initialize Yjs binding
   useEffect(() => {
-    if (!yText || readOnly) {
+    if (!yText) {
       bindingRef.current = null;
       return;
     }
 
-    console.log('[CodeEditor] Creating Yjs binding');
-
+    // Create binding even in read-only mode to receive remote updates
     const binding = createEditorBinding(
       yText,
       () => localValue,
       (newValue) => {
-        console.log('[CodeEditor] Yjs update received');
         setLocalValue(newValue);
       },
       () =>
-        document.getElementById('code-editor-textarea') as HTMLTextAreaElement
+        document.getElementById('code-editor-textarea') as HTMLTextAreaElement,
+      readOnly // Pass readOnly flag to binding
     );
 
     bindingRef.current = binding;
@@ -58,6 +57,7 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
       binding.destroy();
       bindingRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yText, readOnly]);
 
   // Update local value when prop value changes (fallback)
@@ -69,6 +69,11 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
 
   // Handle local changes
   const handleChange = (newValue: string) => {
+    // Don't allow changes if read-only
+    if (readOnly) {
+      return;
+    }
+
     if (bindingRef.current) {
       // Use Yjs binding
       bindingRef.current.onLocalChange(newValue);
