@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import CodeEditor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
+import * as Y from 'yjs';
+import { createEditorBinding } from '@/lib/yjs/bindings/react-simple-code-editor-binding';
 
 interface CodeEditorProps {
   value: string;
-  onChange: (value: string) => void;
+  yText?: Y.Text | null;
   language: string;
   readOnly?: boolean;
   placeholder?: string;
@@ -13,12 +15,68 @@ interface CodeEditorProps {
 
 export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
   value,
-  onChange,
+  yText = null,
   language,
   readOnly = false,
   placeholder = 'Start coding...',
   theme = 'dark',
 }) => {
+  const [localValue, setLocalValue] = useState(value);
+  const bindingRef = useRef<ReturnType<typeof createEditorBinding> | null>(
+    null
+  );
+
+  // Initialize Yjs binding
+  useEffect(() => {
+    if (!yText || readOnly) {
+      bindingRef.current = null;
+      return;
+    }
+
+    console.log('[CodeEditor] Creating Yjs binding');
+
+    const binding = createEditorBinding(
+      yText,
+      () => localValue,
+      (newValue) => {
+        console.log('[CodeEditor] Yjs update received');
+        setLocalValue(newValue);
+      },
+      () =>
+        document.getElementById('code-editor-textarea') as HTMLTextAreaElement
+    );
+
+    bindingRef.current = binding;
+
+    // Sync initial value
+    const yTextValue = yText.toString();
+    if (yTextValue) {
+      setLocalValue(yTextValue);
+    }
+
+    return () => {
+      binding.destroy();
+      bindingRef.current = null;
+    };
+  }, [yText, readOnly]);
+
+  // Update local value when prop value changes (fallback)
+  useEffect(() => {
+    if (!yText) {
+      setLocalValue(value);
+    }
+  }, [value, yText]);
+
+  // Handle local changes
+  const handleChange = (newValue: string) => {
+    if (bindingRef.current) {
+      // Use Yjs binding
+      bindingRef.current.onLocalChange(newValue);
+    } else {
+      // Fallback to regular state update
+      setLocalValue(newValue);
+    }
+  };
   const getLanguage = (lang: string) => {
     // Only use languages that are available in core Prism.js
     switch (lang) {
@@ -60,8 +118,8 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
   return (
     <div className="h-full w-full">
       <CodeEditor
-        value={value}
-        onValueChange={onChange}
+        value={localValue}
+        onValueChange={handleChange}
         highlight={(code) => highlight(code, getLanguage(language), language)}
         padding={10}
         readOnly={readOnly}
@@ -76,6 +134,7 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
         }}
         textareaClassName="focus:outline-none resize-none"
         preClassName="focus:outline-none"
+        textareaId="code-editor-textarea"
       />
     </div>
   );

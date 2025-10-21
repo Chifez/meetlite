@@ -1,24 +1,20 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { CodeEditorComponent } from './code-editor';
 import { CodeEditorToolbar } from './code-editor-toolbar';
 import { useRoom } from '@/contexts/room-context';
 import { useAuth } from '@/hooks/use-auth';
-import { CodeUpdate } from '@/components/room/types';
+import { useYjsCode } from '@/hooks/yjs/use-yjs-code';
+import { useYjsAwareness } from '@/hooks/yjs/use-yjs-awareness';
 
 interface CodePanelProps {
   className?: string;
 }
 
 export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
-  const {
-    socket,
-    collaborationState,
-    sendCodeUpdate,
-    changeCodeLanguage,
-    canEdit,
-  } = useRoom();
+  const { roomId } = useParams<{ roomId: string }>();
+  const { socket, collaborationState, changeCodeLanguage, canEdit } = useRoom();
   const { user } = useAuth();
-  const [activeEditors, setActiveEditors] = useState<string[]>([]);
 
   const isPresenter = user?.id === collaborationState?.presenter?.userId;
   const canUserEdit = user?.id ? canEdit(user.id) : false;
@@ -28,7 +24,16 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     return null;
   }
 
-  // Get current code data
+  // Initialize Yjs for code editing
+  const { yText, isReady, docId, setActive } = useYjsCode(
+    roomId,
+    collaborationState?.mode === 'code'
+  );
+
+  // Get awareness data for active editors
+  const { activeUserCount } = useYjsAwareness(docId, isReady);
+
+  // Get current code data (fallback if Yjs not ready)
   const codeData = collaborationState.codeData || {
     code: '',
     language: 'javascript',
@@ -37,42 +42,19 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     lastModifiedBy: null,
   };
 
-  // Debounced code update
-  const debouncedUpdateCode = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout;
-      return (newCode: string) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          if (canUserEdit && newCode !== codeData.code) {
-            const update: CodeUpdate = {
-              code: newCode,
-              language: codeData.language,
-              version: codeData.version,
-              timestamp: Date.now(),
-              userId: socket?.user?.id || '',
-            };
-            sendCodeUpdate(update);
-          }
-        }, 300);
-      };
-    })(),
-    [
-      canUserEdit,
-      codeData.code,
-      codeData.language,
-      codeData.version,
-      sendCodeUpdate,
-      socket?.user?.id,
-    ]
-  );
+  // Get code value from Y.Text if ready, otherwise fallback
+  const codeValue = isReady && yText ? yText.toString() : codeData.code;
 
-  const handleCodeChange = useCallback(
-    (newCode: string) => {
-      debouncedUpdateCode(newCode);
-    },
-    [debouncedUpdateCode]
-  );
+  // Set active status when component mounts/user starts editing
+  useEffect(() => {
+    if (canUserEdit) {
+      setActive(true);
+    }
+
+    return () => {
+      setActive(false);
+    };
+  }, [canUserEdit, setActive]);
 
   const handleLanguageChange = useCallback(
     (language: string) => {
@@ -85,12 +67,6 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     [canUserEdit, changeCodeLanguage]
   );
 
-  // Listen for active editors (placeholder - would be implemented with real-time presence)
-  useEffect(() => {
-    // This would be replaced with actual presence tracking
-    setActiveEditors([socket?.user?.id || '']);
-  }, [socket?.user?.id]);
-
   return (
     <div
       className={`h-full flex flex-col bg-white dark:bg-gray-900 ${className}`}
@@ -100,15 +76,16 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
         language={codeData.language}
         onLanguageChange={handleLanguageChange}
         canEdit={canUserEdit}
-        activeEditors={activeEditors}
+        activeEditors={[user?.name || user?.email || 'You']}
+        activeUserCount={activeUserCount}
         isPresenter={isPresenter}
       />
 
       {/* Code Editor */}
       <div className="flex-1 min-h-0">
         <CodeEditorComponent
-          value={codeData.code}
-          onChange={handleCodeChange}
+          value={codeValue}
+          yText={yText}
           language={codeData.language}
           readOnly={!canUserEdit}
           placeholder={

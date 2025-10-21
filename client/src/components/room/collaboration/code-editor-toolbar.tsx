@@ -8,6 +8,7 @@ interface CodeEditorToolbarProps {
   onLanguageChange: (language: string) => void;
   canEdit: boolean;
   activeEditors: string[];
+  activeUserCount?: number;
   isPresenter: boolean;
   compact?: boolean;
 }
@@ -16,7 +17,7 @@ export const CodeEditorToolbar: React.FC<CodeEditorToolbarProps> = ({
   language,
   onLanguageChange,
   canEdit,
-  activeEditors,
+  activeUserCount = 1,
   isPresenter,
   compact = false,
 }) => {
@@ -59,7 +60,7 @@ export const CodeEditorToolbar: React.FC<CodeEditorToolbarProps> = ({
             variant="outline"
             className={`${compact ? 'text-xs px-1 py-0' : 'text-sm px-2 py-1'}`}
           >
-            {activeEditors.length}
+            {activeUserCount}
           </Badge>
         </div>
       </div>

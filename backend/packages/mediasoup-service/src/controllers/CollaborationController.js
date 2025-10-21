@@ -687,4 +687,58 @@ export class CollaborationController {
       logger.error('Failed to handle presentation stop', error);
     }
   }
+
+  /**
+   * Handle collaboration state request (for users joining room)
+   */
+  async handleCollaborationStateRequest(socket, data) {
+    try {
+      const { roomId } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      logger.debug('Collaboration state requested', { roomId, userId });
+
+      // Get current collaboration state
+      const collaborationState =
+        this.collaborationStateManager.getCollaborationState(roomId);
+
+      // Get screen sharing state from MediaSoup service
+      let screenSharingUserId = null;
+      try {
+        const screenShareInfo = this.mediaSoupService.getScreenSharing(roomId);
+        if (screenShareInfo && screenShareInfo.userId) {
+          screenSharingUserId = screenShareInfo.userId;
+        }
+      } catch (error) {
+        logger.warn('Failed to get screen sharing state', { error });
+      }
+
+      // Send complete state to requesting user
+      socket.emit('collaboration:state', {
+        mode: collaborationState?.mode || 'none',
+        activeTool: collaborationState?.activeTool || 'none',
+        presenter: collaborationState?.presenter || null,
+        screenSharingUserId,
+        workflowData: collaborationState?.workflowData || null,
+        whiteboardData: collaborationState?.whiteboardData || null,
+        codeData: collaborationState?.codeData || null,
+        timestamp: Date.now(),
+      });
+
+      logger.debug('Collaboration state sent', {
+        roomId,
+        userId,
+        mode: collaborationState?.mode,
+      });
+    } catch (error) {
+      logger.error('Failed to handle collaboration state request', {
+        error: error.message,
+        stack: error.stack,
+      });
+    }
+  }
 }

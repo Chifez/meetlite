@@ -15,12 +15,14 @@ import {
 import { MediaSoupService } from './services/MediaSoupService.js';
 import { CollaborationStateManager } from './services/CollaborationStateManager.js';
 import { TldrawService } from './services/TldrawService.js';
+import { YjsSyncService } from './services/YjsSyncService.js';
 import { mediasoupConfig } from './config/mediasoup.js';
 
 // Import controllers
 import { MediaController } from './controllers/MediaController.js';
 import { CollaborationController } from './controllers/CollaborationController.js';
 import { RoomController } from './controllers/RoomController.js';
+import { YjsController } from './controllers/YjsController.js';
 import { FileHandler } from './handlers/FileHandler.js';
 
 // Import routes
@@ -88,6 +90,12 @@ const mediaSoupService = new MediaSoupService(collaborationStateManager);
 // Initialize Tldraw service
 const tldrawService = new TldrawService();
 
+// Initialize Yjs sync service
+const yjsSyncService = new YjsSyncService();
+
+// Start Yjs awareness cleanup task (runs every 60 seconds)
+yjsSyncService.startAwarenessCleanup(60000);
+
 // Initialize FileHandler
 const fileHandler = new FileHandler();
 
@@ -103,6 +111,7 @@ const collaborationController = new CollaborationController(
   io
 );
 const roomController = new RoomController(mediaSoupService, io);
+const yjsController = new YjsController(yjsSyncService, io);
 
 // ============================================================================
 // WEBSOCKET UPGRADE HANDLING FOR TLdraw
@@ -186,7 +195,13 @@ app.use('/api/media', createMediaRoutes(mediaController));
 io.use(authMiddleware);
 
 // Setup Socket.IO routes
-setupSocketRoutes(io, mediaController, collaborationController, roomController);
+setupSocketRoutes(
+  io,
+  mediaController,
+  collaborationController,
+  roomController,
+  yjsController
+);
 
 // ============================================================================
 // ERROR HANDLING MIDDLEWARE

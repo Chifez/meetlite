@@ -11,6 +11,7 @@ import { useMediaSetup } from '@/hooks/use-media-setup';
 import { useParticipantInfo } from '@/hooks/use-participants-info';
 import { useChat } from '@/hooks/use-chat';
 import { useCollaboration } from '@/hooks/use-collaboration';
+import { useYjsProvider } from '@/hooks/use-yjs-provider';
 import SEO from '@/components/seo';
 import { RoomProvider } from '@/contexts/room-context';
 import { SharedPresentation } from '@/components/room/shared-presentation';
@@ -23,6 +24,15 @@ const Room = () => {
 
   // Setup socket connection
   const { socket } = useSocketSetup({ roomId });
+
+  // Initialize Yjs provider for real-time collaboration
+  useYjsProvider(
+    socket,
+    roomId,
+    user?.id,
+    user?.name || user?.email,
+    user?.email
+  );
 
   // Setup participant info management
   const {

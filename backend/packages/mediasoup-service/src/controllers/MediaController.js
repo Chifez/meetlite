@@ -140,6 +140,21 @@ export class MediaController {
       // Get screen sharing info
       const screenShareInfo = this.mediaSoupService.getScreenSharing(roomId);
 
+      // Get collaboration state
+      let collaborationState = null;
+      try {
+        const collaborationStateManager =
+          this.mediaSoupService.collaborationStateManager;
+        if (collaborationStateManager) {
+          collaborationState =
+            collaborationStateManager.getCollaborationState(roomId);
+        }
+      } catch (error) {
+        logger.warn('Failed to get collaboration state for room join', {
+          error,
+        });
+      }
+
       // CRITICAL FIX: Send room data ONLY to the newly joined user, not ALL participants
       // This prevents existing users from receiving room-data and trying to re-consume producers
       socket.emit('room-data', {
@@ -182,6 +197,18 @@ export class MediaController {
         mediaSoupEnabled: true,
         existingProducers, // Existing producers for the new user to consume
         screenSharing: screenShareInfo, // Include screen sharing info
+        collaborationState: collaborationState
+          ? {
+              mode: collaborationState.mode || 'none',
+              activeTool: collaborationState.activeTool || 'none',
+              presenter: collaborationState.presenter || null,
+              screenSharingUserId: screenShareInfo?.userId || null,
+              workflowData: collaborationState.workflowData || null,
+              whiteboardData: collaborationState.whiteboardData || null,
+              codeData: collaborationState.codeData || null,
+              timestamp: Date.now(),
+            }
+          : null, // Include collaboration state
       });
 
       // Notify other participants with full participant info and media state

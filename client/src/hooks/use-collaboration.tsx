@@ -21,6 +21,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       workflowData: null,
       whiteboardData: null,
       codeData: null,
+      screenSharingUserId: null,
       presenter: {
         userId: null,
         mode: null,
@@ -35,7 +36,14 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
   // Request state sync when initializing
   const requestStateSync = useCallback(() => {
     if (!socket || !roomId) return;
+
+    // Request overall collaboration state (mode, presenter, screen sharing)
+    socket.emit('collaboration:request-state', { roomId });
+
+    // Request tool-specific data
     socket.emit('workflow:request-sync', { roomId });
+    socket.emit('whiteboard:request-sync', { roomId });
+    socket.emit('code:request-sync', { roomId });
   }, [socket, roomId]);
 
   const changeCollaborationMode = useCallback(
@@ -372,7 +380,6 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       };
       changedBy: string;
     }) => {
-      console.log('Collaboration mode changed:', data);
       setCollaborationState((prev) => ({
         ...prev,
         mode: data.mode,
@@ -491,7 +498,6 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       userId: string;
       timestamp: number;
     }) => {
-      console.log('Received code language change event:', data);
       setCollaborationState((prev) => {
         const newState = {
           ...prev,
@@ -511,14 +517,27 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
                 lastModifiedBy: data.userId,
               },
         };
-        console.log('Updated collaboration state:', newState);
         return newState;
       });
     };
 
-    // Request initial state sync
+    // Handle room data event (includes collaboration state)
+    const handleRoomData = (data: any) => {
+      if (data.collaborationState) {
+        setCollaborationState(data.collaborationState);
+        if (data.collaborationState.workflowData?.version) {
+          setOperationVersion(data.collaborationState.workflowData.version);
+        }
+      } else {
+        // Fallback: request state sync if not included in room-data
+        requestStateSync();
+      }
+    };
+
+    // Request initial state sync (fallback)
     requestStateSync();
 
+    socket.on('room-data', handleRoomData);
     socket.on('collaboration:state', handleCollaborationState);
     socket.on('collaboration:mode-changed', handleCollaborationModeChanged);
     socket.on(
@@ -555,6 +574,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     });
 
     return () => {
+      socket.off('room-data', handleRoomData);
       socket.off('collaboration:state', handleCollaborationState);
       socket.off('collaboration:mode-changed', handleCollaborationModeChanged);
       socket.off(

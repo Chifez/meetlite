@@ -53,6 +53,7 @@ export interface CollaborationState {
   workflowData: WorkflowData | null;
   whiteboardData: WhiteboardData | null;
   codeData: CodeData | null;
+  screenSharingUserId: string | null;
   // New presenter-related fields
   presenter: {
     userId: string | null;

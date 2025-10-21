@@ -8,7 +8,8 @@ export const setupSocketRoutes = (
   io,
   mediaController,
   collaborationController,
-  roomController
+  roomController,
+  yjsController
 ) => {
   // Socket.IO connection handling
   io.on('connection', (socket) => {
@@ -89,6 +90,11 @@ export const setupSocketRoutes = (
     // COLLABORATION EVENTS - Route to CollaborationController
     // ============================================================================
 
+    // Collaboration state sync (for users joining room)
+    socket.on('collaboration:request-state', (data) =>
+      collaborationController.handleCollaborationStateRequest(socket, data)
+    );
+
     // Chat events
     socket.on('chat:message', (data) =>
       collaborationController.handleChatMessage(socket, data)
@@ -113,10 +119,6 @@ export const setupSocketRoutes = (
 
     socket.on('presentation:settings', (data) =>
       collaborationController.handlePresentationSettings(socket, data)
-    );
-
-    socket.on('collaboration:request-state', (data) =>
-      collaborationController.handleCollaborationStateRequest(socket, data)
     );
 
     // Workflow events
@@ -157,6 +159,25 @@ export const setupSocketRoutes = (
 
     socket.on('presentation:stop', (data) =>
       collaborationController.handlePresentationStop(socket, data)
+    );
+
+    // ============================================================================
+    // YJS SYNC EVENTS - Route to YjsController
+    // ============================================================================
+
+    // Yjs sync protocol
+    socket.on('yjs:sync-step1', (data) =>
+      yjsController.handleSyncStep1(socket, data)
+    );
+
+    socket.on('yjs:update', (data) => yjsController.handleUpdate(socket, data));
+
+    socket.on('yjs:awareness', (data) =>
+      yjsController.handleAwarenessUpdate(socket, data)
+    );
+
+    socket.on('yjs:query-awareness', (data) =>
+      yjsController.handleAwarenessQuery(socket, data)
     );
 
     // ============================================================================
