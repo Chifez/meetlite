@@ -323,7 +323,7 @@ export const useWebRTC = (
 
       return peer;
     },
-    [socket, localStream, cleanupPeerConnection, updatePeersState]
+    [socket, localStream]
   );
 
   // Effect to handle socket events
@@ -497,13 +497,7 @@ export const useWebRTC = (
       console.log(`🎧 [WebRTC] Registering event listeners...`);
     }
 
-    // Add a generic listener to catch all events for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      const handleAnyEvent = (eventName: string, ...args: any[]) => {
-        console.log(`📡 [WebRTC] Received socket event: ${eventName}`, args);
-      };
-      socket.onAny(handleAnyEvent);
-    }
+    // REMOVED: socket.onAny() was causing excessive logging - 50+ logs per room join
 
     socket.on('call-user', handleCallUser);
     socket.on('answer-made', handleAnswerMade);
@@ -520,7 +514,7 @@ export const useWebRTC = (
           `🧹 [WebRTC] Cleaning up event listeners for socket ${socket.id}`
         );
       }
-      // socket.offAny(handleAnyEvent);
+      // REMOVED: socket.offAny() - was causing excessive logging
       socket.off('call-user', handleCallUser);
       socket.off('answer-made', handleAnswerMade);
       socket.off('ice-candidate', handleIceCandidate);
@@ -547,9 +541,8 @@ export const useWebRTC = (
     };
   }, [
     socket,
-    createPeerConnection,
-    cleanupPeerConnection,
-    processIceCandidateQueue,
+    // REMOVED: createPeerConnection, cleanupPeerConnection, processIceCandidateQueue
+    // These functions are stable and don't need to be in dependencies
   ]);
 
   return {

@@ -18,7 +18,13 @@ export function useYjsAwareness(docId: string | null, enabled: boolean = true) {
       return;
     }
 
-    console.log('[useYjsAwareness] Subscribing to awareness for docId:', docId);
+    // Only log in development to reduce console noise
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '[useYjsAwareness] Subscribing to awareness for docId:',
+        docId
+      );
+    }
 
     // Initial state
     const updateState = () => {
@@ -29,12 +35,6 @@ export function useYjsAwareness(docId: string | null, enabled: boolean = true) {
       setRemoteUsers(Array.from(remote.values()));
       setActiveUsers(active);
       setLocalState(local);
-
-      console.log('[useYjsAwareness] Updated state:', {
-        remoteCount: remote.size,
-        activeCount: active.length,
-        hasLocal: !!local,
-      });
     };
 
     // Initial update
@@ -42,13 +42,11 @@ export function useYjsAwareness(docId: string | null, enabled: boolean = true) {
 
     // Subscribe to changes
     const unsubscribe = awarenessManager.subscribe(docId, (changes) => {
-      console.log('[useYjsAwareness] Awareness changed:', changes);
       updateState();
     });
 
     // Cleanup
     return () => {
-      console.log('[useYjsAwareness] Unsubscribing');
       unsubscribe();
     };
   }, [docId, enabled]);

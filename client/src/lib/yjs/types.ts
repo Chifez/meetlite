@@ -22,9 +22,8 @@ export interface YjsDocument {
  * Cursor & Awareness Types
  */
 export interface CursorPosition {
-  line: number;
-  column: number;
-  index: number; // Character index in document
+  index: number; // Character index in document (primary reference)
+  timestamp?: number; // Optional timestamp for conflict resolution
 }
 
 export interface SelectionRange {

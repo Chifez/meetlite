@@ -5,6 +5,7 @@ import * as Y from 'yjs';
 import { createEditorBinding } from '@/lib/yjs/bindings/react-simple-code-editor-binding';
 import { CursorOverlay } from './cursor-overlay';
 import { UserAwareness } from '@/lib/yjs/types';
+import './code-editor.css';
 
 // Import Prism.js CSS theme for syntax highlighting
 import 'prismjs/themes/prism-tomorrow.css';
@@ -31,7 +32,7 @@ interface CodeEditorProps {
   readOnly?: boolean;
   placeholder?: string;
   theme?: 'light' | 'dark';
-  onCursorChange?: (line: number, column: number, index: number) => void;
+  onCursorChange?: (index: number) => void;
   remoteUsers?: UserAwareness[];
 }
 
@@ -166,33 +167,33 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
 
   const themeStyles = getThemeStyles();
 
-  // Safe highlight function with error handling
-  const highlightCode = (code: string): string => {
+  // Safe highlight function with error handling and line numbers
+  // Highlight with line numbers (CodeSandbox approach)
+  const hightlightWithLineNumbers = (input: string, lang: any): string => {
     try {
-      const lang = getLanguage(language);
-
-      console.log('[CodeEditor] Highlighting:', {
-        language,
-        langObject: lang,
-        hasLang: !!lang,
-        langType: typeof lang,
-        availableLanguages: Object.keys(languages),
-      });
-
       if (!lang) {
         console.warn(
           `[CodeEditor] No language grammar found for '${language}'`
         );
-        return code; // Return plain code if no grammar
+        return input;
       }
-      return highlight(code, lang, language);
+
+      // First highlight the code
+      const highlightedCode = highlight(input, lang, language);
+
+      // Split by actual newlines (not word wrapping)
+      return highlightedCode
+        .split('\n')
+        .map(
+          (line: string, i: number) =>
+            `<span class='editorLineNumber' style="color: ${
+              themeStyles.lineNumbers
+            }">${i + 1}</span>${line}`
+        )
+        .join('\n');
     } catch (error) {
-      console.error(
-        `[CodeEditor] Error highlighting code for language '${language}':`,
-        error
-      );
-      console.error('[CodeEditor] Language object was:', getLanguage(language));
-      return code; // Return plain code on error
+      console.error(`[CodeEditor] Error highlighting code:`, error);
+      return input;
     }
   };
 
@@ -201,10 +202,13 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
       <CodeEditor
         value={localValue}
         onValueChange={handleChange}
-        highlight={highlightCode}
+        highlight={(code) =>
+          hightlightWithLineNumbers(code, getLanguage(language))
+        }
         padding={10}
         readOnly={readOnly}
         placeholder={placeholder}
+        className="editor"
         style={{
           fontFamily: '"Fira code", "Fira Mono", monospace',
           fontSize: 14,
@@ -220,6 +224,18 @@ export const CodeEditorComponent: React.FC<CodeEditorProps> = ({
 
       {/* Remote cursors overlay */}
       <CursorOverlay remoteUsers={remoteUsers} editorValue={localValue} />
+
+      {/* Max LOC info at bottom-right */}
+      <div
+        className="absolute bottom-2 right-2 pointer-events-none select-none text-xs opacity-50"
+        style={{
+          color: themeStyles.lineNumbers,
+          fontFamily: '"Fira code", "Fira Mono", monospace',
+          zIndex: 30,
+        }}
+      >
+        max LOC &lt;1000
+      </div>
     </div>
   );
 };

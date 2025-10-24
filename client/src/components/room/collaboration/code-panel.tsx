@@ -39,13 +39,6 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
   // Get code value from Y.Text - always use YJS as the source of truth
   const codeValue = isReady && yText ? yText.toString() : '';
 
-  console.log('[CodePanel] Render state:', {
-    isReady,
-    hasYText: !!yText,
-    codeLength: codeValue.length,
-    language: currentLanguage,
-  });
-
   // Set active status when component mounts/user starts editing
   useEffect(() => {
     if (canUserEdit) {
@@ -62,7 +55,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
       if (canUserEdit) {
         changeCodeLanguage(language);
       } else {
-        console.log('[CodePanel] User cannot edit, language change blocked');
+        // do nothing
+        return;
       }
     },
     [canUserEdit, changeCodeLanguage]
@@ -70,9 +64,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
 
   // Handle cursor position changes
   const handleCursorChange = useCallback(
-    (line: number, column: number, index: number) => {
-      console.log('[CodePanel] Cursor changed:', { line, column, index });
-      updateCursor(line, column, index);
+    (index: number) => {
+      updateCursor(index);
     },
     [updateCursor]
   );

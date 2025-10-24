@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { RemoteCursor } from './remote-cursor';
 import { UserAwareness } from '@/lib/yjs/types';
 import {
-  calculateCursorPosition,
-  measureEditorMetrics,
+  getCursorPixelPositionFromIndex,
+  getEditorScrollPosition,
 } from '@/lib/yjs/cursor-utils';
 
 interface CursorOverlayProps {
@@ -14,51 +14,57 @@ interface CursorOverlayProps {
 
 export const CursorOverlay: React.FC<CursorOverlayProps> = ({
   remoteUsers,
-  editorValue,
+  editorValue: _editorValue,
   className = '',
 }) => {
-  const [editorMetrics, setEditorMetrics] = useState<{
-    charWidth: number;
-    lineHeight: number;
-  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Measure editor metrics when component mounts
-  useEffect(() => {
-    const textarea = document.getElementById(
-      'code-editor-textarea'
-    ) as HTMLTextAreaElement;
-    if (!textarea) {
-      console.warn('[CursorOverlay] Textarea not found');
-      return;
-    }
+  // Memoize filtered users with valid cursor positions to prevent unnecessary re-renders
+  const usersWithCursors = useMemo(() => {
+    return remoteUsers.filter(
+      (user) => user.cursor && user.cursor.index !== undefined
+    );
+  }, [remoteUsers]);
 
-    const metrics = measureEditorMetrics(textarea);
-    setEditorMetrics(metrics);
+  // Memoize cursor calculations to prevent unnecessary recalculations
+  // This must be before the conditional return to follow Rules of Hooks
+  const cursorElements = useMemo(() => {
+    if (!containerRef.current) return null;
 
-    console.log('[CursorOverlay] Editor metrics:', metrics);
-  }, []);
+    // Get the editor element (parent of the overlay)
+    const editorElement = containerRef.current.parentElement;
+    if (!editorElement) return null;
 
-  // Filter remote users with valid cursor positions
-  const usersWithCursors = remoteUsers.filter(
-    (user) =>
-      user.cursor &&
-      user.cursor.line !== undefined &&
-      user.cursor.column !== undefined
-  );
+    // Get scroll position
+    const { scrollTop, scrollLeft } = getEditorScrollPosition(editorElement);
 
-  console.log('[CursorOverlay] Remote users with cursors:', {
-    total: remoteUsers.length,
-    withCursors: usersWithCursors.length,
-    users: usersWithCursors.map((u) => ({
-      name: u.userName,
-      cursor: u.cursor,
-    })),
-  });
+    return usersWithCursors.map((user) => {
+      if (!user.cursor) return null;
 
-  if (!editorMetrics) {
-    return null;
-  }
+      const { index } = user.cursor;
+
+      // Get pixel position from character index using Range API
+      const position = getCursorPixelPositionFromIndex(
+        editorElement,
+        index,
+        scrollTop,
+        scrollLeft
+      );
+
+      if (!position) return null;
+
+      return (
+        <RemoteCursor
+          key={user.userId}
+          userName={user.userName || user.userEmail || 'Anonymous'}
+          userColor={user.userColor}
+          x={position.x}
+          y={position.y}
+          isVisible={user.isActive}
+        />
+      );
+    });
+  }, [usersWithCursors]);
 
   return (
     <div
@@ -66,28 +72,7 @@ export const CursorOverlay: React.FC<CursorOverlayProps> = ({
       className={`absolute inset-0 pointer-events-none overflow-hidden ${className}`}
       style={{ zIndex: 40 }}
     >
-      {usersWithCursors.map((user) => {
-        if (!user.cursor) return null;
-
-        const { line, column } = user.cursor;
-        const { x, y } = calculateCursorPosition(
-          line,
-          column,
-          editorMetrics.lineHeight,
-          editorMetrics.charWidth
-        );
-
-        return (
-          <RemoteCursor
-            key={user.userId}
-            userName={user.userName || user.userEmail || 'Anonymous'}
-            userColor={user.userColor}
-            x={x}
-            y={y}
-            isVisible={user.isActive}
-          />
-        );
-      })}
+      {cursorElements}
     </div>
   );
 };

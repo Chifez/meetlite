@@ -22,7 +22,10 @@ export function useYjsCode(
       return;
     }
 
-    console.log('[useYjsCode] Initializing for room:', roomId);
+    // Only log in development to reduce console noise
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useYjsCode] Initializing for room:', roomId);
+    }
 
     // Get Y.Text for code editor
     const text = documentManager.getCodeText(roomId);
@@ -32,14 +35,8 @@ export function useYjsCode(
     setYText(text);
     setIsReady(true);
 
-    console.log('[useYjsCode] Y.Text ready', {
-      docId,
-      content: text.toString(),
-    });
-
     // Cleanup
     return () => {
-      console.log('[useYjsCode] Cleaning up');
       // Don't destroy here - let the provider/document manager handle it
       setYText(null);
       setIsReady(false);
@@ -47,34 +44,23 @@ export function useYjsCode(
   }, [roomId, enabled]);
 
   // Update cursor position in awareness
-  const updateCursor = useCallback(
-    (line: number, column: number, index: number) => {
-      if (!docIdRef.current) return;
+  const updateCursor = useCallback((index: number) => {
+    if (!docIdRef.current) return;
 
-      awarenessManager.updateCursor(docIdRef.current, {
-        line,
-        column,
-        index,
-      });
-    },
-    []
-  );
+    awarenessManager.updateCursor(docIdRef.current, {
+      index,
+      timestamp: Date.now(),
+    });
+  }, []);
 
   // Update selection in awareness
   const updateSelection = useCallback(
-    (
-      startLine: number,
-      startColumn: number,
-      startIndex: number,
-      endLine: number,
-      endColumn: number,
-      endIndex: number
-    ) => {
+    (startIndex: number, endIndex: number) => {
       if (!docIdRef.current) return;
 
       awarenessManager.updateSelection(docIdRef.current, {
-        start: { line: startLine, column: startColumn, index: startIndex },
-        end: { line: endLine, column: endColumn, index: endIndex },
+        start: { index: startIndex, timestamp: Date.now() },
+        end: { index: endIndex, timestamp: Date.now() },
       });
     },
     []

@@ -19,17 +19,13 @@ export function useYjsProvider(
 
   useEffect(() => {
     if (!socket || !roomId || !userId || !userName) {
-      console.log(
-        '[useYjsProvider] Not initializing - missing required params'
-      );
       return;
     }
 
-    console.log('[useYjsProvider] Initializing Yjs provider', {
-      roomId,
-      userId,
-      userName,
-    });
+    // Only log in development to reduce console noise
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useYjsProvider] Initializing for room:', roomId);
+    }
 
     // Create provider
     const provider = new YjsProvider({
@@ -48,11 +44,8 @@ export function useYjsProvider(
 
     providerRef.current = provider;
 
-    console.log('[useYjsProvider] Provider connected');
-
     // Cleanup
     return () => {
-      console.log('[useYjsProvider] Disconnecting provider');
       provider.disconnect();
       documentManager.destroyRoomDocuments(roomId);
       awarenessManager.clearAll();

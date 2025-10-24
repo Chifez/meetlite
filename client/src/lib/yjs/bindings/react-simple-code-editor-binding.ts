@@ -4,7 +4,7 @@ import {
   applyStringDiff,
   calculateCursorAdjustment,
 } from './text-delta-converter';
-import { indexToLineColumn, throttle } from '../cursor-utils';
+import { throttle } from '../cursor-utils';
 
 /**
  * React Simple Code Editor Yjs Binding
@@ -16,7 +16,7 @@ export interface EditorBinding {
   onLocalChange: (value: string) => void;
   getValue: () => string;
   getTextarea: () => HTMLTextAreaElement | null;
-  onCursorChange?: (line: number, column: number, index: number) => void;
+  onCursorChange?: (index: number) => void;
   destroy: () => void;
 }
 
@@ -26,15 +26,15 @@ export function createEditorBinding(
   onLocalChange: (value: string) => void,
   getTextarea: () => HTMLTextAreaElement | null,
   readOnly: boolean = false,
-  onCursorChange?: (line: number, column: number, index: number) => void
+  onCursorChange?: (index: number) => void
 ): EditorBinding {
   let isUpdating = false;
 
   // Throttled cursor update to avoid spamming awareness updates
   const throttledCursorUpdate = onCursorChange
-    ? throttle((line: number, column: number, index: number) => {
-        onCursorChange(line, column, index);
-      }, 100)
+    ? throttle((index: number) => {
+        onCursorChange(index);
+      }, 50) // Reduced to 50ms for more responsive updates
     : null;
 
   // Track cursor position changes
@@ -45,11 +45,7 @@ export function createEditorBinding(
     if (!textarea) return;
 
     const index = textarea.selectionStart;
-    const text = yText.toString();
-    const { line, column } = indexToLineColumn(text, index);
-
-    console.log('[EditorBinding] Cursor changed:', { line, column, index });
-    throttledCursorUpdate(line, column, index);
+    throttledCursorUpdate(index);
   };
 
   // Attach cursor change listeners to textarea
@@ -62,8 +58,6 @@ export function createEditorBinding(
     textarea.addEventListener('keyup', handleCursorChange);
     textarea.addEventListener('select', handleCursorChange);
     textarea.addEventListener('focus', handleCursorChange);
-
-    console.log('[EditorBinding] Cursor listeners attached');
   };
 
   const removeCursorListeners = () => {
@@ -74,8 +68,6 @@ export function createEditorBinding(
     textarea.removeEventListener('keyup', handleCursorChange);
     textarea.removeEventListener('select', handleCursorChange);
     textarea.removeEventListener('focus', handleCursorChange);
-
-    console.log('[EditorBinding] Cursor listeners removed');
   };
 
   // Handler for Y.Text changes (from remote or undo/redo)
@@ -84,11 +76,6 @@ export function createEditorBinding(
       // Skip if we're updating from local change
       return;
     }
-
-    console.log('[EditorBinding] Y.Text changed from remote', {
-      readOnly,
-      length: yText.toString().length,
-    });
 
     // Get current textarea
     const textarea = getTextarea();
@@ -128,15 +115,12 @@ export function createEditorBinding(
 
     // Block local changes if read-only
     if (readOnly) {
-      console.log('[EditorBinding] Blocked local change - read-only mode');
       return;
     }
 
     const oldValue = yText.toString();
 
     if (oldValue === newValue) return;
-
-    console.log('[EditorBinding] Local change detected');
 
     // Update Y.Text
     isUpdating = true;
@@ -155,7 +139,6 @@ export function createEditorBinding(
   const destroy = () => {
     yText.unobserve(yTextObserver);
     removeCursorListeners();
-    console.log('[EditorBinding] Destroyed');
   };
 
   return {
