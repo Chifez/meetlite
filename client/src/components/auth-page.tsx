@@ -15,10 +15,10 @@ import {
 } from '@/components/ui/form';
 import AuthWrapper from './auth-wrapper';
 import Cookies from 'js-cookie';
-// import { env } from '@/config/env';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
+import { env } from '@/config/env';
 
 interface AuthPageProps {
   mode: 'login' | 'signup';
@@ -312,7 +312,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
           size="sm"
           className="w-full flex items-center justify-center gap-2"
           onClick={() => {
-            window.location.href = `/api/auth/google`;
+            window.location.href = `${env.API_GATEWAY_URL}/api/auth/google`;
           }}
         >
           <img src="/google.svg" alt="Google" className="w-5 h-5" />
