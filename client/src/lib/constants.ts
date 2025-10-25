@@ -2,7 +2,6 @@ import {
   Home,
   Users,
   Video,
-  History,
   BarChart3,
   Building2,
   Settings,

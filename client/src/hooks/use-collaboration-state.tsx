@@ -1,8 +1,7 @@
 import { useRoom } from '@/contexts/room-context';
 
 export const useCollaborationState = (currentUserId?: string) => {
-  const { socket, collaborationState, screenSharingUser, isScreenSharing } =
-    useRoom();
+  const { collaborationState, screenSharingUser, isScreenSharing } = useRoom();
 
   const currentMode = collaborationState?.mode || 'none';
   const isPresenting = currentMode !== 'none';

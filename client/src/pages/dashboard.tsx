@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
 import { toast } from 'sonner';
-import { env } from '@/config/env';
 import SEO from '@/components/seo';
 import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import api from '@/lib/axios';

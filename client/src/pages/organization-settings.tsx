@@ -62,7 +62,7 @@ export default function OrganizationSettings() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { handleNewToken } = useAuth();
-  const { activeOrganization, refreshOrganizations } = useWorkspace();
+  const { refreshOrganizations } = useWorkspace();
 
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);

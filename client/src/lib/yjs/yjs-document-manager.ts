@@ -110,7 +110,7 @@ export class YjsDocumentManager {
     const docIdsToDestroy: string[] = [];
 
     // Find all documents for this room
-    this.documents.forEach((doc, docId) => {
+    this.documents.forEach((_doc, docId) => {
       if (
         docId.startsWith(`code-${roomId}`) ||
         docId.startsWith(`workflow-${roomId}`)
@@ -131,7 +131,7 @@ export class YjsDocumentManager {
    * Destroy all documents
    */
   destroyAll(): void {
-    this.documents.forEach((doc, docId) => {
+    this.documents.forEach((_doc, docId) => {
       this.destroyDocument(docId);
     });
 

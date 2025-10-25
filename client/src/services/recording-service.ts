@@ -1,5 +1,4 @@
 import api from '@/lib/axios';
-import { env } from '@/config/env';
 import {
   MeetingRecording,
   MeetingAssetsQuery,

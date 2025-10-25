@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Y from 'yjs';
 import { documentManager } from '@/lib/yjs/yjs-document-manager';
 import { awarenessManager } from '@/lib/yjs/yjs-awareness-manager';
+import { indexToLineColumn } from '@/lib/yjs/cursor-utils';
 
 /**
  * Hook for collaborative code editing with Yjs
@@ -44,26 +45,48 @@ export function useYjsCode(
   }, [roomId, enabled]);
 
   // Update cursor position in awareness
-  const updateCursor = useCallback((index: number) => {
-    if (!docIdRef.current) return;
+  const updateCursor = useCallback(
+    (index: number, text?: string) => {
+      if (!docIdRef.current || !yText) return;
 
-    awarenessManager.updateCursor(docIdRef.current, {
-      index,
-      timestamp: Date.now(),
-    });
-  }, []);
+      const textContent = text ?? yText.toString();
+      const { line, column } = indexToLineColumn(textContent, index);
+
+      awarenessManager.updateCursor(docIdRef.current, {
+        index,
+        line,
+        column,
+        timestamp: Date.now(),
+      });
+    },
+    [yText]
+  );
 
   // Update selection in awareness
   const updateSelection = useCallback(
-    (startIndex: number, endIndex: number) => {
-      if (!docIdRef.current) return;
+    (startIndex: number, endIndex: number, text?: string) => {
+      if (!docIdRef.current || !yText) return;
+
+      const textContent = text ?? yText.toString();
+      const startPos = indexToLineColumn(textContent, startIndex);
+      const endPos = indexToLineColumn(textContent, endIndex);
 
       awarenessManager.updateSelection(docIdRef.current, {
-        start: { index: startIndex, timestamp: Date.now() },
-        end: { index: endIndex, timestamp: Date.now() },
+        start: {
+          index: startIndex,
+          line: startPos.line,
+          column: startPos.column,
+          timestamp: Date.now(),
+        },
+        end: {
+          index: endIndex,
+          line: endPos.line,
+          column: endPos.column,
+          timestamp: Date.now(),
+        },
       });
     },
-    []
+    [yText]
   );
 
   // Set active status

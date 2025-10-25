@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
 
 export interface MeetingFormData {
   title: string;

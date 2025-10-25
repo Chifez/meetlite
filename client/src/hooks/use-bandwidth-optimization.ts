@@ -191,7 +191,7 @@ export const useBandwidthOptimization = (
 
   // Get video constraints for a specific participant
   const getVideoConstraints = useCallback(
-    (participantId: string, isMainSpeaker: boolean = false) => {
+    (_participantId: string, isMainSpeaker: boolean = false) => {
       const { resolution, frameRate } = bandwidthSettings;
 
       // Main speakers get higher quality

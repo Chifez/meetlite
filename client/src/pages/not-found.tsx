@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Video } from 'lucide-react';
 import SEO from '@/components/seo';
 import Logo from '@/components/logo';
-import DashboardLayout from '@/components/dashboard/dashboard-layout';
 
 const NotFound = () => {
   return (
