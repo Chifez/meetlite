@@ -1,4 +1,3 @@
-import { env } from '@/config/env';
 import api from '@/lib/axios';
 import { UploadProgress } from '@/types/meetingAssets';
 

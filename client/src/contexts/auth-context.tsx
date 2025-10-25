@@ -2,7 +2,6 @@ import { createContext, useState, useEffect, ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
-import { env } from '@/config/env';
 import Cookies from 'js-cookie';
 import { Organization } from '@/types/organization';
 

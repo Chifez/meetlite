@@ -41,7 +41,7 @@ export function useYjsAwareness(docId: string | null, enabled: boolean = true) {
     updateState();
 
     // Subscribe to changes
-    const unsubscribe = awarenessManager.subscribe(docId, (changes) => {
+    const unsubscribe = awarenessManager.subscribe(docId, (_changes) => {
       updateState();
     });
 

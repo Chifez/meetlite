@@ -7,16 +7,15 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+
 import {
   Settings,
   TrendingUp,
   Crown,
   CreditCard,
   History,
-  AlertTriangle,
   CheckCircle,
 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
@@ -41,20 +40,44 @@ export default function PlanSettings() {
       // Mock data for now - replace with actual API call when available
       const mockSummary: PlanSummary = {
         plan: 'free',
-        status: 'active',
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        suggestions: [],
+        canUpgrade: true,
         usage: {
-          organizations: { used: 1, limit: 1 },
-          members: { used: 5, limit: 10 },
-          meetings: { used: 12, limit: 50 },
-          storage: { used: 1024, limit: 5000 }, // MB
+          organizationsOwned: 1,
+          organizationsMember: 1,
+          invitationsSentToday: 2,
+          invitationsSentThisMonth: 15,
+          meetingsCreatedToday: 1,
+          meetingsCreatedThisMonth: 12,
+          storageUsedGB: 1,
+          apiCallsToday: 50,
         },
         limits: {
-          organizations: 1,
-          members: 10,
-          meetings: 50,
-          storage: 5000,
+          maxOrganizationsOwned: 1,
+          maxOrganizationsMember: 5,
+          maxTeamSize: 10,
+          maxInvitationsPerDay: 5,
+          maxInvitationsPerMonth: 100,
+          maxConcurrentMeetings: 1,
+          maxMeetingDuration: 60,
+          maxParticipantsPerMeeting: 50,
+          maxMeetingsPerDay: 10,
+          maxMeetingsPerMonth: 50,
+          maxStorageGB: 1,
+          maxFileSizeMB: 10,
+          maxFilesPerMeeting: 5,
+          features: ['basic-meetings', 'screen-share', 'chat'],
+          maxAPICallsPerDay: 1000,
+          maxWebhooks: 0,
+          supportLevel: 'community',
+          responseTime: '48-72 hours',
+          customBranding: false,
+          whiteLabel: false,
+          sso: false,
+          advancedSecurity: false,
+          analytics: 'basic',
+          reporting: 'basic',
+          dataRetention: 30,
         },
       };
       setPlanSummary(mockSummary);
@@ -74,17 +97,6 @@ export default function PlanSettings() {
     } catch (error: any) {
       console.error('Upgrade error:', error);
       toast.error(error.message || 'Failed to start upgrade process');
-    }
-  };
-
-  const getPlanStatusColor = (plan: string) => {
-    switch (plan) {
-      case 'enterprise':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'pro':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 

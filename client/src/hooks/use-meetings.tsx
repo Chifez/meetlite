@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
 import { Meeting } from '@/lib/types';
 
 export const useMeetings = () => {

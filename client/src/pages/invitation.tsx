@@ -22,7 +22,6 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
 import Logo from '@/components/logo';
 
 interface InvitationData {

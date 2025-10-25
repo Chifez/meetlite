@@ -13,7 +13,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import AuthWrapper from '@/components/auth-wrapper';
-import { env } from '@/config/env';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff } from 'lucide-react';

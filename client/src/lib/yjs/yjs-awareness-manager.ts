@@ -1,12 +1,12 @@
-import * as Y from 'yjs';
 import { UserAwareness, CursorPosition, SelectionRange } from './types';
+import { Awareness } from 'y-protocols/awareness.js';
 
 /**
  * Awareness Manager for Yjs
  * Manages cursor presence and user awareness across documents
  */
 export class YjsAwarenessManager {
-  private awareness: Map<string, Y.Awareness>;
+  private awareness: Map<string, Awareness>;
 
   constructor() {
     this.awareness = new Map();
@@ -15,7 +15,7 @@ export class YjsAwarenessManager {
   /**
    * Register an awareness instance for a document
    */
-  register(docId: string, awareness: Y.Awareness): void {
+  register(docId: string, awareness: Awareness): void {
     this.awareness.set(docId, awareness);
   }
 

@@ -27,7 +27,6 @@ import {
   Copy,
   Loader2,
 } from 'lucide-react';
-import { env } from '@/config/env';
 
 type MediaDeviceInfo = {
   deviceId: string;

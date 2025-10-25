@@ -64,7 +64,8 @@ export function createSyncStep1Message(
   const encoder = encoding.createEncoder();
 
   // Encode state vector
-  Y.writeStateVector(doc, encoder);
+  const stateVector = Y.encodeStateVector(doc);
+  encoding.writeVarUint8Array(encoder, stateVector);
 
   return {
     type: YjsMessageType.SYNC_STEP1,
@@ -87,7 +88,8 @@ export function createSyncStep2Message(
   const encoder = encoding.createEncoder();
 
   // Encode state as update based on state vector
-  Y.writeStateAsUpdate(doc, encoder, stateVector);
+  const update = Y.encodeStateAsUpdate(doc, stateVector);
+  encoding.writeVarUint8Array(encoder, update);
 
   return {
     type: YjsMessageType.SYNC_STEP2,
@@ -143,10 +145,9 @@ export function mergeUpdates(updates: Uint8Array[]): Uint8Array {
  * Diff two documents and get the update needed
  */
 export function diffDocuments(sourceDoc: Y.Doc, targetDoc: Y.Doc): Uint8Array {
-  const encoder = encoding.createEncoder();
   const sourceStateVector = Y.encodeStateVector(sourceDoc);
-  Y.writeStateAsUpdate(targetDoc, encoder, sourceStateVector);
-  return encoding.toUint8Array(encoder);
+  const update = Y.encodeStateAsUpdate(targetDoc, sourceStateVector);
+  return update;
 }
 
 /**

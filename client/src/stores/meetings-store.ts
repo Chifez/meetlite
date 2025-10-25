@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { Meeting } from '@/lib/types';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { env } from '@/config/env';
 
 interface MeetingsState {
   // State
