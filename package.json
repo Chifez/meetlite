@@ -19,6 +19,7 @@
     "install:all": "npm install && npm install --workspace=client && npm install --workspace=backend/auth-service && npm install --workspace=backend/room-service && npm install --workspace=backend/signaling-service"
   },
   "devDependencies": {
+    "@types/lodash": "^4.17.20",
     "concurrently": "^8.2.2"
   },
   "engines": {
@@ -26,5 +27,9 @@
   },
   "author": "",
   "license": "ISC",
-  "description": "A real-time video conferencing application with multiple services"
+  "description": "A real-time video conferencing application with multiple services",
+  "dependencies": {
+    "prismjs": "^1.30.0",
+    "tldraw": "^3.14.2"
+  }
 }

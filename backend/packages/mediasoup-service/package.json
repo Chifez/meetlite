@@ -1,0 +1,42 @@
+{
+  "name": "@minimeet/mediasoup-service",
+  "version": "1.0.0",
+  "description": "MediaSoup media server for WebRTC video conferencing",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "dev:no-watch": "node src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@minimeet/shared-models": "*",
+    "@tldraw/sync-core": "^3.15.5",
+    "express": "^4.18.3",
+    "socket.io": "^4.7.5",
+    "mediasoup": "^3.12.0",
+    "mediasoup-client": "^3.7.7",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "winston": "^3.11.0",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.16.0",
+    "multer": "^1.4.5-lts.1",
+    "yjs": "^13.6.18",
+    "y-protocols": "^1.0.6",
+    "lib0": "^0.2.97"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mediasoup",
+    "webrtc",
+    "video",
+    "conferencing",
+    "microservice"
+  ]
+}

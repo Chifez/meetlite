@@ -1,0 +1,34 @@
+/* Code Editor Styles */
+
+.editor {
+  counter-reset: line;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+.editor #code-editor-textarea {
+  outline: none;
+  padding-left: 60px !important;
+  white-space: pre !important;
+  overflow-x: hidden !important;
+  min-width: max-content !important;
+}
+
+.editor pre {
+  padding-left: 60px !important;
+  white-space: pre !important;
+  overflow-x: hidden !important;
+  min-width: max-content !important;
+}
+
+.editor .editorLineNumber {
+  position: absolute;
+  left: 0px;
+  text-align: right;
+  width: 40px;
+  font-weight: 100;
+  font-family: 'Fira code', 'Fira Mono', monospace;
+  font-size: 14px;
+  user-select: none;
+  color: #858585; /* Default line number color - will be overridden by theme */
+}

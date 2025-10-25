@@ -6,7 +6,7 @@ This repository contains the backend microservices for the MeetLite video meetin
 
 - **Auth Service** (Port 5000): Handles user authentication and management
 - **Room Service** (Port 5001): Manages meeting rooms and participants
-- **Signaling Service** (Port 5002): Handles WebRTC signaling for peer-to-peer connections
+- **MediaSoup Service** (Port 3003): Handles WebRTC media streaming and collaboration
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ npm run install:all
 
    - `auth-service/.env`
    - `room-service/.env`
-   - `signaling-service/.env`
+   - `mediasoup-service/.env`
 
    See `.env.example` files in each service directory for required environment variables.
 
@@ -56,7 +56,7 @@ To run individual services:
 ```bash
 npm run dev:auth     # Auth service only
 npm run dev:room     # Room service only
-npm run dev:signaling # Signaling service only
+npm run dev:mediasoup # MediaSoup service only
 ```
 
 ## Environment Variables
@@ -77,11 +77,12 @@ Each service requires its own `.env` file. Create these files based on the `.env
 - `JWT_SECRET`: Secret for JWT token verification
 - `CORS_ORIGIN`: Allowed CORS origins
 
-### Signaling Service
+### MediaSoup Service
 
-- `PORT`: Server port (default: 5002)
+- `PORT`: Server port (default: 3003)
 - `JWT_SECRET`: Secret for JWT token verification
 - `CORS_ORIGIN`: Allowed CORS origins
+- `ROOM_SERVICE_URL`: Room service URL for validation
 
 ## API Documentation
 

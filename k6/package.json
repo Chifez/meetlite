@@ -1,0 +1,58 @@
+{
+  "name": "@minimeet/k6-tests",
+  "version": "1.0.0",
+  "description": "K6 Performance Testing Suite for MiniMeet Application",
+  "type": "module",
+  "main": "run-tests.js",
+  "scripts": {
+    "test:room-capacity": "k6 run scenarios/room-capacity.js",
+    "test:room-operations": "k6 run scenarios/room-operation.js",
+    "test:connection-load": "k6 run scenarios/connection-load.js",
+    "test:stress": "k6 run scenarios/stress-test.js",
+    "test:all": "npm run test:room-capacity && npm run test:room-operations && npm run test:connection-load && npm run test:stress",
+    "create-users": "node utils/create-test-users.js",
+    "runner:help": "node run-tests.js --help",
+    "runner:list": "node run-tests.js --list",
+    "runner:room-capacity": "node run-tests.js room-capacity",
+    "runner:room-operations": "node run-tests.js room-operations",
+    "runner:connection-load": "node run-tests.js connection-load",
+    "runner:stress": "node run-tests.js stress-test",
+    "validate": "node -c scenarios/*.js utils/*.js config/*.js",
+    "lint": "echo 'Linting K6 tests...' && node -c scenarios/*.js utils/*.js config/*.js"
+  },
+  "keywords": [
+    "k6",
+    "performance-testing",
+    "load-testing",
+    "stress-testing",
+    "websocket",
+    "socket.io",
+    "minimeet",
+    "video-conferencing"
+  ],
+  "author": "MiniMeet Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/minimeet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/minimeet/issues"
+  },
+  "homepage": "https://github.com/your-username/minimeet#readme",
+  "files": [
+    "scenarios/",
+    "utils/",
+    "config/",
+    "run-tests.js",
+    "README.md"
+  ],
+  "directories": {
+    "test": "scenarios"
+  }
+}

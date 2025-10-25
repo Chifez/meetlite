@@ -14,7 +14,7 @@ meetlite/
 └── backend/               # Backend microservices
     ├── auth-service/      # Authentication service
     ├── room-service/      # Room management service
-    └── signaling-service/ # WebRTC signaling service
+    ├── mediasoup-service/   # MediaSoup WebRTC service
 ```
 
 ## Features
@@ -100,7 +100,7 @@ The application will be available at:
 - Frontend: http://localhost:5173
 - Auth Service: http://localhost:5000
 - Room Service: http://localhost:5001
-- Signaling Service: http://localhost:5002
+- MediaSoup Service: http://localhost:3003
 
 ## Contributing
 

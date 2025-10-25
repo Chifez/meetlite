@@ -20,18 +20,18 @@ export interface RoomResponse {
   roomId: string;
 }
 
-// Socket event types
-export interface SignalingOffer {
+// WebRTC types (for P2P fallback)
+export interface WebRTCOffer {
   from: string;
   offer: RTCSessionDescriptionInit;
 }
 
-export interface SignalingAnswer {
+export interface WebRTCAnswer {
   from: string;
   answer: RTCSessionDescriptionInit;
 }
 
-export interface SignalingCandidate {
+export interface WebRTCCandidate {
   from: string;
   candidate: RTCIceCandidateInit;
 }
