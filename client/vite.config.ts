@@ -10,6 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // CRITICAL: Skip API requests and dynamic content
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -21,6 +23,21 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
               },
             },
+          },
+          // CRITICAL: Skip ALL API requests (never cache)
+          {
+            urlPattern: /\/api\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          // Skip Render.com API requests
+          {
+            urlPattern: /^https:\/\/.*\.onrender\.com\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          // Skip uploads
+          {
+            urlPattern: /\/uploads\/.*/i,
+            handler: 'NetworkOnly',
           },
         ],
       },
