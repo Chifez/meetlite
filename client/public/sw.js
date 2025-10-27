@@ -1,6 +1,5 @@
 const CACHE_NAME = 'meetlite-v1';
 const urlsToCache = [
-  '/',
   '/static/js/bundle.js',
   '/static/css/main.css',
   '/manifest.json',
@@ -21,6 +20,12 @@ self.addEventListener('install', (event) => {
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
+  if (
+    event.request.url.includes('sw.js') ||
+    event.request.url.includes('onrender.com')
+  ) {
+    return;
+  }
 
   // Skip service worker for API requests (especially uploads)
   // This allows Axios to handle progress tracking
