@@ -37,10 +37,10 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile overlay - closes sidebar when clicked outside */}
+      {/* Mobile/Tablet overlay - closes sidebar when clicked outside */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -48,23 +48,26 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
       <div
         className={cn(
           'flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300',
-          'fixed md:relative z-50 md:z-auto h-full',
-          'md:flex',
+          // Mobile & Tablet (< 1024px): Fixed overlay
+          'fixed lg:sticky lg:top-0 z-50 lg:z-auto h-full lg:h-screen',
+          'lg:flex',
+          // Mobile & Tablet behavior (reduced width for medium screens)
           mobileMenuOpen
-            ? 'translate-x-0 w-[70vw]'
-            : '-translate-x-full md:translate-x-0',
-          collapsed && 'md:w-16',
-          !collapsed && 'md:w-64'
+            ? 'translate-x-0 w-[70vw] md:w-[280px]'
+            : '-translate-x-full lg:translate-x-0',
+          // Large screen behavior (≥ 1024px)
+          collapsed && 'lg:w-16',
+          !collapsed && 'lg:w-64'
         )}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          {!(collapsed && window.innerWidth >= 768) && (
+          {!(collapsed && window.innerWidth >= 1024) && (
             <div className="flex items-center gap-2">
               <Logo />
             </div>
           )}
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <Button
               variant="ghost"
               size="sm"
@@ -74,12 +77,12 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
               <ChevronLeft className="h-4 w-4" />
             </Button>
           </div>
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setCollapsed(!collapsed)}
-              className="text-sidebar-foreground hover:bg-sidemd:-accent"
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
             >
               {collapsed ? (
                 <ChevronRight className="h-4 w-4" />
@@ -90,7 +93,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           </div>
         </div>
 
-        {!(collapsed && window.innerWidth >= 768) && (
+        {!(collapsed && window.innerWidth >= 1024) && (
           <div className="px-4 py-2 border-b border-sidebar-border">
             <div className="mb-1">
               <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
@@ -122,7 +125,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
                     className={cn(
                       'w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent',
                       collapsed &&
-                        window.innerWidth >= 768 &&
+                        window.innerWidth >= 1024 &&
                         'justify-center px-2',
                       isActive &&
                         'bg-sidebar-accent text-sidebar-accent-foreground',
@@ -132,7 +135,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
                     disabled={!item.available}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    {!(collapsed && window.innerWidth >= 768) && (
+                    {!(collapsed && window.innerWidth >= 1024) && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium">
                           {item.label}
@@ -156,7 +159,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
 
         <div className="p-4 border-t border-sidebar-border space-y-3">
           {/* Current Plan Display */}
-          {!(collapsed && window.innerWidth >= 768) && (
+          {!(collapsed && window.innerWidth >= 1024) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">

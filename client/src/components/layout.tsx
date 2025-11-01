@@ -45,43 +45,42 @@ const Layout = () => {
   }
 
   return (
-    <div className="relative flex flex-col">
-      <div className="relative z-50">
-        <div className="fixed h-0 flex flex-row">
-          <div className="h-screen">
-            {shouldShowNavbar && (
-              <Navbar
-                isMobileMenuOpen={isMobileMenuOpen}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-              />
-            )}
-          </div>
-          {shouldShowNavbar && (
-            <div className="bg-background/80 backdrop-blur h-fit w-screen p-2">
-              <Breadcrumb
-                currentPath={location.pathname}
-                isMobileMenuOpen={isMobileMenuOpen}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <main className="flex-1">
-        <div className="relative z-20">
-          <Outlet />
-        </div>
-      </main>
-
-      {/* Global Settings Modal - Available on all pages */}
+    <div className="relative flex flex-row">
+      {/* Sidebar */}
       {shouldShowNavbar && (
-        <SettingsModal
-          key={showSettingsModal ? 'open' : 'close'}
-          open={showSettingsModal}
-          onOpenChange={(open) => !open && closeSettingsModal()}
+        <Navbar
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
       )}
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Breadcrumb */}
+        {shouldShowNavbar && (
+          <div className="sticky top-0 z-40 bg-background/80 backdrop-blur border-b p-2">
+            <Breadcrumb
+              currentPath={location.pathname}
+              isMobileMenuOpen={isMobileMenuOpen}
+              setIsMobileMenuOpen={setIsMobileMenuOpen}
+            />
+          </div>
+        )}
+
+        {/* Page content */}
+        <main className="flex-1">
+          <Outlet />
+        </main>
+
+        {/* Global Settings Modal - Available on all pages */}
+        {shouldShowNavbar && (
+          <SettingsModal
+            key={showSettingsModal ? 'open' : 'close'}
+            open={showSettingsModal}
+            onOpenChange={(open) => !open && closeSettingsModal()}
+          />
+        )}
+      </div>
     </div>
   );
 };

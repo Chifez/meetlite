@@ -25,7 +25,7 @@ const Breadcrumb = ({
         <Button
           variant="ghost"
           size="sm"
-          className="md:hidden"
+          className="lg:hidden"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           <Menu className="h-5 w-5" />
@@ -33,7 +33,7 @@ const Breadcrumb = ({
 
         {isMobileMenuOpen && (
           <div
-            className="fixed inset-0 z-40 md:hidden"
+            className="fixed inset-0 z-40 lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
