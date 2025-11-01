@@ -88,12 +88,13 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
         // Check if user is connected to Google Calendar and fetch events
         try {
-          const calendarResponse = await api.get(`/api/calendar/connected`);
-          const connectedCalendars = calendarResponse.data;
-          const isGoogleConnected = connectedCalendars.some(
-            (cal: any) => cal.type === 'google' && cal.isConnected
-          );
+          // const calendarResponse = await api.get(`/api/calendar/connected`);
+          // const connectedCalendars = calendarResponse.data;
+          // const isGoogleConnected = connectedCalendars.some(
+          //   (cal: any) => cal.type === 'google' && cal.isConnected
+          // );
 
+          const isGoogleConnected = false;
           if (isGoogleConnected) {
             // Fetch Google Calendar events for the next 30 days
             const now = new Date();

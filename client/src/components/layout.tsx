@@ -1,31 +1,36 @@
+import { useCallback, useState } from 'react';
 import { Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import Navbar from './navbar';
 import Breadcrumb from './sidebar/breadcrumb';
 import SettingsModal from './dashboard/settings-modal';
-import { useState } from 'react';
 
 const Layout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isRoomPage = location.pathname.startsWith('/room/');
+
+  // Derive route info (simple checks don't need memoization)
+  const pathname = location.pathname;
+  const isRoomPage = pathname.startsWith('/room/');
   const isAuthPage =
-    location.pathname === '/login' ||
-    location.pathname === '/signup' ||
-    location.pathname === '/forgot-password' ||
-    location.pathname === '/reset-password' ||
-    location.pathname === '/onboarding' ||
-    location.pathname.startsWith('/invite/');
-  const isLandingPage = location.pathname === '/';
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password' ||
+    pathname === '/onboarding' ||
+    pathname.startsWith('/invite/');
+  const isLandingPage = pathname === '/';
   const shouldShowNavbar = !isRoomPage && !isAuthPage;
 
-  // Settings modal state
+  // Simple derived value (no memoization needed)
   const showSettingsModal = searchParams.get('settings') === 'true';
-  const closeSettingsModal = () => {
+
+  // Stable handler for closing settings modal
+  const closeSettingsModal = useCallback(() => {
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('settings');
     setSearchParams(newParams);
-  };
+  }, [searchParams, setSearchParams]);
 
   // Landing page layout - full width, no sidebar
   if (isLandingPage) {

@@ -7,8 +7,9 @@ import {
   Settings,
   Film,
 } from 'lucide-react';
+import type { NavigationItem } from './types';
 
-export const NAVIGATION_ITEMS = [
+export const NAVIGATION_ITEMS: NavigationItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: Home, available: true },
   {
     path: '/members',

@@ -76,3 +76,20 @@ export interface InviteValidationResponse {
   valid: boolean;
   meeting: Meeting;
 }
+
+// Navigation types
+export interface NavigationItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  available: boolean;
+  organizationOnly?: boolean;
+}
+
+// Sidebar state types
+export interface SidebarState {
+  collapsed: boolean;
+  mobileMenuOpen: boolean;
+}
+
+export type SidebarBreakpoint = 'mobile' | 'tablet' | 'desktop';
