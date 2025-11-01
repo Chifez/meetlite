@@ -114,7 +114,6 @@ export const MobileVideoLayout = ({
                   userName={participant.userName}
                   layoutMode="presentation"
                 />
-                
               </div>
             ))}
 
@@ -157,7 +156,7 @@ export const MobileVideoLayout = ({
         return (
           <div className="w-full h-full flex flex-row gap-2 p-2">
             {participants.map((participant) => (
-              <div key={participant.id} className="flex-1 aspect-[16/9]">
+              <div key={participant.id} className="flex-1 min-w-0 min-h-0">
                 <EnhancedVideoParticipant
                   stream={participant.stream}
                   mediaState={participant.mediaState}
@@ -175,7 +174,7 @@ export const MobileVideoLayout = ({
         return (
           <div className="w-full h-full flex flex-col gap-2 p-2">
             {participants.map((participant) => (
-              <div key={participant.id} className="flex-1 aspect-[16/9]">
+              <div key={participant.id} className="flex-1 min-w-0 min-h-0">
                 <EnhancedVideoParticipant
                   stream={participant.stream}
                   mediaState={participant.mediaState}
