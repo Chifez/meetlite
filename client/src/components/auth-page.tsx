@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { toast } from 'sonner';
@@ -39,8 +39,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
     }
   }, [token, error, mode, navigate, invitation]);
 
-  // Handle post-auth navigation
-  const handlePostAuthNavigation = useCallback(() => {
+  const handlePostAuthNavigation = () => {
     if (invitation) {
       navigate(`/invite/${invitation}`);
     } else if (redirectTo) {
@@ -49,39 +48,37 @@ const AuthPage = ({ mode }: AuthPageProps) => {
     } else {
       navigate(mode === 'login' ? '/dashboard' : '/onboarding');
     }
-  }, [invitation, redirectTo, setRedirectTo, navigate, mode]);
+  };
 
-  // Login form submission handler
-  const handleLoginSubmit = useCallback(
-    async (data: { email: string; password: string }) => {
-      setIsLoading(true);
-      try {
-        await login(data.email, data.password);
-        handlePostAuthNavigation();
-      } catch (error) {
-        // Error handled in context
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [login, handlePostAuthNavigation]
-  );
+  const handleLoginSubmit = async (data: {
+    email: string;
+    password: string;
+  }) => {
+    setIsLoading(true);
+    try {
+      await login(data.email, data.password);
+      handlePostAuthNavigation();
+    } catch (error) {
+      // Error handled in context
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Signup form submission handler
-  const handleSignupSubmit = useCallback(
-    async (data: { email: string; password: string }) => {
-      setIsLoading(true);
-      try {
-        await signup(data.email, data.password);
-        handlePostAuthNavigation();
-      } catch (error) {
-        // Error handled in context
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [signup, handlePostAuthNavigation]
-  );
+  const handleSignupSubmit = async (data: {
+    email: string;
+    password: string;
+  }) => {
+    setIsLoading(true);
+    try {
+      await signup(data.email, data.password);
+      handlePostAuthNavigation();
+    } catch (error) {
+      // Error handled in context
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Render appropriate form based on mode
   return mode === 'login' ? (

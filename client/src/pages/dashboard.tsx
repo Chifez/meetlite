@@ -12,7 +12,6 @@ import QuickActions from '@/components/dashboard/quick-action';
 import UpcomingMeetingsSection from '@/components/dashboard/upcoming-meetings-section';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal';
-
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import { useMeetingsStore, useUIStore } from '@/stores';
 
@@ -21,16 +20,10 @@ const Dashboard = () => {
   const { activeOrganization } = useWorkspace();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // Use stores instead of local state
   const { meetings, loading, fetchMeetings } = useMeetingsStore();
-
   const { setGlobalLoading } = useUIStore();
-
-  // Calendar integration
   const { scheduleMeetingOnCalendar } = useCalendarIntegration();
 
-  // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
 
   // Use the custom hook for form state management
@@ -45,10 +38,8 @@ const Dashboard = () => {
     removeParticipant,
     handleSubmit: submitForm,
   } = useMeetingForm(() => {
-    // Close modal and refresh meetings
     setSearchParams({});
     if (user?.id) {
-      // Align with production: refresh meetings after scheduling
       fetchMeetings(user.id);
     }
   });
@@ -61,10 +52,8 @@ const Dashboard = () => {
     setSearchParams({});
   };
 
-  // Handle direct scheduling on Google Calendar
   const handleScheduleOnCalendar = async (slot: any) => {
     try {
-      // Get the original meeting data from the conflict resolution
       const meetingData = {
         title: slot.title || 'Meeting',
         description: slot.description || '',
@@ -77,7 +66,6 @@ const Dashboard = () => {
 
       if (success) {
         toast.success('Meeting scheduled on Google Calendar!');
-        // Refresh meetings to show the new meeting
         if (user?.id) {
           await fetchMeetings(user.id);
         }
@@ -170,7 +158,6 @@ const Dashboard = () => {
         />
       </DashboardLayout>
 
-      {/* Delete Confirmation Dialog */}
       <DeleteMeetingDialog />
     </>
   );

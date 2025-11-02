@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import SEO from '@/components/seo';
@@ -11,7 +11,6 @@ import MeetingListSection from '@/components/meeting/meeting-list-section';
 import MeetingCalendarSection from '@/components/meeting/meeting-calendar-section';
 import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
 import ImportModal from '@/components/meeting/import-modal';
-// import MeetingsLayout from '@/components/meetings/meetings-layout';
 import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import MeetingViewToggle from '@/components/meetings/meeting-view-toggle';
@@ -45,26 +44,29 @@ const Meetings = () => {
     fetchMeetings: fetchMeetingsFromStore,
   } = useMeetingsStore();
 
-  // URL-based modal state
   const showScheduleModal = searchParams.get('modal') === 'schedule';
-
-  // Handle OAuth callback
   const oauthStatus = searchParams.get('oauth');
   const provider = searchParams.get('provider');
 
-  useMemo(() => {
+  // Handle OAuth callback side effects
+  useEffect(() => {
     if (oauthStatus === 'success' && provider === 'google') {
       toast.success('Google Calendar connected successfully!');
-      // Refresh connection status
       refreshConnectionStatus();
-      // Clear the OAuth params from URL
       setSearchParams({});
     } else if (oauthStatus === 'error' && provider === 'google') {
       toast.error('Failed to connect Google Calendar. Please try again.');
-      // Clear the OAuth params from URL
       setSearchParams({});
     }
   }, [setSearchParams, refreshConnectionStatus, oauthStatus, provider]);
+
+  const loadMeetings = async () => {
+    try {
+      await fetchMeetingsFromStore(user?.id);
+    } catch (e) {
+      toast.error('Failed to load meetings');
+    }
+  };
 
   // Use the custom hook for form state management
   const {
@@ -78,7 +80,6 @@ const Meetings = () => {
     removeParticipant,
     handleSubmit: submitForm,
   } = useMeetingForm(() => {
-    // Close modal and refresh meetings
     setSearchParams({});
     loadMeetings();
   });
@@ -91,22 +92,12 @@ const Meetings = () => {
     setSearchParams({});
   };
 
-  const loadMeetings = async () => {
-    try {
-      await fetchMeetingsFromStore(user?.id);
-    } catch (e) {
-      toast.error('Failed to load meetings');
-    }
-  };
-
   const handleFormSubmit = async () => {
     await submitForm();
   };
 
-  // Handle direct scheduling on Google Calendar
   const handleScheduleOnCalendar = async (slot: any) => {
     try {
-      // Get the original meeting data from the conflict resolution
       const meetingData = {
         title: slot.title || 'Meeting',
         description: slot.description || '',
@@ -119,7 +110,6 @@ const Meetings = () => {
 
       if (success) {
         toast.success('Meeting scheduled on Google Calendar!');
-        // Refresh meetings to show the new meeting
         await loadMeetings();
       } else {
         toast.error('Failed to schedule meeting on Google Calendar');
@@ -130,18 +120,14 @@ const Meetings = () => {
     }
   };
 
-  // Import handler
   const handleImport = async () => {
     if (!isConnected('google')) {
-      // Start OAuth and polling, then auto-import when connected
       await connectGoogleCalendar(async () => {
-        // Import events for the next 30 days after connection
         const now = new Date();
         const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         await importCalendarEvents('google', now, in30);
       });
     } else {
-      // Already connected, import directly
       const now = new Date();
       const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       await importCalendarEvents('google', now, in30);
@@ -150,7 +136,6 @@ const Meetings = () => {
 
   useEffect(() => {
     if (user?.id) {
-      // Load meetings when user ID or organization changes
       loadMeetings();
     }
   }, [user?.id, activeOrganization?.id]);
@@ -174,24 +159,20 @@ const Meetings = () => {
         onScheduleOnCalendar={handleScheduleOnCalendar}
       />
       <DashboardLayout>
-        {/* Hero Section */}
         <MeetingsWelcomeHeader onSchedule={openScheduleModal} />
 
-        {/* View Toggle */}
         <MeetingViewToggle
           view={view}
           setView={setView}
           setShowImportModal={setShowImportModal}
         />
 
-        {/* Meetings List or Calendar */}
         {view === 'list' ? (
           <MeetingListSection meetings={meetings} loading={loading} />
         ) : (
           <MeetingCalendarSection meetings={meetings} loading={loading} />
         )}
 
-        {/* Delete Confirmation Dialog */}
         <DeleteMeetingDialog />
       </DashboardLayout>
 
