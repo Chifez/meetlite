@@ -23,7 +23,7 @@ interface CalendarIntegration {
 }
 
 export const useCalendarIntegration = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [integrations, setIntegrations] = useState<CalendarIntegration[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -33,13 +33,7 @@ export const useCalendarIntegration = () => {
   const { meetings, setMeetings } = useMeetingsStore();
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const [isPolling, setIsPolling] = useState(false);
-
-  // Load connected calendars on mount
-  useEffect(() => {
-    if (user?.id) {
-      getConnectedCalendars();
-    }
-  }, [user?.id]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Check if user is connected to a specific calendar
   const isConnected = useCallback(
@@ -67,10 +61,16 @@ export const useCalendarIntegration = () => {
     CalendarIntegration[]
   > => {
     try {
-      const response = await api.get(`/api/calendar/connected`);
+      const response = await api.get(`/api/calendar/connected`, {
+        signal: abortControllerRef.current?.signal,
+      });
       setIntegrations(response.data);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      // Don't update state if request was aborted
+      if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+        return [];
+      }
       return [];
     }
   }, []);
@@ -325,18 +325,47 @@ export const useCalendarIntegration = () => {
     []
   );
 
-  // When modal closes, stop polling
+  // Handle import modal state changes with cleanup
+  const handleSetShowImportModal = useCallback(
+    (show: boolean) => {
+      setShowImportModal(show);
+      // Stop polling when modal closes
+      if (!show) {
+        stopPolling();
+      }
+    },
+    [stopPolling]
+  );
+
+  // Load connected calendars on mount - ONLY when auth is ready
+  // Debounced to prevent race conditions during rapid state changes
   useEffect(() => {
-    if (!showImportModal) {
-      stopPolling();
+    if (user?.id && isAuthenticated && !authLoading) {
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Debounce the call by 300ms
+      const timeoutId = setTimeout(() => {
+        abortControllerRef.current = new AbortController();
+        getConnectedCalendars();
+      }, 300);
+
+      return () => {
+        clearTimeout(timeoutId);
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+      };
     }
-  }, [showImportModal, stopPolling]);
+  }, [user?.id, isAuthenticated, authLoading]);
 
   return {
     integrations,
     isLoading,
     showImportModal,
-    setShowImportModal,
+    setShowImportModal: handleSetShowImportModal,
     importLoading,
     importedEvents,
     importError,

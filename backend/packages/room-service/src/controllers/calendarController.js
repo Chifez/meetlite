@@ -67,7 +67,7 @@ export const handleGoogleCallback = async (req, res) => {
 // Connect Google Calendar
 export const connectGoogleCalendar = async (req, res) => {
   try {
-    const userId = req.user.id; // From JWT token
+    const userId = req.user.userId; // From JWT token
     const userEmail = req.user.email; // From JWT token
 
     // Create state object with user info
@@ -116,7 +116,7 @@ export const connectGoogleCalendar = async (req, res) => {
 export const importCalendarEvents = async (req, res) => {
   try {
     const { calendarType, startDate, endDate, accessToken } = req.body;
-    const userId = req.user.id; // From JWT token
+    const userId = req.user.userId; // From JWT token
 
     if (calendarType === 'google') {
       // Get user's stored tokens from database
@@ -257,7 +257,7 @@ export const exportMeetingToCalendar = async (req, res) => {
 export const checkCalendarConflicts = async (req, res) => {
   try {
     const { startDate, endDate, attendees } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Check if user has Google Calendar connected
     const tokens = await getUserCalendarTokens(userId, 'google');
@@ -380,7 +380,7 @@ export const scheduleMeetingOnCalendar = async (req, res) => {
       participants,
       calendarType,
     } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (calendarType === 'google') {
       // Get user's stored tokens from database
@@ -447,7 +447,7 @@ export const deleteCalendarEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { calendarType } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (calendarType === 'google') {
       // Get user's stored tokens from database
@@ -490,7 +490,7 @@ export const deleteCalendarEvent = async (req, res) => {
 // Get connected calendars
 export const getConnectedCalendars = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Get connected calendars from database
     const integrations = await models.CalendarIntegration.find({
@@ -521,7 +521,7 @@ export const getConnectedCalendars = async (req, res) => {
 export const disconnectCalendarIntegration = async (req, res) => {
   try {
     const { calendarType } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     await disconnectCalendar(userId, calendarType);
 

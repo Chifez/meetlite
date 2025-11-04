@@ -87,14 +87,14 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
         });
 
         // Check if user is connected to Google Calendar and fetch events
+        // This is now safe: calendar errors won't trigger login redirect
         try {
-          // const calendarResponse = await api.get(`/api/calendar/connected`);
-          // const connectedCalendars = calendarResponse.data;
-          // const isGoogleConnected = connectedCalendars.some(
-          //   (cal: any) => cal.type === 'google' && cal.isConnected
-          // );
+          const calendarResponse = await api.get(`/api/calendar/connected`);
+          const connectedCalendars = calendarResponse.data;
+          const isGoogleConnected = connectedCalendars.some(
+            (cal: any) => cal.type === 'google' && cal.isConnected
+          );
 
-          const isGoogleConnected = false;
           if (isGoogleConnected) {
             // Fetch Google Calendar events for the next 30 days
             const now = new Date();
@@ -143,10 +143,12 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
           } else {
             set({ meetings: userMeetings });
           }
-        } catch (calendarError) {
-          console.error(
-            'Failed to fetch Google Calendar events:',
-            calendarError
+        } catch (calendarError: any) {
+          // Silent failure for calendar errors - don't disrupt core meeting functionality
+          // Calendar auth failures are handled by axios interceptor (no redirect)
+          console.warn(
+            'Calendar integration skipped:',
+            calendarError?.message || 'Unknown error'
           );
           set({ meetings: userMeetings });
         }
