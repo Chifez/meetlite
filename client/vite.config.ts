@@ -7,39 +7,16 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Disable service worker generation - we use manual sw.js for push notifications
+      // Only generate manifest.json for PWA metadata
+      registerType: 'prompt',
+      injectRegister: false, // We register manually in main.tsx
+      strategies: 'generateSW',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        // CRITICAL: Skip API requests and dynamic content
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-            },
-          },
-          // CRITICAL: Skip ALL API requests (never cache)
-          {
-            urlPattern: /\/api\/.*/i,
-            handler: 'NetworkOnly',
-          },
-          // Skip Render.com API requests
-          {
-            urlPattern: /^https:\/\/.*\.onrender\.com\/.*/i,
-            handler: 'NetworkOnly',
-          },
-          // Skip uploads
-          {
-            urlPattern: /\/uploads\/.*/i,
-            handler: 'NetworkOnly',
-          },
-        ],
+        // Disable Workbox runtime caching - we handle caching manually in sw.js
+        runtimeCaching: [],
+        // Don't generate service worker - use our manual one
+        swDest: undefined,
       },
       includeAssets: [
         'favicon.ico',
