@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
@@ -78,19 +78,6 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch upcoming meetings
-  const initializeDashboard = useCallback(async () => {
-    if (user?.id) {
-      // Fetch meetings for current user and organization context
-      await fetchMeetings(user.id);
-    }
-  }, [user?.id, activeOrganization?.id, fetchMeetings]);
-
-  useEffect(() => {
-    initializeDashboard();
-  }, [initializeDashboard]);
-
-  // Handlers
   const handleQuickMeeting = async () => {
     try {
       setGlobalLoading(true);
@@ -115,6 +102,13 @@ const Dashboard = () => {
     }
     navigate(`/lobby/${joinRoomId.trim()}`);
   };
+
+  // Fetch upcoming meetings on mount and when organization changes
+  useEffect(() => {
+    if (user?.id) {
+      fetchMeetings(user.id);
+    }
+  }, [user?.id, activeOrganization?.id, fetchMeetings]);
 
   // Get upcoming meetings (first 3)
   const upcomingMeetings = meetings

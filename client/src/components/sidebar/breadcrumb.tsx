@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { NAVIGATION_ITEMS } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,26 +16,11 @@ const Breadcrumb = ({
 }: BreadcrumbProps) => {
   const navigate = useNavigate();
 
-  // Simple derived values (no memoization needed for tiny operations)
+  // Simple derived values
   const currentItem = NAVIGATION_ITEMS.find(
     (item) => item.path === currentPath
   );
   const isDashboard = currentPath === '/dashboard';
-
-  // Stable handler for toggling mobile menu
-  const handleToggleMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  }, [isMobileMenuOpen, setIsMobileMenuOpen]);
-
-  // Stable handler for closing mobile menu
-  const handleCloseMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(false);
-  }, [setIsMobileMenuOpen]);
-
-  // Stable handler for navigating to dashboard
-  const handleGoToDashboard = useCallback(() => {
-    navigate('/dashboard');
-  }, [navigate]);
 
   if (!currentItem) return null;
 
@@ -47,7 +31,7 @@ const Breadcrumb = ({
           variant="ghost"
           size="sm"
           className="lg:hidden"
-          onClick={handleToggleMobileMenu}
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -55,7 +39,7 @@ const Breadcrumb = ({
         {isMobileMenuOpen && (
           <div
             className="fixed inset-0 z-40 lg:hidden"
-            onClick={handleCloseMobileMenu}
+            onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
       </div>
@@ -64,7 +48,7 @@ const Breadcrumb = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleGoToDashboard}
+          onClick={() => navigate('/dashboard')}
           className="hover:bg-transparent cursor-pointer flex items-center justify-center gap-2 h-auto font-medium text-xs uppercase"
         >
           {!isDashboard && (
