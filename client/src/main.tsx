@@ -10,8 +10,7 @@ import { ThemeProvider } from 'next-themes';
 import { HelmetProvider } from 'react-helmet-async';
 
 // Register PWA service worker (for push notifications)
-// NOTE: VitePWA plugin handles registration automatically, but we register manually
-// to ensure push notifications work correctly with our custom sw.js
+// We register manually to ensure push notifications work correctly with our custom sw.js
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
