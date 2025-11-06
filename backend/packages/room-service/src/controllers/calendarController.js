@@ -122,8 +122,10 @@ export const importCalendarEvents = async (req, res) => {
       // Get user's stored tokens from database
       const tokens = await getUserCalendarTokens(userId, 'google');
       if (!tokens) {
-        return res.status(401).json({
-          error: 'Google Calendar not connected. Please connect first.',
+        return res.status(409).json({
+          error:
+            'Google Calendar not connected. Please reconnect your account.',
+          code: 'GOOGLE_REAUTH_REQUIRED',
         });
       }
 
@@ -386,8 +388,10 @@ export const scheduleMeetingOnCalendar = async (req, res) => {
       // Get user's stored tokens from database
       const tokens = await getUserCalendarTokens(userId, 'google');
       if (!tokens) {
-        return res.status(401).json({
-          error: 'Google Calendar not connected. Please connect first.',
+        return res.status(409).json({
+          error:
+            'Google Calendar not connected. Please reconnect your account.',
+          code: 'GOOGLE_REAUTH_REQUIRED',
         });
       }
 
@@ -453,8 +457,10 @@ export const deleteCalendarEvent = async (req, res) => {
       // Get user's stored tokens from database
       const tokens = await getUserCalendarTokens(userId, 'google');
       if (!tokens) {
-        return res.status(401).json({
-          error: 'Google Calendar not connected. Please connect first.',
+        return res.status(409).json({
+          error:
+            'Google Calendar not connected. Please reconnect your account.',
+          code: 'GOOGLE_REAUTH_REQUIRED',
         });
       }
 
