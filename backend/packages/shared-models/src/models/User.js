@@ -124,6 +124,10 @@ const userSchema = new mongoose.Schema({
     lastPaymentDate: {
       type: Date,
     },
+    lastWarningSent: {
+      type: Date,
+      default: null,
+    },
   },
   // Stripe customer ID
   stripeCustomerId: {

@@ -3,6 +3,7 @@ import { PaymentService } from '../services/payment.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import Stripe from 'stripe';
 import { stripeConfig, getPriceId } from '../config/stripe.js';
+import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
@@ -195,37 +196,64 @@ export class PaymentController {
         return res.status(400).json({ message: 'Session ID is required' });
       }
 
-      // Retrieve the session
+      // Retrieve the session with subscription details
       const stripe = getStripe();
-      const session = await stripe.checkout.sessions.retrieve(session_id);
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ['subscription'],
+      });
 
       if (session.payment_status === 'paid') {
-        const { userId, planType, duration } = session.metadata;
+        const { userId, planType } = session.metadata;
 
         if (userId && planType) {
-          // Calculate end date
-          const endDate = new Date();
-          if (duration === 'monthly') {
-            endDate.setMonth(endDate.getMonth() + 1);
-          } else if (duration === 'yearly') {
-            endDate.setFullYear(endDate.getFullYear() + 1);
+          // Retrieve subscription to get actual period end date
+          let subscriptionId = null;
+          let endDate = null;
+          let startDate = new Date();
+
+          if (session.subscription) {
+            // Subscription mode - get actual subscription object
+            const subscription =
+              typeof session.subscription === 'string'
+                ? await stripe.subscriptions.retrieve(session.subscription)
+                : session.subscription;
+
+            subscriptionId = subscription.id;
+            // Use subscription's current_period_end as endDate (in seconds, convert to Date)
+            endDate = new Date(subscription.current_period_end * 1000);
+            startDate = new Date(subscription.current_period_start * 1000);
+          } else {
+            // Fallback: Calculate end date based on duration (shouldn't happen in subscription mode)
+            const { duration = 'monthly' } = session.metadata;
+            endDate = new Date();
+            if (duration === 'monthly') {
+              endDate.setMonth(endDate.getMonth() + 1);
+            } else if (duration === 'yearly') {
+              endDate.setFullYear(endDate.getFullYear() + 1);
+            }
           }
 
-          // Update user plan
+          // Update user plan with subscription details
           const updatedUser = await models.User.findByIdAndUpdate(
             userId,
             {
               'plan.type': planType,
               'plan.status': 'active',
-              'plan.startDate': new Date(),
+              'plan.startDate': startDate,
               'plan.endDate': endDate,
               'plan.stripeSessionId': session_id,
+              ...(subscriptionId && {
+                'plan.stripeSubscriptionId': subscriptionId,
+              }),
               $inc: { tokenVersion: 1 },
             },
             { new: true }
           );
 
           if (updatedUser) {
+            // Sync all organizations owned by this user
+            await OrganizationPlanSyncService.syncUserOrganizations(userId);
+
             // Generate new token
             const newToken = generateJWTToken(updatedUser);
 

@@ -27,6 +27,7 @@ import { connectionPool, createModelFactory } from '@minimeet/shared-models';
 // Import cron jobs
 import './jobs/usage-reset.job.js';
 import './jobs/plan-expiration.job.js';
+import './jobs/plan-expiry-warning.job.js';
 
 dotenv.config();
 

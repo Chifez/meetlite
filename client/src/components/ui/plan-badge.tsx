@@ -1,25 +1,18 @@
 import { Badge } from '@/components/ui/badge';
 import { Zap, Crown } from 'lucide-react';
-import { Organization } from '@/types/organization';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 
 interface PlanBadgeProps {
-  activeOrganization?: Organization | null;
-  userPlan?: {
-    type: 'free' | 'pro' | 'enterprise';
-  };
   className?: string;
   showIcon?: boolean;
 }
 
 export const PlanBadge: React.FC<PlanBadgeProps> = ({
-  activeOrganization,
-  userPlan,
   className = '',
   showIcon = true,
 }) => {
-  // Determine the current plan (organization plan takes priority)
-  const currentPlan =
-    activeOrganization?.plan?.type || userPlan?.type || 'free';
+  // Use unified hook to get current plan
+  const { currentPlan } = useCurrentPlan();
 
   const getPlanBadge = () => {
     switch (currentPlan) {
@@ -64,24 +57,11 @@ export const PlanBadge: React.FC<PlanBadgeProps> = ({
   return getPlanBadge();
 };
 
-// Utility function to get plan type
-export const getCurrentPlan = (
-  activeOrganization?: Organization | null,
-  userPlan?: { type: 'free' | 'pro' | 'enterprise' }
-): 'free' | 'pro' | 'enterprise' => {
-  return (activeOrganization?.plan?.type || userPlan?.type || 'free') as
-    | 'free'
-    | 'pro'
-    | 'enterprise';
-};
-
 // Utility function to check if user needs upgrade
 export const needsUpgrade = (
-  activeOrganization?: Organization | null,
-  userPlan?: { type: 'free' | 'pro' | 'enterprise' }
+  planType: 'free' | 'pro' | 'enterprise'
 ): boolean => {
-  const currentPlan = getCurrentPlan(activeOrganization, userPlan);
-  return currentPlan === 'free';
+  return planType === 'free';
 };
 
 export default PlanBadge;

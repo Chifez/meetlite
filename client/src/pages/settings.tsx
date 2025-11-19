@@ -8,11 +8,10 @@ import OrganizationSettings from '@/components/settings/organization-settings';
 import { NotificationSettings } from '@/components/settings/notification-settings';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
-import { useAuth } from '@/hooks/use-auth';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 
 export default function Settings() {
-  const { activeOrganization } = useWorkspace();
-  const { user } = useAuth();
+  const { currentPlan } = useCurrentPlan();
   const [activeTab, setActiveTab] = useState('profile');
 
   return (
@@ -72,7 +71,7 @@ export default function Settings() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Available Plans</h2>
             <PlanComparison
-              currentPlan={user?.plan?.type || 'free'}
+              currentPlan={currentPlan}
               showUpgradeButtons={true}
             />
           </div>

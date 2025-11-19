@@ -8,20 +8,25 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import VerticalPlanComparison from '@/components/plan/vertical-plan-comparison';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 import { useState } from 'react';
 
 interface PlanSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentPlan?: string;
+  currentPlan?: string; // Deprecated: kept for backward compatibility, but uses hook internally
 }
 
 export default function PlanSettingsDialog({
   open,
   onOpenChange,
-  currentPlan = 'free',
+  currentPlan: propCurrentPlan, // Deprecated prop
 }: PlanSettingsDialogProps) {
+  const { currentPlan } = useCurrentPlan();
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Use hook value, fallback to prop for backward compatibility
+  const effectivePlan = currentPlan || propCurrentPlan || 'free';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,7 +64,7 @@ export default function PlanSettingsDialog({
             className="flex-1 overflow-y-auto scrollbar-hide mt-4"
           >
             <VerticalPlanComparison
-              currentPlan={currentPlan}
+              currentPlan={effectivePlan}
               showUpgradeButtons={true}
               className="pr-2"
             />
