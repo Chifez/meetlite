@@ -1,6 +1,24 @@
 import { env } from 'k6';
 
-const getEnv = (key, defaultValue) => __ENV[key] || defaultValue;
+const isK6 = typeof __ENV !== 'undefined';
+const isNode = typeof process !== 'undefined' && process.env;
+
+const getEnv = (key, defaultValue) => {
+  // Try k6 environment first (__ENV is k6's global object)
+  if (isK6 && typeof __ENV[key] !== 'undefined') {
+    return __ENV[key];
+  }
+
+  // Try Node.js environment (process.env is Node.js's env object)
+  if (isNode && typeof process.env[key] !== 'undefined') {
+    return process.env[key];
+  }
+
+  // Fall back to default value
+  return defaultValue;
+};
+
+// const getEnv = (key, defaultValue) => __ENV[key] || defaultValue;
 
 export const CONFIG = {
   apiGateway: {
@@ -12,7 +30,7 @@ export const CONFIG = {
   services: {
     auth: getEnv('AUTH_SERVICE_URL', 'http://localhost:5000'),
     room: getEnv('ROOM_SERVICE_URL', 'http://localhost:5001'),
-    mediasouo: getEnv('MEDIASOUP_SERVICE_URL', 'http://localhost:3003'),
+    mediasoup: getEnv('MEDIASOUP_SERVICE_URL', 'http://localhost:3003'),
   },
 
   frontend: {

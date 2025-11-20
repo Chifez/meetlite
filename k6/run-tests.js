@@ -1,47 +1,36 @@
 #!/usr/bin/env node
 
 /**
- * K6 Performance Test Runner
- * Orchestrates and runs K6 performance tests for MiniMeet
+ * K6 Test Runner with Test Type Support
  *
- * Architecture: HTTP API for room operations + WebSocket for real-time events
+ * Supports:
+ * - Running tests by category (backend, frontend)
+ * - Running tests by type (load, stress, spike, soak, volume, capacity)
+ * - Running all tests
+ * - Helpful CLI interface
+ *
+ * Usage:
+ *   node run-tests.js backend load
+ *   node run-tests.js backend stress
+ *   node run-tests.js frontend load
+ *   node run-tests.js --help
  */
 
+// Import Node.js modules
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import fs from 'fs';
+import { glob } from 'glob';
 
+// Get current directory (ESM equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Test scenarios configuration
-const TEST_SCENARIOS = {
-  'room-capacity': {
-    description: 'Test room capacity limits with HTTP API + WebSocket events',
-    file: 'scenarios/room-capacity.js',
-    target: '5 users', //basic test size for now should increase to 10+
-    duration: '8 minutes',
-  },
-  'room-operation': {
-    description: 'Test room operations under realistic load',
-    file: 'scenarios/room-operation.js',
-    target: '25 users',
-    duration: '8 minutes',
-  },
-  'connection-load': {
-    description: 'Test WebSocket connection handling with increasing load',
-    file: 'scenarios/connection-load.js',
-    target: '100 users',
-    duration: '8 minutes',
-  },
-  'stress-test': {
-    description: 'Extreme stress testing to find breaking points',
-    file: 'scenarios/stress-test.js',
-    target: '200 users',
-    duration: '8 minutes',
-  },
-};
+// Test categories
+const CATEGORIES = ['backend', 'frontend'];
+
+// Valid test types
+const TEST_TYPES = ['load', 'stress', 'spike', 'soak', 'volume', 'capacity'];
 
 // Colors for console output
 const colors = {
@@ -51,65 +40,87 @@ const colors = {
   green: '\x1b[32m',
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
-  magenta: '\x1b[35m',
   cyan: '\x1b[36m',
 };
 
+function loadEnvFile() {
+  try {
+    const envPath = join(__dirname, '.env');
+    const envContent = readFileSync(envPath, 'utf-8');
+    const env = {};
+
+    envContent.split('\n').forEach((line) => {
+      line = line.trim();
+      // Skip empty lines and comments
+      if (!line || line.startsWith('#')) return;
+
+      // Split by first = sign
+      const equalIndex = line.indexOf('=');
+      if (equalIndex === -1) return;
+
+      const key = line.substring(0, equalIndex).trim();
+      const value = line.substring(equalIndex + 1).trim();
+
+      // Remove quotes if present
+      const cleanValue = value.replace(/^["']|["']$/g, '');
+
+      if (key) {
+        env[key] = cleanValue;
+      }
+    });
+
+    return env;
+  } catch (error) {
+    // .env file doesn't exist, return empty object
+    return {};
+  }
+}
+
+// Build k6 environment variable flags
+function buildK6EnvFlags(env) {
+  return Object.entries(env)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(' ');
+}
+/**
+ * Print header
+ */
 function printHeader() {
   console.log(`${colors.cyan}${colors.bright}`);
-  console.log('🚀 MiniMeet K6 Performance Test Runner');
-  console.log('=====================================');
+  console.log('🚀 MiniMeet K6 Test Runner');
+  console.log('==========================');
   console.log(`${colors.reset}`);
-  console.log('📊 Architecture: HTTP API + WebSocket Events');
-  console.log('🔐 Authentication: Single JWT token across all VUs');
-  console.log('🏠 Room Operations: HTTP API endpoints');
-  console.log('📡 Real-time Events: WebSocket/Socket.IO');
-  console.log('');
 }
 
+/**
+ * Print help message
+ */
 function printHelp() {
   console.log(`${colors.yellow}Usage:${colors.reset}`);
-  console.log('  node run-tests.js [scenario] [options]');
+  console.log('  node run-tests.js [category] [test-type]');
   console.log('');
-  console.log(`${colors.yellow}Available Scenarios:${colors.reset}`);
-
-  Object.entries(TEST_SCENARIOS).forEach(([key, config]) => {
-    console.log(`  ${colors.green}${key}${colors.reset}`);
-    console.log(`    ${config.description}`);
-    console.log(`    Target: ${colors.cyan}${config.target}${colors.reset}`);
-    console.log(
-      `    Duration: ${colors.cyan}${config.duration}${colors.reset}`
-    );
-    console.log('');
+  console.log(`${colors.yellow}Categories:${colors.reset}`);
+  CATEGORIES.forEach((cat) => {
+    console.log(`  ${colors.green}${cat}${colors.reset}`);
   });
-
-  console.log(`${colors.yellow}Options:${colors.reset}`);
-  console.log('  --help, -h     Show this help message');
-  console.log('  --list, -l     List available test scenarios');
-  console.log('  --all          Run all test scenarios sequentially');
+  console.log('');
+  console.log(`${colors.yellow}Test Types:${colors.reset}`);
+  TEST_TYPES.forEach((type) => {
+    console.log(`  ${colors.cyan}${type}${colors.reset}`);
+  });
   console.log('');
   console.log(`${colors.yellow}Examples:${colors.reset}`);
-  console.log('  node run-tests.js room-capacity');
-  console.log('  node run-tests.js --all');
-  console.log('  node run-tests.js --list');
+  console.log('  node run-tests.js backend load');
+  console.log('  node run-tests.js backend stress');
+  console.log('  node run-tests.js frontend load');
+  console.log('  node run-tests.js --help');
   console.log('');
 }
 
-function listScenarios() {
-  console.log(`${colors.yellow}Available Test Scenarios:${colors.reset}`);
-  console.log('');
-
-  Object.entries(TEST_SCENARIOS).forEach(([key, config]) => {
-    console.log(`${colors.green}${key}${colors.reset}`);
-    console.log(`  ${config.description}`);
-    console.log(`  Target: ${colors.cyan}${config.target}${colors.reset}`);
-    console.log(`  Duration: ${colors.cyan}${config.duration}${colors.reset}`);
-    console.log(`  File: ${colors.magenta}${config.file}${colors.reset}`);
-    console.log('');
-  });
-}
-
-function checkK6Installation() {
+/**
+ * Check if K6 is installed
+ */
+function checkK6() {
   try {
     execSync('k6 version', { stdio: 'pipe' });
     return true;
@@ -118,142 +129,149 @@ function checkK6Installation() {
   }
 }
 
-function runTest(scenarioName) {
-  const scenario = TEST_SCENARIOS[scenarioName];
-
-  if (!scenario) {
-    console.error(
-      `${colors.red}❌ Unknown test scenario: ${scenarioName}${colors.reset}`
-    );
-    console.log('');
-    printHelp();
-    process.exit(1);
-  }
-
-  const testFile = join(__dirname, scenario.file);
-
-  if (!fs.existsSync(testFile)) {
-    console.error(
-      `${colors.red}❌ Test file not found: ${testFile}${colors.reset}`
-    );
-    process.exit(1);
-  }
-
-  console.log(
-    `${colors.cyan}🚀 Running ${scenarioName} test...${colors.reset}`
-  );
-  console.log(`📊 ${scenario.description}`);
-  console.log(`🎯 Target: ${scenario.target}`);
-  console.log(`⏱️  Duration: ${scenario.duration}`);
-  console.log(`📁 File: ${scenario.file}`);
+/**
+ * Run test file
+ * @param {string} testFile - Path to test file
+ */
+function runTest(testFile, env = {}) {
+  console.log(`${colors.cyan}📊 Running: ${testFile}${colors.reset}`);
   console.log('');
 
   try {
-    console.log(
-      `${colors.yellow}⚠️  Make sure your backend services are running:${colors.reset}`
-    );
-    console.log(
-      `   Auth Service: ${colors.cyan}http://localhost:5000${colors.reset}`
-    );
-    console.log(
-      `   Room Service: ${colors.cyan}http://localhost:5001${colors.reset}`
-    );
-    console.log(
-      `   MediaSoup Service: ${colors.cyan}http://localhost:3003${colors.reset}`
-    );
-    console.log('');
+    const envFlags = buildK6EnvFlags(env);
+    const command = envFlags
+      ? `${envFlags} k6 run ${testFile}`
+      : `k6 run ${testFile}`;
 
-    console.log(`${colors.green}✅ Starting K6 test...${colors.reset}`);
-    console.log('');
-
-    // Run K6 test
-    const command = `k6 run ${testFile}`;
-    execSync(command, { stdio: 'inherit', cwd: __dirname });
+    // Execute k6 run command
+    // stdio: 'inherit' means output goes to console
+    execSync(`k6 run ${testFile}`, {
+      stdio: 'inherit',
+      cwd: __dirname,
+      shell: true,
+    });
 
     console.log('');
-    console.log(
-      `${colors.green}✅ Test completed successfully!${colors.reset}`
-    );
+    console.log(`${colors.green}✅ Test completed${colors.reset}`);
+    return true;
   } catch (error) {
-    console.error('');
-    console.error(`${colors.red}❌ Test failed:${colors.reset}`);
-    console.error(error.message);
-    process.exit(1);
+    console.log('');
+    console.log(`${colors.red}❌ Test failed${colors.reset}`);
+    return false;
   }
 }
 
-function runAllTests() {
+/**
+ * Run tests by category and type
+ * @param {string} category - Test category (backend/frontend)
+ * @param {string} testType - Test type (load/stress/etc.)
+ */
+async function runTests(category, testType) {
+  // Load environment variables
+  const env = loadEnvFile();
+  if (Object.keys(env).length > 0) {
+    console.log(
+      `${colors.cyan}📝 Loaded ${
+        Object.keys(env).length
+      } environment variables${colors.reset}`
+    );
+  }
+
+  // Validate category
+  if (!CATEGORIES.includes(category)) {
+    console.error(
+      `${colors.red}❌ Invalid category: ${category}${colors.reset}`
+    );
+    console.log(`Valid categories: ${CATEGORIES.join(', ')}`);
+    process.exit(1);
+  }
+
+  // Validate test type
+  if (testType && !TEST_TYPES.includes(testType)) {
+    console.error(
+      `${colors.red}❌ Invalid test type: ${testType}${colors.reset}`
+    );
+    console.log(`Valid types: ${TEST_TYPES.join(', ')}`);
+    process.exit(1);
+  }
+
+  // Build glob pattern
+  const testDir = join(__dirname, category, 'scenarios');
+  const pattern = testType
+    ? `**/${testType}.js` // Specific test type: **/load.js
+    : '**/*.js'; // All tests: **/*.js
+
+  // Find test files
+  const testFiles = await glob(pattern, {
+    cwd: testDir,
+    absolute: true,
+  });
+
+  if (testFiles.length === 0) {
+    console.log(
+      `${colors.yellow}⚠️  No ${testType || 'test'} files found in ${category}${
+        colors.reset
+      }`
+    );
+    return;
+  }
+
   console.log(
-    `${colors.cyan}🚀 Running all test scenarios sequentially...${colors.reset}`
+    `${colors.cyan}🚀 Running ${testFiles.length} test(s) for ${category}/${
+      testType || 'all'
+    }${colors.reset}`
   );
   console.log('');
 
-  const scenarios = Object.keys(TEST_SCENARIOS);
-
-  for (const scenario of scenarios) {
-    console.log(
-      `${colors.yellow}=====================================${colors.reset}`
-    );
-    runTest(scenario);
+  // Run each test file
+  for (const testFile of testFiles) {
+    runTest(testFile, env);
     console.log('');
-
-    // Wait between tests
-    if (scenario !== scenarios[scenarios.length - 1]) {
-      console.log(
-        `${colors.cyan}⏳ Waiting 5 seconds before next test...${colors.reset}`
-      );
-      console.log('');
-      // Note: In Node.js, we can't use sleep, so we'll just continue
-      // In a real implementation, you might want to add a delay here
-    }
   }
 
   console.log(`${colors.green}🎉 All tests completed!${colors.reset}`);
 }
 
-// Main execution
+/**
+ * Main function
+ */
 function main() {
   const args = process.argv.slice(2);
 
-  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+  // Handle help flag
+  if (args.includes('--help') || args.includes('-h') || args.length === 0) {
     printHeader();
     printHelp();
     return;
   }
 
-  if (args.includes('--list') || args.includes('-l')) {
-    printHeader();
-    listScenarios();
-    return;
-  }
-
   // Check K6 installation
-  if (!checkK6Installation()) {
+  if (!checkK6()) {
     console.error(
       `${colors.red}❌ K6 is not installed or not in PATH${colors.reset}`
     );
     console.log('');
-    console.log('Please install K6 first:');
-    console.log(
-      '  Windows: https://k6.io/docs/getting-started/installation/windows/'
-    );
+    console.log('Please install K6:');
+    console.log('  Windows: choco install k6');
     console.log('  macOS: brew install k6');
     console.log(
-      '  Linux: https://k6.io/docs/getting-started/installation/linux/'
+      '  Linux: See https://k6.io/docs/getting-started/installation/'
     );
-    console.log('');
     process.exit(1);
   }
 
   printHeader();
 
-  if (args.includes('--all')) {
-    runAllTests();
-  } else {
-    const scenarioName = args[0];
-    runTest(scenarioName);
-  }
+  // Get category and test type from arguments
+  const category = args[0] || 'backend';
+  const testType = args[1] || null;
+
+  // Run tests
+  runTests(category, testType).catch((error) => {
+    console.error(`${colors.red}❌ Error: ${error.message}${colors.reset}`);
+    process.exit(1);
+  });
 }
 
-// Run if called directly
+// Run main function
 main();

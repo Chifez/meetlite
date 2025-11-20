@@ -36,8 +36,9 @@ export const THRESHOLDS = {
   rooms: {
     http_req_duration: ['p(95)<1000', 'p(99)<2000'],
     http_req_failed: ['rate<0.05'],
-    room_operation_success: ['rate>0.09'],
-    room_join_time: ['p(95)<2000'],
+    room_operation_success: ['rate>0.90'],
+    room_join_time: ['p(95)<1000'],
+    room_create_time: ['p(95)<1000'],
   },
   /**
    * MEETING OPERATIONS THRESHOLDS
