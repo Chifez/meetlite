@@ -108,28 +108,29 @@ export function generateMeeting(overrides = {}) {
   counter.meeting++;
   const timestamp = Date.now();
 
-  // Create start date (1 hour from now)
+  // Create scheduled time (1 hour from now)
   // new Date() creates current date/time
-  const startDate = new Date();
+  const scheduledTime = new Date();
   // setHours() sets hour, minutes, seconds (all optional)
   // Current hour + 1 = 1 hour from now
-  startDate.setHours(startDate.getHours() + 1);
+  scheduledTime.setHours(scheduledTime.getHours() + 1);
 
-  // Create end date (1 hour after start date)
-  // new Date(startDate) creates copy of startDate
-  const endDate = new Date(startDate);
-  // Add 1 hour to end date
-  endDate.setHours(endDate.getHours() + 1);
+  // Calculate duration in minutes (default: 60 minutes = 1 hour)
+  // duration is in minutes, not milliseconds or Date object
+  const duration = 60; // Default 1 hour meeting
 
-  // Return meeting object
+  // Return meeting object matching API expectations
+  // API expects: scheduledTime (ISO string), duration (minutes), title, description, privacy
   return {
     title: `K6 Test Meeting ${counter.meeting}`,
     description: `Performance test meeting ${counter.meeting}`,
 
-    // toISOString() converts Date to ISO 8601 string format
+    // scheduledTime: ISO 8601 string format
     // Example: "2024-01-15T14:30:00.000Z"
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
+    scheduledTime: scheduledTime.toISOString(),
+
+    // duration: number in minutes (not Date object)
+    duration: duration,
 
     privacy: 'public',
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useWorkspace } from '@/contexts/workspace-context';
+
 import { User, Building, Crown, Bell } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
@@ -9,9 +9,11 @@ import { NotificationSettings } from '@/components/settings/notification-setting
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
 import { useCurrentPlan } from '@/hooks/use-current-plan';
+import { useWorkspace } from '@/contexts/workspace-context';
 
 export default function Settings() {
   const { currentPlan } = useCurrentPlan();
+  const { activeOrganization } = useWorkspace();
   const [activeTab, setActiveTab] = useState('profile');
 
   return (

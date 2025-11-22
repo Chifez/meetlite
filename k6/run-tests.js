@@ -18,6 +18,7 @@
 
 // Import Node.js modules
 import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { glob } from 'glob';
@@ -77,9 +78,15 @@ function loadEnvFile() {
 }
 
 // Build k6 environment variable flags
+// k6 uses --env flag format: --env VAR=value --env VAR2=value2
+// We need to escape values that might contain special characters
 function buildK6EnvFlags(env) {
   return Object.entries(env)
-    .map(([key, value]) => `${key}=${value}`)
+    .map(([key, value]) => {
+      // Escape quotes and special characters in values
+      const escapedValue = String(value).replace(/"/g, '\\"');
+      return `--env ${key}="${escapedValue}"`;
+    })
     .join(' ');
 }
 /**
@@ -138,17 +145,47 @@ function runTest(testFile, env = {}) {
   console.log('');
 
   try {
+    // Build k6 command with environment variables
+    // k6 uses --env flag for each variable: k6 run --env VAR1=value1 --env VAR2=value2 script.js
     const envFlags = buildK6EnvFlags(env);
+
+    // Prepare environment variables for k6
+    // On Windows, we need to properly escape special characters
+    const k6Env = { ...process.env, ...env };
+
+    if (Object.keys(env).length > 0) {
+      console.log(
+        `🔧 Passing ${Object.keys(env).length} environment variables to k6`
+      );
+      // Log which vars are being passed (without sensitive values)
+      Object.keys(env).forEach((key) => {
+        if (key.includes('PASSWORD')) {
+          console.log(`📝 ${key}: ***hidden***`);
+        } else if (key.includes('EMAIL')) {
+          console.log(`📝 ${key}: ${env[key]}`);
+        } else {
+          console.log(`📝 ${key}: ${env[key]}`);
+        }
+      });
+    }
+
+    // Build command - use --env flags AND also pass via process.env
+    // This ensures compatibility across different shells (PowerShell, CMD, bash)
     const command = envFlags
-      ? `${envFlags} k6 run ${testFile}`
+      ? `k6 run ${envFlags} ${testFile}`
       : `k6 run ${testFile}`;
 
-    // Execute k6 run command
+    console.log(
+      `🚀 Executing: k6 run ... (with ${Object.keys(env).length} env vars)`
+    );
+
+    // Execute k6 run command with environment variables
     // stdio: 'inherit' means output goes to console
-    execSync(`k6 run ${testFile}`, {
+    execSync(command, {
       stdio: 'inherit',
       cwd: __dirname,
-      shell: true,
+      shell: true, // ✅ Needed for env vars on Windows
+      env: k6Env, // ✅ Pass via process.env (this works on all platforms)
     });
 
     console.log('');
@@ -174,6 +211,26 @@ async function runTests(category, testType) {
       `${colors.cyan}📝 Loaded ${
         Object.keys(env).length
       } environment variables${colors.reset}`
+    );
+    // Debug: Show which variables were loaded (without sensitive values)
+    const envPreview = Object.keys(env).reduce((acc, key) => {
+      if (key.includes('PASSWORD')) {
+        acc[key] = '***hidden***';
+      } else if (key.includes('EMAIL')) {
+        acc[key] = env[key]; // Show email for debugging
+      } else {
+        acc[key] = env[key];
+      }
+      return acc;
+    }, {});
+    console.log(
+      `${colors.cyan}🔍 Variables loaded:`,
+      JSON.stringify(envPreview, null, 2),
+      `${colors.reset}`
+    );
+  } else {
+    console.log(
+      `${colors.yellow}⚠️  No environment variables loaded from .env file${colors.reset}`
     );
   }
 

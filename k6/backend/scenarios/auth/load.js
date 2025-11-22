@@ -1,9 +1,9 @@
 import { check } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
-import { createTestOptions } from '../../../shared/test-executors';
-import { ApiClient } from '../../utils/api-client';
+import { createTestOptions } from '../../../shared/test-executors.js';
+import { ApiClient } from '../../utils/api-client.js';
 import { ENDPOINTS } from '../../../config/endpoints.js';
-import { generateUser } from '../../../backend/utils/data-generator.js';
+import { generateUser } from '../../utils/data-generators.js';
 
 const signupSuccess = new Rate('auth_signup_success');
 const loginSuccess = new Rate('auth_login_success');
@@ -14,7 +14,7 @@ const profileTime = new Trend('auth_profile_time');
 
 export const options = createTestOptions('load', {
   thresholds: {
-    auth_signup_sucess: ['rate>0.95'],
+    auth_signup_success: ['rate>0.95'], // Fixed typo: was auth_signup_sucess
     auth_login_success: ['rate>0.98'],
     auth_profile_success: ['rate>0.98'],
     auth_signup_time: ['p(95)<1000'],
@@ -28,7 +28,7 @@ export default function (data) {
 
   const user = generateUser();
 
-  const signupStart = Data.now();
+  const signupStart = Date.now(); // Fixed: was Data.now()
   const signupRes = client.post(ENDPOINTS.auth.signup(), {
     email: user.email,
     password: user.password,
@@ -52,7 +52,7 @@ export default function (data) {
     return;
   }
 
-  const signpData = signupRes.json();
+  const signupData = signupRes.json(); // Fixed typo: was signpData
   const token = signupData.token;
 
   const authClient = new ApiClient(token);
@@ -63,11 +63,12 @@ export default function (data) {
     password: user.password,
   });
 
-  const loginDuration = Data.now() - loginStart;
+  const loginDuration = Date.now() - loginStart; // Fixed: was Data.now()
 
   const loginOk = check(loginRes, {
     'login status is 200': (r) => r.status === 200,
-    'login haw token': (r) => {
+    'login has token': (r) => {
+      // Fixed typo: was "haw token"
       const body = r.json();
       return body && body.token !== undefined;
     },
@@ -87,7 +88,7 @@ export default function (data) {
 
   const profileStart = Date.now();
   const profileRes = authClient.get(ENDPOINTS.auth.profile());
-  const profileDuration = Date.now() - ProfileStart;
+  const profileDuration = Date.now() - profileStart; // Fixed: was ProfileStart (capital P)
 
   const profileOk = check(profileRes, {
     'profile status is 200': (r) => r.status == 200,

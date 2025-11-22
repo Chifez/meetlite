@@ -62,6 +62,16 @@ export default function (data) {
     'create time < 1s': () => createTime < 1000,
   });
 
+  // Log errors for debugging
+  if (createRes.status !== 201) {
+    const errorBody = createRes.json();
+    console.error(`❌ Meeting creation failed:`, {
+      status: createRes.status,
+      error: errorBody?.message || errorBody?.error || 'Unknown error',
+      body: createRes.body?.substring(0, 200), // First 200 chars
+    });
+  }
+
   meetingSuccess.add(createOk ? 1 : 0);
   meetingTime.add(createTime);
 

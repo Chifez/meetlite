@@ -6,15 +6,27 @@ const isNode = typeof process !== 'undefined' && process.env;
 const getEnv = (key, defaultValue) => {
   // Try k6 environment first (__ENV is k6's global object)
   if (isK6 && typeof __ENV[key] !== 'undefined') {
-    return __ENV[key];
+    const value = __ENV[key];
+    // Debug logging for sensitive keys (email only, not password)
+    if (key === 'TEST_USER_EMAIL' && typeof console !== 'undefined') {
+      console.log(`✅ [CONFIG] Using ${key} from __ENV: ${value}`);
+    }
+    return value;
   }
 
   // Try Node.js environment (process.env is Node.js's env object)
   if (isNode && typeof process.env[key] !== 'undefined') {
-    return process.env[key];
+    const value = process.env[key];
+    if (key === 'TEST_USER_EMAIL' && typeof console !== 'undefined') {
+      console.log(`✅ [CONFIG] Using ${key} from process.env: ${value}`);
+    }
+    return value;
   }
 
   // Fall back to default value
+  if (key === 'TEST_USER_EMAIL' && typeof console !== 'undefined') {
+    console.log(`⚠️  [CONFIG] Using default value for ${key}: ${defaultValue}`);
+  }
   return defaultValue;
 };
 
@@ -38,7 +50,7 @@ export const CONFIG = {
   },
 
   testUsers: {
-    defualt: {
+    default: {
       email: getEnv('TEST_USER_EMAIL', 'test@minimeet.com'),
       password: getEnv('TEST_USER_PASSWORD', 'TestPassword123'),
     },
