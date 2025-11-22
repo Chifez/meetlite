@@ -119,10 +119,11 @@ const roomSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-roomSchema.index({ roomId: 1 });
-roomSchema.index({ organizationId: 1, createdBy: 1 });
-roomSchema.index({ 'participants.userId': 1 });
-roomSchema.index({ collaborationMode: 1 });
+roomSchema.index({ roomId: 1 }, { unique: true }); // ✅ Ensure unique index
+roomSchema.index({ organizationId: 1, createdBy: 1 }); // ✅ Compound index for org queries
+roomSchema.index({ 'participants.userId': 1 }); // ✅ Index for participant lookups
+roomSchema.index({ collaborationMode: 1 }); // ✅ Index for collaboration queries
+roomSchema.index({ createdAt: -1 }); // ✅ Index for time-based queries (if needed)
 
 // Export the schema for use with the model factory
 export { roomSchema };

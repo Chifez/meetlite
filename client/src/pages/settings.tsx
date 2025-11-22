@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useWorkspace } from '@/contexts/workspace-context';
+
 import { User, Building, Crown, Bell } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
@@ -8,11 +8,12 @@ import OrganizationSettings from '@/components/settings/organization-settings';
 import { NotificationSettings } from '@/components/settings/notification-settings';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
-import { useAuth } from '@/hooks/use-auth';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
+import { useWorkspace } from '@/contexts/workspace-context';
 
 export default function Settings() {
+  const { currentPlan } = useCurrentPlan();
   const { activeOrganization } = useWorkspace();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
   return (
@@ -72,7 +73,7 @@ export default function Settings() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Available Plans</h2>
             <PlanComparison
-              currentPlan={user?.plan?.type || 'free'}
+              currentPlan={currentPlan}
               showUpgradeButtons={true}
             />
           </div>

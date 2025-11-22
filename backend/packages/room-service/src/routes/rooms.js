@@ -15,88 +15,153 @@ router.post('/', async (req, res) => {
   try {
     const roomId = nanoid(10);
     const { settings = {} } = req.body;
+    const userId = req.user.userId;
+    const orgId = req.user.organizationId || null;
+    const now = new Date();
 
-    const room = new models.Room({
+    // ✅ Direct insert with lean document (bypasses Mongoose validation overhead)
+    const roomData = {
       roomId,
-      createdBy: req.user.userId,
-      organizationId: req.user.organizationId || null, // Use user's active org or personal
+      createdBy: userId,
+      organizationId: orgId,
       settings: {
         allowCollaboration: settings.allowCollaboration ?? true,
         maxParticipants: settings.maxParticipants ?? 50,
       },
       participants: [
         {
-          userId: req.user.userId,
+          userId,
           role: 'host',
-          joinedAt: new Date(),
-          lastActive: new Date(),
+          joinedAt: now,
+          lastActive: now,
         },
       ],
-    });
+      createdAt: now,
+    };
 
-    await room.save();
+    // ✅ Use create() instead of new + save() (single operation, optimized)
+    await models.Room.create(roomData);
+
+    // ✅ Return immediately without fetching (we already have roomId)
     res.status(201).json({ roomId });
   } catch (error) {
+    // Handle duplicate roomId (nanoid collision - extremely rare but possible)
+    if (error.code === 11000 && error.keyPattern?.roomId) {
+      // Retry once with new ID
+      try {
+        const roomId = nanoid(10);
+        const roomData = {
+          roomId,
+          createdBy: req.user.userId,
+          organizationId: req.user.organizationId || null,
+          settings: {
+            allowCollaboration: req.body.settings?.allowCollaboration ?? true,
+            maxParticipants: req.body.settings?.maxParticipants ?? 50,
+          },
+          participants: [
+            {
+              userId: req.user.userId,
+              role: 'host',
+              joinedAt: new Date(),
+              lastActive: new Date(),
+            },
+          ],
+          createdAt: new Date(),
+        };
+        await models.Room.create(roomData);
+        return res.status(201).json({ roomId });
+      } catch (retryError) {
+        console.error('Create room retry error:', retryError);
+        return res.status(500).json({ message: 'Server error' });
+      }
+    }
+
     console.error('Create room error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get room (with access control)
+// Get room (with access control) - OPTIMIZED with aggregation
 router.get('/:roomId', async (req, res) => {
   try {
-    const room = await models.Room.findOne({ roomId: req.params.roomId });
+    const { roomId } = req.params;
+    const userId = req.user.userId;
+    const userOrgId = req.user.organizationId || null;
 
-    if (!room) {
+    // ✅ SINGLE QUERY: Fetch room AND meeting together using aggregation
+    const result = await models.Room.aggregate([
+      { $match: { roomId } },
+      {
+        $lookup: {
+          from: 'meetings', // Collection name (Mongoose pluralizes 'Meeting')
+          localField: 'roomId',
+          foreignField: 'roomId',
+          as: 'meeting',
+          pipeline: [
+            { $limit: 1 }, // Only need first match
+            {
+              $project: {
+                // ✅ Only fetch needed fields
+                roomId: 1,
+                createdBy: 1,
+                privacy: 1,
+                invites: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          meeting: { $arrayElemAt: ['$meeting', 0] }, // Convert array to object
+        },
+      },
+      { $limit: 1 },
+    ]);
+
+    if (!result || result.length === 0) {
       return res.status(404).json({ message: 'Room not found' });
     }
 
-    // Check organization access first
-    const userOrgId = req.user.organizationId || null;
+    const room = result[0];
+    const meeting = room.meeting || null;
+
+    // Access control logic (same as before, but now meeting is already loaded)
     const roomOrgId = room.organizationId || null;
 
-    // Users can only access rooms from their current workspace
     if (userOrgId?.toString() !== roomOrgId?.toString()) {
       return res.status(403).json({
         message: 'Access denied. Room belongs to a different workspace.',
       });
     }
 
-    // If the user is the room creator, allow access
-    if (room.createdBy === req.user.userId) {
-      return res.json(room);
+    if (room.createdBy === userId) {
+      // ✅ Remove meeting from response if not needed
+      const { meeting: _, ...roomResponse } = room;
+      return res.json(roomResponse);
     }
 
-    // If the room is not associated with a Meeting, allow authenticated users from same org
-    const meeting = await models.Meeting.findOne({
-      roomId: req.params.roomId,
-    });
-    if (!meeting) {
-      return res.json(room);
-    }
-
-    // Check if user has access through a meeting
     if (meeting) {
-      // If meeting is public, allow access
       if (meeting.privacy === 'public') {
-        return res.json(room);
+        const { meeting: _, ...roomResponse } = room;
+        return res.json(roomResponse);
       }
-
-      // If user is meeting creator, allow access
-      if (meeting.createdBy === req.user.userId) {
-        return res.json(room);
+      if (meeting.createdBy === userId) {
+        const { meeting: _, ...roomResponse } = room;
+        return res.json(roomResponse);
       }
-
-      // Check if user has a valid invite
-      const userInvite = meeting.invites.find(
+      const userInvite = meeting.invites?.find(
         (invite) => invite.email === req.user.email
       );
       if (userInvite && userInvite.status !== 'declined') {
-        return res.json(room);
+        const { meeting: _, ...roomResponse } = room;
+        return res.json(roomResponse);
       }
+    } else {
+      const { meeting: _, ...roomResponse } = room;
+      return res.json(roomResponse);
     }
 
-    // User doesn't have access
     return res.status(403).json({ message: 'Access denied to this room' });
   } catch (error) {
     console.error('Get room error:', error);

@@ -11,12 +11,19 @@ export default defineConfig({
       // Only generate manifest.json for PWA metadata
       registerType: 'prompt',
       injectRegister: false, // We register manually in main.tsx
+      // Use generateSW strategy but with minimal config - we won't actually use the generated SW
+      // This satisfies the plugin's requirements while we use our manual sw.js
       strategies: 'generateSW',
       workbox: {
-        // Disable Workbox runtime caching - we handle caching manually in sw.js
+        // Provide a dummy swDest to satisfy the plugin requirement
+        // We won't use this since injectRegister is false and we register manually
+        swDest: 'dist/sw-workbox.js',
+        // Disable all Workbox features since we handle everything manually
         runtimeCaching: [],
-        // Don't generate service worker - use our manual one
-        swDest: undefined,
+        skipWaiting: false,
+        clientsClaim: false,
+        // Don't precache anything
+        globPatterns: [],
       },
       includeAssets: [
         'favicon.ico',

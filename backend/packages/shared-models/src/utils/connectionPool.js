@@ -21,10 +21,14 @@ class ConnectionPool {
   async getConnection(serviceName, uri) {
     if (!this.connections.has(serviceName)) {
       const connection = await mongoose.createConnection(uri, {
-        maxPoolSize: 5,
+        maxPoolSize: 50, // ✅ Increased from 5 to 50 (industry standard)
+        minPoolSize: 10, // ✅ Maintain minimum connections
+        maxIdleTimeMS: 30000, // ✅ Close idle connections after 30s
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
-        useUnifiedTopology: true,
+        connectTimeoutMS: 10000, // ✅ Connection timeout
+        // bufferMaxEntries: 0, // ✅ Disable mongoose buffering (fail fast)
+        bufferCommands: false, // ✅ Disable mongoose buffering
       });
 
       // Handle connection events

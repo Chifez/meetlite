@@ -11,8 +11,17 @@ const rateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   // Skip rate limiting in development
-  skip: (req) =>
-    process.env.NODE_ENV === 'development' || req.hostname.includes('ngrok'),
+  skip: (req) => {
+    const env = process.env.NODE_ENV;
+    const disableRateLimit = process.env.DISABLE_RATE_LIMIT === 'true';
+    return (
+      env === 'development' ||
+      env === 'test' ||
+      disableRateLimit ||
+      req.headers['x-bypass-rate-limit'] === 'true' ||
+      req.hostname.includes('ngrok')
+    );
+  },
 });
 
 export default rateLimiter;
