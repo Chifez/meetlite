@@ -38,6 +38,11 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARE
 // ================================
 
+// Health check - must be BEFORE CORS to allow unrestricted access
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // CORS
 app.use(corsMiddleware);
 
@@ -51,11 +56,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ================================
 // ROUTES
 // ================================
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
 
 // API routes
 app.use('/api/v1/auth', authRoutes);

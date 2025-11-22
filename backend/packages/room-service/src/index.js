@@ -22,6 +22,17 @@ const PORT = process.env.PORT || 5001;
 export let roomConnection = null;
 export let models = null;
 
+// Health check endpoint - must be BEFORE CORS to allow unrestricted access
+app.get('/health', (req, res) => {
+  const health = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+  };
+  res.json(health);
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Add size limit
@@ -63,17 +74,6 @@ app.use('/api/meetings', meetingsRoutes);
 app.use('/api/recordings', recordingsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/analytics', analyticsRoutes);
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const health = {
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-  };
-  res.json(health);
-});
 
 // Connect to MongoDB using shared connection pool
 const connectDB = async () => {
