@@ -1,17 +1,32 @@
 import webpush from 'web-push';
 import { models } from '../index.js';
 
-// Configure VAPID details
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL || 'mailto:noreply@meetlite.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// Track if VAPID has been configured
+let vapidConfigured = false;
+
+// Lazy VAPID configuration - only configure when needed
+const ensureVapidConfigured = () => {
+  if (vapidConfigured) return;
+
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidEmail = process.env.VAPID_EMAIL || 'mailto:noreply@meetlite.com';
+
+  if (vapidPublicKey && vapidPrivateKey) {
+    webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
+    vapidConfigured = true;
+  } else {
+    throw new Error(
+      'VAPID keys not configured. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in your .env file.'
+    );
+  }
+};
 
 /**
  * Send push notification to a specific user
  */
 export const sendNotificationToUser = async (userId, payload) => {
+  ensureVapidConfigured();
   try {
     // Get all active subscriptions for the user
     const subscriptions = await models.PushSubscription.find({

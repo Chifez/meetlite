@@ -3,16 +3,25 @@ import {
   validateUsage,
   isUnlimited,
   getEffectiveLimit,
-} from '@minimeet/shared-models';
-import { models } from '../index.js';
+} from '../config/plans.js';
+
+/**
+ * Plan Validation Service
+ *
+ * Validates user actions against plan limits and constraints.
+ * This service is shared across all backend services.
+ *
+ * Note: This service requires models to be passed in to avoid circular dependencies.
+ */
 
 export class PlanValidationService {
   /**
    * Validate if user can send invitations based on their plan
    * @param {string} userId - User ID
+   * @param {Object} models - Database models
    * @returns {Object} Validation result
    */
-  static async validateInvitationSending(userId) {
+  static async validateInvitationSending(userId, models) {
     try {
       const user = await models.User.findById(userId);
       if (!user) {
@@ -80,9 +89,15 @@ export class PlanValidationService {
    * @param {string} userId - User ID
    * @param {string} organizationId - Organization ID
    * @param {string} role - Role being assigned
+   * @param {Object} models - Database models
    * @returns {Object} Validation result
    */
-  static async validateInvitationAcceptance(userId, organizationId, role) {
+  static async validateInvitationAcceptance(
+    userId,
+    organizationId,
+    role,
+    models
+  ) {
     try {
       const user = await models.User.findById(userId);
       if (!user) {
@@ -159,9 +174,10 @@ export class PlanValidationService {
   /**
    * Validate if organization can accept new members based on owner's plan
    * @param {string} organizationId - Organization ID
+   * @param {Object} models - Database models
    * @returns {Object} Validation result
    */
-  static async validateOrganizationCapacity(organizationId) {
+  static async validateOrganizationCapacity(organizationId, models) {
     try {
       const organization = await models.Organization.findById(organizationId);
       if (!organization) {
@@ -203,8 +219,9 @@ export class PlanValidationService {
   /**
    * Update user's invitation usage after sending invitation
    * @param {string} userId - User ID
+   * @param {Object} models - Database models
    */
-  static async updateInvitationUsage(userId) {
+  static async updateInvitationUsage(userId, models) {
     try {
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -227,15 +244,16 @@ export class PlanValidationService {
    * Update user's membership usage after accepting invitation
    * @param {string} userId - User ID
    * @param {string} role - Role assigned
+   * @param {Object} models - Database models
    */
-  static async updateMembershipUsage(userId, role) {
+  static async updateMembershipUsage(userId, role, models) {
     try {
       const updateFields = {
         $inc: { 'usage.organizationsMember': 1 },
       };
 
       if (role === 'owner') {
-        updateFields.$inc.usage.organizationsOwned = 1;
+        updateFields.$inc['usage.organizationsOwned'] = 1;
       }
 
       await models.User.findByIdAndUpdate(userId, updateFields);
@@ -246,8 +264,9 @@ export class PlanValidationService {
 
   /**
    * Reset daily usage counters (to be called by cron job)
+   * @param {Object} models - Database models
    */
-  static async resetDailyUsage() {
+  static async resetDailyUsage(models) {
     try {
       const today = new Date();
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
@@ -288,8 +307,9 @@ export class PlanValidationService {
 
   /**
    * Reset monthly usage counters (to be called by cron job)
+   * @param {Object} models - Database models
    */
-  static async resetMonthlyUsage() {
+  static async resetMonthlyUsage(models) {
     try {
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -312,9 +332,10 @@ export class PlanValidationService {
   /**
    * Get user's current usage summary
    * @param {string} userId - User ID
+   * @param {Object} models - Database models
    * @returns {Object} Usage summary
    */
-  static async getUserUsageSummary(userId) {
+  static async getUserUsageSummary(userId, models) {
     try {
       const user = await models.User.findById(userId);
       if (!user) {

@@ -311,21 +311,6 @@ export default function PlanUsageCard({
                     {limits.maxStorageGB === -1 ? '∞' : limits.maxStorageGB} GB
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">API Calls Today</span>
-                  <span>
-                    {usage.apiCallsToday} /{' '}
-                    {limits.maxAPICallsPerDay === -1
-                      ? '∞'
-                      : limits.maxAPICallsPerDay}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Webhooks</span>
-                  <span>
-                    0 / {limits.maxWebhooks === -1 ? '∞' : limits.maxWebhooks}
-                  </span>
-                </div>
               </div>
             </div>
           </div>

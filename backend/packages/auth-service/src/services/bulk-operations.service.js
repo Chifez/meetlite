@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
-import { PlanValidationService } from './plan-validation.service.js';
+import { PlanValidationService } from '@minimeet/shared-models';
 import { MultiOrganizationService } from './multi-organization.service.js';
 import { sendOrganizationInviteEmail } from './email-service.js';
 
@@ -28,7 +28,10 @@ export class BulkOperationsService {
 
       // Check inviter's plan limits
       const invitationValidation =
-        await PlanValidationService.validateInvitationSending(inviterId);
+        await PlanValidationService.validateInvitationSending(
+          inviterId,
+          models
+        );
       if (!invitationValidation.isValid) {
         throw new Error(invitationValidation.message);
       }
@@ -36,7 +39,8 @@ export class BulkOperationsService {
       // Check organization capacity
       const capacityValidation =
         await PlanValidationService.validateOrganizationCapacity(
-          organizationId
+          organizationId,
+          models
         );
       if (!capacityValidation.isValid) {
         throw new Error(capacityValidation.message);
@@ -127,10 +131,10 @@ export class BulkOperationsService {
 
       // Update inviter's invitation usage
       if (results.successful.length > 0) {
-        await PlanValidationService.updateInvitationUsage(
-          inviterId,
-          results.successful.length
-        );
+        // Note: updateInvitationUsage increments by 1, so we call it for each successful invitation
+        for (let i = 0; i < results.successful.length; i++) {
+          await PlanValidationService.updateInvitationUsage(inviterId, models);
+        }
       }
 
       return results;

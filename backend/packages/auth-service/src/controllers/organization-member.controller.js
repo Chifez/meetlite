@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
 import { sendOrganizationInviteEmail } from '../services/email-service.js';
 import { OrganizationMemberService } from '../services/organization-member.service.js';
-import { PlanValidationService } from '../services/plan-validation.service.js';
+import { PlanValidationService } from '@minimeet/shared-models';
 
 export class OrganizationMemberController {
   constructor() {
@@ -46,7 +46,7 @@ export class OrganizationMemberController {
 
       // 1. Validate plan constraints for invitation sending
       const invitationValidation =
-        await PlanValidationService.validateInvitationSending(userId);
+        await PlanValidationService.validateInvitationSending(userId, models);
       if (!invitationValidation.isValid) {
         return res.status(403).json({
           message: invitationValidation.message,
@@ -60,7 +60,8 @@ export class OrganizationMemberController {
       // 2. Validate organization capacity based on owner's plan
       const capacityValidation =
         await PlanValidationService.validateOrganizationCapacity(
-          organizationId
+          organizationId,
+          models
         );
       if (!capacityValidation.isValid) {
         return res.status(403).json({
@@ -131,7 +132,7 @@ export class OrganizationMemberController {
       }
 
       // 5. Update user's invitation usage after successful email send
-      await PlanValidationService.updateInvitationUsage(userId);
+      await PlanValidationService.updateInvitationUsage(userId, models);
 
       res.status(201).json({
         message: 'Invitation sent successfully',

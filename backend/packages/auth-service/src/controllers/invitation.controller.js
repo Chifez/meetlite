@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { models } from '../index.js';
 import { generateJWTToken } from '../utils/generate-token.js';
-import { PlanValidationService } from '../services/plan-validation.service.js';
+import { PlanValidationService } from '@minimeet/shared-models';
+
 import { MultiOrganizationService } from '../services/multi-organization.service.js';
 
 export class InvitationController {
@@ -90,7 +91,8 @@ export class InvitationController {
           await PlanValidationService.validateInvitationAcceptance(
             userId,
             invitation.organizationId,
-            invitation.role
+            invitation.role,
+            models
           );
         if (!acceptanceValidation.isValid) {
           return res.status(403).json({
@@ -105,7 +107,8 @@ export class InvitationController {
         // 2. Validate organization capacity based on owner's plan
         const capacityValidation =
           await PlanValidationService.validateOrganizationCapacity(
-            invitation.organizationId
+            invitation.organizationId,
+            models
           );
         if (!capacityValidation.isValid) {
           return res.status(403).json({
@@ -144,7 +147,8 @@ export class InvitationController {
         // 3. Update user's membership usage after successful acceptance
         await PlanValidationService.updateMembershipUsage(
           userId,
-          invitation.role
+          invitation.role,
+          models
         );
 
         // Generate new token with organization context

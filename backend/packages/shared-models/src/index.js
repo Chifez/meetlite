@@ -27,6 +27,7 @@ export * from './utils/queryHelpers.js';
 export * from './config/plans.js';
 export * from './constants/errorCodes.js';
 export { AppError } from './utils/AppError.js';
+export { PlanValidationService } from './services/plan-validation.service.js';
 
 // Create a factory for all shared models
 export const createModelFactory = (connection) => ({
