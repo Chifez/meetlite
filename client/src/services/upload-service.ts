@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import { UploadProgress } from '@/types/meetingAssets';
 
 export class UploadService {
@@ -32,7 +33,7 @@ export class UploadService {
         formData.append('visibility', metadata.visibility);
       }
 
-      const response = await api.post(`/api/recordings`, formData, {
+      const response = await api.post(`/api/v1/recordings`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -53,7 +54,7 @@ export class UploadService {
         },
       });
 
-      return response.data;
+      return extractData<any>(response);
     } catch (error: any) {
       throw new Error(
         error.response?.data?.message || 'Failed to upload recording'

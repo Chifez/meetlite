@@ -1,5 +1,6 @@
 import { models } from '../index.js';
 import { generateJWTToken } from '../utils/generate-token.js';
+import { ResponseHelpers } from '@minimeet/shared-models';
 
 export class OrganizationController {
   // GET /organizations - List user's organizations (owned + member)
@@ -35,10 +36,14 @@ export class OrganizationController {
         createdAt: org.createdAt,
       }));
 
-      res.json({ organizations });
+      return ResponseHelpers.ok(res, { organizations });
     } catch (error) {
       console.error('List organizations error:', error);
-      res.status(500).json({ message: 'Server error' });
+      return ResponseHelpers.serverError(
+        res,
+        'Failed to list organizations',
+        error
+      );
     }
   }
 

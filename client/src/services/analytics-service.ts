@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 
 export class AnalyticsService {
   // Get organization analytics
@@ -11,9 +12,10 @@ export class AnalyticsService {
   }> {
     try {
       const response = await api.get(
-        `/api/analytics/organization/${organizationId}`
+        `/api/v1/analytics/organization/${organizationId}`
       );
-      return response.data.analytics;
+      const data = extractData<{ analytics: any }>(response);
+      return data.analytics;
     } catch (error: any) {
       console.error('Failed to fetch analytics:', error);
       throw new Error(
@@ -31,10 +33,11 @@ export class AnalyticsService {
     completedSummaries: number;
   }> {
     try {
-      const response = await api.get(`/api/analytics/recordings/stats`, {
+      const response = await api.get(`/api/v1/analytics/recordings/stats`, {
         params: { organizationId },
       });
-      return response.data.stats;
+      const data = extractData<{ stats: any }>(response);
+      return data.stats;
     } catch (error: any) {
       console.error('Failed to fetch recording stats:', error);
       throw new Error(

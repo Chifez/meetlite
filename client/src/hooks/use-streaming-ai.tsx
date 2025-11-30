@@ -40,7 +40,7 @@ export const useStreamingAI = () => {
         }
 
         const response = await fetch(
-          `${env.API_GATEWAY_URL}/api/ai/description?stream=true`,
+          `${env.API_GATEWAY_URL}/api/v1/ai/description?stream=true`,
           {
             method: 'POST',
             headers,
@@ -117,10 +117,11 @@ export const useStreamingAI = () => {
 
       setIsStreaming(true);
       try {
-        const response = await api.post('/api/ai/description', {
+        const response = await api.post('/api/v1/ai/description', {
           title,
         });
-        return response.data.description || '';
+        const data = extractData<{ description?: string }>(response);
+        return data.description || '';
       } catch (error) {
         console.error('Description generation error:', error);
         throw error;

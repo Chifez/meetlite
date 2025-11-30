@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import {
   MeetingRecording,
   MeetingAssetsQuery,
@@ -22,10 +23,10 @@ export class RecordingService {
         }
       });
 
-      const response = await api.get('/api/recordings', {
+      const response = await api.get('/api/v1/recordings', {
         params,
       });
-      return response.data;
+      return extractData<MeetingAssetsResponse>(response);
     } catch (error: any) {
       console.error('Failed to fetch recordings:', error);
       throw new Error(
@@ -37,8 +38,8 @@ export class RecordingService {
   // Get a specific recording by ID
   async getRecordingById(recordingId: string): Promise<MeetingRecording> {
     try {
-      const response = await api.get(`/api/recordings/${recordingId}`);
-      return response.data;
+      const response = await api.get(`/api/v1/recordings/${recordingId}`);
+      return extractData<MeetingRecording>(response);
     } catch (error: any) {
       console.error('Failed to fetch recording:', error);
       throw new Error(
@@ -50,7 +51,7 @@ export class RecordingService {
   // Delete a recording
   async deleteRecording(recordingId: string): Promise<void> {
     try {
-      await api.delete(`/api/recordings/${recordingId}`);
+      await api.delete(`/api/v1/recordings/${recordingId}`);
     } catch (error: any) {
       console.error('Failed to delete recording:', error);
       throw new Error(
@@ -62,7 +63,7 @@ export class RecordingService {
   // Archive a recording
   async archiveRecording(recordingId: string): Promise<void> {
     try {
-      await api.post(`/api/recordings/${recordingId}/archive`);
+      await api.post(`/api/v1/recordings/${recordingId}/archive`);
     } catch (error: any) {
       console.error('Failed to archive recording:', error);
       throw new Error(
@@ -74,7 +75,7 @@ export class RecordingService {
   // Unarchive a recording
   async unarchiveRecording(recordingId: string): Promise<void> {
     try {
-      await api.post(`/api/recordings/${recordingId}/unarchive`);
+      await api.post(`/api/v1/recordings/${recordingId}/unarchive`);
     } catch (error: any) {
       console.error('Failed to unarchive recording:', error);
       throw new Error(
@@ -89,8 +90,12 @@ export class RecordingService {
     thumbnailUrl?: string;
   }> {
     try {
-      const response = await api.get(`/api/recordings/${recordingId}/stream`);
-      return response.data;
+      const response = await api.get(
+        `/api/v1/recordings/${recordingId}/stream`
+      );
+      return extractData<{ streamingUrl: string; thumbnailUrl?: string }>(
+        response
+      );
     } catch (error: any) {
       console.error('Failed to get streaming URL:', error);
       throw new Error(
@@ -105,8 +110,10 @@ export class RecordingService {
     expiresAt: Date;
   }> {
     try {
-      const response = await api.post(`/api/recordings/${recordingId}/share`);
-      return response.data;
+      const response = await api.post(
+        `/api/v1/recordings/${recordingId}/share`
+      );
+      return extractData<{ shareableUrl: string; expiresAt: Date }>(response);
     } catch (error: any) {
       console.error('Failed to generate share link:', error);
       throw new Error(
@@ -119,7 +126,7 @@ export class RecordingService {
   async downloadRecording(recordingId: string): Promise<void> {
     try {
       const response = await api.get(
-        `/api/recordings/${recordingId}/download`,
+        `/api/v1/recordings/${recordingId}/download`,
         {
           responseType: 'blob',
         }

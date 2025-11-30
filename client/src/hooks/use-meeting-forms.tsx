@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
 interface MeetingFormData {
@@ -186,10 +187,11 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
     };
 
     try {
-      const response = await api.post(`/api/meetings`, meetingData);
+      const response = await api.post(`/api/v1/meetings`, meetingData);
+      const result = extractData<{ meetingId: string }>(response);
 
       toast.success('Meeting created successfully!');
-      onSuccess?.(response.data.meetingId);
+      onSuccess?.(result.meetingId);
       resetForm();
     } catch (error) {
       toast.error('Failed to create meeting');

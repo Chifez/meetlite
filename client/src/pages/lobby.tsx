@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -65,7 +66,7 @@ const Lobby = () => {
     if (!roomId) return;
 
     try {
-      await api.get(`/api/rooms/${roomId}`);
+      await api.get(`/api/v1/rooms/${roomId}`);
 
       // Additional check: verify user has access to the meeting
       // This is a basic check - in a real implementation, you might want to
