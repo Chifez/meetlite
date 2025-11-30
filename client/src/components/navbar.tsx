@@ -77,7 +77,7 @@ const Navbar = ({
 
             {/* Desktop Login Button */}
             <Link to={isLoginPage ? '/signup' : '/login'}>
-              <Button className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-6 text-base">
+              <Button className="hidden md:flex bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6 text-sm">
                 {isLoginPage ? 'Sign Up' : 'Login'}{' '}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -113,7 +113,7 @@ const Navbar = ({
               className="w-full"
               onClick={closeMobileMenu}
             >
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-6 mt-4 w-full">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6 mt-4 w-full text-sm">
                 {isLoginPage ? 'Sign Up' : 'Login'}{' '}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
