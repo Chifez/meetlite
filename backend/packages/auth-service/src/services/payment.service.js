@@ -243,6 +243,10 @@ export class PaymentService {
   static async handleWebhookEvent(event) {
     try {
       switch (event.type) {
+        case 'checkout.session.completed':
+          // Handle checkout session completion (more reliable than success page)
+          return await this.handleCheckoutSessionCompleted(event.data.object);
+
         case 'payment_intent.succeeded':
           return await this.handlePaymentSuccess(event.data.object);
 
@@ -269,6 +273,85 @@ export class PaymentService {
       }
     } catch (error) {
       console.error('Error handling webhook event:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle checkout session completed (primary webhook for subscription creation)
+   * This is more reliable than relying on the success page callback
+   */
+  static async handleCheckoutSessionCompleted(session) {
+    try {
+      // Only process if payment was successful
+      if (session.payment_status !== 'paid') {
+        return { handled: false };
+      }
+
+      const { userId, planType, duration } = session.metadata;
+
+      if (!userId || !planType) {
+        console.error('Missing metadata in checkout session:', session.id);
+        return { handled: false };
+      }
+
+      // Check if already processed (idempotency)
+      const existingUser = await models.User.findById(userId);
+      if (existingUser && existingUser.plan.stripeSessionId === session.id) {
+        return { handled: true, message: 'Already processed' };
+      }
+
+      // Retrieve subscription if available
+      let subscriptionId = null;
+      let endDate = null;
+      let startDate = new Date();
+
+      if (session.subscription) {
+        const stripe = getStripe();
+        const subscription =
+          typeof session.subscription === 'string'
+            ? await stripe.subscriptions.retrieve(session.subscription)
+            : session.subscription;
+
+        subscriptionId = subscription.id;
+        endDate = new Date(subscription.current_period_end * 1000);
+        startDate = new Date(subscription.current_period_start * 1000);
+      } else {
+        // Fallback: Calculate end date based on duration
+        endDate = new Date();
+        if (duration === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (duration === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        }
+      }
+
+      // Update user plan
+      const updatedUser = await models.User.findByIdAndUpdate(
+        userId,
+        {
+          'plan.type': planType,
+          'plan.status': 'active',
+          'plan.startDate': startDate,
+          'plan.endDate': endDate,
+          'plan.stripeSessionId': session.id,
+          ...(subscriptionId && {
+            'plan.stripeSubscriptionId': subscriptionId,
+          }),
+          $inc: { tokenVersion: 1 },
+        },
+        { new: true }
+      );
+
+      if (updatedUser) {
+        // Sync all organizations owned by this user
+        await OrganizationPlanSyncService.syncUserOrganizations(userId);
+        return { handled: true, userId, planType };
+      }
+
+      return { handled: false };
+    } catch (error) {
+      console.error('Error handling checkout session completed:', error);
       throw error;
     }
   }
