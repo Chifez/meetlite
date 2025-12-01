@@ -8,6 +8,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 import { Organization } from '@/types/organization';
 
@@ -97,7 +98,8 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     setLoading(true);
     try {
       const response = await api.get('/api/organizations');
-      const orgs: Organization[] = response.data.organizations.map(
+      const responseData = extractData<{ organizations: any[] }>(response);
+      const orgs: Organization[] = (responseData.organizations || []).map(
         (org: any) => ({
           id: org.id,
           name: org.name,
