@@ -12,7 +12,7 @@ const integrations = [
 
 const IntegrationsSection = () => {
   return (
-    <section className="py-20 bg-muted/30">
+    <section id="integrations" className="py-20 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-3 mb-12">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground">

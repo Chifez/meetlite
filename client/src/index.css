@@ -144,4 +144,10 @@
   .bg-page {
     background: var(--page-gradient);
   }
+
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -6;
+    }
+  }
 }

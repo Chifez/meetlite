@@ -38,6 +38,8 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
 
 export const NAV_LINKS = [
   { label: 'Features', href: '#features' },
+  { label: 'Testimonials', href: '#testimonials' },
+  { label: 'Compare', href: '#comparison' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'Contact', href: '#contact' },
 ];
