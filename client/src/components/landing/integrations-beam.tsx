@@ -51,7 +51,7 @@ const IntegrationsBeam = () => {
           </div>
         </div>
         {/* Integration Icons */}
-        <div className="flex justify-center items-center gap-8 md:gap-13">
+        <div className="flex justify-center items-center gap-7 md:gap-13 max-w-full">
           {integrations.map((integration, index) => {
             const Icon = integration.icon;
             return (
@@ -60,8 +60,8 @@ const IntegrationsBeam = () => {
                 ref={integrationRefs[index]}
                 className="z-10 flex flex-col items-center gap-2"
               >
-                <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center shadow-md hover:shadow-lg hover:border-primary/50 transition-all duration-300 group">
-                  <Icon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                <div className="size-8 md:size-12 rounded-full bg-card border border-border flex items-center justify-center shadow-md hover:shadow-lg hover:border-primary/50 transition-all duration-300 group">
+                  <Icon className="size-4 md:size-6 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
                 <span className="text-xs font-medium text-muted-foreground text-center max-w-[80px]">
                   {integration.name}

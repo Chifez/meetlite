@@ -86,7 +86,7 @@ const HeroSection = () => {
                     <Video className="w-10 h-10 text-primary-foreground" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-foreground">
+                    <h3 className="hidden md:block text-xl font-semibold text-foreground">
                       Crystal Clear Video
                     </h3>
                     <p className="text-muted-foreground">
