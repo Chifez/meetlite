@@ -26,7 +26,7 @@ const pricingPlans = [
       'Priority support',
       'Recording & transcripts',
     ],
-    buttonText: 'Start Free Trial',
+    buttonText: 'Subscribe Now',
     buttonVariant: 'default' as const,
     isPopular: true,
   },
