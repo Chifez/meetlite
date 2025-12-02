@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/axios';
-import { extractData } from '@/lib/api-response';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -66,6 +65,8 @@ const Lobby = () => {
     if (!roomId) return;
 
     try {
+      // Authorization check - ProtectedRoute ensures user is authenticated
+      // This API call will return 403 if user doesn't have access
       await api.get(`/api/v1/rooms/${roomId}`);
 
       // Additional check: verify user has access to the meeting
