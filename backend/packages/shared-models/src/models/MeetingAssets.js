@@ -15,6 +15,13 @@ const meetingRecordingSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Team scope - optional, only present when recording belongs to a team
+    teamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      index: true,
+      default: null, // null means organization-level recording
+    },
     title: {
       type: String,
       required: true,
@@ -163,6 +170,8 @@ const meetingRecordingSchema = new mongoose.Schema(
 
 // Indexes for efficient queries
 meetingRecordingSchema.index({ organizationId: 1, createdAt: -1 });
+meetingRecordingSchema.index({ organizationId: 1, teamId: 1 });
+meetingRecordingSchema.index({ teamId: 1, createdAt: -1 });
 meetingRecordingSchema.index({ meetingId: 1 });
 meetingRecordingSchema.index({ 'participants.userId': 1 });
 meetingRecordingSchema.index({ tags: 1 });
@@ -229,9 +238,15 @@ meetingRecordingSchema.statics.findByOrganization = function (
     tags,
     search,
     isArchived,
+    teamId,
   } = options;
 
   const query = { organizationId };
+
+  // Add teamId filter if provided
+  if (teamId) {
+    query.teamId = teamId;
+  }
 
   // Handle archive status - if not specified, default to non-archived
   if (isArchived !== undefined) {

@@ -13,6 +13,8 @@ import multiOrganizationRoutes from './routes/v1/multi-organization.route.js';
 import bulkOperationsRoutes from './routes/v1/bulk-operations.route.js';
 import paymentRoutes from './routes/v1/payment.route.js';
 import pushNotificationsRoutes from './routes/v1/push-notifications.route.js';
+import teamRoutes from './routes/v1/team.route.js';
+import teamInvitationRoutes from './routes/v1/team-invitation.route.js';
 
 // Import simple middleware
 import corsMiddleware from './middleware/cors.js';
@@ -68,6 +70,8 @@ app.use('/api/v1/plan-management', planManagementRoutes);
 app.use('/api/v1/multi-org', multiOrganizationRoutes);
 app.use('/api/v1/bulk', bulkOperationsRoutes);
 app.use('/api/v1/push-notifications', pushNotificationsRoutes);
+app.use('/api/v1', teamRoutes);
+app.use('/api/v1', teamInvitationRoutes);
 
 // Only load payment routes if Stripe is configured
 if (process.env.STRIPE_SECRET_KEY) {

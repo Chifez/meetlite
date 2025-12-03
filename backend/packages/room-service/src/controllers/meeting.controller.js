@@ -68,6 +68,7 @@ export class MeetingController {
         privacy,
         inviteEmails,
         hostEmail,
+        teamId,
       } = req.body;
 
       const meetingId = nanoid(12);
@@ -84,6 +85,22 @@ export class MeetingController {
           }));
       }
 
+      // Validate teamId if provided
+      if (teamId && req.user.organizationId) {
+        const team = await models.Team.findOne({
+          _id: teamId,
+          organizationId: req.user.organizationId,
+          status: { $ne: 'deleted' },
+        });
+
+        if (!team) {
+          return ResponseHelpers.badRequest(
+            res,
+            'Team not found or does not belong to this organization'
+          );
+        }
+      }
+
       const meeting = new models.Meeting({
         meetingId,
         title,
@@ -92,6 +109,7 @@ export class MeetingController {
         duration,
         createdBy: req.user.userId,
         organizationId: req.user.organizationId || null,
+        teamId: teamId || null,
         participants: participants || [],
         privacy: privacy || 'public',
         invites,
@@ -135,13 +153,19 @@ export class MeetingController {
    */
   async listMeetings(req, res) {
     try {
+      const { teamId } = req.query;
+
       // Build query based on user's active organization
       const orgFilter = req.user.organizationId
         ? { organizationId: req.user.organizationId }
         : { organizationId: null }; // Personal workspace
 
+      // Add teamId filter if provided
+      const teamFilter = teamId ? { teamId } : {};
+
       const meetings = await models.Meeting.find({
         ...orgFilter,
+        ...teamFilter,
         $or: [
           { createdBy: req.user.userId },
           { participants: req.user.userId },
@@ -357,6 +381,7 @@ export class MeetingController {
         roomId,
         createdBy: req.user.userId,
         organizationId: meeting.organizationId,
+        teamId: meeting.teamId || null,
       });
       await room.save();
 
@@ -422,6 +447,3 @@ export class MeetingController {
 }
 
 export default MeetingController;
-
-
-

@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { verifyToken } from '../../middleware/auth.js';
+import { requireTeamAccess } from '../../middleware/team-access.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 // Import existing route handlers - we'll wrap them
 import recordingsRouter from '../recordings.js';

@@ -3,6 +3,8 @@ import { createOrganizationModel } from './models/Organization.js';
 import { createOrganizationInvitationModel } from './models/OrganizationInvitation.js';
 import { createMeetingRecordingModel } from './models/MeetingAssets.js';
 import { createPushSubscriptionModel } from './models/PushSubscription.js';
+import { createTeamModel } from './models/Team.js';
+import { createTeamInvitationModel } from './models/TeamInvitation.js';
 
 // Export all shared models and utilities
 export { default as User, createUserModel } from './models/User.js';
@@ -22,6 +24,11 @@ export {
   default as PushSubscription,
   createPushSubscriptionModel,
 } from './models/PushSubscription.js';
+export { default as Team, createTeamModel } from './models/Team.js';
+export {
+  default as TeamInvitation,
+  createTeamInvitationModel,
+} from './models/TeamInvitation.js';
 export { default as connectionPool } from './utils/connectionPool.js';
 export * from './utils/queryHelpers.js';
 export * from './config/plans.js';
@@ -37,6 +44,8 @@ export const createModelFactory = (connection) => ({
   OrganizationInvitation: createOrganizationInvitationModel(connection),
   MeetingRecording: createMeetingRecordingModel(connection),
   PushSubscription: createPushSubscriptionModel(connection),
+  Team: createTeamModel(connection),
+  TeamInvitation: createTeamInvitationModel(connection),
   // Add more shared models here as they're created
   // Meeting: createMeetingModel(connection),
   // Room: createRoomModel(connection),

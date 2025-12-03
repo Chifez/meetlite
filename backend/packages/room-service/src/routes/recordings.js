@@ -15,6 +15,7 @@ import {
   generateRecordingSummary,
   analyzeRecordingSpeakers,
 } from '../services/aiService.js';
+import { requireTeamAccess } from '../middleware/team-access.js';
 
 const router = express.Router();
 
@@ -119,6 +120,7 @@ router.post('/', upload.single('recording'), async (req, res) => {
     const recording = new models.MeetingRecording({
       meetingId: meetingId || null,
       organizationId: req.user.organizationId || null,
+      teamId: req.body.teamId || null,
       title: title.trim(),
       description: description?.trim(),
       recording: {
@@ -282,7 +284,7 @@ router.post('/', upload.single('recording'), async (req, res) => {
  * @desc    Get recordings list
  * @access  Private
  */
-router.get('/', async (req, res) => {
+router.get('/', requireTeamAccess, async (req, res) => {
   try {
     const {
       page = 1,
@@ -293,6 +295,7 @@ router.get('/', async (req, res) => {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       isArchived,
+      teamId,
     } = req.query;
 
     // Organization is required for accessing recordings
@@ -317,6 +320,7 @@ router.get('/', async (req, res) => {
           : isArchived === 'false'
           ? false
           : undefined,
+      teamId: teamId || undefined,
     };
 
     const recordings = await models.MeetingRecording.findByOrganization(
@@ -325,6 +329,9 @@ router.get('/', async (req, res) => {
     );
 
     const countQuery = { organizationId: req.user.organizationId };
+    if (teamId) {
+      countQuery.teamId = teamId;
+    }
     if (isArchived !== undefined) {
       countQuery.isArchived = isArchived === 'true' ? true : false;
     } else {
@@ -358,7 +365,7 @@ router.get('/', async (req, res) => {
  * @desc    Get recording details
  * @access  Private
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireTeamAccess, async (req, res) => {
   try {
     const recording = await models.MeetingRecording.findById(req.params.id)
       .populate('meetingId', 'title scheduledTime')
