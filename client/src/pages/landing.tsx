@@ -11,8 +11,8 @@ export default function Landing() {
   return (
     <>
       <SEO
-        title="MeetLite | Video Conferencing Made Simple"
-        description="Experience seamless video conferencing with advanced scheduling, smart invites, and enterprise-grade privacy."
+        title="MeetLite | The collaborative meeting platform built for teams"
+        description="The collaborative meeting platform built for teams"
       />
       <div className="min-h-screen transition-colors duration-300">
         <HeroSection />

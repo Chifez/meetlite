@@ -1,5 +1,3 @@
-import { Video } from 'lucide-react';
-
 interface LogoProps {
   variant?: 'default' | 'gradient' | 'white';
   size?: 'sm' | 'base';
@@ -11,12 +9,12 @@ export default function Logo({
 }: LogoProps) {
   const sizeClasses = {
     sm: {
-      container: 'w-6 h-6',
+      container: 'w-8 h-8',
       icon: 'w-3 h-3',
       text: 'text-sm',
     },
     base: {
-      container: 'w-8 h-8',
+      container: 'w-10 h-10',
       icon: 'w-4 h-4',
       text: 'text-xl',
     },
@@ -24,10 +22,10 @@ export default function Logo({
 
   const variantClasses = {
     default: {
-      text: 'text-black dark:text-white',
+      text: 'text-gray-800 dark:text-white',
     },
     gradient: {
-      text: 'bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent',
+      text: 'text-primary',
     },
     white: {
       text: 'text-white dark:text-black',
@@ -38,14 +36,10 @@ export default function Logo({
   const currentVariant = variantClasses[variant];
 
   return (
-    <div className="flex items-center space-x-2">
-      <div
-        className={`${currentSize.container} bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center`}
-      >
-        <Video className={`${currentSize.icon} text-white`} />
-      </div>
+    <div className="flex items-center justify-center">
+      <img src="/logo.svg" alt="Logo" className={currentSize.container} />
       <span className={`${currentSize.text} font-bold ${currentVariant.text}`}>
-        meetlite
+        MeetLite
       </span>
     </div>
   );

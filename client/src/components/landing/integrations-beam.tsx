@@ -10,7 +10,6 @@ import {
   Video,
   Settings,
 } from 'lucide-react';
-import Logo from '@/components/logo';
 
 const integrations = [
   { name: 'Google Calendar', icon: Calendar },

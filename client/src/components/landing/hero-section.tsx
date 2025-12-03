@@ -30,12 +30,12 @@ const HeroSection = () => {
           </Badge>
 
           {/* HEADLINE */}
-          <div className="space-y-4 max-w-3xl">
+          <div className="space-y-4 max-w-4xl">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.15] text-foreground tracking-[-0.02em]">
-              Meet Better,
+              Collaborative Conferencing
               <br />
               <span className="text-primary font-normal italic">
-                Meet Lighter
+                For Modern Teams
               </span>
             </h1>
 
