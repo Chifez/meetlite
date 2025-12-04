@@ -1,22 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useWorkspace } from '@/contexts/workspace-context';
-// import { useAuth } from '@/hooks/use-auth';
 import { useMembers } from '@/hooks/use-members';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 import { MemberList } from '@/components/organization/member-list';
 import { InviteMemberModal } from '@/components/organization/invite-member-modal';
+import { TeamAssignmentPanel } from '@/components/organization/team-assignment-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Users, AlertCircle } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Users, AlertCircle, UserPlus, UsersRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 
 const MembersPage: React.FC = () => {
-  // const { user } = useAuth();
   const { activeOrganization, isPersonalMode } = useWorkspace();
   const { members, loading, fetchMembers } = useMembers();
+  const { currentPlan } = useCurrentPlan();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('members');
   const navigate = useNavigate();
+  const isFreePlan = currentPlan === 'free';
+  const showTeamsTab = !isFreePlan;
 
   // Redirect if not in organization mode
   useEffect(() => {
@@ -137,17 +142,44 @@ const MembersPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Member List */}
-      <MemberList
-        organizationId={activeOrganization.id}
-        organizationName={activeOrganization.name}
-        members={members.members}
-        pendingInvitations={members.pendingInvitations}
-        userRole={userRole}
-        memberCount={members.organization.memberCount}
-        maxMembers={members.organization.maxMembers}
-        onInviteClick={() => setInviteModalOpen(true)}
-      />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="members" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Invite to Organization
+          </TabsTrigger>
+          {showTeamsTab && (
+            <TabsTrigger value="teams" className="gap-2">
+              <UsersRound className="h-4 w-4" />
+              Add to Teams
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="members" className="mt-0">
+          <MemberList
+            organizationId={activeOrganization.id}
+            organizationName={activeOrganization.name}
+            members={members.members}
+            pendingInvitations={members.pendingInvitations}
+            userRole={userRole}
+            memberCount={members.organization.memberCount}
+            maxMembers={members.organization.maxMembers}
+            onInviteClick={() => setInviteModalOpen(true)}
+          />
+        </TabsContent>
+
+        {showTeamsTab && (
+          <TabsContent value="teams" className="mt-0">
+            <TeamAssignmentPanel
+              organizationId={activeOrganization.id}
+              members={members.members}
+              onRefresh={() => fetchMembers(activeOrganization.id)}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
 
       {/* Invite Member Modal */}
       <InviteMemberModal

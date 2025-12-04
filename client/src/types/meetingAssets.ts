@@ -93,6 +93,7 @@ export interface MeetingAssetsQuery {
   isArchived?: boolean;
   hasTranscript?: boolean;
   hasSummary?: boolean;
+  teamId?: string;
 }
 
 export interface MeetingAssetsResponse {

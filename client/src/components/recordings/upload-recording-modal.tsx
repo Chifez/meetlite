@@ -22,6 +22,7 @@ interface UploadRecordingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadSuccess?: (recording: any) => void;
+  teamId?: string;
 }
 
 interface UploadFormData {
@@ -37,6 +38,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
   open,
   onOpenChange,
   onUploadSuccess,
+  teamId,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
@@ -128,6 +130,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean),
+          ...(teamId && { teamId }),
         },
         (progress) => {
           setUploadProgress(progress.percentage);

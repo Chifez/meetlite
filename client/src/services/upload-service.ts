@@ -11,6 +11,7 @@ export class UploadService {
       description?: string;
       tags?: string[];
       meetingId?: string;
+      teamId?: string;
       visibility?: 'organization' | 'participants' | 'private';
     },
     onProgress?: (progress: UploadProgress) => void,
@@ -29,11 +30,14 @@ export class UploadService {
       if (metadata.meetingId) {
         formData.append('meetingId', metadata.meetingId);
       }
+      if (metadata.teamId) {
+        formData.append('teamId', metadata.teamId);
+      }
       if (metadata.visibility) {
         formData.append('visibility', metadata.visibility);
       }
 
-      const response = await api.post(`/api/v1/recordings`, formData, {
+      const response = await api.post(`/api/recordings`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

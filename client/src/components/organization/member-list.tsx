@@ -40,6 +40,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useMembers } from '@/hooks/use-members';
+import { TeamAssignmentDropdown } from './team-assignment-dropdown';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 import type {
   OrganizationMember,
   PendingInvitation,
@@ -73,7 +75,11 @@ export const MemberList: React.FC<MemberListProps> = ({
     removing,
     canceling,
     updatingRole,
+    fetchMembers,
   } = useMembers();
+  const { currentPlan } = useCurrentPlan();
+  const isFreePlan = currentPlan === 'free';
+  const showTeams = !isFreePlan; // Only show teams for paid plans
   const [memberToRemove, setMemberToRemove] =
     useState<OrganizationMember | null>(null);
   const [invitationToCancel, setInvitationToCancel] =
@@ -173,12 +179,27 @@ export const MemberList: React.FC<MemberListProps> = ({
                         {getInitials(member.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{member.name}</span>
                         {member.isOwner && (
                           <Crown className="h-4 w-4 text-yellow-500" />
                         )}
+                        {showTeams &&
+                          member.teams &&
+                          member.teams.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {member.teams.map((team) => (
+                                <Badge
+                                  key={team.teamId}
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-700"
+                                >
+                                  @{team.teamName}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                       </div>
                       <p className="text-sm text-gray-600">{member.email}</p>
                       <p className="text-xs text-gray-500">
@@ -214,6 +235,15 @@ export const MemberList: React.FC<MemberListProps> = ({
                       >
                         {member.role}
                       </Badge>
+                    )}
+
+                    {showTeams && isOwner && (
+                      <TeamAssignmentDropdown
+                        memberId={member.id}
+                        memberName={member.name}
+                        currentTeams={member.teams?.map((t) => t.teamId) || []}
+                        onTeamChange={() => fetchMembers(organizationId)}
+                      />
                     )}
 
                     {isOwner && !member.isOwner && (

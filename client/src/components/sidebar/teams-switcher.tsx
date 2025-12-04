@@ -1,221 +1,163 @@
 'use client';
 
-import type React from 'react';
-
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Users, ChevronsUpDown, Loader2 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useAuth } from '@/hooks/use-auth';
-import api from '@/lib/axios';
-import { extractData } from '@/lib/api-response';
-import { Team } from '@/types/team';
-import { toast } from 'sonner';
+  ChevronRight,
+  ChevronDown,
+  Users,
+  Video,
+  FileVideo,
+  Loader2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useWorkspace } from '@/contexts/workspace-context';
+import { useTeams } from '@/hooks/use-teams';
 
 interface TeamsSwitcherProps {}
 
 export function TeamsSwitcher({}: TeamsSwitcherProps) {
-  const { user, isAuthenticated } = useAuth();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { activeOrganization } = useWorkspace();
+  const { teams, loading, fetchTeams } = useTeams();
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
-  // Load teams when user authenticates
+  // Load teams when organization is active
   useEffect(() => {
-    if (isAuthenticated && user) {
-      loadTeams();
-    } else {
-      setTeams([]);
-      setActiveTeamId(null);
+    if (activeOrganization?.id) {
+      fetchTeams(activeOrganization.id);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [activeOrganization?.id]);
 
-  const loadTeams = async () => {
-    if (!isAuthenticated) return;
+  // Expand team if current route matches team pages
+  useEffect(() => {
+    const pathMatch = location.pathname.match(/^\/teams\/([^/]+)/);
+    if (pathMatch) {
+      const teamId = pathMatch[1];
+      setExpandedTeams((prev) => new Set(prev).add(teamId));
+    }
+  }, [location.pathname]);
 
-    setLoading(true);
-    try {
-      // TODO: Replace with actual teams API endpoint when available
-      const response = await api.get('/api/teams');
-      const responseData = extractData<{ teams: any[] }>(response);
-      const teamsData: Team[] = (responseData.teams || []).map((team: any) => ({
-        id: team.id,
-        name: team.name,
-        slug: team.slug,
-        logo: team.logo,
-        members: [],
-        memberCount: team.memberCount,
-        role: team.role,
-        createdAt: team.createdAt,
-      }));
-
-      setTeams(teamsData);
-    } catch (error: any) {
-      // If endpoint doesn't exist yet, just log and continue with empty teams
-      if (error.response?.status === 404) {
-        console.log('Teams endpoint not available yet');
-        setTeams([]);
+  const toggleTeam = (teamId: string) => {
+    setExpandedTeams((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(teamId)) {
+        newSet.delete(teamId);
       } else {
-        console.error('Failed to load teams:', error);
-        toast.error('Failed to load teams');
+        newSet.add(teamId);
       }
-    } finally {
-      setLoading(false);
-    }
+      return newSet;
+    });
   };
 
-  const handleSwitchToTeam = (teamId: string) => {
-    if (loading) return;
-    // TODO: Implement team switching logic when backend is ready
-    setActiveTeamId(teamId);
-    toast.info('Team switching functionality coming soon');
+  const handleTeamMeetingClick = (teamId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/teams/${teamId}/meetings`);
   };
 
-  const getCurrentDisplayName = (): string => {
-    if (activeTeamId) {
-      const team = teams.find((t) => t.id === activeTeamId);
-      return team ? `@${team.name}` : 'Select Team';
-    }
-    return teams.length > 0 ? 'Select Team' : 'No Teams';
+  const handleTeamRecordingClick = (teamId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/teams/${teamId}/recordings`);
   };
 
-  const getCurrentDisplayDescription = (): string => {
-    if (activeTeamId) {
-      const team = teams.find((t) => t.id === activeTeamId);
-      if (team) {
-        return `${team.memberCount || 0} member${
-          team.memberCount === 1 ? '' : 's'
-        }`;
-      }
-    }
-    return teams.length > 0
-      ? `${teams.length} team${teams.length === 1 ? '' : 's'} available`
-      : 'Create or join a team';
-  };
+  const isTeamExpanded = (teamId: string) => expandedTeams.has(teamId);
+  const isTeamMeetingActive = (teamId: string) =>
+    location.pathname === `/teams/${teamId}/meetings`;
+  const isTeamRecordingActive = (teamId: string) =>
+    location.pathname === `/teams/${teamId}/recordings`;
 
-  const getCurrentInitials = () => {
-    if (activeTeamId) {
-      const team = teams.find((t) => t.id === activeTeamId);
-      if (team) {
-        return team.name
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2);
-      }
-    }
-    return 'TM'; // Team
-  };
-
-  if (teams.length === 0 && !loading) {
+  if (loading) {
     return (
-      <div className="space-y-2">
-        <Button
-          variant="ghost"
-          className="w-full justify-between h-auto p-3 hover:bg-sidebar-accent opacity-60"
-          disabled
-        >
-          <div className="flex items-center gap-3 flex-1">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                TM
-              </AvatarFallback>
-            </Avatar>
-            <div className="text-left flex-1 min-w-0">
-              <div className="text-xs font-medium text-sidebar-foreground truncate uppercase">
-                No Teams
-              </div>
-              <div className="text-xs text-sidebar-foreground/60 truncate">
-                Create or join a team
-              </div>
-            </div>
-          </div>
-        </Button>
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-4 w-4 animate-spin text-sidebar-foreground/60" />
+      </div>
+    );
+  }
+
+  if (!teams || teams.length === 0) {
+    return (
+      <div className="px-2 py-1">
+        <div className="text-xs text-sidebar-foreground/60 text-center py-2">
+          No teams yet
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      {/* Current Team Display - Clickable Dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="w-full justify-between h-auto p-3 hover:bg-sidebar-accent"
-            disabled={loading}
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  {getCurrentInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-left flex-1 min-w-0">
-                <div className="text-xs font-medium text-sidebar-foreground truncate uppercase">
-                  {getCurrentDisplayName()}
-                </div>
-                <div className="text-xs text-sidebar-foreground/60 truncate">
-                  {getCurrentDisplayDescription()}
-                </div>
-              </div>
-            </div>
-            {loading ? (
-              <Loader2 className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0 animate-spin" />
-            ) : (
-              <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0" />
-            )}
-          </Button>
-        </DropdownMenuTrigger>
+    <div className="space-y-1">
+      {teams.map((team) => {
+        const isExpanded = isTeamExpanded(team.id);
+        const isMeetingActive = isTeamMeetingActive(team.id);
+        const isRecordingActive = isTeamRecordingActive(team.id);
 
-        <DropdownMenuContent align="start" className="w-full">
-          {/* Teams List */}
-          {teams.map((team) => (
-            <DropdownMenuItem
-              key={team.id}
-              onClick={() => handleSwitchToTeam(team.id)}
-              className="flex items-center gap-3 p-3 cursor-pointer"
-              disabled={loading}
+        return (
+          <div key={team.id} className="space-y-0.5">
+            {/* Team Header */}
+            <Button
+              variant="ghost"
+              className={cn(
+                'w-full justify-between h-auto p-2 hover:bg-sidebar-accent',
+                'text-sidebar-foreground'
+              )}
+              onClick={() => toggleTeam(team.id)}
             >
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {isExpanded ? (
+                  <ChevronDown className="h-3 w-3 text-sidebar-foreground/60 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 text-sidebar-foreground/60 flex-shrink-0" />
+                )}
+                <Users className="h-3.5 w-3.5 text-sidebar-foreground/80 flex-shrink-0" />
+                <span className="text-xs font-medium text-sidebar-foreground truncate">
+                  @{team.name}
+                </span>
               </div>
-              <div className="text-left">
-                <div className="font-medium">@{team.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {team.memberCount || 0} members
-                </div>
-              </div>
-            </DropdownMenuItem>
-          ))}
+            </Button>
 
-          {teams.length > 0 && <DropdownMenuSeparator />}
+            {/* Team Submenu */}
+            {isExpanded && (
+              <div className="ml-4 space-y-0.5">
+                {/* Meetings */}
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start h-auto p-2 hover:bg-sidebar-accent',
+                    'text-sidebar-foreground',
+                    isMeetingActive &&
+                      'bg-sidebar-accent text-sidebar-accent-foreground'
+                  )}
+                  onClick={(e) => handleTeamMeetingClick(team.id, e)}
+                >
+                  <Video className="h-3.5 w-3.5 text-sidebar-foreground/80 mr-2 flex-shrink-0" />
+                  <span className="text-xs text-sidebar-foreground">
+                    Meetings
+                  </span>
+                </Button>
 
-          {/* Create/Join Team - Placeholder */}
-          <DropdownMenuItem
-            className="flex items-center gap-3 p-3 cursor-pointer border-2 border-dashed border-border rounded-lg m-2 opacity-60"
-            disabled
-          >
-            <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
-              <Users className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="text-left">
-              <div className="font-medium text-muted-foreground">
-                Create or Join Team
+                {/* Recordings */}
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start h-auto p-2 hover:bg-sidebar-accent',
+                    'text-sidebar-foreground',
+                    isRecordingActive &&
+                      'bg-sidebar-accent text-sidebar-accent-foreground'
+                  )}
+                  onClick={(e) => handleTeamRecordingClick(team.id, e)}
+                >
+                  <FileVideo className="h-3.5 w-3.5 text-sidebar-foreground/80 mr-2 flex-shrink-0" />
+                  <span className="text-xs text-sidebar-foreground">
+                    Recordings
+                  </span>
+                </Button>
               </div>
-              <div className="text-xs text-muted-foreground">Coming soon</div>
-            </div>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

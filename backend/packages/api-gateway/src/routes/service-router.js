@@ -24,6 +24,7 @@ const SERVICE_ROUTES = {
       '/api/bulk',
       '/api/push-notifications',
       '/api/payment',
+      '/api/teams', // Team invitation routes (user-scoped)
     ],
     target: config.services.auth,
     pathRewrite: {
@@ -37,6 +38,7 @@ const SERVICE_ROUTES = {
       '^/api/bulk': '/api/v1/bulk',
       '^/api/push-notifications': '/api/v1/push-notifications',
       '^/api/payment': '/api/v1/payment',
+      '^/api/teams': '/api/v1/teams',
     },
   },
 

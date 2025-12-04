@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { OrganizationSwitcher } from '@/components/sidebar/organization-switcher';
 import { TeamsSwitcher } from '@/components/sidebar/teams-switcher';
 import { useCurrentPlan } from '@/hooks/use-current-plan';
+import { useWorkspace } from '@/contexts/workspace-context';
 import type { NavigationItem } from '@/lib/types';
 
 interface SidebarNavigationProps {
@@ -20,7 +21,9 @@ export function SidebarNavigation({
 }: SidebarNavigationProps) {
   const location = useLocation();
   const { currentPlan } = useCurrentPlan();
+  const { isPersonalMode } = useWorkspace();
   const isFreePlan = currentPlan === 'free';
+  const showTeams = !isPersonalMode && !isFreePlan; // Show teams only when org is active AND plan is not free
 
   return (
     <>
@@ -35,7 +38,7 @@ export function SidebarNavigation({
             <OrganizationSwitcher />
           </div>
 
-          {!isFreePlan && (
+          {showTeams && (
             <>
               <div className="px-4 py-2 border-b border-sidebar-border">
                 <div className="mb-1">

@@ -7,6 +7,8 @@ interface SidebarHeaderProps {
   isDesktop: boolean;
   onToggleCollapse: () => void;
   onCloseMobile: () => void;
+  onToggleHover?: () => void;
+  onToggleLeave?: () => void;
 }
 
 export function SidebarHeader({
@@ -14,6 +16,8 @@ export function SidebarHeader({
   isDesktop,
   onToggleCollapse,
   onCloseMobile,
+  onToggleHover,
+  onToggleLeave,
 }: SidebarHeaderProps) {
   const showLogo = !(collapsed && isDesktop);
 
@@ -39,6 +43,8 @@ export function SidebarHeader({
           variant="ghost"
           size="sm"
           onClick={onToggleCollapse}
+          onMouseEnter={collapsed ? onToggleHover : undefined}
+          onMouseLeave={collapsed ? onToggleLeave : undefined}
           className="text-sidebar-foreground hover:bg-sidebar-accent"
         >
           {collapsed ? (

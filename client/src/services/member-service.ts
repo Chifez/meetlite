@@ -7,6 +7,11 @@ export interface OrganizationMember {
   role: 'owner' | 'member';
   joinedAt: string;
   isOwner: boolean;
+  teams?: Array<{
+    teamId: string;
+    teamName: string;
+    role: 'owner' | 'member';
+  }>;
 }
 
 export interface PendingInvitation {

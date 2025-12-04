@@ -61,6 +61,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1', teamRoutes); // Mount team routes at /api/v1 (routes defined as /organizations/:organizationId/teams)
 app.use('/api/v1/organizations', organizationRoutes);
 app.use('/api/v1/organizations/members', organizationMemberRoutes);
 app.use('/api/v1/invitations', invitationRoutes);
@@ -70,8 +71,7 @@ app.use('/api/v1/plan-management', planManagementRoutes);
 app.use('/api/v1/multi-org', multiOrganizationRoutes);
 app.use('/api/v1/bulk', bulkOperationsRoutes);
 app.use('/api/v1/push-notifications', pushNotificationsRoutes);
-app.use('/api/v1', teamRoutes);
-app.use('/api/v1', teamInvitationRoutes);
+app.use('/api/v1', teamInvitationRoutes); // Mount team invitation routes at /api/v1 (handles both org-scoped and user-scoped routes)
 
 // Only load payment routes if Stripe is configured
 if (process.env.STRIPE_SECRET_KEY) {
