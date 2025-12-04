@@ -1,4 +1,4 @@
-import { PlanValidationService } from '../services/plan-validation.service.js';
+import { PlanValidationService } from '@minimeet/shared-models';
 import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 import {
   getPlanConstraints,
@@ -137,7 +137,8 @@ export class PlanController {
       switch (action) {
         case 'send_invitation':
           validation = await PlanValidationService.validateInvitationSending(
-            userId
+            userId,
+            models
           );
           break;
 
@@ -151,7 +152,8 @@ export class PlanController {
           validation = await PlanValidationService.validateInvitationAcceptance(
             userId,
             data.organizationId,
-            data.role
+            data.role,
+            models
           );
           break;
 
@@ -162,7 +164,8 @@ export class PlanController {
             });
           }
           validation = await PlanValidationService.validateOrganizationCapacity(
-            data.organizationId
+            data.organizationId,
+            models
           );
           break;
 

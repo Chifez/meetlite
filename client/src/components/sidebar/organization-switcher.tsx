@@ -21,9 +21,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Plus, User, Loader2, ChevronsUpDown } from 'lucide-react';
+import {
+  Building2,
+  Plus,
+  User,
+  Loader2,
+  ChevronsUpDown,
+  Zap,
+} from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useWorkspace } from '@/contexts/workspace-context';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
+import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
+import { toast } from 'sonner';
 
 interface OrganizationSwitcherProps {
   // Props are no longer needed as we get data from context
@@ -39,16 +49,31 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
     createOrganization,
     currentWorkspaceName,
   } = useWorkspace();
+  const { currentPlan } = useCurrentPlan();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [newOrgDescription, setNewOrgDescription] = useState('');
   const [newOrgIndustry, setNewOrgIndustry] = useState('');
   const [newOrgSize, setNewOrgSize] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const isFreePlan = currentPlan === 'free';
+
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent free plan users from creating organizations
+    if (isFreePlan) {
+      toast.error(
+        'Organization creation requires a paid plan. Please upgrade to continue.'
+      );
+      setIsCreateDialogOpen(false);
+      setIsPlanDialogOpen(true);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -66,6 +91,16 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
         setNewOrgIndustry('');
         setNewOrgSize('');
         setIsCreateDialogOpen(false);
+      }
+    } catch (error: any) {
+      // Handle backend error response
+      if (error?.response?.data?.upgradeRequired) {
+        toast.error(
+          error.response.data.message ||
+            'Please upgrade to create organizations'
+        );
+        setIsCreateDialogOpen(false);
+        setIsPlanDialogOpen(true);
       }
     } finally {
       setIsLoading(false);
@@ -184,86 +219,124 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
           <DropdownMenuSeparator />
 
           {/* Create New Organization */}
-          <Dialog
-            open={isCreateDialogOpen}
-            onOpenChange={setIsCreateDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <DropdownMenuItem
-                className="flex items-center gap-3 p-3 cursor-pointer border-2 border-dashed border-border rounded-lg m-2"
-                onSelect={(e) => e.preventDefault()}
+          {isFreePlan ? (
+            <DropdownMenuItem
+              className="flex items-center gap-3 p-3 cursor-pointer border-2 border-dashed border-border rounded-lg m-2 opacity-60"
+              onSelect={(e) => {
+                e.preventDefault();
+                setIsPlanDialogOpen(true);
+                toast.info(
+                  'Organization creation requires a paid plan. Upgrade to continue.'
+                );
+              }}
+            >
+              <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+                <Zap className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="text-left">
+                <div className="font-medium text-muted-foreground">
+                  Create Organization
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Upgrade required
+                </div>
+              </div>
+            </DropdownMenuItem>
+          ) : (
+            <>
+              <Dialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
               >
-                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="text-left">
-                  <div className="font-medium text-muted-foreground">
-                    Create Organization
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Start a new team
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Organization</DialogTitle>
-                <DialogDescription>
-                  Set up a new organization to collaborate with your team.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateOrganization} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="orgName">Organization Name</Label>
-                  <Input
-                    id="orgName"
-                    value={newOrgName}
-                    onChange={(e) => setNewOrgName(e.target.value)}
-                    placeholder="Enter organization name"
-                    required
-                    className="bg-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="orgDescription">Description (optional)</Label>
-                  <Input
-                    id="orgDescription"
-                    value={newOrgDescription}
-                    onChange={(e) => setNewOrgDescription(e.target.value)}
-                    placeholder="What does your organization do?"
-                    className="bg-input"
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCreateDialogOpen(false)}
-                    disabled={isLoading}
+                <DialogTrigger asChild>
+                  <DropdownMenuItem
+                    className="flex items-center gap-3 p-3 cursor-pointer border-2 border-dashed border-border rounded-lg m-2"
+                    onSelect={(e) => e.preventDefault()}
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !newOrgName.trim()}
-                    className="bg-primary hover:bg-primary/90"
+                    <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+                      <Plus className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium text-muted-foreground">
+                        Create Organization
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Start a new team
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Organization</DialogTitle>
+                    <DialogDescription>
+                      Set up a new organization to collaborate with your team.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form
+                    onSubmit={handleCreateOrganization}
+                    className="space-y-4"
                   >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      'Create Organization'
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                    <div className="space-y-2">
+                      <Label htmlFor="orgName">Organization Name</Label>
+                      <Input
+                        id="orgName"
+                        value={newOrgName}
+                        onChange={(e) => setNewOrgName(e.target.value)}
+                        placeholder="Enter organization name"
+                        required
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="orgDescription">
+                        Description (optional)
+                      </Label>
+                      <Input
+                        id="orgDescription"
+                        value={newOrgDescription}
+                        onChange={(e) => setNewOrgDescription(e.target.value)}
+                        placeholder="What does your organization do?"
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsCreateDialogOpen(false)}
+                        disabled={isLoading}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isLoading || !newOrgName.trim()}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          'Create Organization'
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Plan Settings Dialog */}
+      <PlanSettingsDialog
+        open={isPlanDialogOpen}
+        onOpenChange={setIsPlanDialogOpen}
+      />
     </div>
   );
 }

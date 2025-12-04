@@ -19,13 +19,17 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   const error = params.get('error');
-  const invitation = params.get('invitation');
+  const invitation = params.get('invitation'); // Legacy support
+  const redirect = params.get('redirect'); // New redirect parameter
 
   // Handle OAuth callback side effects
   useEffect(() => {
     if (token) {
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
-      if (invitation) {
+      // Priority: redirect > invitation (legacy) > default
+      if (redirect) {
+        navigate(decodeURIComponent(redirect));
+      } else if (invitation) {
         navigate(`/invite/${invitation}`);
       } else {
         navigate('/dashboard');
@@ -37,14 +41,17 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         } failed. Please try again.`
       );
     }
-  }, [token, error, mode, navigate, invitation]);
+  }, [token, error, mode, navigate, invitation, redirect]);
 
   const handlePostAuthNavigation = () => {
-    if (invitation) {
-      navigate(`/invite/${invitation}`);
+    // Priority: redirect param > redirectTo context > invitation (legacy) > default
+    if (redirect) {
+      navigate(decodeURIComponent(redirect));
     } else if (redirectTo) {
       navigate(redirectTo);
       setRedirectTo(null);
+    } else if (invitation) {
+      navigate(`/invite/${invitation}`);
     } else {
       navigate(mode === 'login' ? '/dashboard' : '/onboarding');
     }

@@ -2,13 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import redisClient from './config/redis.js';
-import roomRoutes from './routes/rooms.js';
 import { verifyToken } from './middleware/auth.js';
-import meetingsRoutes from './routes/meetings.js';
-import recordingsRoutes from './routes/recordings.js';
-import aiRoutes from './routes/ai.js';
-import analyticsRoutes from './routes/analytics.js';
-import calendarRoutes from './routes/calendar.js';
+
+// Versioned routes
+import roomRoutesV1 from './routes/v1/rooms.routes.js';
+import meetingRoutesV1 from './routes/v1/meetings.routes.js';
+import recordingRoutesV1 from './routes/v1/recordings.routes.js';
+import analyticsRoutesV1 from './routes/v1/analytics.routes.js';
+import aiRoutesV1 from './routes/v1/ai.routes.js';
+import calendarRoutesV1 from './routes/v1/calendar.routes.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
 import { createLocalModels } from './utils/modelFactory.js';
@@ -39,7 +41,7 @@ app.use(express.json({ limit: '10mb' })); // Add size limit
 
 // Public calendar routes that do not require token verification (e.g., OAuth callbacks)
 // These must come before app.use(verifyToken)
-app.use('/api/calendar', calendarRoutes);
+app.use('/api/v1/calendar', calendarRoutesV1);
 
 app.use(verifyToken);
 
@@ -68,12 +70,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Routes
-app.use('/api/rooms', roomRoutes);
-app.use('/api/meetings', meetingsRoutes);
-app.use('/api/recordings', recordingsRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/analytics', analyticsRoutes);
+// Versioned API routes (authenticated)
+app.use('/api/v1/rooms', roomRoutesV1);
+app.use('/api/v1/meetings', meetingRoutesV1);
+app.use('/api/v1/recordings', recordingRoutesV1);
+app.use('/api/v1/analytics', analyticsRoutesV1);
+app.use('/api/v1/ai', aiRoutesV1);
+// Note: calendar routes are mounted above before verifyToken for OAuth callbacks
 
 // Connect to MongoDB using shared connection pool
 const connectDB = async () => {

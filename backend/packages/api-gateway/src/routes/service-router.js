@@ -40,24 +40,25 @@ const SERVICE_ROUTES = {
     },
   },
 
-  // Room Service Routes (uses /api/ prefix)
+  // Room Service Routes (uses /api/v1/ prefix for versioned routes)
   room: {
     paths: [
-      '/api/rooms',
-      '/api/meetings',
-      '/api/recordings',
-      '/api/ai',
-      '/api/analytics',
-      '/api/calendar',
+      '/api/v1/rooms',
+      '/api/v1/meetings',
+      '/api/v1/recordings',
+      '/api/v1/ai',
+      '/api/v1/analytics',
+      '/api/v1/calendar',
     ],
     target: config.services.room,
     pathRewrite: {
-      '^/api/rooms': '/api/rooms',
-      '^/api/meetings': '/api/meetings',
-      '^/api/recordings': '/api/recordings',
-      '^/api/ai': '/api/ai',
-      '^/api/analytics': '/api/analytics',
-      '^/api/calendar': '/api/calendar',
+      // Versioned routes - pass through as-is
+      '^/api/v1/rooms': '/api/v1/rooms',
+      '^/api/v1/meetings': '/api/v1/meetings',
+      '^/api/v1/recordings': '/api/v1/recordings',
+      '^/api/v1/ai': '/api/v1/ai',
+      '^/api/v1/analytics': '/api/v1/analytics',
+      '^/api/v1/calendar': '/api/v1/calendar',
     },
   },
 

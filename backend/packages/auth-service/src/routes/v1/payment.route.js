@@ -13,6 +13,12 @@ router.post(
   asyncHandler(paymentController.handleWebhook.bind(paymentController))
 );
 
+// GET /payment/success - Handle successful payment (no auth required - verified via session metadata)
+router.get(
+  '/success',
+  asyncHandler(paymentController.handlePaymentSuccess.bind(paymentController))
+);
+
 // All other routes require authentication
 router.use(authenticateToken);
 
@@ -34,12 +40,6 @@ router.post(
   asyncHandler(
     paymentController.createBillingPortalSession.bind(paymentController)
   )
-);
-
-// GET /payment/success - Handle successful payment
-router.get(
-  '/success',
-  asyncHandler(paymentController.handlePaymentSuccess.bind(paymentController))
 );
 
 export default router;

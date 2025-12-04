@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 import { useMeetingsStore } from '@/stores';
 import { toast } from 'sonner';
@@ -61,11 +62,12 @@ export const useCalendarIntegration = () => {
     CalendarIntegration[]
   > => {
     try {
-      const response = await api.get(`/api/calendar/connected`, {
+      const response = await api.get(`/api/v1/calendar/connected`, {
         signal: abortControllerRef.current?.signal,
       });
-      setIntegrations(response.data);
-      return response.data;
+      const data = extractData<CalendarIntegration[]>(response);
+      setIntegrations(data);
+      return data;
     } catch (error: any) {
       // Don't update state if request was aborted
       if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
@@ -80,9 +82,10 @@ export const useCalendarIntegration = () => {
     async (onConnected?: () => void) => {
       try {
         setIsLoading(true);
-        const response = await api.post(`/api/calendar/connect/google`, {});
-        if (response.data.authUrl) {
-          window.open(response.data.authUrl, '_blank', 'width=500,height=600');
+        const response = await api.post(`/api/v1/calendar/connect/google`, {});
+        const data = extractData<{ authUrl?: string }>(response);
+        if (data.authUrl) {
+          window.open(data.authUrl, '_blank', 'width=500,height=600');
           setImportError(
             'Google OAuth window opened! Please complete the authorization in the new window. This page will update automatically once you are connected.'
           );
@@ -119,13 +122,13 @@ export const useCalendarIntegration = () => {
         setImportError(null);
         setImportedEvents([]);
 
-        const response = await api.post(`/api/calendar/import`, {
+        const response = await api.post(`/api/v1/calendar/import`, {
           calendarType,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         });
 
-        const events = response.data;
+        const events = extractData<any[]>(response);
         const taggedEvents = events.map((e: any) => ({
           ...e,
           source: calendarType,
@@ -181,12 +184,13 @@ export const useCalendarIntegration = () => {
   const exportMeetingToCalendar = useCallback(
     async (meetingId: string, calendarType: 'google'): Promise<boolean> => {
       try {
-        const response = await api.post(`/api/calendar/export`, {
+        const response = await api.post(`/api/v1/calendar/export`, {
           meetingId,
           calendarType,
         });
 
-        return response.data.success;
+        const data = extractData<{ success: boolean }>(response);
+        return data.success;
       } catch (error) {
         console.error('Calendar export error:', error);
         return false;
@@ -206,7 +210,7 @@ export const useCalendarIntegration = () => {
       availableSlots: { start: Date; end: Date }[];
     }> => {
       try {
-        const response = await api.post(`/api/calendar/conflicts`, {
+        const response = await api.post(`/api/v1/calendar/conflicts`, {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
           attendees,
@@ -224,17 +228,18 @@ export const useCalendarIntegration = () => {
   // Disconnect calendar
   const disconnectCalendar = useCallback(async (calendarType: 'google') => {
     try {
-      const response = await api.post(`/api/calendar/disconnect`, {
+      const response = await api.post(`/api/v1/calendar/disconnect`, {
         calendarType,
       });
 
-      if (response.data.success) {
+      const data = extractData<{ success: boolean }>(response);
+      if (data.success) {
         setIntegrations((prev) =>
           prev.filter((integration) => integration.type !== calendarType)
         );
       }
 
-      return response.data.success;
+      return data.success;
     } catch (error) {
       console.error('Calendar disconnect error:', error);
       return false;
@@ -287,7 +292,7 @@ export const useCalendarIntegration = () => {
       participants: string[];
     }): Promise<boolean> => {
       try {
-        const response = await api.post(`/api/calendar/schedule`, {
+        const response = await api.post(`/api/v1/calendar/schedule`, {
           title: meetingData.title,
           description: meetingData.description || '',
           startDate: meetingData.startDate.toISOString(),
@@ -296,7 +301,8 @@ export const useCalendarIntegration = () => {
           calendarType: 'google',
         });
 
-        return response.data.success;
+        const data = extractData<{ success: boolean }>(response);
+        return data.success;
       } catch (error) {
         console.error('Calendar scheduling error:', error);
         return false;
@@ -312,9 +318,12 @@ export const useCalendarIntegration = () => {
       calendarType: 'google' = 'google'
     ): Promise<boolean> => {
       try {
-        const response = await api.delete(`/api/calendar/events/${eventId}`, {
-          data: { calendarType },
-        });
+        const response = await api.delete(
+          `/api/v1/calendar/events/${eventId}`,
+          {
+            data: { calendarType },
+          }
+        );
 
         return response.data.success;
       } catch (error) {

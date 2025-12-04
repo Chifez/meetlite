@@ -5,7 +5,7 @@ const Footer = () => {
     <footer className="bg-gray-900 dark:bg-black text-gray-300 dark:text-gray-400 py-12 sm:py-16 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="space-y-4">
+          <div className="flex items-start flex-col space-y-4">
             <Logo variant="white" />
             <p className="text-gray-400 dark:text-gray-500 leading-relaxed">
               The future of video conferencing, designed for modern teams.

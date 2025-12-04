@@ -36,28 +36,29 @@ const Navbar = ({
   // Landing page navbar design
   if (isLandingPage) {
     return (
-      <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-30">
-        <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 py-4 max-w-7xl mx-auto">
+      <header className="border-b border-border/50 bg-background/95 backdrop-blur-md sticky top-0 z-30 shadow-sm">
+        <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 max-w-7xl mx-auto">
           <Logo variant="gradient" />
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden lg:flex items-center space-x-1">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors font-medium"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-all duration-200 relative group"
                 onClick={(e) => {
                   e.preventDefault();
                   scrollToSection(link.href.replace('#', ''));
                 }}
               >
                 {link.label}
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
               </a>
             ))}
           </nav>
 
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             {/* Theme Toggle - Landing variant */}
             <ThemeToggle variant="landing" />
 
@@ -65,21 +66,21 @@ const Navbar = ({
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="lg:hidden rounded-lg hover:bg-muted"
               onClick={toggleMobileMenu}
             >
               {isMobileMenuOpen ? (
-                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <X className="w-5 h-5 text-foreground" />
               ) : (
-                <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <Menu className="w-5 h-5 text-foreground" />
               )}
             </Button>
 
             {/* Desktop Login Button */}
             <Link to={isLoginPage ? '/signup' : '/login'}>
-              <Button className="hidden md:flex bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-6 text-base">
+              <Button className="hidden lg:flex bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-5 py-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200">
                 {isLoginPage ? 'Sign Up' : 'Login'}{' '}
-                <ArrowRight className="w-4 h-4 ml-2" />
+                <ArrowRight className="w-4 h-4 ml-1.5" />
               </Button>
             </Link>
           </div>
@@ -87,18 +88,18 @@ const Navbar = ({
 
         {/* Mobile Menu */}
         <div
-          className={`md:hidden absolute top-16 left-0 right-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out ${
+          className={`lg:hidden absolute top-full left-0 right-0 z-20 bg-background/98 backdrop-blur-md border-b border-border shadow-lg transition-all duration-300 ease-in-out ${
             isMobileMenuOpen
               ? 'opacity-100 transform translate-y-0'
               : 'opacity-0 transform -translate-y-4 pointer-events-none'
           }`}
         >
-          <nav className="flex flex-col space-y-4 px-6 py-6">
+          <nav className="flex flex-col px-4 py-4">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors font-medium"
+                className="px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
                 onClick={(e) => {
                   e.preventDefault();
                   scrollToSection(link.href.replace('#', ''));
@@ -110,10 +111,10 @@ const Navbar = ({
             ))}
             <Link
               to={isLoginPage ? '/signup' : '/login'}
-              className="w-full"
+              className="w-full mt-2"
               onClick={closeMobileMenu}
             >
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full px-6 mt-4 w-full">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-6 w-full text-sm font-medium shadow-sm">
                 {isLoginPage ? 'Sign Up' : 'Login'}{' '}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

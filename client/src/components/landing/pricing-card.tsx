@@ -26,36 +26,30 @@ const PricingCard = ({
 }: PricingCardProps) => {
   return (
     <Card
-      className={`relative border-2 ${
+      className={`relative border-2 transition-all duration-300 hover:shadow-lg ${
         isPopular
-          ? 'border-purple-300 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 bg-white dark:bg-gray-800 shadow-xl scale-105'
-          : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm'
-      } transition-all duration-300`}
+          ? 'border-primary bg-card shadow-lg scale-105'
+          : 'border-border bg-card hover:border-primary/50'
+      }`}
     >
       {isPopular && (
         <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-          <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1">
+          <Badge className="bg-primary text-primary-foreground px-4 py-1">
             Most Popular
           </Badge>
         </div>
       )}
       <CardContent className="p-6 sm:p-8 space-y-6">
         <div className="space-y-2">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {title}
-          </h3>
+          <h3 className="text-xl font-bold text-foreground">{title}</h3>
           <div className="space-y-1">
             <div className="flex items-baseline space-x-1">
-              <span className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                {price}
-              </span>
+              <span className="text-4xl font-bold text-primary">{price}</span>
               {period && (
-                <span className="text-gray-600 dark:text-gray-400">
-                  {period}
-                </span>
+                <span className="text-muted-foreground">{period}</span>
               )}
             </div>
-            <p className="text-gray-600 dark:text-gray-400">{description}</p>
+            <p className="text-muted-foreground">{description}</p>
           </div>
         </div>
 
@@ -63,7 +57,7 @@ const PricingCard = ({
           {features.map((feature, index) => (
             <li key={index} className="flex items-center space-x-3">
               <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-              <span className="text-gray-700 dark:text-gray-300 text-sm lg:text-lg">
+              <span className="text-foreground text-sm lg:text-base">
                 {feature}
               </span>
             </li>
@@ -71,10 +65,11 @@ const PricingCard = ({
         </ul>
 
         <Button
-          className={`w-full rounded-full py-6 ${
+          size="default"
+          className={`w-full rounded-lg py-2.5 text-sm font-medium transition-all duration-200 hover:shadow-md ${
             buttonVariant === 'outline'
-              ? 'border-2 border-purple-600 dark:border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 bg-transparent'
-              : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
+              ? 'border-2 border-primary text-primary hover:bg-primary/10'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
           }`}
           variant={buttonVariant}
         >

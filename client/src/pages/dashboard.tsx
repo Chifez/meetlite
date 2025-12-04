@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import SEO from '@/components/seo';
 import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import WelcomeHeader from '@/components/dashboard/welcome-header';
 import QuickActions from '@/components/dashboard/quick-action';
 import UpcomingMeetingsSection from '@/components/dashboard/upcoming-meetings-section';
@@ -81,8 +82,9 @@ const Dashboard = () => {
   const handleQuickMeeting = async () => {
     try {
       setGlobalLoading(true);
-      const response = await api.post('/api/rooms', {});
-      const { roomId } = response.data;
+      const response = await api.post('/api/v1/rooms', {});
+      const result = extractData<{ roomId: string }>(response);
+      const { roomId } = result;
       navigate(`/lobby/${roomId}`);
     } catch (error) {
       toast.error('Error', {

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
 interface AISummary {
@@ -50,9 +51,9 @@ export const useAIFeatures = () => {
           formData.append('video', videoBlob, 'meeting-video.webm');
         }
 
-        const response = await api.post(`/api/ai/summarize`, formData);
+        const response = await api.post(`/api/v1/ai/summarize`, formData);
 
-        return response.data;
+        return extractData<any>(response);
       } catch (error) {
         console.error('Summary generation error:', error);
         throw error;
@@ -87,13 +88,14 @@ export const useAIFeatures = () => {
           formData.append('meetingId', meetingId);
 
           try {
-            const response = await api.post(`/api/ai/transcribe`, formData);
+            const response = await api.post(`/api/v1/ai/transcribe`, formData);
+            const data = extractData<any>(response);
 
-            if (response.data) {
+            if (data) {
               // Emit transcription event
               window.dispatchEvent(
                 new CustomEvent('transcription', {
-                  detail: response.data,
+                  detail: data,
                 })
               );
             }
@@ -127,13 +129,13 @@ export const useAIFeatures = () => {
       topic?: string
     ): Promise<SmartSuggestion[]> => {
       try {
-        const response = await api.post('/api/ai/suggest', {
+        const response = await api.post('/api/v1/ai/suggest', {
           participants,
           duration,
           topic,
         });
 
-        return response.data;
+        return extractData<any>(response);
       } catch (error) {
         console.error('Smart suggestions error:', error);
         return [];
@@ -154,9 +156,9 @@ export const useAIFeatures = () => {
       recommendations: string[];
     }> => {
       try {
-        const response = await api.get(`/api/ai/insights/${meetingId}`);
+        const response = await api.get(`/api/v1/ai/insights/${meetingId}`);
 
-        return response.data;
+        return extractData<any>(response);
       } catch (error) {
         console.error('Meeting insights error:', error);
         return {

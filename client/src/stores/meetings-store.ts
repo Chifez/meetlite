@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Meeting } from '@/lib/types';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 
 interface MeetingsState {
   // State
@@ -65,8 +66,8 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
     set({ loading: true });
     try {
-      const response = await api.get('/api/meetings');
-      const data = response.data;
+      const response = await api.get('/api/v1/meetings');
+      const data = extractData<Meeting[]>(response);
 
       // Backend now handles organization and access filtering
       // Frontend only needs to filter for upcoming/ongoing meetings
@@ -89,8 +90,8 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
         // Check if user is connected to Google Calendar and fetch events
         // This is now safe: calendar errors won't trigger login redirect
         try {
-          const calendarResponse = await api.get(`/api/calendar/connected`);
-          const connectedCalendars = calendarResponse.data;
+          const calendarResponse = await api.get(`/api/v1/calendar/connected`);
+          const connectedCalendars = extractData<any[]>(calendarResponse);
           const isGoogleConnected = connectedCalendars.some(
             (cal: any) => cal.type === 'google' && cal.isConnected
           );
@@ -100,29 +101,31 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
             const now = new Date();
             const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-            const googleResponse = await api.post(`/api/calendar/import`, {
+            const googleResponse = await api.post(`/api/v1/calendar/import`, {
               calendarType: 'google',
               startDate: now.toISOString(),
               endDate: in30.toISOString(),
             });
 
-            const googleEvents = googleResponse.data.map((event: any) => ({
-              ...event,
-              scheduledTime: event.start,
-              duration: Math.round(
-                (new Date(event.end).getTime() -
-                  new Date(event.start).getTime()) /
-                  60000
-              ),
-              meetingId: `google-${event.id}`,
-              participants: event.attendees || [],
-              privacy: 'public',
-              status: 'scheduled',
-              source: 'google',
-              externalId: event.id,
-              title: event.title,
-              description: event.description || '',
-            }));
+            const googleEvents = extractData<any[]>(googleResponse).map(
+              (event: any) => ({
+                ...event,
+                scheduledTime: event.start,
+                duration: Math.round(
+                  (new Date(event.end).getTime() -
+                    new Date(event.start).getTime()) /
+                    60000
+                ),
+                meetingId: `google-${event.id}`,
+                participants: event.attendees || [],
+                privacy: 'public',
+                status: 'scheduled',
+                source: 'google',
+                externalId: event.id,
+                title: event.title,
+                description: event.description || '',
+              })
+            );
 
             // Merge Google events with user meetings, avoiding duplicates
             const allMeetings = [...userMeetings];
@@ -165,15 +168,16 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   createMeeting: async (meetingData) => {
     try {
-      const response = await api.post(`/api/meetings`, meetingData);
-      const newMeeting = response.data;
+      const response = await api.post(`/api/v1/meetings`, meetingData);
+      const result = extractData<{ meetingId: string }>(response);
+      const newMeeting = { ...meetingData, meetingId: result.meetingId };
 
       set((state) => ({
         meetings: [...state.meetings, newMeeting],
       }));
 
       toast.success('Meeting created successfully!');
-      return newMeeting.meetingId;
+      return result.meetingId;
     } catch (error) {
       toast.error('Failed to create meeting');
       console.error('Create meeting error:', error);
@@ -183,7 +187,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   deleteMeeting: async (meetingId) => {
     try {
-      await api.delete(`/api/meetings/${meetingId}`);
+      await api.delete(`/api/v1/meetings/${meetingId}`);
 
       set((state) => ({
         meetings: state.meetings.filter(
@@ -201,7 +205,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   deleteGoogleCalendarMeeting: async (externalId) => {
     try {
-      await api.delete(`/api/calendar/events/${externalId}`, {
+      await api.delete(`/api/v1/calendar/events/${externalId}`, {
         data: { calendarType: 'google' },
       });
 
@@ -222,8 +226,9 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   startMeeting: async (meetingId) => {
     try {
-      const response = await api.post(`/api/meetings/${meetingId}/start`);
-      const roomId = response.data.roomId;
+      const response = await api.post(`/api/v1/meetings/${meetingId}/start`);
+      const result = extractData<{ roomId: string }>(response);
+      const roomId = result.roomId;
 
       // Update meeting status to ongoing
       set((state) => ({
@@ -244,7 +249,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   completeMeeting: async (meetingId) => {
     try {
-      await api.post(`/api/meetings/${meetingId}/complete`);
+      await api.post(`/api/v1/meetings/${meetingId}/complete`);
 
       set((state) => ({
         meetings: state.meetings.map((meeting) =>
@@ -265,8 +270,8 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   refreshGoogleCalendarEvents: async () => {
     try {
       // Check if user is connected to Google Calendar
-      const calendarResponse = await api.get(`/api/calendar/connected`);
-      const connectedCalendars = calendarResponse.data;
+      const calendarResponse = await api.get(`/api/v1/calendar/connected`);
+      const connectedCalendars = extractData<any[]>(calendarResponse);
       const isGoogleConnected = connectedCalendars.some(
         (cal: any) => cal.type === 'google' && cal.isConnected
       );
@@ -276,28 +281,31 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
         const now = new Date();
         const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-        const googleResponse = await api.post(`/api/calendar/import`, {
+        const googleResponse = await api.post(`/api/v1/calendar/import`, {
           calendarType: 'google',
           startDate: now.toISOString(),
           endDate: in30.toISOString(),
         });
 
-        const googleEvents = googleResponse.data.map((event: any) => ({
-          ...event,
-          scheduledTime: event.start,
-          duration: Math.round(
-            (new Date(event.end).getTime() - new Date(event.start).getTime()) /
-              60000
-          ),
-          meetingId: `google-${event.id}`,
-          participants: event.attendees || [],
-          privacy: 'public',
-          status: 'scheduled',
-          source: 'google',
-          externalId: event.id,
-          title: event.title,
-          description: event.description || '',
-        }));
+        const googleEvents = extractData<any[]>(googleResponse).map(
+          (event: any) => ({
+            ...event,
+            scheduledTime: event.start,
+            duration: Math.round(
+              (new Date(event.end).getTime() -
+                new Date(event.start).getTime()) /
+                60000
+            ),
+            meetingId: `google-${event.id}`,
+            participants: event.attendees || [],
+            privacy: 'public',
+            status: 'scheduled',
+            source: 'google',
+            externalId: event.id,
+            title: event.title,
+            description: event.description || '',
+          })
+        );
 
         // Get current meetings and merge with Google events
         const currentMeetings = get().meetings.filter(

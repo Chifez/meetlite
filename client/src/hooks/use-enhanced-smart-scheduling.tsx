@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 import { MeetingFormData } from '@/lib/types';
 import { useCalendarIntegration } from './use-calendar-integration';
@@ -89,18 +90,21 @@ export const useEnhancedSmartScheduling = () => {
         // Step 1: Parse the meeting using existing endpoint
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        const parseResponse = await api.post(`/api/ai/parse-meeting`, {
+        const parseResponse = await api.post(`/api/v1/ai/parse-meeting`, {
           input,
           timezone,
         });
 
-        if (!parseResponse.data.success) {
-          throw new Error(
-            parseResponse.data.error || 'Failed to parse meeting'
-          );
+        const parseData = extractData<{
+          success: boolean;
+          error?: string;
+          data?: ParsedMeetingData;
+        }>(parseResponse);
+        if (!parseData.success) {
+          throw new Error(parseData.error || 'Failed to parse meeting');
         }
 
-        const parsedData: ParsedMeetingData = parseResponse.data.data;
+        const parsedData: ParsedMeetingData = parseData.data!;
 
         // Step 2: Check for conflicts
         const conflictCheck = await checkConflicts(parsedData);
@@ -279,8 +283,8 @@ export const useEnhancedSmartScheduling = () => {
   const checkInternalMeetings = useCallback(
     async (startDate: Date, endDate: Date): Promise<CalendarEvent[]> => {
       try {
-        const response = await api.get('/api/meetings');
-        const meetings = response.data;
+        const response = await api.get('/api/v1/meetings');
+        const meetings = extractData<any[]>(response);
 
         const conflicts: CalendarEvent[] = [];
 

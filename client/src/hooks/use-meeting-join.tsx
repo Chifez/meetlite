@@ -53,9 +53,9 @@ export const useMeetingJoin = (meetingId: string | undefined) => {
     } catch (error: any) {
       if (error.response?.status === 403) {
         if (!isAuthenticated) {
+          // Build redirect URL with current path and query params
           const currentUrl = window.location.pathname + window.location.search;
-          setRedirectTo(currentUrl);
-          navigate('/login');
+          navigate(`/login?redirect=${encodeURIComponent(currentUrl)}`);
           return;
         } else {
           setAccessDenied(true);

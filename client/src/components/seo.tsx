@@ -10,9 +10,9 @@ interface SEOProps {
 }
 
 export default function SEO({
-  title = 'MeetLite | Video Conferencing Made Simple',
-  description = 'High-quality video conferencing solution for seamless online meetings and collaboration.',
-  keywords = 'video conferencing, online meetings, web conferencing, video chat, remote collaboration',
+  title = 'MeetLite | The collaborative meeting platform built for teams',
+  description = 'The collaborative meeting platform built for teams',
+  keywords = 'video conferencing, online meetings, web conferencing, video chat, remote collaboration, team collaboration',
   ogImage = `${env.BASE_URL}/og-image.png`,
   ogUrl = 'https://meetlite.app',
 }: SEOProps) {
