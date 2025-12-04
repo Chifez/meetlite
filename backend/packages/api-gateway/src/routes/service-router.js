@@ -51,6 +51,8 @@ const SERVICE_ROUTES = {
       '/api/v1/ai',
       '/api/v1/analytics',
       '/api/v1/calendar',
+      '/api/meetings',
+      '/api/recordings',
     ],
     target: config.services.room,
     pathRewrite: {
@@ -61,6 +63,9 @@ const SERVICE_ROUTES = {
       '^/api/v1/ai': '/api/v1/ai',
       '^/api/v1/analytics': '/api/v1/analytics',
       '^/api/v1/calendar': '/api/v1/calendar',
+      // Non-versioned routes - rewrite to versioned
+      '^/api/meetings': '/api/v1/meetings',
+      '^/api/recordings': '/api/v1/recordings',
     },
   },
 

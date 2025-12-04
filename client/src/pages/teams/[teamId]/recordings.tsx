@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useWorkspace } from '@/contexts/workspace-context';
@@ -16,7 +16,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Loader2, Upload, Video } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SEO from '@/components/seo';
-import type { MeetingRecording } from '@/types/meetingAssets';
+import type {
+  MeetingRecording,
+  MeetingAssetsQuery,
+} from '@/types/meetingAssets';
 import { meetingAssetsService } from '@/services/meeting-assets-service';
 
 export default function TeamRecordings() {
@@ -41,11 +44,19 @@ export default function TeamRecordings() {
     unarchiveRecording,
   } = useMeetingAssets(activeOrganization?.id);
 
+  // Memoize the query change handler to prevent infinite loops
+  const handleQueryChange = useCallback(
+    (query: MeetingAssetsQuery) => {
+      if (teamId) {
+        fetchRecordings({ ...query, teamId });
+      }
+    },
+    [teamId, fetchRecordings]
+  );
+
   const { handleSearchChange, handleFiltersChange, refreshQuery } =
     useQueryManager({
-      onQueryChange: (query) => {
-        fetchRecordings({ ...query, teamId });
-      },
+      onQueryChange: handleQueryChange,
     });
 
   // Fetch team data and verify access
@@ -83,10 +94,10 @@ export default function TeamRecordings() {
 
   // Fetch team recordings
   useEffect(() => {
-    if (activeOrganization?.id && teamId && !accessDenied) {
+    if (activeOrganization?.id && teamId && !accessDenied && !loading) {
       refreshQuery();
     }
-  }, [activeOrganization?.id, teamId, accessDenied, refreshQuery]);
+  }, [activeOrganization?.id, teamId, accessDenied, loading, refreshQuery]);
 
   const handleDeleteRecording = async (recording: MeetingRecording) => {
     try {

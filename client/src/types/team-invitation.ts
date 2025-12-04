@@ -49,4 +49,3 @@ export type UpdateTeamRequest = {
     defaultMeetingPrivacy: 'public' | 'private';
   }>;
 };
-
