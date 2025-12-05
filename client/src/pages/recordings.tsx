@@ -298,7 +298,7 @@ export default function Recordings() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recordings.map((recording) => (
               <RecordingCard
-                key={recording.id}
+                key={recording.id || recording._id}
                 recording={recording}
                 onPlay={() => setSelectedRecording(recording)}
                 onEdit={handleEditRecording}
