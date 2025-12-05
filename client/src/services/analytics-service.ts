@@ -16,12 +16,8 @@ export class AnalyticsService {
       );
       const data = extractData<any>(response);
 
-      // Handle different response structures
-      if (data?.analytics) {
-        return data.analytics;
-      }
+      // Validate data structure
       if (data && typeof data === 'object' && 'totalRecordings' in data) {
-        // Response might be the analytics object directly
         return data;
       }
 
