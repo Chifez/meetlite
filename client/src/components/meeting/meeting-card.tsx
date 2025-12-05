@@ -10,6 +10,7 @@ import {
   Trash2,
   Play,
   Square,
+  ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Meeting } from '@/lib/types';

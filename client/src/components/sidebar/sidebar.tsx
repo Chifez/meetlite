@@ -20,7 +20,6 @@ interface SidebarProps {
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const [hoverPreview, setHoverPreview] = useState(false);
   const { isPersonalMode } = useWorkspace();
   const { currentPlan } = useCurrentPlan();
   const navigate = useNavigate();
@@ -61,28 +60,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
     setPlanDialogOpen(true);
   }, []);
 
-  // Handlers for hover preview
-  const handleToggleHover = useCallback(() => {
-    if (collapsed && isDesktop) {
-      setHoverPreview(true);
-    }
-  }, [collapsed, isDesktop]);
-
-  const handleToggleLeave = useCallback(() => {
-    // Delay to allow moving cursor to floating sidebar
-    setTimeout(() => {
-      setHoverPreview(false);
-    }, 100);
-  }, []);
-
-  const handlePreviewEnter = useCallback(() => {
-    setHoverPreview(true);
-  }, []);
-
-  const handlePreviewLeave = useCallback(() => {
-    setHoverPreview(false);
-  }, []);
-
   return (
     <>
       {/* Mobile/Tablet overlay - closes sidebar when clicked outside */}
@@ -113,8 +90,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           isDesktop={isDesktop}
           onToggleCollapse={handleToggleCollapse}
           onCloseMobile={handleCloseMobileMenu}
-          onToggleHover={handleToggleHover}
-          onToggleLeave={handleToggleLeave}
         />
 
         <div className="flex-1 overflow-y-auto">
@@ -131,28 +106,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           onOpenPlanDialog={handleOpenPlanDialog}
         />
       </div>
-
-      {/* Floating Sidebar Preview - Only shown when collapsed and hovering */}
-      {collapsed && isDesktop && hoverPreview && (
-        <div
-          className="fixed left-16 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border z-50 shadow-lg flex flex-col"
-          onMouseEnter={handlePreviewEnter}
-          onMouseLeave={handlePreviewLeave}
-        >
-          <div className="flex-1 overflow-y-auto">
-            <SidebarNavigation
-              isContentVisible={false}
-              visibleNavigationItems={visibleNavigationItems}
-              onNavigationClick={handleNavigationClick}
-            />
-          </div>
-          <SidebarFooter
-            collapsed={false}
-            isContentVisible={false}
-            onOpenPlanDialog={handleOpenPlanDialog}
-          />
-        </div>
-      )}
 
       {/* Plan Settings Dialog */}
       <PlanSettingsDialog

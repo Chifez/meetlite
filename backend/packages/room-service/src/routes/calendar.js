@@ -11,6 +11,7 @@ import {
   deleteCalendarEvent,
   getConnectedCalendars,
   disconnectCalendarIntegration,
+  refreshCalendarCache,
 } from '../controllers/calendarController.js';
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get('/google/callback', handleGoogleCallback);
 // Authenticated routes (require JWT token)
 router.post('/connect/google', verifyToken, connectGoogleCalendar);
 router.post('/import', verifyToken, importCalendarEvents);
+router.post('/refresh', verifyToken, refreshCalendarCache);
 router.post('/export', verifyToken, exportMeetingToCalendar);
 router.post('/conflicts', verifyToken, checkCalendarConflicts);
 router.post('/schedule', verifyToken, scheduleMeetingOnCalendar);

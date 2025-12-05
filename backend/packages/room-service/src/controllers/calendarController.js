@@ -255,6 +255,47 @@ export const exportMeetingToCalendar = async (req, res) => {
   }
 };
 
+// Refresh calendar cache manually
+export const refreshCalendarCache = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { startDate, endDate } = req.body;
+
+    // Default to 30 days ago to 90 days ahead if not provided
+    const now = new Date();
+    const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const defaultEndDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const { getCachedCalendarEvents, invalidateCalendarCache } = await import(
+      '../services/calendarCacheService.js'
+    );
+
+    // Invalidate existing cache
+    await invalidateCalendarCache(userId);
+
+    // Force refresh by fetching with forceRefresh=true
+    const events = await getCachedCalendarEvents(
+      userId,
+      startDate || defaultStartDate,
+      endDate || defaultEndDate,
+      true // forceRefresh
+    );
+
+    res.json({
+      success: true,
+      message: 'Calendar cache refreshed successfully',
+      eventCount: events.length,
+    });
+  } catch (error) {
+    console.error('Refresh calendar cache error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to refresh calendar cache',
+      message: error.message,
+    });
+  }
+};
+
 // Check calendar conflicts
 export const checkCalendarConflicts = async (req, res) => {
   try {

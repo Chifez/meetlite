@@ -54,26 +54,62 @@ export const useMeetingAssets = (organizationId?: string) => {
 
       setLoading(true);
       try {
-        // Fetch recordings and analytics in parallel
-        const [response, analyticsData] = await Promise.all([
-          meetingAssetsService.getOrganizationRecordings(query),
-          analyticsService.getOrganizationAnalytics(organizationId),
-        ]);
+        // Fetch recordings first (critical)
+        const response = await meetingAssetsService.getOrganizationRecordings(
+          query
+        );
 
-        setRecordings(response.recordings);
-        setPagination(response.pagination);
+        // Ensure response has the expected structure
+        if (!response || typeof response !== 'object') {
+          throw new Error('Invalid response format from recordings API');
+        }
 
-        // Use analytics data instead of response.stats
-        setStats({
-          totalRecordings: analyticsData.totalRecordings,
-          totalSize: analyticsData.totalSize,
-          totalDuration: analyticsData.totalDuration,
-          completedTranscripts: analyticsData.completedTranscripts,
-          completedSummaries: analyticsData.completedSummaries,
-        });
+        const recordings = response.recordings || [];
+        const pagination = response.pagination || {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        };
+
+        setRecordings(recordings);
+        setPagination(pagination);
+
+        try {
+          const analyticsData = await analyticsService.getOrganizationAnalytics(
+            organizationId
+          );
+          setStats({
+            totalRecordings: analyticsData.totalRecordings,
+            totalSize: analyticsData.totalSize,
+            totalDuration: analyticsData.totalDuration,
+            completedTranscripts: analyticsData.completedTranscripts,
+            completedSummaries: analyticsData.completedSummaries,
+          });
+        } catch (analyticsError: any) {
+          console.warn(
+            'Failed to fetch analytics (non-critical):',
+            analyticsError
+          );
+          // Set default stats if analytics fails
+          setStats({
+            totalRecordings: recordings.length,
+            totalSize: 0,
+            totalDuration: 0,
+            completedTranscripts: 0,
+            completedSummaries: 0,
+          });
+        }
       } catch (error: any) {
+        console.error('Failed to fetch recordings:', error);
         toast.error(error.message || 'Failed to load recordings');
         setRecordings([]);
+        setPagination({
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        });
       } finally {
         setLoading(false);
       }

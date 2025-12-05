@@ -16,7 +16,13 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import IntegrationsBeam from './integrations-beam';
 
-const features = [
+const features: Array<{
+  icon: typeof Calendar;
+  title: string;
+  description: string;
+  color: 'primary' | 'green' | 'yellow' | 'blue';
+  mockup: string;
+}> = [
   {
     icon: Calendar,
     title: 'Smart Scheduling',
@@ -97,20 +103,24 @@ const MockupComponent = ({ type, color }: MockupComponentProps) => {
               <span className="text-xs font-medium text-foreground">Today</span>
             </div>
             <div className="space-y-1">
-              <div className="h-2 bg-muted rounded w-3/4"></div>
-              <div className="h-2 bg-muted rounded w-1/2"></div>
-              <div className="h-2 bg-muted rounded w-5/6"></div>
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded w-3/4"></div>
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded w-1/2"></div>
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded w-5/6"></div>
             </div>
           </div>
         );
       case 'invite':
         return (
           <div className="space-y-2">
-            <Mail className={cn('w-5 h-5', iconColors[color])} />
+            <div className="flex items-center justify-between">
+              <Mail className={cn('w-5 h-5', iconColors[color])} />
+            </div>
             <div className="space-y-1">
-              <div className="h-2 bg-muted rounded w-full"></div>
-              <div className="h-2 bg-muted rounded w-4/5"></div>
-              <div className="h-1.5 bg-muted rounded w-3/4"></div>
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded w-full"></div>
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded w-4/5"></div>
+
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded w-3/4"></div>
+              <div className="h-1.5 bg-foreground/10 dark:bg-foreground/20 rounded w-3/4"></div>
             </div>
           </div>
         );
@@ -122,7 +132,7 @@ const MockupComponent = ({ type, color }: MockupComponentProps) => {
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span className="text-xs text-muted-foreground">Encrypted</span>
             </div>
-            <div className="h-1.5 bg-muted rounded w-full"></div>
+            <div className="h-1.5 bg-foreground/10 dark:bg-foreground/20 rounded w-full"></div>
           </div>
         );
       case 'speed':
@@ -136,7 +146,7 @@ const MockupComponent = ({ type, color }: MockupComponentProps) => {
                   2s
                 </span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-2 bg-foreground/10 dark:bg-foreground/20 rounded-full overflow-hidden">
                 <div
                   className={cn('h-full rounded-full', {
                     'bg-primary': color === 'primary',
@@ -182,7 +192,7 @@ const MockupComponent = ({ type, color }: MockupComponentProps) => {
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs text-muted-foreground">4K</span>
               </div>
-              <div className="h-1.5 bg-muted rounded w-full"></div>
+              <div className="h-1.5 bg-foreground/10 dark:bg-foreground/20 rounded w-full"></div>
             </div>
           </div>
         );
@@ -194,7 +204,7 @@ const MockupComponent = ({ type, color }: MockupComponentProps) => {
   return (
     <div
       className={cn(
-        'w-full p-4 rounded-lg border-2 bg-card',
+        'w-full h-full p-4 rounded-lg border-2 bg-card flex flex-col',
         colorClasses[color]
       )}
     >
@@ -243,7 +253,7 @@ const FeatureCard = ({
     >
       <div
         className={cn(
-          'flex gap-6 items-start',
+          'flex gap-6 items-stretch',
           isEven ? 'flex-row' : 'flex-row-reverse'
         )}
       >
@@ -268,7 +278,7 @@ const FeatureCard = ({
         </div>
 
         {/* Mockup Component */}
-        <div className="flex-shrink-0 w-28 md:w-32">
+        <div className="flex-shrink-0 w-[40%] flex items-stretch">
           <MockupComponent type={mockup} color={color} />
         </div>
       </div>

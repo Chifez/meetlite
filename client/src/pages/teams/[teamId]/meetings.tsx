@@ -19,7 +19,7 @@ import SEO from '@/components/seo';
 export default function TeamMeetings() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { activeOrganization } = useWorkspace();
+  const { activeOrganization, isPersonalMode } = useWorkspace();
   const { fetchTeam } = useTeams();
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -33,10 +33,17 @@ export default function TeamMeetings() {
     setMeetings,
   } = useMeetingsStore();
 
+  // Redirect if not in organization mode
+  useEffect(() => {
+    if (isPersonalMode || !activeOrganization) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isPersonalMode, activeOrganization, navigate]);
+
   // Fetch team data and verify access
   useEffect(() => {
     const loadTeamData = async () => {
-      if (!teamId || !activeOrganization?.id) {
+      if (!teamId || !activeOrganization?.id || isPersonalMode) {
         setLoading(false);
         return;
       }
@@ -65,7 +72,7 @@ export default function TeamMeetings() {
     };
 
     loadTeamData();
-  }, [teamId, activeOrganization?.id, fetchTeam]);
+  }, [teamId, activeOrganization?.id, fetchTeam, isPersonalMode]);
 
   // Fetch team meetings
   useEffect(() => {
@@ -92,6 +99,10 @@ export default function TeamMeetings() {
 
     loadMeetings();
   }, [teamId, activeOrganization?.id, accessDenied]);
+
+  if (isPersonalMode || !activeOrganization) {
+    return null; // Will redirect via useEffect
+  }
 
   if (loading) {
     return (

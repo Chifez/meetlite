@@ -117,6 +117,20 @@ export class MeetingController {
 
       await meeting.save();
 
+      // Invalidate calendar cache for the user (meeting created, calendar should refresh)
+      try {
+        const { invalidateCalendarCache } = await import(
+          '../services/calendarCacheService.js'
+        );
+        await invalidateCalendarCache(req.user.userId);
+      } catch (cacheError) {
+        console.warn(
+          '[Meetings] Failed to invalidate calendar cache:',
+          cacheError
+        );
+        // Don't fail the request if cache invalidation fails
+      }
+
       // Send invites
       if (invites.length > 0) {
         for (const invite of invites) {
@@ -150,10 +164,12 @@ export class MeetingController {
 
   /**
    * GET /meetings - List meetings
+   * Merges native meetings with Google Calendar events
    */
   async listMeetings(req, res) {
     try {
       const { teamId } = req.query;
+      const userId = req.user.userId;
 
       // Build query based on user's active organization
       const orgFilter = req.user.organizationId
@@ -163,17 +179,70 @@ export class MeetingController {
       // Add teamId filter if provided
       const teamFilter = teamId ? { teamId } : {};
 
-      const meetings = await models.Meeting.find({
+      // Fetch native meetings from database
+      const nativeMeetings = await models.Meeting.find({
         ...orgFilter,
         ...teamFilter,
         $or: [
-          { createdBy: req.user.userId },
-          { participants: req.user.userId },
+          { createdBy: userId },
+          { participants: userId },
           { 'invites.email': req.user.email },
         ],
       }).sort({ scheduledTime: 1 });
 
-      return ResponseHelpers.ok(res, meetings);
+      // Fetch Google Calendar events (cached) and merge
+      let allMeetings = [...nativeMeetings];
+
+      try {
+        // Calculate date range: from 30 days ago to 90 days ahead
+        const now = new Date();
+        const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+        const { getCachedCalendarEvents, convertCalendarEventToMeeting } =
+          await import('../services/calendarCacheService.js');
+
+        const calendarEvents = await getCachedCalendarEvents(
+          userId,
+          startDate,
+          endDate
+        );
+
+        // Convert calendar events to meeting format
+        const calendarMeetings = calendarEvents.map((event) =>
+          convertCalendarEventToMeeting(event, userId)
+        );
+
+        // Merge and deduplicate (in case a meeting was created in-app that also exists in calendar)
+        const meetingMap = new Map();
+
+        // Add native meetings first
+        nativeMeetings.forEach((meeting) => {
+          const key = `${meeting.scheduledTime}-${meeting.title}`;
+          meetingMap.set(key, meeting);
+        });
+
+        // Add calendar events, avoiding duplicates
+        calendarMeetings.forEach((calendarMeeting) => {
+          const key = `${calendarMeeting.scheduledTime}-${calendarMeeting.title}`;
+          // Only add if not already present (native meetings take precedence)
+          if (!meetingMap.has(key)) {
+            meetingMap.set(key, calendarMeeting);
+          }
+        });
+
+        allMeetings = Array.from(meetingMap.values()).sort(
+          (a, b) => new Date(a.scheduledTime) - new Date(b.scheduledTime)
+        );
+      } catch (calendarError) {
+        console.error(
+          '[Meetings] Error fetching calendar events:',
+          calendarError
+        );
+        // Continue with native meetings only if calendar fetch fails
+      }
+
+      return ResponseHelpers.ok(res, allMeetings);
     } catch (error) {
       console.error('List meetings error:', error);
       return ResponseHelpers.serverError(res, 'Failed to list meetings', error);
@@ -246,6 +315,20 @@ export class MeetingController {
       Object.assign(meeting, updates);
       await meeting.save();
 
+      // Invalidate calendar cache for the user
+      try {
+        const { invalidateCalendarCache } = await import(
+          '../services/calendarCacheService.js'
+        );
+        await invalidateCalendarCache(req.user.userId);
+      } catch (cacheError) {
+        console.warn(
+          '[Meetings] Failed to invalidate calendar cache:',
+          cacheError
+        );
+        // Don't fail the request if cache invalidation fails
+      }
+
       return ResponseHelpers.ok(res, meeting, 'Meeting updated successfully');
     } catch (error) {
       console.error('Update meeting error:', error);
@@ -278,6 +361,21 @@ export class MeetingController {
       }
 
       await meeting.deleteOne();
+
+      // Invalidate calendar cache for the user
+      try {
+        const { invalidateCalendarCache } = await import(
+          '../services/calendarCacheService.js'
+        );
+        await invalidateCalendarCache(req.user.userId);
+      } catch (cacheError) {
+        console.warn(
+          '[Meetings] Failed to invalidate calendar cache:',
+          cacheError
+        );
+        // Don't fail the request if cache invalidation fails
+      }
+
       return ResponseHelpers.ok(res, null, 'Meeting deleted successfully');
     } catch (error) {
       console.error('Delete meeting error:', error);

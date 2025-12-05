@@ -25,7 +25,7 @@ import { meetingAssetsService } from '@/services/meeting-assets-service';
 export default function TeamRecordings() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { activeOrganization } = useWorkspace();
+  const { activeOrganization, isPersonalMode } = useWorkspace();
   const { fetchTeam } = useTeams();
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -59,10 +59,17 @@ export default function TeamRecordings() {
       onQueryChange: handleQueryChange,
     });
 
+  // Redirect if not in organization mode
+  useEffect(() => {
+    if (isPersonalMode || !activeOrganization) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isPersonalMode, activeOrganization, navigate]);
+
   // Fetch team data and verify access
   useEffect(() => {
     const loadTeamData = async () => {
-      if (!teamId || !activeOrganization?.id) {
+      if (!teamId || !activeOrganization?.id || isPersonalMode) {
         setLoading(false);
         return;
       }
@@ -90,14 +97,27 @@ export default function TeamRecordings() {
     };
 
     loadTeamData();
-  }, [teamId, activeOrganization?.id, fetchTeam]);
+  }, [teamId, activeOrganization?.id, fetchTeam, isPersonalMode]);
 
   // Fetch team recordings
   useEffect(() => {
-    if (activeOrganization?.id && teamId && !accessDenied && !loading) {
+    if (
+      activeOrganization?.id &&
+      teamId &&
+      !accessDenied &&
+      !loading &&
+      !isPersonalMode
+    ) {
       refreshQuery();
     }
-  }, [activeOrganization?.id, teamId, accessDenied, loading, refreshQuery]);
+  }, [
+    activeOrganization?.id,
+    teamId,
+    accessDenied,
+    loading,
+    refreshQuery,
+    isPersonalMode,
+  ]);
 
   const handleDeleteRecording = async (recording: MeetingRecording) => {
     try {
@@ -222,6 +242,10 @@ export default function TeamRecordings() {
       toast.error(error.message || 'Failed to start processing');
     }
   };
+
+  if (isPersonalMode || !activeOrganization) {
+    return null; // Will redirect via useEffect
+  }
 
   if (loading) {
     return (

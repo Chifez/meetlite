@@ -69,7 +69,9 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       const response = await api.get('/api/v1/meetings');
       const data = extractData<Meeting[]>(response);
 
-      // Backend now handles organization and access filtering
+      // Backend now handles:
+      // 1. Organization and access filtering
+      // 2. Google Calendar event fetching and merging (with caching)
       // Frontend only needs to filter for upcoming/ongoing meetings
       if (userId) {
         const now = new Date();
@@ -79,7 +81,8 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
               (meeting.duration || 0) * 60000
           );
 
-          // Show only upcoming/ongoing meetings (backend handles access control)
+          // Show only upcoming/ongoing meetings
+          // Backend already merged calendar events, so we just filter by status
           return (
             meeting.status !== 'cancelled' &&
             meeting.status !== 'completed' &&
@@ -87,74 +90,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
           );
         });
 
-        // Check if user is connected to Google Calendar and fetch events
-        // This is now safe: calendar errors won't trigger login redirect
-        try {
-          const calendarResponse = await api.get(`/api/v1/calendar/connected`);
-          const connectedCalendars = extractData<any[]>(calendarResponse);
-          const isGoogleConnected = connectedCalendars.some(
-            (cal: any) => cal.type === 'google' && cal.isConnected
-          );
-
-          if (isGoogleConnected) {
-            // Fetch Google Calendar events for the next 30 days
-            const now = new Date();
-            const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-            const googleResponse = await api.post(`/api/v1/calendar/import`, {
-              calendarType: 'google',
-              startDate: now.toISOString(),
-              endDate: in30.toISOString(),
-            });
-
-            const googleEvents = extractData<any[]>(googleResponse).map(
-              (event: any) => ({
-                ...event,
-                scheduledTime: event.start,
-                duration: Math.round(
-                  (new Date(event.end).getTime() -
-                    new Date(event.start).getTime()) /
-                    60000
-                ),
-                meetingId: `google-${event.id}`,
-                participants: event.attendees || [],
-                privacy: 'public',
-                status: 'scheduled',
-                source: 'google',
-                externalId: event.id,
-                title: event.title,
-                description: event.description || '',
-              })
-            );
-
-            // Merge Google events with user meetings, avoiding duplicates
-            const allMeetings = [...userMeetings];
-            googleEvents.forEach((googleEvent: any) => {
-              const isDuplicate = allMeetings.some(
-                (meeting) =>
-                  meeting.externalId === googleEvent.externalId ||
-                  (meeting.title === googleEvent.title &&
-                    meeting.scheduledTime === googleEvent.scheduledTime)
-              );
-
-              if (!isDuplicate) {
-                allMeetings.push(googleEvent);
-              }
-            });
-
-            set({ meetings: allMeetings });
-          } else {
-            set({ meetings: userMeetings });
-          }
-        } catch (calendarError: any) {
-          // Silent failure for calendar errors - don't disrupt core meeting functionality
-          // Calendar auth failures are handled by axios interceptor (no redirect)
-          console.warn(
-            'Calendar integration skipped:',
-            calendarError?.message || 'Unknown error'
-          );
-          set({ meetings: userMeetings });
-        }
+        set({ meetings: userMeetings });
       } else {
         set({ meetings: data });
       }

@@ -5,6 +5,7 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
@@ -56,6 +57,8 @@ interface WorkspaceProviderProps {
 
 export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
   const { user, isAuthenticated, updateUser, handleNewToken } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [activeOrganization, setActiveOrganization] =
     useState<Organization | null>(null);
@@ -91,6 +94,24 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
       setActiveOrganization(null);
     }
   }, [user?.organizationId, organizations]);
+
+  // Redirect from organization-only pages when switching to personal mode
+  useEffect(() => {
+    // Only redirect if we're in personal mode and on an organization-only route
+    if (!isPersonalMode || !isAuthenticated) return;
+
+    const organizationOnlyRoutes = ['/members', '/teams/', '/organization/'];
+
+    const currentPath = location.pathname;
+    const isOnOrgOnlyRoute = organizationOnlyRoutes.some((route) =>
+      currentPath.startsWith(route)
+    );
+
+    if (isOnOrgOnlyRoute) {
+      // Redirect to dashboard when switching to personal mode from org-only pages
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isPersonalMode, location.pathname, navigate, isAuthenticated]);
 
   const refreshOrganizations = async (): Promise<void> => {
     if (!isAuthenticated) return;
