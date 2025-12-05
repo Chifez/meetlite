@@ -48,7 +48,7 @@ const teamSchema = new mongoose.Schema(
         },
         role: {
           type: String,
-          enum: ['owner', 'member'],
+          enum: ['owner', 'admin', 'member'],
           default: 'member',
         },
         joinedAt: {
@@ -148,6 +148,19 @@ teamSchema.methods.isOwner = function (userId) {
         m.status === 'active'
     )
   );
+};
+
+teamSchema.methods.isAdmin = function (userId) {
+  return this.members.some(
+    (m) =>
+      m.userId.toString() === userId.toString() &&
+      m.role === 'admin' &&
+      m.status === 'active'
+  );
+};
+
+teamSchema.methods.isOwnerOrAdmin = function (userId) {
+  return this.isOwner(userId) || this.isAdmin(userId);
 };
 
 teamSchema.methods.canAddMember = function () {

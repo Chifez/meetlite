@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'member'],
+    enum: ['owner', 'admin', 'member'],
     default: 'owner',
     // This is the role in the currently active organization
   },
@@ -73,7 +73,7 @@ const userSchema = new mongoose.Schema({
       },
       role: {
         type: String,
-        enum: ['owner', 'member'],
+        enum: ['owner', 'admin', 'member'],
         required: true,
       },
       joinedAt: {
@@ -106,7 +106,7 @@ const userSchema = new mongoose.Schema({
       },
       role: {
         type: String,
-        enum: ['owner', 'member'],
+        enum: ['owner', 'admin', 'member'],
         default: 'member',
       },
       joinedAt: {
