@@ -48,15 +48,18 @@ export const requireTeamAccess = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Check if user is organization owner
+    // Check if user is organization owner or admin
     const orgMembership = userDoc.memberships?.find(
       (m) =>
         m.organizationId.toString() === organizationId.toString() &&
         m.status === 'active'
     );
 
-    if (orgMembership && orgMembership.role === 'owner') {
-      // User is organization owner, grant access
+    if (
+      orgMembership &&
+      (orgMembership.role === 'owner' || orgMembership.role === 'admin')
+    ) {
+      // User is organization owner or admin, grant access
       return next();
     }
 
@@ -86,10 +89,10 @@ export const requireTeamAccess = async (req, res, next) => {
       });
     }
 
-    // User is neither org owner nor team member, deny access
+    // User is neither org owner/admin nor team member, deny access
     return res.status(403).json({
       message:
-        'Access denied. You must be a team member or organization owner to access this resource.',
+        'Access denied. You must be a team member or organization owner/admin to access this resource.',
       teamId,
       organizationId,
     });

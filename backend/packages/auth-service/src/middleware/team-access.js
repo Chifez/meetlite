@@ -42,11 +42,11 @@ export const requireTeamAccess = async (req, res, next) => {
       });
     }
 
-    // Check if user is organization owner
+    // Check if user is organization owner or admin
     // Check in user's current active organization role
-    const isOrgOwner =
+    const isOrgOwnerOrAdmin =
       user.organizationId?.toString() === organizationId.toString() &&
-      user.role === 'owner';
+      (user.role === 'owner' || user.role === 'admin');
 
     // Also check in memberships array
     const orgMembership = user.memberships?.find(
@@ -55,8 +55,11 @@ export const requireTeamAccess = async (req, res, next) => {
         m.status === 'active'
     );
 
-    if (orgMembership && orgMembership.role === 'owner') {
-      // User is organization owner, grant access
+    if (
+      orgMembership &&
+      (orgMembership.role === 'owner' || orgMembership.role === 'admin')
+    ) {
+      // User is organization owner or admin, grant access
       return next();
     }
 
@@ -86,10 +89,10 @@ export const requireTeamAccess = async (req, res, next) => {
       });
     }
 
-    // User is neither org owner nor team member, deny access
+    // User is neither org owner/admin nor team member, deny access
     return res.status(403).json({
       message:
-        'Access denied. You must be a team member or organization owner to access this resource.',
+        'Access denied. You must be a team member or organization owner/admin to access this resource.',
       teamId,
       organizationId,
     });
@@ -101,7 +104,7 @@ export const requireTeamAccess = async (req, res, next) => {
 
 /**
  * Middleware to check if user can manage a team (create, update, delete)
- * Only team owners and organization owners can manage teams
+ * Only team owners/admins and organization owners/admins can manage teams
  */
 export const requireTeamManagement = async (req, res, next) => {
   try {
@@ -124,15 +127,18 @@ export const requireTeamManagement = async (req, res, next) => {
       });
     }
 
-    // Check if user is organization owner
+    // Check if user is organization owner or admin
     const orgMembership = user.memberships?.find(
       (m) =>
         m.organizationId.toString() === organizationId.toString() &&
         m.status === 'active'
     );
 
-    if (orgMembership && orgMembership.role === 'owner') {
-      // Organization owners can manage all teams
+    if (
+      orgMembership &&
+      (orgMembership.role === 'owner' || orgMembership.role === 'admin')
+    ) {
+      // Organization owners and admins can manage all teams
       return next();
     }
 
@@ -148,23 +154,23 @@ export const requireTeamManagement = async (req, res, next) => {
         return res.status(404).json({ message: 'Team not found' });
       }
 
-      // Check if user is team owner
-      const isTeamOwner =
+      // Check if user is team owner or admin
+      const isTeamOwnerOrAdmin =
         team.ownerId.toString() === user._id.toString() ||
         team.members.some(
           (m) =>
             m.userId.toString() === user._id.toString() &&
-            m.role === 'owner' &&
+            (m.role === 'owner' || m.role === 'admin') &&
             m.status === 'active'
         );
 
-      if (isTeamOwner) {
+      if (isTeamOwnerOrAdmin) {
         return next();
       }
 
       return res.status(403).json({
         message:
-          'Access denied. Only team owners and organization owners can manage teams.',
+          'Access denied. Only team owners/admins and organization owners/admins can manage teams.',
       });
     }
 
