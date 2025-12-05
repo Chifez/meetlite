@@ -395,7 +395,7 @@ router.get('/:id', requireTeamAccess, async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -443,7 +443,7 @@ router.get('/:id/stream', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -627,7 +627,7 @@ router.post('/:id/process', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -702,7 +702,7 @@ router.post('/:id/share', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -932,7 +932,7 @@ router.get('/:id/download', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
