@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Users, Loader2, Plus } from 'lucide-react';
-import { useTeams } from '@/hooks/use-teams';
+import { useTeamsStore } from '@/stores/teams-store';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { TeamAssignmentDropdown } from './team-assignment-dropdown';
 import { CreateTeamModal } from './create-team-modal';
@@ -22,7 +22,7 @@ export const TeamAssignmentPanel: React.FC<TeamAssignmentPanelProps> = ({
   onRefresh,
 }) => {
   const { activeOrganization } = useWorkspace();
-  const { teams, loading, fetchTeams } = useTeams();
+  const { teams, loading, fetchTeams } = useTeamsStore();
   const [createTeamModalOpen, setCreateTeamModalOpen] = useState(false);
 
   React.useEffect(() => {

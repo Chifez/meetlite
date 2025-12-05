@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { useTeams } from '@/hooks/use-teams';
+import { useTeamsStore } from '@/stores/teams-store';
 import { useMeetingAssets } from '@/hooks/use-meeting-assets';
 import { useQueryManager } from '@/hooks/use-query-manager';
 import { RecordingCard } from '@/components/recordings/recording-card';
@@ -26,7 +26,7 @@ export default function TeamRecordings() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { activeOrganization, isPersonalMode } = useWorkspace();
-  const { fetchTeam } = useTeams();
+  const { teams, fetchTeams } = useTeamsStore();
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
@@ -78,7 +78,11 @@ export default function TeamRecordings() {
       setAccessDenied(false);
 
       try {
-        const teamData = await fetchTeam(activeOrganization.id, teamId);
+        // Fetch teams if not already loaded
+        await fetchTeams(activeOrganization.id);
+
+        // Find the current team from store
+        const teamData = teams.find((t: any) => t.id === teamId);
         if (teamData) {
           setTeam(teamData);
         } else {
@@ -97,7 +101,7 @@ export default function TeamRecordings() {
     };
 
     loadTeamData();
-  }, [teamId, activeOrganization?.id, fetchTeam, isPersonalMode]);
+  }, [teamId, activeOrganization?.id, fetchTeams, teams, isPersonalMode]);
 
   // Fetch team recordings
   useEffect(() => {

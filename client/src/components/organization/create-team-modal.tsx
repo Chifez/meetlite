@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Users } from 'lucide-react';
-import { useTeams } from '@/hooks/use-teams';
+import { useTeamsStore } from '@/stores/teams-store';
 import { useWorkspace } from '@/contexts/workspace-context';
 import type { CreateTeamRequest } from '@/types/team';
 
@@ -33,7 +33,7 @@ export const CreateTeamModal: React.FC<CreateTeamModalProps> = ({
   onTeamCreated,
 }) => {
   const { activeOrganization } = useWorkspace();
-  const { createTeam, creating } = useTeams();
+  const { createTeam, loading: creating } = useTeamsStore();
 
   const {
     register,
@@ -156,4 +156,3 @@ export const CreateTeamModal: React.FC<CreateTeamModalProps> = ({
     </Dialog>
   );
 };
-

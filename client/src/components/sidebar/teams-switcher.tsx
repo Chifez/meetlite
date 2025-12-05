@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { useTeams } from '@/hooks/use-teams';
+import { useTeamsStore } from '@/stores/teams-store';
 
 interface TeamsSwitcherProps {}
 
@@ -21,24 +19,19 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeOrganization } = useWorkspace();
-  const { teams, loading, fetchTeams } = useTeams();
+  const { teams, loading, fetchTeams } = useTeamsStore();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
-  // Load teams when organization is active
+  // Fetch teams once when organization is set (Zustand handles caching)
   useEffect(() => {
     if (activeOrganization?.id) {
       fetchTeams(activeOrganization.id);
     }
-  }, [activeOrganization?.id]);
+  }, [activeOrganization?.id, fetchTeams]);
 
-  // Expand team if current route matches team pages
-  useEffect(() => {
-    const pathMatch = location.pathname.match(/^\/teams\/([^/]+)/);
-    if (pathMatch) {
-      const teamId = pathMatch[1];
-      setExpandedTeams((prev) => new Set(prev).add(teamId));
-    }
-  }, [location.pathname]);
+  // Compute route-based team expansion
+  const pathMatch = location.pathname.match(/^\/teams\/([^/]+)/);
+  const routeTeamId = pathMatch ? pathMatch[1] : null;
 
   const toggleTeam = (teamId: string) => {
     setExpandedTeams((prev) => {
@@ -62,13 +55,14 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
     navigate(`/teams/${teamId}/recordings`);
   };
 
-  const isTeamExpanded = (teamId: string) => expandedTeams.has(teamId);
+  const isTeamExpanded = (teamId: string) =>
+    expandedTeams.has(teamId) || routeTeamId === teamId;
   const isTeamMeetingActive = (teamId: string) =>
     location.pathname === `/teams/${teamId}/meetings`;
   const isTeamRecordingActive = (teamId: string) =>
     location.pathname === `/teams/${teamId}/recordings`;
 
-  if (loading) {
+  if (loading && teams.length === 0) {
     return (
       <div className="flex items-center justify-center py-4">
         <Loader2 className="h-4 w-4 animate-spin text-sidebar-foreground/60" />

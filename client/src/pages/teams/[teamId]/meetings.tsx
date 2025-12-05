@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { useTeams } from '@/hooks/use-teams';
+import { useTeamsStore } from '@/stores/teams-store';
 import { useMeetingsStore } from '@/stores';
 import api from '@/lib/axios';
 import { extractData } from '@/lib/api-response';
@@ -20,7 +20,7 @@ export default function TeamMeetings() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { activeOrganization, isPersonalMode } = useWorkspace();
-  const { fetchTeam } = useTeams();
+  const { teams, fetchTeams } = useTeamsStore();
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
@@ -52,8 +52,11 @@ export default function TeamMeetings() {
       setAccessDenied(false);
 
       try {
-        // Fetch team details
-        const teamData = await fetchTeam(activeOrganization.id, teamId);
+        // Fetch teams if not already loaded
+        await fetchTeams(activeOrganization.id);
+
+        // Find the current team from store
+        const teamData = teams.find((t) => t.id === teamId);
         if (teamData) {
           setTeam(teamData);
         } else {
@@ -72,7 +75,7 @@ export default function TeamMeetings() {
     };
 
     loadTeamData();
-  }, [teamId, activeOrganization?.id, fetchTeam, isPersonalMode]);
+  }, [teamId, activeOrganization?.id, fetchTeams, teams, isPersonalMode]);
 
   // Fetch team meetings
   useEffect(() => {

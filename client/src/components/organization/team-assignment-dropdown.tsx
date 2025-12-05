@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Users, Check, Loader2, Plus } from 'lucide-react';
-import { useTeams } from '@/hooks/use-teams';
+import { useTeamsStore } from '@/stores/teams-store';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
 }) => {
   const { activeOrganization } = useWorkspace();
   const { teams, loading, fetchTeams, addMemberToTeam, removeMemberFromTeam } =
-    useTeams();
+    useTeamsStore();
   const [processingTeamId, setProcessingTeamId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -136,4 +136,3 @@ export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
     </DropdownMenu>
   );
 };
-
