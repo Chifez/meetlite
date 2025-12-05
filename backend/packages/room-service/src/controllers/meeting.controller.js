@@ -87,6 +87,11 @@ export class MeetingController {
 
       // Validate teamId if provided
       if (teamId && req.user.organizationId) {
+        // Validate teamId format
+        if (!teamId.match(/^[0-9a-fA-F]{24}$/)) {
+          return ResponseHelpers.badRequest(res, 'Invalid team ID format');
+        }
+
         const team = await models.Team.findOne({
           _id: teamId,
           organizationId: req.user.organizationId,
@@ -97,6 +102,40 @@ export class MeetingController {
           return ResponseHelpers.badRequest(
             res,
             'Team not found or does not belong to this organization'
+          );
+        }
+
+        // Check if user has access to the team (owner/admin/member)
+        // Fetch full user document to check teamMemberships
+        const userDoc = await models.User.findById(req.user.userId);
+        if (!userDoc) {
+          return ResponseHelpers.notFound(res, 'User not found');
+        }
+
+        // Check if user is organization owner or admin
+        const orgMembership = userDoc.memberships?.find(
+          (m) =>
+            m.organizationId.toString() ===
+              req.user.organizationId.toString() && m.status === 'active'
+        );
+
+        const isOrgOwnerOrAdmin =
+          orgMembership &&
+          (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+
+        // Check if user is a team member
+        const isTeamMember = userDoc.teamMemberships?.some(
+          (m) =>
+            m.teamId.toString() === teamId.toString() &&
+            m.organizationId.toString() ===
+              req.user.organizationId.toString() &&
+            m.status === 'active'
+        );
+
+        if (!isOrgOwnerOrAdmin && !isTeamMember) {
+          return ResponseHelpers.forbidden(
+            res,
+            'Access denied. You must be a team member or organization owner/admin to create team meetings.'
           );
         }
       }
