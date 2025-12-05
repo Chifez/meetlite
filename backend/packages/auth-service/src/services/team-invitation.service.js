@@ -197,13 +197,23 @@ export class TeamInvitationService {
         m.status === 'active'
     );
 
-    const isOrgOwner = orgMembership && orgMembership.role === 'owner';
+    const isOrgOwnerOrAdmin =
+      orgMembership &&
+      (orgMembership.role === 'owner' || orgMembership.role === 'admin');
     const isInviter = invitation.invitedBy.toString() === userId.toString();
 
     const team = await models.Team.findById(invitation.teamId);
     const isTeamOwner = team && team.ownerId.toString() === userId.toString();
+    const isTeamAdmin =
+      team &&
+      team.members.some(
+        (m) =>
+          m.userId.toString() === userId.toString() &&
+          m.role === 'admin' &&
+          m.status === 'active'
+      );
 
-    if (!isOrgOwner && !isInviter && !isTeamOwner) {
+    if (!isOrgOwnerOrAdmin && !isInviter && !isTeamOwner && !isTeamAdmin) {
       throw new Error('You do not have permission to cancel this invitation');
     }
 

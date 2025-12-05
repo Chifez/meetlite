@@ -7,15 +7,33 @@ export class TeamService {
   async createTeam(organizationId, ownerId, teamData) {
     const { name, description, logo, settings } = teamData;
 
-    // Verify organization exists and user is owner
+    // Verify organization exists
     const organization = await models.Organization.findOne({
       _id: organizationId,
-      ownerId: ownerId,
       status: 'active',
     });
 
     if (!organization) {
-      throw new Error('Organization not found or you are not the owner');
+      throw new Error('Organization not found');
+    }
+
+    // Check if user is organization owner or admin
+    const user = await models.User.findById(ownerId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const membership = user.memberships?.find(
+      (m) =>
+        m.organizationId.toString() === organizationId.toString() &&
+        m.status === 'active'
+    );
+
+    if (
+      !membership ||
+      (membership.role !== 'owner' && membership.role !== 'admin')
+    ) {
+      throw new Error('Only organization owners and admins can create teams');
     }
 
     // Create team

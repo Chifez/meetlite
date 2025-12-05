@@ -21,10 +21,10 @@ export class TeamInvitationController {
         );
       }
 
-      if (!['member', 'owner'].includes(role)) {
+      if (!['member', 'admin', 'owner'].includes(role)) {
         return ResponseHelpers.badRequest(
           res,
-          'Invalid role. Must be member or owner'
+          'Invalid role. Must be member, admin, or owner'
         );
       }
 
