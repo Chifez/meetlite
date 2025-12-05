@@ -140,7 +140,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   }
                   className="space-y-3"
                 >
-                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                     <RadioGroupItem value="member" id="member" />
                     <div className="flex-1">
                       <Label
@@ -149,7 +149,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                       >
                         Member
                       </Label>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Can join meetings, participate in collaborations, and
                         view organization content
                       </p>
@@ -157,7 +157,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   </div>
 
                   {canInviteOwners && (
-                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                       <RadioGroupItem value="owner" id="owner" />
                       <div className="flex-1">
                         <Label
@@ -166,7 +166,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                         >
                           Owner
                         </Label>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           Full access including member management, billing, and
                           organization settings
                         </p>
@@ -180,7 +180,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <div className="space-y-2">
                 <Label htmlFor="message" className="text-sm font-medium">
                   Personal Message{' '}
-                  <span className="text-gray-500">(Optional)</span>
+                  <span className="text-muted-foreground">(Optional)</span>
                 </Label>
                 <Textarea
                   id="message"
@@ -189,7 +189,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   maxLength={500}
                   {...register('message')}
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   This message will be included in the invitation email
                 </p>
               </div>

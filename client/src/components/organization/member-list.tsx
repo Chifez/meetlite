@@ -171,7 +171,7 @@ export const MemberList: React.FC<MemberListProps> = ({
               {members.map((member) => (
                 <div
                   key={member.id}
-                  className="p-4 flex items-center justify-between hover:bg-gray-50"
+                  className="p-4 flex items-center justify-between hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 z-0">
@@ -290,7 +290,7 @@ export const MemberList: React.FC<MemberListProps> = ({
               {pendingInvitations.map((invitation) => (
                 <div
                   key={invitation.id}
-                  className="p-4 flex items-center justify-between hover:bg-gray-50"
+                  className="p-4 flex items-center justify-between hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">

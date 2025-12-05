@@ -89,10 +89,10 @@ export const RecordingInfo: React.FC<RecordingInfoProps> = ({
           {recording.participants.map((participant, index) => (
             <div
               key={index}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
             >
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-xs bg-blue-100 text-blue-600">
+                <AvatarFallback className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400">
                   {getParticipantInitials(
                     participant.name ||
                       participant.email ||

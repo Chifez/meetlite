@@ -136,7 +136,7 @@ export const IconEmojiPicker = ({
                   onSelect(name);
                   onClose();
                 }}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
+                className="h-8 w-8 p-0 hover:bg-muted transition-colors"
                 title={name}
               >
                 <IconComponent className="h-4 w-4" />
@@ -148,7 +148,9 @@ export const IconEmojiPicker = ({
         {/* Emojis - Only show if not iconsOnly */}
         {!iconsOnly && (
           <div>
-            <div className="text-xs text-gray-500 mb-1 font-medium">Emojis</div>
+            <div className="text-xs text-muted-foreground mb-1 font-medium">
+              Emojis
+            </div>
             <div className="grid grid-cols-6 gap-2">
               {Object.entries(emojiLibrary).map(([name, emoji]) => (
                 <Button
@@ -159,7 +161,7 @@ export const IconEmojiPicker = ({
                     onSelect(name);
                     onClose();
                   }}
-                  className="h-8 w-8 p-0 text-base hover:bg-gray-100"
+                  className="h-8 w-8 p-0 text-base hover:bg-muted transition-colors"
                   title={name}
                 >
                   {emoji}

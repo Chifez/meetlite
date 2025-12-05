@@ -182,7 +182,7 @@ export default function MeetingCalendar({
               })()}
             </Badge>
             {selectedEvent?.resource?.source === 'google' && (
-              <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100">
+              <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900">
                 Google
               </span>
             )}
