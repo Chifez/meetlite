@@ -66,7 +66,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
     set({ loading: true });
     try {
-      const response = await api.get('/api/v1/meetings');
+      const response = await api.get('/api/meetings');
       const data = extractData<Meeting[]>(response);
 
       // Backend now handles:
@@ -104,7 +104,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   createMeeting: async (meetingData) => {
     try {
-      const response = await api.post(`/api/v1/meetings`, meetingData);
+      const response = await api.post(`/api/meetings`, meetingData);
       const result = extractData<{ meetingId: string }>(response);
       const newMeeting = { ...meetingData, meetingId: result.meetingId };
 
@@ -123,7 +123,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   deleteMeeting: async (meetingId) => {
     try {
-      await api.delete(`/api/v1/meetings/${meetingId}`);
+      await api.delete(`/api/meetings/${meetingId}`);
 
       set((state) => ({
         meetings: state.meetings.filter(
@@ -141,7 +141,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   deleteGoogleCalendarMeeting: async (externalId) => {
     try {
-      await api.delete(`/api/v1/calendar/events/${externalId}`, {
+      await api.delete(`/api/calendar/events/${externalId}`, {
         data: { calendarType: 'google' },
       });
 
@@ -162,7 +162,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   startMeeting: async (meetingId) => {
     try {
-      const response = await api.post(`/api/v1/meetings/${meetingId}/start`);
+      const response = await api.post(`/api/meetings/${meetingId}/start`);
       const result = extractData<{ roomId: string }>(response);
       const roomId = result.roomId;
 
@@ -185,7 +185,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   completeMeeting: async (meetingId) => {
     try {
-      await api.post(`/api/v1/meetings/${meetingId}/complete`);
+      await api.post(`/api/meetings/${meetingId}/complete`);
 
       set((state) => ({
         meetings: state.meetings.map((meeting) =>
@@ -206,7 +206,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   refreshGoogleCalendarEvents: async () => {
     try {
       // Check if user is connected to Google Calendar
-      const calendarResponse = await api.get(`/api/v1/calendar/connected`);
+      const calendarResponse = await api.get(`/api/calendar/connected`);
       const connectedCalendars = extractData<any[]>(calendarResponse);
       const isGoogleConnected = connectedCalendars.some(
         (cal: any) => cal.type === 'google' && cal.isConnected
@@ -217,7 +217,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
         const now = new Date();
         const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-        const googleResponse = await api.post(`/api/v1/calendar/import`, {
+        const googleResponse = await api.post(`/api/calendar/import`, {
           calendarType: 'google',
           startDate: now.toISOString(),
           endDate: in30.toISOString(),

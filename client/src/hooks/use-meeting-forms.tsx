@@ -187,7 +187,7 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
     };
 
     try {
-      const response = await api.post(`/api/v1/meetings`, meetingData);
+      const response = await api.post(`/api/meetings`, meetingData);
       const result = extractData<{ meetingId: string }>(response);
 
       toast.success('Meeting created successfully!');

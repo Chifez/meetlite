@@ -12,7 +12,7 @@ export class AnalyticsService {
   }> {
     try {
       const response = await api.get(
-        `/api/v1/analytics/organization/${organizationId}`
+        `/api/analytics/organization/${organizationId}`
       );
       const data = extractData<any>(response);
 
@@ -56,7 +56,7 @@ export class AnalyticsService {
     completedSummaries: number;
   }> {
     try {
-      const response = await api.get(`/api/v1/analytics/recordings/stats`, {
+      const response = await api.get(`/api/analytics/recordings/stats`, {
         params: { organizationId },
       });
       const data = extractData<{ stats: any }>(response);

@@ -37,7 +37,7 @@ export const useSmartScheduling = () => {
       try {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        const response = await api.post('/api/v1/ai/parse-meeting', {
+        const response = await api.post('/api/ai/parse-meeting', {
           input,
           timezone,
         });

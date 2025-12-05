@@ -42,7 +42,7 @@ export class MediaSoupService {
   async validateRoomAccess(roomId, userId, token) {
     try {
       const response = await fetch(
-        `${this.roomServiceUrl}/api/rooms/${roomId}`,
+        `${this.roomServiceUrl}/api/v1/rooms/${roomId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
