@@ -2,7 +2,7 @@ export type TeamMember = {
   userId: string;
   userName: string;
   userEmail: string;
-  role: 'owner' | 'member';
+  role: 'owner' | 'admin' | 'member';
   joinedAt: string;
 };
 

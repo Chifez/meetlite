@@ -154,6 +154,7 @@ export const useTeamsStore = create<TeamsState>((set, get) => ({
     userId: string,
     role: 'member' | 'owner' = 'member'
   ) => {
+    console.log('[FRONTEND] teams-store addMemberToTeam:', { teamId, userId });
     try {
       const updatedTeam = await TeamService.addMemberToTeam(
         organizationId,
@@ -161,6 +162,10 @@ export const useTeamsStore = create<TeamsState>((set, get) => ({
         userId,
         role
       );
+
+      if (!updatedTeam) {
+        throw new Error('Failed to add member to team');
+      }
 
       // Update state
       set((state) => ({
@@ -173,9 +178,13 @@ export const useTeamsStore = create<TeamsState>((set, get) => ({
 
       return updatedTeam;
     } catch (error: any) {
-      console.error('Error adding member to team:', error);
-      set({ error: error.message || 'Failed to add member' });
-      return null;
+      console.error('[FRONTEND] teams-store error:', error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to add member to team';
+      set({ error: errorMessage });
+      return null; // Return null so component can check for failure
     }
   },
 
@@ -192,6 +201,10 @@ export const useTeamsStore = create<TeamsState>((set, get) => ({
         userId
       );
 
+      if (!updatedTeam) {
+        throw new Error('Failed to remove member from team');
+      }
+
       // Update state
       set((state) => ({
         teams: state.teams.map((team) =>
@@ -204,8 +217,12 @@ export const useTeamsStore = create<TeamsState>((set, get) => ({
       return updatedTeam;
     } catch (error: any) {
       console.error('Error removing member from team:', error);
-      set({ error: error.message || 'Failed to remove member' });
-      return null;
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to remove member from team';
+      set({ error: errorMessage });
+      return null; // Return null so component can check for failure
     }
   },
 

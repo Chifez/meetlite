@@ -12,8 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Check, Loader2, Plus } from 'lucide-react';
 import { useTeamsStore } from '@/stores/teams-store';
 import { useWorkspace } from '@/contexts/workspace-context';
+import { useMembers } from '@/hooks/use-members';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 interface TeamAssignmentDropdownProps {
   memberId: string;
@@ -31,7 +31,17 @@ export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
   const { activeOrganization } = useWorkspace();
   const { teams, loading, fetchTeams, addMemberToTeam, removeMemberFromTeam } =
     useTeamsStore();
+  const { updateMemberTeams } = useMembers();
   const [processingTeamId, setProcessingTeamId] = useState<string | null>(null);
+
+  // Debug: Log props
+  useEffect(() => {
+    console.log('[FRONTEND] TeamAssignmentDropdown props:', {
+      memberId,
+      currentTeams,
+      teamsCount: teams.length,
+    });
+  }, [memberId, currentTeams, teams]);
 
   useEffect(() => {
     if (activeOrganization?.id) {
@@ -43,27 +53,79 @@ export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
     if (!activeOrganization?.id) return;
 
     const isInTeam = currentTeams.includes(teamId);
+    const team = teams.find((t) => t.id === teamId);
+    const teamName = team?.name || 'team';
+
+    console.log('[FRONTEND] handleToggleTeam:', {
+      memberId,
+      teamId,
+      isInTeam,
+      action: isInTeam ? 'remove' : 'add',
+    });
+
     setProcessingTeamId(teamId);
 
     try {
       if (isInTeam) {
-        await removeMemberFromTeam(activeOrganization.id, teamId, memberId);
-        toast.success(`${memberName} removed from team`);
+        const result = await removeMemberFromTeam(
+          activeOrganization.id,
+          teamId,
+          memberId
+        );
+        if (result) {
+          // Update local state immediately
+          updateMemberTeams(memberId, teamId, 'remove', teamName);
+          toast.success(`${memberName} removed from team`);
+          onTeamChange?.();
+        } else {
+          toast.error(`Failed to remove ${memberName} from team`);
+        }
       } else {
-        await addMemberToTeam(
+        // Check if user is already in team (handle race condition)
+        if (currentTeams.includes(teamId)) {
+          toast.info(`${memberName} is already in this team`);
+          return;
+        }
+
+        const result = await addMemberToTeam(
           activeOrganization.id,
           teamId,
           memberId,
           'member'
         );
-        toast.success(`${memberName} added to team`);
+        console.log('[FRONTEND] addMemberToTeam result:', !!result);
+        if (result) {
+          // Update local state immediately
+          updateMemberTeams(memberId, teamId, 'add', teamName);
+          console.log(
+            '🟠 [TeamAssignmentDropdown] Updated local state, calling onTeamChange'
+          );
+          toast.success(`${memberName} added to team`);
+          onTeamChange?.();
+        } else {
+          console.error(
+            '🟠 [TeamAssignmentDropdown] addMemberToTeam returned null/false'
+          );
+          toast.error(`Failed to add ${memberName} to team`);
+        }
       }
-      onTeamChange?.();
     } catch (error: any) {
       console.error('Error updating team membership:', error);
-      toast.error(
-        error.message || `Failed to ${isInTeam ? 'remove from' : 'add to'} team`
-      );
+      const errorMessage = error.response?.data?.message || error.message;
+
+      // Handle "already a member" error gracefully
+      if (errorMessage?.includes('already a member')) {
+        console.warn('[FRONTEND] Already a member error');
+        updateMemberTeams(memberId, teamId, 'add', teamName);
+        onTeamChange?.();
+        toast.info(`${memberName} is already in this team`);
+      } else {
+        console.error('[FRONTEND] Team membership error:', errorMessage);
+        toast.error(
+          errorMessage ||
+            `Failed to ${isInTeam ? 'remove from' : 'add to'} team`
+        );
+      }
     } finally {
       setProcessingTeamId(null);
     }

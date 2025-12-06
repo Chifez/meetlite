@@ -255,8 +255,9 @@ export const useMeetingAssets = (organizationId?: string) => {
         title: string;
         description?: string;
         meetingId?: string;
+        teamId?: string;
         tags?: string[];
-        visibility?: 'organization' | 'participants' | 'private';
+        visibility?: 'organization' | 'team' | 'participants' | 'private';
       },
       onProgress?: (progress: any) => void
     ) => {

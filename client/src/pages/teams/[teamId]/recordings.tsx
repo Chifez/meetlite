@@ -21,6 +21,7 @@ import type {
   MeetingAssetsQuery,
 } from '@/types/meetingAssets';
 import { meetingAssetsService } from '@/services/meeting-assets-service';
+import { useCanUploadRecordings } from '@/hooks/use-permissions';
 
 export default function TeamRecordings() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -31,6 +32,7 @@ export default function TeamRecordings() {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const canUploadRecordings = useCanUploadRecordings(teamId);
 
   const {
     recordings,
@@ -299,10 +301,12 @@ export default function TeamRecordings() {
                 View and manage recordings for this team
               </p>
             </div>
-            <Button onClick={() => setShowUploadModal(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Recording
-            </Button>
+            {canUploadRecordings && (
+              <Button onClick={() => setShowUploadModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Recording
+              </Button>
+            )}
           </div>
 
           <div className="flex items-center gap-4 mb-4">
@@ -321,12 +325,16 @@ export default function TeamRecordings() {
             <Video className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No recordings yet</h3>
             <p className="text-muted-foreground mb-4">
-              Upload your first recording to get started
+              {canUploadRecordings
+                ? 'Upload your first recording to get started'
+                : 'No recordings available. Contact your team owner or admin to upload recordings.'}
             </p>
-            <Button onClick={() => setShowUploadModal(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Recording
-            </Button>
+            {canUploadRecordings && (
+              <Button onClick={() => setShowUploadModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Recording
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

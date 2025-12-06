@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Users, CalendarDays } from 'lucide-react';
 import { useUIStore } from '@/stores';
+import { useCanCreateMeetings } from '@/hooks/use-permissions';
+import { useWorkspace } from '@/contexts/workspace-context';
 
 export default function QuickActions({
   onSchedule,
@@ -21,6 +23,8 @@ export default function QuickActions({
   onJoin: (joinRoomId: string) => void;
   onQuickMeeting: () => void;
 }) {
+  const { isPersonalMode } = useWorkspace();
+  const canCreateMeetings = useCanCreateMeetings();
   const [joinRoomId, setJoinRoomId] = useState('');
   const { globalLoading } = useUIStore();
 
@@ -30,22 +34,24 @@ export default function QuickActions({
 
   return (
     <div className="grid md:grid-cols-3 gap-8">
-      <Card className="hover:shadow-lg transition-shadow">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-            <PlusCircle className="h-4 w-4" />
-            Schedule Meeting
-          </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
-            Plan a meeting for later and send invites
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <Button size="sm" className="w-full" onClick={onSchedule}>
-            Schedule Meeting
-          </Button>
-        </CardFooter>
-      </Card>
+      {(isPersonalMode || canCreateMeetings) && (
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <PlusCircle className="h-4 w-4" />
+              Schedule Meeting
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Plan a meeting for later and send invites
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button size="sm" className="w-full" onClick={onSchedule}>
+              Schedule Meeting
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">

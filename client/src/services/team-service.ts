@@ -78,12 +78,14 @@ export class TeamService {
     userId: string,
     role: 'member' | 'owner' = 'member'
   ): Promise<Team> {
-    const response = await api.post(
+    console.log('[FRONTEND] team-service addMemberToTeam API call');
+    await api.post(
       `/api/organizations/${organizationId}/teams/${teamId}/members`,
       { userId, role }
     );
-    const data = extractData<{ team: Team }>(response);
-    return data.team;
+
+    // Backend returns partial team, so fetch full team to get updated members list
+    return this.getTeamById(organizationId, teamId);
   }
 
   /**
@@ -94,10 +96,11 @@ export class TeamService {
     teamId: string,
     userId: string
   ): Promise<Team> {
-    const response = await api.delete(
+    await api.delete(
       `/api/organizations/${organizationId}/teams/${teamId}/members/${userId}`
     );
-    const data = extractData<{ team: Team }>(response);
-    return data.team;
+
+    // Backend returns partial team, so fetch full team to get updated members list
+    return this.getTeamById(organizationId, teamId);
   }
 }

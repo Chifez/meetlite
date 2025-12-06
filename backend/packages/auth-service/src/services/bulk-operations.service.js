@@ -431,13 +431,29 @@ export class BulkOperationsService {
           (m) => m.organizationId.toString() === organizationId.toString()
         );
 
-        return {
+        const formatted = {
           id: member._id,
           name: member.name,
           email: member.email,
           role: membership.role,
           joinedAt: membership.joinedAt,
         };
+
+        console.log('[BACKEND SERVICE] Formatted member:', {
+          id: formatted.id,
+          name: formatted.name,
+          hasTeamMemberships: !!member.teamMemberships,
+          teamMembershipsCount: member.teamMemberships?.length || 0,
+        });
+
+        return formatted;
+      });
+
+      console.log('[BACKEND SERVICE] Returning members:', {
+        count: formattedMembers.length,
+        firstMemberKeys: formattedMembers[0]
+          ? Object.keys(formattedMembers[0])
+          : [],
       });
 
       return {

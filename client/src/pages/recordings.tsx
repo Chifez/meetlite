@@ -14,9 +14,11 @@ import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import type { MeetingRecording } from '@/types/meetingAssets';
 import { meetingAssetsService } from '@/services/meeting-assets-service';
 import { toast } from 'sonner';
+import { useCanUploadRecordings } from '@/hooks/use-permissions';
 
 export default function Recordings() {
   const { activeOrganization } = useWorkspace();
+  const canUploadRecordings = useCanUploadRecordings();
 
   const {
     recordings,
@@ -213,10 +215,12 @@ export default function Recordings() {
               >
                 {showArchived ? 'Show Active' : 'Show Archived'}
               </Button>
-              <Button size="sm" onClick={() => setShowUploadModal(true)}>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Recording
-              </Button>
+              {canUploadRecordings && (
+                <Button size="sm" onClick={() => setShowUploadModal(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Recording
+                </Button>
+              )}
             </div>
           </div>
 
@@ -316,12 +320,16 @@ export default function Recordings() {
             <Video className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No recordings yet</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Upload your first meeting recording to get started.
+              {canUploadRecordings
+                ? 'Upload your first meeting recording to get started.'
+                : 'No recordings available. Contact your organization owner or admin to upload recordings.'}
             </p>
-            <Button size="sm" onClick={() => setShowUploadModal(true)}>
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Recording
-            </Button>
+            {canUploadRecordings && (
+              <Button size="sm" onClick={() => setShowUploadModal(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Recording
+              </Button>
+            )}
           </div>
         )}
       </div>

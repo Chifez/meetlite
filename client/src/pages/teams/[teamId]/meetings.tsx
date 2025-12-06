@@ -12,9 +12,12 @@ import MeetingCalendarSection from '@/components/meeting/meeting-calendar-sectio
 import MeetingViewToggle from '@/components/meetings/meeting-view-toggle';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SEO from '@/components/seo';
+import ScheduleMeetingModal from '@/components/dashboard/schedule-meeting-modal';
+import { useMeetingForm } from '@/hooks/use-meeting-forms';
+import { useCanCreateMeetings } from '@/hooks/use-permissions';
 
 export default function TeamMeetings() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -25,6 +28,7 @@ export default function TeamMeetings() {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const {
     meetings,
     loading: meetingsLoading,
@@ -32,6 +36,38 @@ export default function TeamMeetings() {
     setView,
     setMeetings,
   } = useMeetingsStore();
+
+  const canCreateMeetings = useCanCreateMeetings(teamId);
+
+  // Use the custom hook for form state management
+  const {
+    formData,
+    loading: formLoading,
+    handleInputChange,
+    handleDateChange,
+    handleTimeChange,
+    handlePrivacyChange,
+    handleParticipantInput,
+    removeParticipant,
+    handleSubmit: submitForm,
+  } = useMeetingForm(
+    async () => {
+      setShowScheduleModal(false);
+      // Reload team meetings after successful creation
+      if (teamId && activeOrganization?.id) {
+        try {
+          const response = await api.get('/api/meetings', {
+            params: { teamId },
+          });
+          const meetingsData = extractData<Meeting[]>(response);
+          setMeetings(meetingsData || []);
+        } catch (error: any) {
+          console.error('Error reloading team meetings:', error);
+        }
+      }
+    },
+    teamId // Pass teamId to the hook
+  );
 
   // Redirect if not in organization mode
   useEffect(() => {
@@ -154,13 +190,42 @@ export default function TeamMeetings() {
                 View and manage meetings for this team
               </p>
             </div>
-            <MeetingViewToggle
-              view={view}
-              setView={setView}
-              setShowImportModal={setShowImportModal}
-            />
+            <div className="flex items-start gap-3">
+              {canCreateMeetings && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowScheduleModal(true)}
+                  className="gap-2"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  Create Meeting
+                </Button>
+              )}
+              <MeetingViewToggle
+                view={view}
+                setView={setView}
+                setShowImportModal={setShowImportModal}
+              />
+            </div>
           </div>
         </div>
+
+        <ScheduleMeetingModal
+          open={showScheduleModal}
+          onOpenChange={setShowScheduleModal}
+          formData={formData}
+          formLoading={formLoading}
+          onInputChange={handleInputChange}
+          onDateChange={handleDateChange}
+          onTimeChange={handleTimeChange}
+          onPrivacyChange={handlePrivacyChange}
+          onParticipantInput={handleParticipantInput}
+          onRemoveParticipant={removeParticipant}
+          onSubmit={submitForm}
+          onCancel={() => setShowScheduleModal(false)}
+          teamId={teamId}
+          teamName={team?.name}
+        />
 
         {view === 'list' ? (
           <MeetingListSection meetings={meetings} loading={meetingsLoading} />

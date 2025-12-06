@@ -36,7 +36,7 @@ interface WorkspaceContextType {
 
   // Computed values
   currentWorkspaceName: string;
-  currentWorkspaceRole: 'owner' | 'member' | null;
+  currentWorkspaceRole: 'owner' | 'admin' | 'member' | null;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(

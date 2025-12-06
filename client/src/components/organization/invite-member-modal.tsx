@@ -24,7 +24,7 @@ interface InviteMemberModalProps {
 
 interface InviteForm {
   email: string;
-  role: 'member' | 'owner';
+  role: 'member' | 'admin' | 'owner';
   message: string;
 }
 
@@ -70,6 +70,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       return;
     }
 
+    // Modal stays open during operation (inviting state is handled by useMembers hook)
     const success = await inviteMember({
       organizationId,
       email: data.email.toLowerCase().trim(),
@@ -77,10 +78,12 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       message: data.message.trim(),
     });
 
+    // Only close modal and reset form on success
     if (success) {
       reset();
       onOpenChange(false);
     }
+    // On error, modal stays open so user can retry
   };
 
   const handleClose = () => {
@@ -135,7 +138,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                 <Label className="text-sm font-medium">Role</Label>
                 <RadioGroup
                   value={selectedRole}
-                  onValueChange={(value: 'member' | 'owner') =>
+                  onValueChange={(value: 'member' | 'admin' | 'owner') =>
                     setValue('role', value)
                   }
                   className="space-y-3"
@@ -157,21 +160,38 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   </div>
 
                   {canInviteOwners && (
-                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
-                      <RadioGroupItem value="owner" id="owner" />
-                      <div className="flex-1">
-                        <Label
-                          htmlFor="owner"
-                          className="font-medium cursor-pointer"
-                        >
-                          Owner
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Full access including member management, billing, and
-                          organization settings
-                        </p>
+                    <>
+                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
+                        <RadioGroupItem value="admin" id="admin" />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor="admin"
+                            className="font-medium cursor-pointer"
+                          >
+                            Admin
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Can invite members, create meetings, upload
+                            recordings, and manage teams
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
+                        <RadioGroupItem value="owner" id="owner" />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor="owner"
+                            className="font-medium cursor-pointer"
+                          >
+                            Owner
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Full access including member management, billing,
+                            and organization settings
+                          </p>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </RadioGroup>
               </div>

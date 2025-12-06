@@ -6,7 +6,7 @@ export interface MeetingRecording {
   title: string;
   description?: string;
   processingStatus: 'pending' | 'processing' | 'completed' | 'failed';
-  visibility: 'organization' | 'participants' | 'private';
+  visibility: 'organization' | 'team' | 'participants' | 'private';
   recording: {
     fileName: string;
     fileSize: number;

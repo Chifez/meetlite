@@ -42,7 +42,10 @@ interface FormState {
   closeScheduleModal: () => void;
 
   // Submit action
-  handleSubmit: (onSuccess?: (meetingId: string) => void) => Promise<void>;
+  handleSubmit: (
+    onSuccess?: (meetingId: string) => void,
+    teamId?: string
+  ) => Promise<void>;
 }
 
 const initialFormData: MeetingFormData = {
@@ -127,7 +130,7 @@ export const useFormStore = create<FormState>((set, get) => ({
   closeScheduleModal: () => set({ showScheduleModal: false }),
 
   // Submit action
-  handleSubmit: async (onSuccess) => {
+  handleSubmit: async (onSuccess, teamId) => {
     const { formData } = get();
 
     if (!formData.title.trim()) {
@@ -158,6 +161,7 @@ export const useFormStore = create<FormState>((set, get) => ({
       privacy: formData.privacy,
       inviteEmails: formData.participants,
       hostEmail: '', // Will be set from auth context when used
+      ...(teamId && { teamId }),
     };
 
     try {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -28,7 +28,7 @@ interface UploadRecordingModalProps {
 interface UploadFormData {
   title: string;
   description?: string;
-  visibility: 'organization' | 'participants' | 'private';
+  visibility: 'organization' | 'team' | 'participants' | 'private';
   tags: string;
 }
 
@@ -58,12 +58,21 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
     defaultValues: {
       title: '',
       description: '',
-      visibility: 'organization',
+      visibility: teamId ? 'team' : 'organization',
       tags: '',
     },
   });
 
   const visibility = watch('visibility');
+
+  // Update default visibility when teamId changes
+  useEffect(() => {
+    if (teamId && open) {
+      setValue('visibility', 'team');
+    } else if (!teamId && open) {
+      setValue('visibility', 'organization');
+    }
+  }, [teamId, open, setValue]);
 
   const handleFileSelect = (file: File) => {
     // Validate file type
@@ -378,10 +387,26 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                 <RadioGroup
                   value={visibility}
                   onValueChange={(
-                    value: 'organization' | 'participants' | 'private'
+                    value: 'organization' | 'team' | 'participants' | 'private'
                   ) => setValue('visibility', value)}
                   className="space-y-2"
                 >
+                  {teamId && (
+                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
+                      <RadioGroupItem value="team" id="team" />
+                      <div className="flex-1">
+                        <Label
+                          htmlFor="team"
+                          className="font-medium cursor-pointer"
+                        >
+                          Team
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Visible to all team members
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                     <RadioGroupItem value="organization" id="organization" />
                     <div className="flex-1">

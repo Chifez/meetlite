@@ -20,7 +20,7 @@ type User = {
     experience?: 'beginner' | 'intermediate' | 'advanced';
   };
   organizationId?: string | null;
-  role?: 'owner' | 'member';
+  role?: 'owner' | 'admin' | 'member';
   plan?: {
     type: 'free' | 'pro' | 'enterprise';
     startDate?: Date;
@@ -49,7 +49,7 @@ type TokenPayload = {
   userId: string;
   email: string;
   organizationId?: string | null;
-  role?: 'owner' | 'member';
+  role?: 'owner' | 'admin' | 'member';
   tokenVersion?: number;
   exp: number;
 };

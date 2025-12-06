@@ -27,7 +27,10 @@ const initialFormData: MeetingFormData = {
   participantInput: '',
 };
 
-export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
+export const useMeetingForm = (
+  onSuccess?: (meetingId: string) => void,
+  teamId?: string
+) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
@@ -184,6 +187,7 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
       privacy: formData.privacy,
       inviteEmails: finalParticipants,
       hostEmail: user?.email,
+      ...(teamId && { teamId }),
     };
 
     try {

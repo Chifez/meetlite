@@ -168,25 +168,133 @@ export class OrganizationMemberController {
       }
 
       // Check if user is member or owner of this organization
+      // First check if user is the organization owner
       const isOwner = organization.ownerId.toString() === userId.toString();
-      const isMember = req.user.organizationId?.toString() === organizationId;
 
-      if (!isOwner && !isMember) {
+      // Also check memberships array (for multi-org support)
+      const userMembership = req.user.memberships?.find(
+        (m) =>
+          m.organizationId.toString() === organizationId.toString() &&
+          m.status === 'active'
+      );
+
+      // Also check if user has organizationId set (legacy/active org)
+      const hasActiveOrg =
+        req.user.organizationId?.toString() === organizationId.toString();
+
+      console.log('[BACKEND] listMembers access check:', {
+        userId: userId.toString(),
+        organizationId: organizationId.toString(),
+        isOwner,
+        hasActiveOrg,
+        hasMembership: !!userMembership,
+        userMembershipRole: userMembership?.role,
+        userOrganizationId: req.user.organizationId?.toString(),
+        membershipsCount: req.user.memberships?.length || 0,
+      });
+
+      // Grant access if user is owner, has membership, or has active org
+      if (!isOwner && !userMembership && !hasActiveOrg) {
+        console.log('[BACKEND] Access denied for user:', {
+          userId: userId.toString(),
+          organizationId: organizationId.toString(),
+          reason: 'Not owner, no membership, no active org',
+        });
         return res.status(403).json({
-          message: 'Access denied to this organization',
+          message: 'Access denied. You are not a member of this organization',
         });
       }
 
-      // Get members
-      const members = await models.User.find({
-        organizationId: organizationId,
-      })
-        .select('_id name email role createdAt')
-        .sort({ createdAt: -1 });
+      // Determine user role for response
+      const userRole = isOwner
+        ? 'owner'
+        : userMembership?.role
+        ? userMembership.role
+        : req.user.role || 'member';
 
-      // Get pending invitations (only for owners)
+      // Get members using correct memberships array query
+      // Include both users with active memberships AND the organization owner
+      const members = await models.User.find({
+        $or: [
+          {
+            'memberships.organizationId': organizationId,
+            'memberships.status': 'active',
+          },
+          {
+            _id: organization.ownerId, // Include the owner even if no membership entry
+          },
+        ],
+      })
+        .select('name email memberships teamMemberships')
+        .sort({ name: 1 });
+
+      // Get all teams for this organization to map team IDs to team names
+      const teams = await models.Team.find({
+        organizationId,
+        status: { $ne: 'deleted' },
+      }).select('_id name');
+
+      const teamMap = new Map(
+        teams.map((team) => [team._id.toString(), team.name])
+      );
+
+      // Format members with teams data
+      const formattedMembers = members
+        .map((member) => {
+          const isOwner =
+            member._id.toString() === organization.ownerId.toString();
+
+          // Find membership entry, or create a virtual one for the owner
+          const membership =
+            member.memberships?.find(
+              (m) => m.organizationId.toString() === organizationId.toString()
+            ) ||
+            (isOwner
+              ? {
+                  role: 'owner',
+                  joinedAt: organization.createdAt || new Date(),
+                }
+              : null);
+
+          // If no membership found and not owner, skip this member (shouldn't happen with $or query)
+          if (!membership && !isOwner) {
+            console.warn('[BACKEND] Member without membership entry:', {
+              memberId: member._id.toString(),
+              organizationId: organizationId.toString(),
+            });
+            return null;
+          }
+
+          // Get active team memberships for this organization
+          const userTeams =
+            member.teamMemberships
+              ?.filter(
+                (tm) =>
+                  tm.organizationId.toString() === organizationId.toString() &&
+                  tm.status === 'active'
+              )
+              .map((tm) => ({
+                teamId: tm.teamId.toString(),
+                teamName: teamMap.get(tm.teamId.toString()) || 'Unknown Team',
+                role: tm.role,
+              })) || [];
+
+          return {
+            id: member._id,
+            name: member.name,
+            email: member.email,
+            role: membership?.role || 'owner',
+            joinedAt:
+              membership?.joinedAt || organization.createdAt || new Date(),
+            isOwner: isOwner,
+            teams: userTeams,
+          };
+        })
+        .filter(Boolean); // Remove any null entries
+
+      // Get pending invitations (only for owners/admins)
       let pendingInvitations = [];
-      if (isOwner) {
+      if (isOwner || userMembership.role === 'admin') {
         pendingInvitations = await models.OrganizationInvitation.find({
           organizationId: organizationId,
           status: 'pending',
@@ -196,21 +304,24 @@ export class OrganizationMemberController {
           .sort({ createdAt: -1 });
       }
 
+      // Get member count from organization stats or calculate from members
+      const memberCount =
+        organization.stats?.totalMembers || formattedMembers.length;
+
+      console.log('[BACKEND] listMembers response:', {
+        membersCount: formattedMembers.length,
+        firstMemberHasTeams: formattedMembers[0]?.teams?.length > 0,
+        firstMemberTeams: formattedMembers[0]?.teams,
+      });
+
       res.json({
         organization: {
           id: organization._id,
           name: organization.name,
-          memberCount: organization.stats.totalMembers,
-          maxMembers: organization.limits.maxMembers,
+          memberCount,
+          maxMembers: organization.limits?.maxMembers || 100,
         },
-        members: members.map((member) => ({
-          id: member._id,
-          name: member.name,
-          email: member.email,
-          role: member.role,
-          joinedAt: member.createdAt,
-          isOwner: member._id.toString() === organization.ownerId.toString(),
-        })),
+        members: formattedMembers,
         pendingInvitations: pendingInvitations.map((inv) => ({
           id: inv._id,
           email: inv.email,
@@ -219,7 +330,7 @@ export class OrganizationMemberController {
           createdAt: inv.createdAt,
           expiresAt: inv.expiresAt,
         })),
-        userRole: isOwner ? 'owner' : 'member',
+        userRole: userRole,
       });
     } catch (error) {
       console.error('List members error:', error);
