@@ -90,13 +90,13 @@ export const TranscriptTab: React.FC<TranscriptTabProps> = ({
                 className={cn(
                   'p-3 rounded-lg cursor-pointer transition-colors border',
                   selectedTranscriptSegment === segment.startTime
-                    ? 'bg-blue-50 border-blue-200 shadow-sm'
-                    : 'bg-gray-50 hover:bg-gray-100 border-gray-100'
+                    ? 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 shadow-sm'
+                    : 'bg-muted hover:bg-accent border-border'
                 )}
                 onClick={() => jumpToTranscriptTime(segment.startTime)}
               >
                 <div className="flex items-start gap-3">
-                  <div className="text-xs text-blue-600 font-medium min-w-0 bg-blue-100 px-2 py-1 rounded">
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium min-w-0 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
                     {formatTime(segment.startTime)}
                   </div>
                   <div className="flex-1 min-w-0">

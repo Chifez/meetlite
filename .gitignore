@@ -47,4 +47,7 @@ coverage/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Ngrok (contains sensitive authtoken)
+ngrok.yml 

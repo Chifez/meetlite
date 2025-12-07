@@ -67,7 +67,7 @@ const Lobby = () => {
     try {
       // Authorization check - ProtectedRoute ensures user is authenticated
       // This API call will return 403 if user doesn't have access
-      await api.get(`/api/v1/rooms/${roomId}`);
+      await api.get(`/api/rooms/${roomId}`);
 
       // Additional check: verify user has access to the meeting
       // This is a basic check - in a real implementation, you might want to

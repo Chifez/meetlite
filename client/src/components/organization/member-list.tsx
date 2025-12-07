@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCanInviteMembers, useIsOwner } from '@/hooks/use-permissions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Users,
   MoreVertical,
   Crown,
@@ -40,6 +46,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useMembers } from '@/hooks/use-members';
+import { TeamAssignmentDropdown } from './team-assignment-dropdown';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 import type {
   OrganizationMember,
   PendingInvitation,
@@ -50,10 +58,11 @@ interface MemberListProps {
   organizationName: string;
   members: OrganizationMember[];
   pendingInvitations: PendingInvitation[];
-  userRole: 'owner' | 'member';
+  userRole: 'owner' | 'admin' | 'member';
   memberCount: number;
   maxMembers: number;
   onInviteClick: () => void;
+  onRefresh?: () => void; // Callback to refresh members in parent
 }
 
 export const MemberList: React.FC<MemberListProps> = ({
@@ -65,7 +74,16 @@ export const MemberList: React.FC<MemberListProps> = ({
   memberCount,
   maxMembers,
   onInviteClick,
+  onRefresh,
 }) => {
+  // Debug: Log member data
+  React.useEffect(() => {
+    console.log('[FRONTEND] MemberList received members:', {
+      count: members.length,
+      sampleMember: members[0],
+    });
+  }, [members]);
+
   const {
     removeMember,
     cancelInvitation,
@@ -73,15 +91,18 @@ export const MemberList: React.FC<MemberListProps> = ({
     removing,
     canceling,
     updatingRole,
+    fetchMembers,
   } = useMembers();
+  const { currentPlan } = useCurrentPlan();
+  const isFreePlan = currentPlan === 'free';
+  const showTeams = !isFreePlan; // Only show teams for paid plans
   const [memberToRemove, setMemberToRemove] =
     useState<OrganizationMember | null>(null);
   const [invitationToCancel, setInvitationToCancel] =
     useState<PendingInvitation | null>(null);
 
-  const isOwner = userRole === 'owner';
-  const canInvite = isOwner && (maxMembers === -1 || memberCount < maxMembers);
-
+  const canInvite = useCanInviteMembers(maxMembers, memberCount);
+  const isOwner = useIsOwner();
   const handleRemoveMember = async () => {
     if (!memberToRemove) return;
 
@@ -110,7 +131,7 @@ export const MemberList: React.FC<MemberListProps> = ({
 
   const handleUpdateRole = async (
     memberId: string,
-    newRole: 'owner' | 'member'
+    newRole: 'owner' | 'admin' | 'member'
   ) => {
     await updateMemberRole(organizationId, memberId, newRole);
   };
@@ -165,7 +186,7 @@ export const MemberList: React.FC<MemberListProps> = ({
               {members.map((member) => (
                 <div
                   key={member.id}
-                  className="p-4 flex items-center justify-between hover:bg-gray-50"
+                  className="p-4 flex items-center justify-between hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 z-0">
@@ -173,15 +194,60 @@ export const MemberList: React.FC<MemberListProps> = ({
                         {getInitials(member.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{member.name}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">
+                          {member.name}
+                        </span>
                         {member.isOwner && (
-                          <Crown className="h-4 w-4 text-yellow-500" />
+                          <Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                         )}
+                        {showTeams &&
+                          member.teams &&
+                          member.teams.length > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 flex items-center gap-1"
+                                  >
+                                    <Users className="h-3 w-3" />
+                                    {member.teams.length}
+                                    {member.teams.length === 1
+                                      ? ' team'
+                                      : ' teams'}
+                                  </Badge>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="bottom"
+                                className="max-w-xs"
+                              >
+                                <div className="space-y-1">
+                                  <p className="font-medium text-xs mb-1">
+                                    Teams:
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {member.teams.map((team) => (
+                                      <Badge
+                                        key={team.teamId}
+                                        variant="secondary"
+                                        className="text-[10px] px-1.5 py-0"
+                                      >
+                                        @{team.teamName}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                       </div>
-                      <p className="text-sm text-gray-600">{member.email}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm text-muted-foreground truncate">
+                        {member.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3 inline mr-1" />
                         Joined{' '}
                         {format(new Date(member.joinedAt), 'MMM d, yyyy')}
@@ -190,12 +256,12 @@ export const MemberList: React.FC<MemberListProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {isOwner && !member.isOwner ? (
+                    {(isOwner || userRole === 'admin') && !member.isOwner ? (
                       <Select
                         value={member.role}
-                        onValueChange={(newRole: 'owner' | 'member') =>
-                          handleUpdateRole(member.id, newRole)
-                        }
+                        onValueChange={(
+                          newRole: 'owner' | 'admin' | 'member'
+                        ) => handleUpdateRole(member.id, newRole)}
                         disabled={updatingRole === member.id}
                       >
                         <SelectTrigger className="w-24 h-8">
@@ -203,17 +269,38 @@ export const MemberList: React.FC<MemberListProps> = ({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="owner">Owner</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
                       <Badge
                         variant={
-                          member.role === 'owner' ? 'default' : 'secondary'
+                          member.role === 'owner'
+                            ? 'default'
+                            : member.role === 'admin'
+                            ? 'default'
+                            : 'secondary'
                         }
                       >
-                        {member.role}
+                        {member.role === 'admin' ? 'Admin' : member.role}
                       </Badge>
+                    )}
+
+                    {showTeams && (isOwner || userRole === 'admin') && (
+                      <TeamAssignmentDropdown
+                        memberId={member.id}
+                        memberName={member.name}
+                        currentTeams={member.teams?.map((t) => t.teamId) || []}
+                        onTeamChange={async () => {
+                          // Refresh members list to get updated team assignments
+                          // This is needed because team assignments affect the member's teams array
+                          await fetchMembers(organizationId);
+                          // Also trigger a refresh in the parent component
+                          // The parent will re-fetch and pass updated members as props
+                          onRefresh?.();
+                        }}
+                      />
                     )}
 
                     {isOwner && !member.isOwner && (
@@ -260,7 +347,7 @@ export const MemberList: React.FC<MemberListProps> = ({
               {pendingInvitations.map((invitation) => (
                 <div
                   key={invitation.id}
-                  className="p-4 flex items-center justify-between hover:bg-gray-50"
+                  className="p-4 flex items-center justify-between hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
@@ -311,7 +398,12 @@ export const MemberList: React.FC<MemberListProps> = ({
       {/* Remove Member Confirmation Dialog */}
       <AlertDialog
         open={!!memberToRemove}
-        onOpenChange={() => setMemberToRemove(null)}
+        onOpenChange={(open) => {
+          // Prevent closing during operation
+          if (!open && removing !== memberToRemove?.id) {
+            setMemberToRemove(null);
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -323,7 +415,9 @@ export const MemberList: React.FC<MemberListProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={removing === memberToRemove?.id}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveMember}
               disabled={removing === memberToRemove?.id}
@@ -345,7 +439,12 @@ export const MemberList: React.FC<MemberListProps> = ({
       {/* Cancel Invitation Confirmation Dialog */}
       <AlertDialog
         open={!!invitationToCancel}
-        onOpenChange={() => setInvitationToCancel(null)}
+        onOpenChange={(open) => {
+          // Prevent closing during operation
+          if (!open && canceling !== invitationToCancel?.id) {
+            setInvitationToCancel(null);
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -357,7 +456,9 @@ export const MemberList: React.FC<MemberListProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={canceling === invitationToCancel?.id}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancelInvitation}
               disabled={canceling === invitationToCancel?.id}

@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'member'],
+    enum: ['owner', 'admin', 'member'],
     default: 'owner',
     // This is the role in the currently active organization
   },
@@ -73,7 +73,7 @@ const userSchema = new mongoose.Schema({
       },
       role: {
         type: String,
-        enum: ['owner', 'member'],
+        enum: ['owner', 'admin', 'member'],
         required: true,
       },
       joinedAt: {
@@ -83,6 +83,39 @@ const userSchema = new mongoose.Schema({
       status: {
         type: String,
         enum: ['active', 'inactive', 'pending'],
+        default: 'active',
+      },
+      invitedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    },
+  ],
+  // Multiple team memberships within organizations
+  teamMemberships: [
+    {
+      teamId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team',
+        required: true,
+      },
+      organizationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization',
+        required: true,
+      },
+      role: {
+        type: String,
+        enum: ['owner', 'admin', 'member'],
+        default: 'member',
+      },
+      joinedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      status: {
+        type: String,
+        enum: ['active', 'inactive'],
         default: 'active',
       },
       invitedBy: {
@@ -215,6 +248,9 @@ userSchema.index({ googleId: 1 });
 userSchema.index({ organizationId: 1 });
 userSchema.index({ 'memberships.organizationId': 1 });
 userSchema.index({ 'memberships.status': 1 });
+userSchema.index({ 'teamMemberships.teamId': 1 });
+userSchema.index({ 'teamMemberships.organizationId': 1 });
+userSchema.index({ 'teamMemberships.status': 1 });
 userSchema.index({ 'plan.type': 1 });
 userSchema.index({ 'plan.status': 1 });
 userSchema.index({ onboardingCompleted: 1 });

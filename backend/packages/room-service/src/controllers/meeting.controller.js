@@ -68,6 +68,7 @@ export class MeetingController {
         privacy,
         inviteEmails,
         hostEmail,
+        teamId,
       } = req.body;
 
       const meetingId = nanoid(12);
@@ -84,6 +85,61 @@ export class MeetingController {
           }));
       }
 
+      // Validate teamId if provided
+      if (teamId && req.user.organizationId) {
+        // Validate teamId format
+        if (!teamId.match(/^[0-9a-fA-F]{24}$/)) {
+          return ResponseHelpers.badRequest(res, 'Invalid team ID format');
+        }
+
+        const team = await models.Team.findOne({
+          _id: teamId,
+          organizationId: req.user.organizationId,
+          status: { $ne: 'deleted' },
+        });
+
+        if (!team) {
+          return ResponseHelpers.badRequest(
+            res,
+            'Team not found or does not belong to this organization'
+          );
+        }
+
+        // Check if user has access to the team (owner/admin/member)
+        // Fetch full user document to check teamMemberships
+        const userDoc = await models.User.findById(req.user.userId);
+        if (!userDoc) {
+          return ResponseHelpers.notFound(res, 'User not found');
+        }
+
+        // Check if user is organization owner or admin
+        const orgMembership = userDoc.memberships?.find(
+          (m) =>
+            m.organizationId.toString() ===
+              req.user.organizationId.toString() && m.status === 'active'
+        );
+
+        const isOrgOwnerOrAdmin =
+          orgMembership &&
+          (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+
+        // Check if user is a team member
+        const isTeamMember = userDoc.teamMemberships?.some(
+          (m) =>
+            m.teamId.toString() === teamId.toString() &&
+            m.organizationId.toString() ===
+              req.user.organizationId.toString() &&
+            m.status === 'active'
+        );
+
+        if (!isOrgOwnerOrAdmin && !isTeamMember) {
+          return ResponseHelpers.forbidden(
+            res,
+            'Access denied. You must be a team member or organization owner/admin to create team meetings.'
+          );
+        }
+      }
+
       const meeting = new models.Meeting({
         meetingId,
         title,
@@ -92,12 +148,27 @@ export class MeetingController {
         duration,
         createdBy: req.user.userId,
         organizationId: req.user.organizationId || null,
+        teamId: teamId || null,
         participants: participants || [],
         privacy: privacy || 'public',
         invites,
       });
 
       await meeting.save();
+
+      // Invalidate calendar cache for the user (meeting created, calendar should refresh)
+      try {
+        const { invalidateCalendarCache } = await import(
+          '../services/calendarCacheService.js'
+        );
+        await invalidateCalendarCache(req.user.userId);
+      } catch (cacheError) {
+        console.warn(
+          '[Meetings] Failed to invalidate calendar cache:',
+          cacheError
+        );
+        // Don't fail the request if cache invalidation fails
+      }
 
       // Send invites
       if (invites.length > 0) {
@@ -132,24 +203,85 @@ export class MeetingController {
 
   /**
    * GET /meetings - List meetings
+   * Merges native meetings with Google Calendar events
    */
   async listMeetings(req, res) {
     try {
+      const { teamId } = req.query;
+      const userId = req.user.userId;
+
       // Build query based on user's active organization
       const orgFilter = req.user.organizationId
         ? { organizationId: req.user.organizationId }
         : { organizationId: null }; // Personal workspace
 
-      const meetings = await models.Meeting.find({
+      // Add teamId filter if provided
+      const teamFilter = teamId ? { teamId } : {};
+
+      // Fetch native meetings from database
+      const nativeMeetings = await models.Meeting.find({
         ...orgFilter,
+        ...teamFilter,
         $or: [
-          { createdBy: req.user.userId },
-          { participants: req.user.userId },
+          { createdBy: userId },
+          { participants: userId },
           { 'invites.email': req.user.email },
         ],
       }).sort({ scheduledTime: 1 });
 
-      return ResponseHelpers.ok(res, meetings);
+      // Fetch Google Calendar events (cached) and merge
+      let allMeetings = [...nativeMeetings];
+
+      try {
+        // Calculate date range: from 30 days ago to 90 days ahead
+        const now = new Date();
+        const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+        const { getCachedCalendarEvents, convertCalendarEventToMeeting } =
+          await import('../services/calendarCacheService.js');
+
+        const calendarEvents = await getCachedCalendarEvents(
+          userId,
+          startDate,
+          endDate
+        );
+
+        // Convert calendar events to meeting format
+        const calendarMeetings = calendarEvents.map((event) =>
+          convertCalendarEventToMeeting(event, userId)
+        );
+
+        // Merge and deduplicate (in case a meeting was created in-app that also exists in calendar)
+        const meetingMap = new Map();
+
+        // Add native meetings first
+        nativeMeetings.forEach((meeting) => {
+          const key = `${meeting.scheduledTime}-${meeting.title}`;
+          meetingMap.set(key, meeting);
+        });
+
+        // Add calendar events, avoiding duplicates
+        calendarMeetings.forEach((calendarMeeting) => {
+          const key = `${calendarMeeting.scheduledTime}-${calendarMeeting.title}`;
+          // Only add if not already present (native meetings take precedence)
+          if (!meetingMap.has(key)) {
+            meetingMap.set(key, calendarMeeting);
+          }
+        });
+
+        allMeetings = Array.from(meetingMap.values()).sort(
+          (a, b) => new Date(a.scheduledTime) - new Date(b.scheduledTime)
+        );
+      } catch (calendarError) {
+        console.error(
+          '[Meetings] Error fetching calendar events:',
+          calendarError
+        );
+        // Continue with native meetings only if calendar fetch fails
+      }
+
+      return ResponseHelpers.ok(res, allMeetings);
     } catch (error) {
       console.error('List meetings error:', error);
       return ResponseHelpers.serverError(res, 'Failed to list meetings', error);
@@ -222,6 +354,20 @@ export class MeetingController {
       Object.assign(meeting, updates);
       await meeting.save();
 
+      // Invalidate calendar cache for the user
+      try {
+        const { invalidateCalendarCache } = await import(
+          '../services/calendarCacheService.js'
+        );
+        await invalidateCalendarCache(req.user.userId);
+      } catch (cacheError) {
+        console.warn(
+          '[Meetings] Failed to invalidate calendar cache:',
+          cacheError
+        );
+        // Don't fail the request if cache invalidation fails
+      }
+
       return ResponseHelpers.ok(res, meeting, 'Meeting updated successfully');
     } catch (error) {
       console.error('Update meeting error:', error);
@@ -254,6 +400,21 @@ export class MeetingController {
       }
 
       await meeting.deleteOne();
+
+      // Invalidate calendar cache for the user
+      try {
+        const { invalidateCalendarCache } = await import(
+          '../services/calendarCacheService.js'
+        );
+        await invalidateCalendarCache(req.user.userId);
+      } catch (cacheError) {
+        console.warn(
+          '[Meetings] Failed to invalidate calendar cache:',
+          cacheError
+        );
+        // Don't fail the request if cache invalidation fails
+      }
+
       return ResponseHelpers.ok(res, null, 'Meeting deleted successfully');
     } catch (error) {
       console.error('Delete meeting error:', error);
@@ -357,6 +518,7 @@ export class MeetingController {
         roomId,
         createdBy: req.user.userId,
         organizationId: meeting.organizationId,
+        teamId: meeting.teamId || null,
       });
       await room.save();
 
@@ -422,6 +584,3 @@ export class MeetingController {
 }
 
 export default MeetingController;
-
-
-

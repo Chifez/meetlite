@@ -8,11 +8,13 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import { Loader2 } from 'lucide-react';
 import { useMeetingsStore } from '@/stores';
 
 export default function DeleteMeetingDialog() {
   const {
     deleteDialog,
+    deleting,
     closeDeleteDialog,
     deleteMeeting,
     deleteGoogleCalendarMeeting,
@@ -40,6 +42,12 @@ export default function DeleteMeetingDialog() {
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open && !deleting) {
+      closeDeleteDialog();
+    }
+  };
+
   const getDialogContent = () => {
     if (deleteDialog.isGoogleCalendar) {
       return {
@@ -58,10 +66,7 @@ export default function DeleteMeetingDialog() {
   const dialogContent = getDialogContent();
 
   return (
-    <AlertDialog
-      open={deleteDialog.open}
-      onOpenChange={(open) => !open && closeDeleteDialog()}
-    >
+    <AlertDialog open={deleteDialog.open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{dialogContent.title}</AlertDialogTitle>
@@ -70,12 +75,20 @@ export default function DeleteMeetingDialog() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
+            disabled={deleting}
             className="bg-red-600 hover:bg-red-700 text-white"
           >
-            Delete
+            {deleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete'
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

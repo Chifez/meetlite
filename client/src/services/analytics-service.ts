@@ -12,15 +12,34 @@ export class AnalyticsService {
   }> {
     try {
       const response = await api.get(
-        `/api/v1/analytics/organization/${organizationId}`
+        `/api/analytics/organization/${organizationId}`
       );
-      const data = extractData<{ analytics: any }>(response);
-      return data.analytics;
+      const data = extractData<any>(response);
+
+      // Validate data structure
+      if (data && typeof data === 'object' && 'totalRecordings' in data) {
+        return data;
+      }
+
+      // Return default values if structure is unexpected
+      console.warn('Unexpected analytics response structure:', data);
+      return {
+        totalRecordings: 0,
+        totalSize: 0,
+        totalDuration: 0,
+        completedTranscripts: 0,
+        completedSummaries: 0,
+      };
     } catch (error: any) {
       console.error('Failed to fetch analytics:', error);
-      throw new Error(
-        error.response?.data?.message || 'Failed to fetch analytics'
-      );
+      // Return default values instead of throwing to prevent breaking the recordings page
+      return {
+        totalRecordings: 0,
+        totalSize: 0,
+        totalDuration: 0,
+        completedTranscripts: 0,
+        completedSummaries: 0,
+      };
     }
   }
 
@@ -33,7 +52,7 @@ export class AnalyticsService {
     completedSummaries: number;
   }> {
     try {
-      const response = await api.get(`/api/v1/analytics/recordings/stats`, {
+      const response = await api.get(`/api/analytics/recordings/stats`, {
         params: { organizationId },
       });
       const data = extractData<{ stats: any }>(response);

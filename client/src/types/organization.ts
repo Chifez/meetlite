@@ -17,7 +17,7 @@ export type Organization = {
     endDate?: Date | null;
     status?: 'active' | 'expired' | 'cancelled';
   };
-  role?: 'owner' | 'member';
+  role?: 'owner' | 'admin' | 'member';
   settings?: {
     allowPublicMeetings?: boolean;
     requireMeetingApproval?: boolean;

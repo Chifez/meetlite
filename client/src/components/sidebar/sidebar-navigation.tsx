@@ -3,6 +3,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OrganizationSwitcher } from '@/components/sidebar/organization-switcher';
+import { TeamsSwitcher } from '@/components/sidebar/teams-switcher';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
+import { useWorkspace } from '@/contexts/workspace-context';
 import type { NavigationItem } from '@/lib/types';
 
 interface SidebarNavigationProps {
@@ -17,18 +20,37 @@ export function SidebarNavigation({
   onNavigationClick,
 }: SidebarNavigationProps) {
   const location = useLocation();
+  const { currentPlan } = useCurrentPlan();
+  const { isPersonalMode } = useWorkspace();
+  const isFreePlan = currentPlan === 'free';
+  const showTeams = !isPersonalMode && !isFreePlan; // Show teams only when org is active AND plan is not free
 
   return (
     <>
       {!isContentVisible && (
-        <div className="px-4 py-2 border-b border-sidebar-border">
-          <div className="mb-1">
-            <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
-              Workspace
-            </p>
+        <>
+          <div className="px-4 py-2 border-b border-sidebar-border">
+            <div className="mb-1">
+              <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
+                Workspace
+              </p>
+            </div>
+            <OrganizationSwitcher />
           </div>
-          <OrganizationSwitcher />
-        </div>
+
+          {showTeams && (
+            <>
+              <div className="px-4 py-2 border-b border-sidebar-border">
+                <div className="mb-1">
+                  <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
+                    Teams
+                  </p>
+                </div>
+                <TeamsSwitcher />
+              </div>
+            </>
+          )}
+        </>
       )}
 
       <nav className="flex-1 p-2">

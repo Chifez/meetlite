@@ -10,7 +10,7 @@ export class ProcessingService {
   ): Promise<ProcessingResponse> {
     try {
       const response = await api.post(
-        `/api/v1/recordings/${recordingId}/process`,
+        `/api/recordings/${recordingId}/process`,
         {
           type,
         }
@@ -27,9 +27,7 @@ export class ProcessingService {
   // Get processing status for a recording
   async getProcessingStatus(recordingId: string): Promise<ProcessingResponse> {
     try {
-      const response = await api.get(
-        `/api/v1/recordings/${recordingId}/status`
-      );
+      const response = await api.get(`/api/recordings/${recordingId}/status`);
       return extractData<ProcessingResponse>(response);
     } catch (error: any) {
       console.error('Failed to get processing status:', error);

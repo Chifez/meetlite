@@ -22,6 +22,9 @@ import OrganizationSettings from './pages/organization-settings';
 import Settings from './pages/settings';
 import InvitationPage from './pages/invitation';
 import PaymentSuccess from './pages/payment-success';
+import TeamMeetings from './pages/teams/[teamId]/meetings';
+import TeamRecordings from './pages/teams/[teamId]/recordings';
+import TeamSettings from './pages/teams/[teamId]/settings';
 
 function App() {
   // Initialize hotkeys
@@ -143,6 +146,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Recordings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/meetings"
+            element={
+              <ProtectedRoute>
+                <TeamMeetings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/recordings"
+            element={
+              <ProtectedRoute>
+                <TeamRecordings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/settings"
+            element={
+              <ProtectedRoute>
+                <TeamSettings />
               </ProtectedRoute>
             }
           />

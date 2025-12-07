@@ -1,6 +1,7 @@
 import express from 'express';
 import { MeetingController } from '../../controllers/meeting.controller.js';
 import { verifyToken } from '../../middleware/auth.js';
+import { requireTeamAccess } from '../../middleware/team-access.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 
 const router = express.Router();
@@ -15,15 +16,17 @@ router.post(
   asyncHandler(meetingController.createMeeting.bind(meetingController))
 );
 
-// GET /meetings - List meetings
+// GET /meetings - List meetings (supports teamId query param)
 router.get(
   '/',
+  requireTeamAccess,
   asyncHandler(meetingController.listMeetings.bind(meetingController))
 );
 
 // GET /meetings/:meetingId - Get meeting details
 router.get(
   '/:meetingId',
+  requireTeamAccess,
   asyncHandler(meetingController.getMeeting.bind(meetingController))
 );
 
@@ -58,6 +61,3 @@ router.post(
 );
 
 export default router;
-
-
-

@@ -62,7 +62,7 @@ export const useCalendarIntegration = () => {
     CalendarIntegration[]
   > => {
     try {
-      const response = await api.get(`/api/v1/calendar/connected`, {
+      const response = await api.get(`/api/calendar/connected`, {
         signal: abortControllerRef.current?.signal,
       });
       const data = extractData<CalendarIntegration[]>(response);
@@ -82,7 +82,7 @@ export const useCalendarIntegration = () => {
     async (onConnected?: () => void) => {
       try {
         setIsLoading(true);
-        const response = await api.post(`/api/v1/calendar/connect/google`, {});
+        const response = await api.post(`/api/calendar/connect/google`, {});
         const data = extractData<{ authUrl?: string }>(response);
         if (data.authUrl) {
           window.open(data.authUrl, '_blank', 'width=500,height=600');
@@ -122,7 +122,7 @@ export const useCalendarIntegration = () => {
         setImportError(null);
         setImportedEvents([]);
 
-        const response = await api.post(`/api/v1/calendar/import`, {
+        const response = await api.post(`/api/calendar/import`, {
           calendarType,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
@@ -184,7 +184,7 @@ export const useCalendarIntegration = () => {
   const exportMeetingToCalendar = useCallback(
     async (meetingId: string, calendarType: 'google'): Promise<boolean> => {
       try {
-        const response = await api.post(`/api/v1/calendar/export`, {
+        const response = await api.post(`/api/calendar/export`, {
           meetingId,
           calendarType,
         });
@@ -210,7 +210,7 @@ export const useCalendarIntegration = () => {
       availableSlots: { start: Date; end: Date }[];
     }> => {
       try {
-        const response = await api.post(`/api/v1/calendar/conflicts`, {
+        const response = await api.post(`/api/calendar/conflicts`, {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
           attendees,
@@ -228,7 +228,7 @@ export const useCalendarIntegration = () => {
   // Disconnect calendar
   const disconnectCalendar = useCallback(async (calendarType: 'google') => {
     try {
-      const response = await api.post(`/api/v1/calendar/disconnect`, {
+      const response = await api.post(`/api/calendar/disconnect`, {
         calendarType,
       });
 
@@ -292,7 +292,7 @@ export const useCalendarIntegration = () => {
       participants: string[];
     }): Promise<boolean> => {
       try {
-        const response = await api.post(`/api/v1/calendar/schedule`, {
+        const response = await api.post(`/api/calendar/schedule`, {
           title: meetingData.title,
           description: meetingData.description || '',
           startDate: meetingData.startDate.toISOString(),
@@ -318,12 +318,9 @@ export const useCalendarIntegration = () => {
       calendarType: 'google' = 'google'
     ): Promise<boolean> => {
       try {
-        const response = await api.delete(
-          `/api/v1/calendar/events/${eventId}`,
-          {
-            data: { calendarType },
-          }
-        );
+        const response = await api.delete(`/api/calendar/events/${eventId}`, {
+          data: { calendarType },
+        });
 
         return response.data.success;
       } catch (error) {

@@ -92,11 +92,13 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           onCloseMobile={handleCloseMobileMenu}
         />
 
-        <SidebarNavigation
-          isContentVisible={isContentVisible}
-          visibleNavigationItems={visibleNavigationItems}
-          onNavigationClick={handleNavigationClick}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <SidebarNavigation
+            isContentVisible={isContentVisible}
+            visibleNavigationItems={visibleNavigationItems}
+            onNavigationClick={handleNavigationClick}
+          />
+        </div>
 
         <SidebarFooter
           collapsed={collapsed}

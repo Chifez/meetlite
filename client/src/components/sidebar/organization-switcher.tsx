@@ -1,5 +1,3 @@
-'use client';
-
 import type React from 'react';
 
 import { useState } from 'react';
@@ -135,7 +133,7 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
     if (activeOrganization) {
       return activeOrganization.name
         .split(' ')
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join('')
         .toUpperCase()
         .slice(0, 2);

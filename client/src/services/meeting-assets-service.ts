@@ -70,7 +70,8 @@ class MeetingAssetsService {
       description?: string;
       tags?: string[];
       meetingId?: string;
-      visibility?: 'organization' | 'participants' | 'private';
+      teamId?: string;
+      visibility?: 'organization' | 'team' | 'participants' | 'private';
     },
     onProgress?: (progress: UploadProgress) => void,
     signal?: AbortSignal

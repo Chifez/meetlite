@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { env } from '@/config/env';
 import api from '@/lib/axios';
 import Cookies from 'js-cookie';
+import { extractData } from '@/lib/api-response';
 
 interface StreamingAIResponse {
   type: 'connected' | 'content' | 'done' | 'error';
@@ -40,7 +41,7 @@ export const useStreamingAI = () => {
         }
 
         const response = await fetch(
-          `${env.API_GATEWAY_URL}/api/v1/ai/description?stream=true`,
+          `${env.API_GATEWAY_URL}/api/ai/description?stream=true`,
           {
             method: 'POST',
             headers,
@@ -117,7 +118,7 @@ export const useStreamingAI = () => {
 
       setIsStreaming(true);
       try {
-        const response = await api.post('/api/v1/ai/description', {
+        const response = await api.post('/api/ai/description', {
           title,
         });
         const data = extractData<{ description?: string }>(response);

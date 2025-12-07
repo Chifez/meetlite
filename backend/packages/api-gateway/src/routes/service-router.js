@@ -24,6 +24,7 @@ const SERVICE_ROUTES = {
       '/api/bulk',
       '/api/push-notifications',
       '/api/payment',
+      '/api/teams', // Team invitation routes (user-scoped)
     ],
     target: config.services.auth,
     pathRewrite: {
@@ -37,28 +38,29 @@ const SERVICE_ROUTES = {
       '^/api/bulk': '/api/v1/bulk',
       '^/api/push-notifications': '/api/v1/push-notifications',
       '^/api/payment': '/api/v1/payment',
+      '^/api/teams': '/api/v1/teams',
     },
   },
 
-  // Room Service Routes (uses /api/v1/ prefix for versioned routes)
+  // Room Service Routes (all routes use /api/* and rewrite to /api/v1/*)
   room: {
     paths: [
-      '/api/v1/rooms',
-      '/api/v1/meetings',
-      '/api/v1/recordings',
-      '/api/v1/ai',
-      '/api/v1/analytics',
-      '/api/v1/calendar',
+      '/api/rooms',
+      '/api/meetings',
+      '/api/recordings',
+      '/api/ai',
+      '/api/analytics',
+      '/api/calendar',
     ],
     target: config.services.room,
     pathRewrite: {
-      // Versioned routes - pass through as-is
-      '^/api/v1/rooms': '/api/v1/rooms',
-      '^/api/v1/meetings': '/api/v1/meetings',
-      '^/api/v1/recordings': '/api/v1/recordings',
-      '^/api/v1/ai': '/api/v1/ai',
-      '^/api/v1/analytics': '/api/v1/analytics',
-      '^/api/v1/calendar': '/api/v1/calendar',
+      // Non-versioned routes - rewrite to versioned
+      '^/api/rooms': '/api/v1/rooms',
+      '^/api/meetings': '/api/v1/meetings',
+      '^/api/recordings': '/api/v1/recordings',
+      '^/api/ai': '/api/v1/ai',
+      '^/api/analytics': '/api/v1/analytics',
+      '^/api/calendar': '/api/v1/calendar',
     },
   },
 

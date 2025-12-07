@@ -7,7 +7,6 @@ import { PaymentService } from '@/services/payment-service';
 import { useAuth } from '@/hooks/use-auth';
 import Cookies from 'js-cookie';
 import { useToast } from '@/hooks/use-toast';
-import { User } from '@/lib/types';
 
 const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -43,7 +42,19 @@ const PaymentSuccess: React.FC = () => {
 
           // Update user context with new plan
           updateUser({
-            plan: result.user.plan,
+            plan: {
+              type: result.user.plan.type as 'free' | 'pro' | 'enterprise',
+              status: result.user.plan.status as
+                | 'active'
+                | 'expired'
+                | 'cancelled',
+              startDate: result.user.plan.startDate
+                ? new Date(result.user.plan.startDate)
+                : undefined,
+              endDate: result.user.plan.endDate
+                ? new Date(result.user.plan.endDate)
+                : null,
+            },
           });
 
           setSuccess(true);

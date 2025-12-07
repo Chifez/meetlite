@@ -27,7 +27,10 @@ const initialFormData: MeetingFormData = {
   participantInput: '',
 };
 
-export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
+export const useMeetingForm = (
+  onSuccess?: (meetingId: string) => void,
+  teamId?: string
+) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
@@ -184,10 +187,11 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
       privacy: formData.privacy,
       inviteEmails: finalParticipants,
       hostEmail: user?.email,
+      ...(teamId && { teamId }),
     };
 
     try {
-      const response = await api.post(`/api/v1/meetings`, meetingData);
+      const response = await api.post(`/api/meetings`, meetingData);
       const result = extractData<{ meetingId: string }>(response);
 
       toast.success('Meeting created successfully!');

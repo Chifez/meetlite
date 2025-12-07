@@ -51,7 +51,7 @@ export const useAIFeatures = () => {
           formData.append('video', videoBlob, 'meeting-video.webm');
         }
 
-        const response = await api.post(`/api/v1/ai/summarize`, formData);
+        const response = await api.post(`/api/ai/summarize`, formData);
 
         return extractData<any>(response);
       } catch (error) {
@@ -88,7 +88,7 @@ export const useAIFeatures = () => {
           formData.append('meetingId', meetingId);
 
           try {
-            const response = await api.post(`/api/v1/ai/transcribe`, formData);
+            const response = await api.post(`/api/ai/transcribe`, formData);
             const data = extractData<any>(response);
 
             if (data) {
@@ -129,7 +129,7 @@ export const useAIFeatures = () => {
       topic?: string
     ): Promise<SmartSuggestion[]> => {
       try {
-        const response = await api.post('/api/v1/ai/suggest', {
+        const response = await api.post('/api/ai/suggest', {
           participants,
           duration,
           topic,
@@ -156,7 +156,7 @@ export const useAIFeatures = () => {
       recommendations: string[];
     }> => {
       try {
-        const response = await api.get(`/api/v1/ai/insights/${meetingId}`);
+        const response = await api.get(`/api/ai/insights/${meetingId}`);
 
         return extractData<any>(response);
       } catch (error) {

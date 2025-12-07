@@ -25,9 +25,14 @@ export const useMembers = () => {
       setLoading(true);
       try {
         const data = await memberService.getOrganizationMembers(organizationId);
+        console.log('[FRONTEND] useMembers received data:', {
+          hasMembers: !!data.members,
+          membersCount: data.members?.length,
+          sampleMember: data.members?.[0],
+        });
         setMembers(data);
       } catch (error: any) {
-        console.error('Error fetching members:', error);
+        console.error('[FRONTEND] Error fetching members:', error);
         toast({
           title: 'Error',
           description: error.message || 'Failed to load members',
@@ -45,14 +50,39 @@ export const useMembers = () => {
     async (data: InviteMemberRequest) => {
       setInviting(true);
       try {
-        await memberService.inviteMember(data);
+        const response = await memberService.inviteMember(data);
+
+        // Update local state directly
+        setMembers((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            pendingInvitations: [
+              ...prev.pendingInvitations,
+              {
+                id: response.invitation.id,
+                email: response.invitation.email,
+                role: data.role as 'owner' | 'member',
+                invitedBy: {
+                  _id: '',
+                  name: '',
+                  email: '',
+                },
+                createdAt: response.invitation.createdAt,
+                expiresAt: response.invitation.expiresAt,
+              },
+            ],
+            organization: {
+              ...prev.organization,
+              memberCount: prev.organization.memberCount,
+            },
+          };
+        });
+
         toast({
           title: 'Invitation sent!',
           description: `Invitation sent to ${data.email}`,
         });
-
-        // Refresh members list
-        await fetchMembers(data.organizationId);
         return true;
       } catch (error: any) {
         console.error('Error inviting member:', error);
@@ -66,7 +96,7 @@ export const useMembers = () => {
         setInviting(false);
       }
     },
-    [fetchMembers, toast]
+    [toast]
   );
 
   // Remove a member
@@ -75,13 +105,24 @@ export const useMembers = () => {
       setRemoving(memberId);
       try {
         await memberService.removeMember(organizationId, memberId);
+
+        // Update local state directly
+        setMembers((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            members: prev.members.filter((m) => m.id !== memberId),
+            organization: {
+              ...prev.organization,
+              memberCount: prev.organization.memberCount - 1,
+            },
+          };
+        });
+
         toast({
           title: 'Member removed',
           description: `${memberName} has been removed from the organization`,
         });
-
-        // Refresh members list
-        await fetchMembers(organizationId);
         return true;
       } catch (error: any) {
         console.error('Error removing member:', error);
@@ -95,22 +136,32 @@ export const useMembers = () => {
         setRemoving(null);
       }
     },
-    [fetchMembers, toast]
+    [toast]
   );
 
   // Cancel an invitation
   const cancelInvitation = useCallback(
-    async (organizationId: string, invitationId: string, email: string) => {
+    async (_organizationId: string, invitationId: string, email: string) => {
+      // organizationId is kept for API consistency but not used in service call
       setCanceling(invitationId);
       try {
         await memberService.cancelInvitation(invitationId);
+
+        // Update local state directly
+        setMembers((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            pendingInvitations: prev.pendingInvitations.filter(
+              (inv) => inv.id !== invitationId
+            ),
+          };
+        });
+
         toast({
           title: 'Invitation canceled',
           description: `Invitation to ${email} has been canceled`,
         });
-
-        // Refresh members list
-        await fetchMembers(organizationId);
         return true;
       } catch (error: any) {
         console.error('Error canceling invitation:', error);
@@ -124,7 +175,7 @@ export const useMembers = () => {
         setCanceling(null);
       }
     },
-    [fetchMembers, toast]
+    [toast]
   );
 
   // Update member role
@@ -132,18 +183,28 @@ export const useMembers = () => {
     async (
       organizationId: string,
       memberId: string,
-      newRole: 'owner' | 'member'
+      newRole: 'owner' | 'member' | 'admin'
     ) => {
       setUpdatingRole(memberId);
       try {
+        // organizationId is required by the service but we update local state directly
         await memberService.updateMemberRole(organizationId, memberId, newRole);
+
+        // Update local state directly
+        setMembers((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            members: prev.members.map((m) =>
+              m.id === memberId ? { ...m, role: newRole } : m
+            ),
+          };
+        });
+
         toast({
           title: 'Role updated',
           description: `Member role has been updated to ${newRole}`,
         });
-
-        // Refresh members list
-        await fetchMembers(organizationId);
         return true;
       } catch (error: any) {
         console.error('Error updating member role:', error);
@@ -157,7 +218,49 @@ export const useMembers = () => {
         setUpdatingRole(null);
       }
     },
-    [fetchMembers, toast]
+    [toast]
+  );
+
+  // Update member's teams array (for team assignment)
+  const updateMemberTeams = useCallback(
+    (
+      memberId: string,
+      teamId: string,
+      action: 'add' | 'remove',
+      teamName: string
+    ) => {
+      setMembers((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: prev.members.map((m) => {
+            if (m.id !== memberId) return m;
+
+            const currentTeams = m.teams || [];
+            if (action === 'add') {
+              // Check if team already exists to avoid duplicates
+              if (currentTeams.some((t) => t.teamId === teamId)) {
+                return m;
+              }
+              return {
+                ...m,
+                teams: [
+                  ...currentTeams,
+                  { teamId, teamName, role: 'member' as const },
+                ],
+              };
+            } else {
+              // Remove team
+              return {
+                ...m,
+                teams: currentTeams.filter((t) => t.teamId !== teamId),
+              };
+            }
+          }),
+        };
+      });
+    },
+    []
   );
 
   return {
@@ -172,5 +275,6 @@ export const useMembers = () => {
     removeMember,
     cancelInvitation,
     updateMemberRole,
+    updateMemberTeams,
   };
 };

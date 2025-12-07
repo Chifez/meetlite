@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getWelcomeEmailTemplate } from '../templates/welcomeEmail.js';
 import { getPasswordResetEmailTemplate } from '../templates/passwordResetEmail.js';
 import { getOrganizationInviteEmailTemplate } from '../templates/organizationInviteEmail.js';
+import { getTeamInviteEmailTemplate } from '../templates/teamInviteEmail.js';
 import { getPlanUpgradeEmailTemplate } from '../templates/planUpgradeEmail.js';
 import { getPlanCancellationEmailTemplate } from '../templates/planCancellationEmail.js';
 import { getPlanExpirationWarningEmailTemplate } from '../templates/planExpirationWarningEmail.js';
@@ -204,6 +205,43 @@ export const sendPlanExpirationWarningEmail = async (
     await transporter.sendMail(emailContent);
   } catch (error) {
     console.error('Plan expiration warning email error:', error);
+    throw error;
+  }
+};
+
+export const sendTeamInvitationEmail = async ({
+  email,
+  teamName,
+  organizationName,
+  inviterName,
+  inviterEmail,
+  inviteUrl,
+  message = '',
+  role = 'member',
+}) => {
+  try {
+    const transporter = createTransport();
+    const template = getTeamInviteEmailTemplate(
+      teamName,
+      organizationName,
+      inviterName,
+      inviterEmail,
+      inviteUrl,
+      message,
+      role
+    );
+    const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
+
+    const emailContent = {
+      from: `${fromName} <${process.env.SMTP_FROM}>`,
+      to: email,
+      subject: template.subject,
+      html: template.html,
+    };
+
+    await transporter.sendMail(emailContent);
+  } catch (error) {
+    console.error('Team invitation email error:', error);
     throw error;
   }
 };

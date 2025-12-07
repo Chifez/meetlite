@@ -52,6 +52,7 @@ export interface Meeting {
   status?: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   createdAt?: string;
   roomId?: string;
+  teamId?: string;
   invites?: {
     email: string;
     status: 'pending' | 'accepted' | 'declined';

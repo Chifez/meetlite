@@ -205,6 +205,14 @@ export class BulkOperationsController {
         search
       );
 
+      console.log('[BACKEND CONTROLLER] Sending response:', {
+        membersCount: result.members?.length,
+        firstMemberKeys: result.members?.[0]
+          ? Object.keys(result.members[0])
+          : [],
+        firstMember: result.members?.[0],
+      });
+
       res.json({
         success: true,
         data: result,

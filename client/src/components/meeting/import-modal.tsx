@@ -75,8 +75,18 @@ export default function ImportModal({
     }
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (
+      !newOpen &&
+      (importLoading || refreshing || disconnecting || isPolling)
+    ) {
+      return; // Prevent closing during operation
+    }
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Import Meetings</DialogTitle>

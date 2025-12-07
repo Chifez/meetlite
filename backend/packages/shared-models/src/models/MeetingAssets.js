@@ -15,6 +15,13 @@ const meetingRecordingSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Team scope - optional, only present when recording belongs to a team
+    teamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      index: true,
+      default: null, // null means organization-level recording
+    },
     title: {
       type: String,
       required: true,
@@ -103,7 +110,7 @@ const meetingRecordingSchema = new mongoose.Schema(
     // Access control
     visibility: {
       type: String,
-      enum: ['organization', 'participants', 'private'],
+      enum: ['organization', 'team', 'participants', 'private'],
       default: 'participants',
     },
     participants: [
@@ -163,6 +170,8 @@ const meetingRecordingSchema = new mongoose.Schema(
 
 // Indexes for efficient queries
 meetingRecordingSchema.index({ organizationId: 1, createdAt: -1 });
+meetingRecordingSchema.index({ organizationId: 1, teamId: 1 });
+meetingRecordingSchema.index({ teamId: 1, createdAt: -1 });
 meetingRecordingSchema.index({ meetingId: 1 });
 meetingRecordingSchema.index({ 'participants.userId': 1 });
 meetingRecordingSchema.index({ tags: 1 });
@@ -184,12 +193,37 @@ meetingRecordingSchema.virtual('hasSummary').get(function () {
 });
 
 // Instance methods
-meetingRecordingSchema.methods.canAccess = function (userId, userRole) {
-  // Organization owners can access all recordings
-  if (userRole === 'owner') return true;
+meetingRecordingSchema.methods.canAccess = async function (userId, userRole) {
+  // Organization owners and admins can access all recordings
+  if (userRole === 'owner' || userRole === 'admin') return true;
 
   // Check visibility settings
   if (this.visibility === 'organization') return true;
+
+  if (this.visibility === 'team') {
+    // For team visibility, check if user is a team member
+    if (!this.teamId) {
+      // If recording has team visibility but no teamId, deny access
+      return false;
+    }
+
+    // Fetch user to check team memberships
+    // Use mongoose.model to get the User model from the same connection
+    const User = mongoose.model('User');
+    const user = await User.findById(userId);
+    if (!user) return false;
+
+    // Check if user is a team member
+    const isTeamMember = user.teamMemberships?.some(
+      (m) =>
+        m.teamId.toString() === this.teamId.toString() &&
+        m.organizationId.toString() === this.organizationId.toString() &&
+        m.status === 'active'
+    );
+
+    return isTeamMember;
+  }
+
   if (this.visibility === 'private')
     return this.participants.some(
       (p) => p.userId.toString() === userId.toString()
@@ -229,9 +263,15 @@ meetingRecordingSchema.statics.findByOrganization = function (
     tags,
     search,
     isArchived,
+    teamId,
   } = options;
 
   const query = { organizationId };
+
+  // Add teamId filter if provided
+  if (teamId) {
+    query.teamId = teamId;
+  }
 
   // Handle archive status - if not specified, default to non-archived
   if (isArchived !== undefined) {

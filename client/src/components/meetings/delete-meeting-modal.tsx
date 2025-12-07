@@ -7,12 +7,14 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface DeleteMeetingModalProps {
   open: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   meetingTitle?: string;
+  deleting?: boolean;
 }
 
 export default function DeleteMeetingModal({
@@ -20,14 +22,16 @@ export default function DeleteMeetingModal({
   onConfirm,
   onCancel,
   meetingTitle,
+  deleting = false,
 }: DeleteMeetingModalProps) {
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && !deleting) {
+      onCancel();
+    }
+  };
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(open) => {
-        if (!open) onCancel();
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Meeting?</DialogTitle>
@@ -47,10 +51,17 @@ export default function DeleteMeetingModal({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="destructive" onClick={onConfirm}>
-            Delete
+          <Button variant="destructive" onClick={onConfirm} disabled={deleting}>
+            {deleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete'
+            )}
           </Button>
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel} disabled={deleting}>
             Cancel
           </Button>
         </DialogFooter>

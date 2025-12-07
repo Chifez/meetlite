@@ -90,7 +90,7 @@ export const useEnhancedSmartScheduling = () => {
         // Step 1: Parse the meeting using existing endpoint
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        const parseResponse = await api.post(`/api/v1/ai/parse-meeting`, {
+        const parseResponse = await api.post(`/api/ai/parse-meeting`, {
           input,
           timezone,
         });
@@ -283,7 +283,7 @@ export const useEnhancedSmartScheduling = () => {
   const checkInternalMeetings = useCallback(
     async (startDate: Date, endDate: Date): Promise<CalendarEvent[]> => {
       try {
-        const response = await api.get('/api/v1/meetings');
+        const response = await api.get('/api/meetings');
         const meetings = extractData<any[]>(response);
 
         const conflicts: CalendarEvent[] = [];

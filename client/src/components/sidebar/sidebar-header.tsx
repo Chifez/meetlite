@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Logo from '@/components/logo';
 
 interface SidebarHeaderProps {
@@ -31,7 +31,7 @@ export function SidebarHeader({
           onClick={onCloseMobile}
           className="text-sidebar-foreground hover:bg-sidebar-accent"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <PanelLeftOpen className="h-4 w-4" />
         </Button>
       </div>
       <div className="hidden lg:block">
@@ -42,9 +42,9 @@ export function SidebarHeader({
           className="text-sidebar-foreground hover:bg-sidebar-accent"
         >
           {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <PanelLeftOpen className="h-4 w-4" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <PanelLeftClose className="h-4 w-4" />
           )}
         </Button>
       </div>

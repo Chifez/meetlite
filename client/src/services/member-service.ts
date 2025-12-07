@@ -4,9 +4,14 @@ export interface OrganizationMember {
   id: string;
   name: string;
   email: string;
-  role: 'owner' | 'member';
+  role: 'owner' | 'member' | 'admin';
   joinedAt: string;
   isOwner: boolean;
+  teams?: Array<{
+    teamId: string;
+    teamName: string;
+    role: 'owner' | 'admin' | 'member';
+  }>;
 }
 
 export interface PendingInvitation {
@@ -31,13 +36,13 @@ export interface OrganizationMembersResponse {
   };
   members: OrganizationMember[];
   pendingInvitations: PendingInvitation[];
-  userRole: 'owner' | 'member';
+  userRole: 'owner' | 'member' | 'admin';
 }
 
 export interface InviteMemberRequest {
   organizationId: string;
   email: string;
-  role: 'member' | 'owner';
+  role: 'member' | 'owner' | 'admin';
   message?: string;
 }
 
@@ -62,6 +67,14 @@ class MemberService {
       const response = await api.get(
         `/api/organizations/members/${organizationId}`
       );
+      console.log('[FRONTEND SERVICE] Raw axios response:', {
+        status: response.status,
+        dataStructure: response.data ? Object.keys(response.data) : [],
+        membersCount: response.data?.members?.length,
+        firstMember: response.data?.members?.[0],
+        firstMemberHasTeams: !!response.data?.members?.[0]?.teams,
+        firstMemberTeams: response.data?.members?.[0]?.teams,
+      });
       return response.data;
     } catch (error: any) {
       console.error('Failed to fetch organization members:', error);
@@ -130,7 +143,7 @@ class MemberService {
   async updateMemberRole(
     organizationId: string,
     memberId: string,
-    newRole: 'owner' | 'member'
+    newRole: 'owner' | 'member' | 'admin'
   ): Promise<{
     message: string;
     user: { id: string; name: string; email: string; role: string };
