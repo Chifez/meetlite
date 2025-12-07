@@ -7,6 +7,7 @@ import {
   Users,
   Video,
   FileVideo,
+  Settings,
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -55,12 +56,19 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
     navigate(`/teams/${teamId}/recordings`);
   };
 
+  const handleTeamSettingsClick = (teamId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/teams/${teamId}/settings`);
+  };
+
   const isTeamExpanded = (teamId: string) =>
     expandedTeams.has(teamId) || routeTeamId === teamId;
   const isTeamMeetingActive = (teamId: string) =>
     location.pathname === `/teams/${teamId}/meetings`;
   const isTeamRecordingActive = (teamId: string) =>
     location.pathname === `/teams/${teamId}/recordings`;
+  const isTeamSettingsActive = (teamId: string) =>
+    location.pathname === `/teams/${teamId}/settings`;
 
   if (loading && teams.length === 0) {
     return (
@@ -86,6 +94,7 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
         const isExpanded = isTeamExpanded(team.id);
         const isMeetingActive = isTeamMeetingActive(team.id);
         const isRecordingActive = isTeamRecordingActive(team.id);
+        const isSettingsActive = isTeamSettingsActive(team.id);
 
         return (
           <div key={team.id} className="space-y-0.5">
@@ -145,6 +154,23 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
                   <FileVideo className="h-3.5 w-3.5 text-sidebar-foreground/80 mr-2 flex-shrink-0" />
                   <span className="text-xs text-sidebar-foreground">
                     Recordings
+                  </span>
+                </Button>
+
+                {/* Settings */}
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start h-auto p-2 hover:bg-sidebar-accent',
+                    'text-sidebar-foreground',
+                    isSettingsActive &&
+                      'bg-sidebar-accent text-sidebar-accent-foreground'
+                  )}
+                  onClick={(e) => handleTeamSettingsClick(team.id, e)}
+                >
+                  <Settings className="h-3.5 w-3.5 text-sidebar-foreground/80 mr-2 flex-shrink-0" />
+                  <span className="text-xs text-sidebar-foreground">
+                    Settings
                   </span>
                 </Button>
               </div>

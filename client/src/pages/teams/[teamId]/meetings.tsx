@@ -18,17 +18,32 @@ import SEO from '@/components/seo';
 import ScheduleMeetingModal from '@/components/dashboard/schedule-meeting-modal';
 import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import { useCanCreateMeetings } from '@/hooks/use-permissions';
+import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
+import ImportModal from '@/components/meeting/import-modal';
 
 export default function TeamMeetings() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { activeOrganization, isPersonalMode } = useWorkspace();
-  const { teams, fetchTeams } = useTeamsStore();
+  const { fetchTeams } = useTeamsStore();
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+  const {
+    showImportModal,
+    setShowImportModal,
+    importLoading,
+    importedEvents,
+    importError,
+    isConnected,
+    refreshConnectionStatus,
+    disconnectCalendar,
+    isPolling,
+    importCalendarEvents,
+    connectGoogleCalendar,
+  } = useCalendarIntegration();
   const {
     meetings,
     loading: meetingsLoading,
@@ -69,21 +84,21 @@ export default function TeamMeetings() {
     teamId // Pass teamId to the hook
   );
 
-  // Redirect if not in organization mode
+  // Single useEffect for all initialization and data loading
   useEffect(() => {
+    // Redirect guard
     if (isPersonalMode || !activeOrganization) {
       navigate('/dashboard', { replace: true });
+      return;
     }
-  }, [isPersonalMode, activeOrganization, navigate]);
 
-  // Fetch team data and verify access
-  useEffect(() => {
-    const loadTeamData = async () => {
-      if (!teamId || !activeOrganization?.id || isPersonalMode) {
-        setLoading(false);
-        return;
-      }
+    // Early return if missing required data
+    if (!teamId || !activeOrganization?.id) {
+      setLoading(false);
+      return;
+    }
 
+    const loadData = async () => {
       setLoading(true);
       setAccessDenied(false);
 
@@ -91,12 +106,31 @@ export default function TeamMeetings() {
         // Fetch teams if not already loaded
         await fetchTeams(activeOrganization.id);
 
-        // Find the current team from store
-        const teamData = teams.find((t) => t.id === teamId);
-        if (teamData) {
-          setTeam(teamData);
-        } else {
+        // Get the current team from store (read fresh after fetch)
+        const { teams: currentTeams } = useTeamsStore.getState();
+        const teamData = currentTeams.find((t) => t.id === teamId);
+        if (!teamData) {
           setAccessDenied(true);
+          setLoading(false);
+          return;
+        }
+
+        setTeam(teamData);
+
+        // Fetch team meetings after team is loaded
+        try {
+          const response = await api.get('/api/meetings', {
+            params: { teamId },
+          });
+          const meetingsData = extractData<Meeting[]>(response);
+          setMeetings(meetingsData || []);
+        } catch (error: any) {
+          console.error('Error loading team meetings:', error);
+          if (error.response?.status === 403) {
+            setAccessDenied(true);
+          } else {
+            toast.error('Failed to load team meetings');
+          }
         }
       } catch (error: any) {
         console.error('Error loading team:', error);
@@ -110,34 +144,15 @@ export default function TeamMeetings() {
       }
     };
 
-    loadTeamData();
-  }, [teamId, activeOrganization?.id, fetchTeams, teams, isPersonalMode]);
-
-  // Fetch team meetings
-  useEffect(() => {
-    const loadMeetings = async () => {
-      if (!teamId || !activeOrganization?.id || accessDenied) return;
-
-      try {
-        // Fetch meetings with teamId filter
-        const response = await api.get('/api/meetings', {
-          params: { teamId },
-        });
-        const meetingsData = extractData<Meeting[]>(response);
-        // Update the store with team meetings
-        setMeetings(meetingsData || []);
-      } catch (error: any) {
-        console.error('Error loading team meetings:', error);
-        if (error.response?.status === 403) {
-          setAccessDenied(true);
-        } else {
-          toast.error('Failed to load team meetings');
-        }
-      }
-    };
-
-    loadMeetings();
-  }, [teamId, activeOrganization?.id, accessDenied]);
+    loadData();
+  }, [
+    teamId,
+    activeOrganization,
+    isPersonalMode,
+    navigate,
+    fetchTeams,
+    setMeetings,
+  ]);
 
   if (isPersonalMode || !activeOrganization) {
     return null; // Will redirect via useEffect
@@ -225,6 +240,59 @@ export default function TeamMeetings() {
           onCancel={() => setShowScheduleModal(false)}
           teamId={teamId}
           teamName={team?.name}
+        />
+
+        <ImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          importLoading={importLoading}
+          importError={importError}
+          importedEvents={importedEvents}
+          onImport={async (type) => {
+            if (type === 'google') {
+              if (!isConnected('google')) {
+                await connectGoogleCalendar(async () => {
+                  const now = new Date();
+                  const in30 = new Date(
+                    now.getTime() + 30 * 24 * 60 * 60 * 1000
+                  );
+                  await importCalendarEvents('google', now, in30);
+                  // Reload team meetings after import
+                  if (teamId && activeOrganization?.id) {
+                    try {
+                      const response = await api.get('/api/meetings', {
+                        params: { teamId },
+                      });
+                      const meetingsData = extractData<Meeting[]>(response);
+                      setMeetings(meetingsData || []);
+                    } catch (error: any) {
+                      console.error('Error reloading team meetings:', error);
+                    }
+                  }
+                });
+              } else {
+                const now = new Date();
+                const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+                await importCalendarEvents('google', now, in30);
+                // Reload team meetings after import
+                if (teamId && activeOrganization?.id) {
+                  try {
+                    const response = await api.get('/api/meetings', {
+                      params: { teamId },
+                    });
+                    const meetingsData = extractData<Meeting[]>(response);
+                    setMeetings(meetingsData || []);
+                  } catch (error: any) {
+                    console.error('Error reloading team meetings:', error);
+                  }
+                }
+              }
+            }
+          }}
+          isConnected={isConnected}
+          refreshConnectionStatus={refreshConnectionStatus}
+          disconnectCalendar={disconnectCalendar}
+          isPolling={isPolling}
         />
 
         {view === 'list' ? (

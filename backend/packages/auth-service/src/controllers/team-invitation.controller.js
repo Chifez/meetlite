@@ -12,12 +12,26 @@ export class TeamInvitationController {
     try {
       const { organizationId, teamId } = req.params;
       const userId = req.user._id;
-      const { invitedUserId, role = 'member', message = '' } = req.body;
+      const { invitedUserId, email, role = 'member', message = '' } = req.body;
 
-      if (!organizationId || !teamId || !invitedUserId) {
+      if (!organizationId || !teamId) {
         return ResponseHelpers.badRequest(
           res,
-          'Organization ID, Team ID, and User ID are required'
+          'Organization ID and Team ID are required'
+        );
+      }
+
+      if (!invitedUserId && !email) {
+        return ResponseHelpers.badRequest(
+          res,
+          'Either invitedUserId or email must be provided'
+        );
+      }
+
+      if (invitedUserId && email) {
+        return ResponseHelpers.badRequest(
+          res,
+          'Cannot provide both invitedUserId and email'
         );
       }
 
@@ -31,10 +45,11 @@ export class TeamInvitationController {
       const invitation = await this.invitationService.inviteToTeam(
         teamId,
         organizationId,
-        invitedUserId,
+        invitedUserId || null,
         userId,
         role,
-        message
+        message,
+        email || null
       );
 
       return ResponseHelpers.created(res, {
@@ -43,6 +58,7 @@ export class TeamInvitationController {
           teamId: invitation.teamId,
           organizationId: invitation.organizationId,
           invitedUserId: invitation.invitedUserId,
+          email: invitation.email,
           role: invitation.role,
           status: invitation.status,
           expiresAt: invitation.expiresAt,
@@ -55,7 +71,9 @@ export class TeamInvitationController {
       if (
         error.message.includes('not found') ||
         error.message.includes('already') ||
-        error.message.includes('must be an organization member')
+        error.message.includes('must be an organization member') ||
+        error.message.includes('Invalid email') ||
+        error.message.includes('Failed to send invitation email')
       ) {
         return ResponseHelpers.badRequest(res, error.message);
       }

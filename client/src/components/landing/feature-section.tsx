@@ -7,10 +7,7 @@ import {
   Lock,
   Video,
   Mail,
-  Users,
-  Clock,
   MapPin,
-  BarChart3,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';

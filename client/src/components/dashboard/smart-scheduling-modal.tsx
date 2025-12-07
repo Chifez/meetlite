@@ -178,6 +178,7 @@ export default function SmartSchedulingModal({
   };
 
   const handleOpenChange = (open: boolean) => {
+    if (!open && (isProcessing || formLoading)) return; // Prevent closing during operation
     if (!open) {
       resetModal();
     }

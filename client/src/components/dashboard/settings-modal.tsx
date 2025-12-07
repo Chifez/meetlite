@@ -85,8 +85,13 @@ export default function SettingsModal({
     }
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && isLoading) return; // Prevent closing during operation
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>

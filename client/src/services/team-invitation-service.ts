@@ -44,6 +44,19 @@ export class TeamInvitationService {
   }
 
   /**
+   * Cancel a team invitation (by team owner/admin)
+   */
+  static async cancelInvitation(
+    organizationId: string,
+    teamId: string,
+    invitationId: string
+  ): Promise<void> {
+    await api.delete(
+      `/api/organizations/${organizationId}/teams/${teamId}/invitations/${invitationId}`
+    );
+  }
+
+  /**
    * Get invitation details by token (public route)
    */
   static async getInvitationDetails(token: string): Promise<{
@@ -56,6 +69,25 @@ export class TeamInvitationService {
       isValid: boolean;
     }>(response);
     return data;
+  }
+
+  /**
+   * Get pending invitations for a specific team
+   */
+  static async getPendingInvitationsByTeam(
+    organizationId: string,
+    teamId: string
+  ): Promise<TeamInvitation[]> {
+    try {
+      const response = await api.get(
+        `/api/organizations/${organizationId}/teams/${teamId}/invitations`
+      );
+      const data = extractData<{ invitations: TeamInvitation[] }>(response);
+      return data.invitations || [];
+    } catch (error) {
+      console.error('Error fetching team invitations:', error);
+      return [];
+    }
   }
 
   /**

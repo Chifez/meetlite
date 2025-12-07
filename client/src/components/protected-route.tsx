@@ -14,7 +14,7 @@ export function ProtectedRoute({
   children,
   requireOnboarding = true,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, user, redirectTo } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect');
 

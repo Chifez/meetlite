@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
 import { TeamService } from './team.service.js';
+import { MultiOrganizationService } from './multi-organization.service.js';
 
 export class TeamInvitationService {
   constructor() {
@@ -8,7 +9,8 @@ export class TeamInvitationService {
   }
 
   /**
-   * Invite an organization member to join a team
+   * Invite someone to join a team
+   * Can accept either invitedUserId (for existing org members) or email (for new invites)
    */
   async inviteToTeam(
     teamId,
@@ -16,7 +18,8 @@ export class TeamInvitationService {
     invitedUserId,
     invitedBy,
     role = 'member',
-    message = ''
+    message = '',
+    email = null
   ) {
     // Verify team exists and belongs to organization
     const team = await models.Team.findOne({
@@ -29,65 +32,187 @@ export class TeamInvitationService {
       throw new Error('Team not found');
     }
 
-    // Verify invited user is an organization member
-    const invitedUser = await models.User.findById(invitedUserId);
-    if (!invitedUser) {
-      throw new Error('Invited user not found');
+    // Get organization details
+    const organization = await models.Organization.findById(organizationId);
+    if (!organization) {
+      throw new Error('Organization not found');
     }
 
-    const orgMembership = invitedUser.memberships?.find(
-      (m) =>
-        m.organizationId.toString() === organizationId.toString() &&
-        m.status === 'active'
-    );
+    let invitationData = {
+      teamId,
+      organizationId,
+      invitedBy,
+      role,
+      inviteToken: uuidv4(),
+      message: message.trim(),
+    };
 
-    if (!orgMembership) {
-      throw new Error(
-        'User must be an organization member to be invited to a team'
+    // Handle email-based invitation (for non-org members)
+    if (email) {
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // Validate email format
+      if (!normalizedEmail.includes('@')) {
+        throw new Error('Invalid email address');
+      }
+
+      // Check if user exists with this email
+      const existingUser = await models.User.findOne({
+        email: normalizedEmail,
+      });
+
+      if (existingUser) {
+        // User exists - check if they're already a team member
+        const isAlreadyMember = team.members.some(
+          (m) =>
+            m.userId.toString() === existingUser._id.toString() &&
+            m.status === 'active'
+        );
+
+        if (isAlreadyMember) {
+          throw new Error('User is already a member of this team');
+        }
+
+        // Check if there's already a pending invitation
+        const existingInvitation =
+          (await models.TeamInvitation.findPendingInvitation(
+            teamId,
+            existingUser._id
+          )) ||
+          (await models.TeamInvitation.findPendingInvitationByEmail(
+            teamId,
+            normalizedEmail
+          ));
+
+        if (existingInvitation) {
+          throw new Error(
+            'There is already a pending invitation for this user'
+          );
+        }
+
+        // Check if user is org member - if yes, use userId; if no, use email
+        const orgMembership = existingUser.memberships?.find(
+          (m) =>
+            m.organizationId.toString() === organizationId.toString() &&
+            m.status === 'active'
+        );
+
+        if (orgMembership) {
+          // User is org member, use userId
+          invitationData.invitedUserId = existingUser._id;
+        } else {
+          // User exists but not org member, use email (will add to org on accept)
+          invitationData.email = normalizedEmail;
+        }
+      } else {
+        // User doesn't exist, use email
+        // Check if there's already a pending invitation for this email
+        const existingInvitation =
+          await models.TeamInvitation.findPendingInvitationByEmail(
+            teamId,
+            normalizedEmail
+          );
+
+        if (existingInvitation) {
+          throw new Error(
+            'There is already a pending invitation for this email'
+          );
+        }
+
+        invitationData.email = normalizedEmail;
+      }
+    } else if (invitedUserId) {
+      // Handle userId-based invitation (for existing org members)
+      const invitedUser = await models.User.findById(invitedUserId);
+      if (!invitedUser) {
+        throw new Error('Invited user not found');
+      }
+
+      const orgMembership = invitedUser.memberships?.find(
+        (m) =>
+          m.organizationId.toString() === organizationId.toString() &&
+          m.status === 'active'
       );
-    }
 
-    // Check if user is already a team member
-    const isAlreadyMember = team.members.some(
-      (m) =>
-        m.userId.toString() === invitedUserId.toString() &&
-        m.status === 'active'
-    );
+      if (!orgMembership) {
+        throw new Error(
+          'User must be an organization member to be invited to a team'
+        );
+      }
 
-    if (isAlreadyMember) {
-      throw new Error('User is already a member of this team');
-    }
+      // Check if user is already a team member
+      const isAlreadyMember = team.members.some(
+        (m) =>
+          m.userId.toString() === invitedUserId.toString() &&
+          m.status === 'active'
+      );
 
-    // Check if there's already a pending invitation
-    const existingInvitation =
-      await models.TeamInvitation.findPendingInvitation(teamId, invitedUserId);
+      if (isAlreadyMember) {
+        throw new Error('User is already a member of this team');
+      }
 
-    if (existingInvitation) {
-      throw new Error('There is already a pending invitation for this user');
+      // Check if there's already a pending invitation
+      const existingInvitation =
+        await models.TeamInvitation.findPendingInvitation(
+          teamId,
+          invitedUserId
+        );
+
+      if (existingInvitation) {
+        throw new Error('There is already a pending invitation for this user');
+      }
+
+      invitationData.invitedUserId = invitedUserId;
+    } else {
+      throw new Error('Either invitedUserId or email must be provided');
     }
 
     // Create invitation
-    const inviteToken = uuidv4();
-    const invitation = new models.TeamInvitation({
-      teamId,
-      organizationId,
-      invitedUserId,
-      invitedBy,
-      role,
-      inviteToken,
-      message: message.trim(),
-    });
-
+    const invitation = new models.TeamInvitation(invitationData);
     await invitation.save();
 
-    // TODO: Send notification email to user
-    // await sendTeamInvitationEmail(invitedUser.email, team.name, organizationId.name);
+    // Send invitation email
+    try {
+      const { sendTeamInvitationEmail } = await import('./email-service.js');
+      const inviter = await models.User.findById(invitedBy);
+      const inviteUrl = `${process.env.CLIENT_URL}/teams/invite/${invitation.inviteToken}`;
+
+      // Get email address
+      let recipientEmail = invitationData.email;
+      if (!recipientEmail && invitationData.invitedUserId) {
+        const invitedUser = await models.User.findById(
+          invitationData.invitedUserId
+        );
+        recipientEmail = invitedUser?.email;
+      }
+
+      if (!recipientEmail) {
+        throw new Error('Cannot determine recipient email address');
+      }
+
+      await sendTeamInvitationEmail({
+        email: recipientEmail,
+        teamName: team.name,
+        organizationName: organization.name,
+        inviterName: inviter?.name || inviter?.email || 'Someone',
+        inviterEmail: inviter?.email || '',
+        inviteUrl,
+        message: message.trim(),
+        role,
+      });
+    } catch (emailError) {
+      // If email fails, remove the invitation
+      await models.TeamInvitation.findByIdAndDelete(invitation._id);
+      console.error('Failed to send team invitation email:', emailError);
+      throw new Error('Failed to send invitation email');
+    }
 
     return invitation;
   }
 
   /**
    * Accept team invitation
+   * Handles both userId-based and email-based invitations
    */
   async acceptInvitation(inviteToken, userId) {
     // Find invitation by token
@@ -97,9 +222,23 @@ export class TeamInvitationService {
       throw new Error('Invitation not found or expired');
     }
 
+    const user = await models.User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
     // Verify the invitation is for this user
-    if (invitation.invitedUserId.toString() !== userId.toString()) {
-      throw new Error('This invitation is not for you');
+    // For email-based invitations, check if email matches
+    if (invitation.email) {
+      if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+        throw new Error('This invitation is not for you');
+      }
+    } else if (invitation.invitedUserId) {
+      if (invitation.invitedUserId.toString() !== userId.toString()) {
+        throw new Error('This invitation is not for you');
+      }
+    } else {
+      throw new Error('Invalid invitation format');
     }
 
     // Check if invitation can be accepted
@@ -109,8 +248,41 @@ export class TeamInvitationService {
       );
     }
 
+    // If invitation is email-based, ensure user is added to organization first
+    if (invitation.email) {
+      const orgMembership = user.memberships?.find(
+        (m) =>
+          m.organizationId.toString() ===
+            invitation.organizationId._id.toString() && m.status === 'active'
+      );
+
+      if (!orgMembership) {
+        // Add user to organization first (as member role)
+        await MultiOrganizationService.addUserToOrganization(
+          userId,
+          invitation.organizationId._id,
+          'member', // Default to member role for org
+          invitation.invitedBy
+        );
+
+        // Update organization member count
+        await models.Organization.findByIdAndUpdate(
+          invitation.organizationId._id,
+          {
+            $inc: { 'stats.totalMembers': 1 },
+          }
+        );
+      }
+    }
+
     // Accept invitation
     await invitation.accept(userId);
+
+    // Update invitation with userId if it was email-based
+    if (invitation.email && !invitation.invitedUserId) {
+      invitation.invitedUserId = userId;
+      await invitation.save();
+    }
 
     // Add user to team using TeamService
     await this.teamService.addMemberToTeam(
@@ -134,9 +306,22 @@ export class TeamInvitationService {
       throw new Error('Invitation not found or expired');
     }
 
+    const user = await models.User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
     // Verify the invitation is for this user
-    if (invitation.invitedUserId.toString() !== userId.toString()) {
-      throw new Error('This invitation is not for you');
+    if (invitation.email) {
+      if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+        throw new Error('This invitation is not for you');
+      }
+    } else if (invitation.invitedUserId) {
+      if (invitation.invitedUserId.toString() !== userId.toString()) {
+        throw new Error('This invitation is not for you');
+      }
+    } else {
+      throw new Error('Invalid invitation format');
     }
 
     // Decline invitation
@@ -149,9 +334,27 @@ export class TeamInvitationService {
    * Get pending invitations for a user
    */
   async getPendingInvitations(userId) {
-    const invitations =
+    const user = await models.User.findById(userId);
+    if (!user) {
+      return [];
+    }
+
+    // Get invitations by userId
+    const invitationsByUserId =
       await models.TeamInvitation.findPendingInvitationsByUser(userId);
-    return invitations;
+
+    // Get invitations by email
+    const invitationsByEmail =
+      await models.TeamInvitation.findPendingInvitationsByEmail(user.email);
+
+    // Combine and deduplicate
+    const allInvitations = [...invitationsByUserId, ...invitationsByEmail];
+    const uniqueInvitations = allInvitations.filter(
+      (inv, index, self) =>
+        index === self.findIndex((i) => i._id.toString() === inv._id.toString())
+    );
+
+    return uniqueInvitations;
   }
 
   /**

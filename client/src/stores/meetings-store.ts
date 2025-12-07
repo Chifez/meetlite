@@ -8,6 +8,7 @@ interface MeetingsState {
   // State
   meetings: Meeting[];
   loading: boolean;
+  deleting: boolean;
   view: 'list' | 'calendar';
   lastFetched: number | null; // Timestamp of last fetch
 
@@ -45,6 +46,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
   // Initial state
   meetings: [],
   loading: false,
+  deleting: false,
   view: 'list',
   lastFetched: null,
   deleteDialog: { open: false },
@@ -123,6 +125,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
   deleteMeeting: async (meetingId) => {
     try {
+      set({ deleting: true });
       await api.delete(`/api/meetings/${meetingId}`);
 
       set((state) => ({
@@ -136,11 +139,14 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       toast.error('Failed to delete meeting');
       console.error('Delete meeting error:', error);
       throw error;
+    } finally {
+      set({ deleting: false });
     }
   },
 
   deleteGoogleCalendarMeeting: async (externalId) => {
     try {
+      set({ deleting: true });
       await api.delete(`/api/calendar/events/${externalId}`, {
         data: { calendarType: 'google' },
       });
@@ -157,6 +163,8 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       toast.error('Failed to delete Google Calendar event');
       console.error('Delete Google Calendar event error:', error);
       throw error;
+    } finally {
+      set({ deleting: false });
     }
   },
 

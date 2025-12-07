@@ -44,8 +44,14 @@ export default function ScheduleMeetingModal({
   teamId,
   teamName,
 }: ScheduleMeetingModalProps) {
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && !formLoading) {
+      onOpenChange(newOpen);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent showCloseButton className="max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">

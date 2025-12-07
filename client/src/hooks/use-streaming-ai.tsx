@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { env } from '@/config/env';
 import api from '@/lib/axios';
 import Cookies from 'js-cookie';
+import { extractData } from '@/lib/api-response';
 
 interface StreamingAIResponse {
   type: 'connected' | 'content' | 'done' | 'error';

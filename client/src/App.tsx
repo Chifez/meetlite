@@ -24,6 +24,7 @@ import InvitationPage from './pages/invitation';
 import PaymentSuccess from './pages/payment-success';
 import TeamMeetings from './pages/teams/[teamId]/meetings';
 import TeamRecordings from './pages/teams/[teamId]/recordings';
+import TeamSettings from './pages/teams/[teamId]/settings';
 
 function App() {
   // Initialize hotkeys
@@ -161,6 +162,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TeamRecordings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/settings"
+            element={
+              <ProtectedRoute>
+                <TeamSettings />
               </ProtectedRoute>
             }
           />

@@ -87,13 +87,20 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   };
 
   const handleClose = () => {
+    if (inviting) return; // Prevent closing during operation
     reset();
     setEmailError('');
     onOpenChange(false);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && !inviting) {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">

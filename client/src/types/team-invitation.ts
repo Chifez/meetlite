@@ -7,6 +7,7 @@ export type TeamInvitation = {
   invitedUserName?: string;
   invitedBy: string;
   inviterName?: string;
+  invitedByName?: string;
   role: 'member' | 'owner';
   status: 'pending' | 'accepted' | 'declined' | 'expired';
   inviteToken: string;
@@ -19,7 +20,8 @@ export type TeamInvitation = {
 };
 
 export type CreateTeamInvitationRequest = {
-  invitedUserId: string;
+  invitedUserId?: string;
+  email?: string;
   role?: 'member' | 'owner';
   message?: string;
 };

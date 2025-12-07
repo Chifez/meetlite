@@ -1,6 +1,7 @@
 import { getEmailTemplate } from './email-wrapper.js';
 
-export const getOrganizationInviteEmailTemplate = (
+export const getTeamInviteEmailTemplate = (
+  teamName,
   organizationName,
   inviterName,
   inviterEmail,
@@ -34,10 +35,15 @@ export const getOrganizationInviteEmailTemplate = (
         text-align: center;
         border-left: 4px solid #7c3aed;
       }
-      .org-name {
+      .team-name {
         font-size: 1.3rem;
         font-weight: bold;
         color: #7c3aed;
+        margin-bottom: 4px;
+      }
+      .org-name {
+        font-size: 0.9rem;
+        color: #6b7280;
         margin-bottom: 8px;
       }
       .role-badge {
@@ -135,15 +141,16 @@ export const getOrganizationInviteEmailTemplate = (
     ${contentStyles}
     <h3 class="invitation-title">Welcome to the team! 🎉</h3>
     <p class="invitation-text">
-      You've been invited to join <strong>${organizationName}</strong> on MeetLite! You'll be able to participate in team meetings, collaborate on projects, and stay connected with your colleagues.
+      You've been invited to join <strong>${teamName}</strong> team in <strong>${organizationName}</strong> on MeetLite! You'll be able to participate in team meetings, collaborate on projects, and work together with your team members.
     </p>
     
     <!-- Invitation Card -->
     <div class="invitation-card">
+      <div class="team-name">${teamName}</div>
       <div class="org-name">${organizationName}</div>
       <div class="role-badge">Invited ${roleText}</div>
       <div class="inviter-info">
-        Invited by ${inviterName} (${inviterEmail})
+        Invited by ${inviterName}${inviterEmail ? ` (${inviterEmail})` : ''}
       </div>
     </div>
 
@@ -165,11 +172,11 @@ export const getOrganizationInviteEmailTemplate = (
     <div class="features-list">
       <div class="feature-item">
         <span class="feature-icon">🎥</span>
-        <span>Join unlimited team meetings</span>
+        <span>Join team meetings and collaborate</span>
       </div>
       <div class="feature-item">
         <span class="feature-icon">🤝</span>
-        <span>Collaborate with whiteboards and workflows</span>
+        <span>Work together on projects and workflows</span>
       </div>
       <div class="feature-item">
         <span class="feature-icon">📅</span>
@@ -177,7 +184,7 @@ export const getOrganizationInviteEmailTemplate = (
       </div>
       <div class="feature-item">
         <span class="feature-icon">🔒</span>
-        <span>Access organization-specific features</span>
+        <span>Access team-specific features and resources</span>
       </div>
     </div>
     
@@ -191,7 +198,7 @@ export const getOrganizationInviteEmailTemplate = (
     <p class="footer-note">
       <strong>What happens next?</strong><br>
       1. Click "Accept Invitation" above<br>
-      2. Create your account or sign in<br>
+      2. Create your account or sign in if you already have one<br>
       3. Start collaborating with your team!<br><br>
       This invitation will expire in 7 days. If the button doesn't work, copy and paste this link into your browser:<br>
       <a href="${inviteUrl}" style="color: #7c3aed; word-break: break-all;">${inviteUrl}</a>
@@ -199,13 +206,13 @@ export const getOrganizationInviteEmailTemplate = (
   `;
 
   return {
-    subject: `You're invited to join ${organizationName} on MeetLite! 🎉`,
+    subject: `You're invited to join ${teamName} team on ${organizationName}! 🎉`,
     html: getEmailTemplate({
       title: "You're Invited!",
-      subtitle: `Join ${organizationName} on MeetLite`,
+      subtitle: `Join ${teamName} on MeetLite`,
       content,
       logoHeight: 100,
-      pageTitle: `Join ${organizationName} on MeetLite`,
+      pageTitle: `Join ${teamName} on MeetLite`,
     }),
   };
 };

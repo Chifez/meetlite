@@ -14,11 +14,18 @@ const teamInvitationSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    // Invited user must already be an organization member
+    // Invited user - can be either userId (for existing members) or email (for new invites)
     invitedUserId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
+      index: true,
+    },
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      required: false,
       index: true,
     },
     invitedBy: {
@@ -77,12 +84,24 @@ teamInvitationSchema.index({ invitedUserId: 1, status: 1 });
 teamInvitationSchema.index({ inviteToken: 1, status: 1 });
 teamInvitationSchema.index({ expiresAt: 1, status: 1 }); // For cleanup
 
-// Prevent duplicate pending invitations for same user to same team
+// Prevent duplicate pending invitations for same user/email to same team
 teamInvitationSchema.index(
   { teamId: 1, invitedUserId: 1, status: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: 'pending' },
+    partialFilterExpression: {
+      status: 'pending',
+      invitedUserId: { $exists: true },
+    },
+    sparse: true,
+  }
+);
+teamInvitationSchema.index(
+  { teamId: 1, email: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: 'pending', email: { $exists: true } },
+    sparse: true,
   }
 );
 
@@ -125,6 +144,18 @@ teamInvitationSchema.statics.findPendingInvitation = function (teamId, userId) {
   });
 };
 
+teamInvitationSchema.statics.findPendingInvitationByEmail = function (
+  teamId,
+  email
+) {
+  return this.findOne({
+    teamId,
+    email: email.toLowerCase(),
+    status: 'pending',
+    expiresAt: { $gt: new Date() },
+  });
+};
+
 teamInvitationSchema.statics.findByToken = function (token) {
   return this.findOne({
     inviteToken: token,
@@ -135,6 +166,18 @@ teamInvitationSchema.statics.findByToken = function (token) {
     .populate('organizationId', 'name slug logo')
     .populate('invitedUserId', 'name email')
     .populate('invitedBy', 'name email');
+};
+
+teamInvitationSchema.statics.findPendingInvitationsByEmail = function (email) {
+  return this.find({
+    email: email.toLowerCase(),
+    status: 'pending',
+    expiresAt: { $gt: new Date() },
+  })
+    .populate('teamId', 'name slug logo organizationId')
+    .populate('organizationId', 'name slug logo')
+    .populate('invitedBy', 'name email')
+    .sort({ createdAt: -1 });
 };
 
 teamInvitationSchema.statics.findPendingInvitationsByUser = function (userId) {
@@ -160,11 +203,21 @@ teamInvitationSchema.statics.findPendingInvitationsByTeam = function (teamId) {
     .sort({ createdAt: -1 });
 };
 
-// Pre-save middleware to handle expiration
+// Pre-save middleware to handle expiration and validation
 teamInvitationSchema.pre('save', function (next) {
   if (this.status === 'pending' && this.isExpired()) {
     this.status = 'expired';
   }
+
+  // Validate that either invitedUserId or email is provided
+  if (!this.invitedUserId && !this.email) {
+    return next(new Error('Either invitedUserId or email must be provided'));
+  }
+
+  if (this.invitedUserId && this.email) {
+    return next(new Error('Cannot provide both invitedUserId and email'));
+  }
+
   next();
 });
 

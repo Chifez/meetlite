@@ -23,15 +23,21 @@ export class TeamService {
       throw new Error('User not found');
     }
 
+    // Check if user is the organization owner
+    const isOwner = organization.ownerId.toString() === ownerId.toString();
+
+    // Also check memberships array (for multi-org support)
     const membership = user.memberships?.find(
       (m) =>
         m.organizationId.toString() === organizationId.toString() &&
         m.status === 'active'
     );
 
+    // User must be either the organization owner OR have owner/admin role in memberships
     if (
-      !membership ||
-      (membership.role !== 'owner' && membership.role !== 'admin')
+      !isOwner &&
+      (!membership ||
+        (membership.role !== 'owner' && membership.role !== 'admin'))
     ) {
       throw new Error('Only organization owners and admins can create teams');
     }
