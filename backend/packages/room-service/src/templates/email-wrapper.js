@@ -49,6 +49,15 @@ export const getEmailTemplate = ({
           padding: 24px 20px 16px 20px;
           text-align: center;
         }
+        .logo-container {
+          display: inline-block;
+          margin-bottom: 8px;
+        }
+        .logo-container img {
+          height: ${logoHeight}px;
+          max-width: 100%;
+          display: block;
+        }
         .content-padding {
           padding: 24px 20px 20px 20px;
         }
@@ -96,9 +105,9 @@ export const getEmailTemplate = ({
       <div class="email-container">
         <!-- Header -->
         <div class="header-padding">
-          <img src="${
-            process.env.LOGO_URL
-          }" alt='MeetLite Logo' style='height: ${logoHeight}px; margin-bottom: 8px; max-width: 100%;' />
+          <div class="logo-container">
+            <img src="${process.env.LOGO_URL}" alt='MeetLite Logo' />
+          </div>
           <h2 class="title-size">${title || ''}</h2>
           ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
         </div>
