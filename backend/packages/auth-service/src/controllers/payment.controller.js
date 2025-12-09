@@ -1,6 +1,7 @@
 import { models } from '../index.js';
 import { PaymentService } from '../services/payment.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
+import { sanitizePlan } from '../utils/sanitize-plan.js';
 import Stripe from 'stripe';
 import { stripeConfig, getPriceId } from '../config/stripe.js';
 import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
@@ -241,7 +242,7 @@ export class PaymentController {
           user: {
             id: existingUser._id,
             email: existingUser.email,
-            plan: existingUser.plan,
+            plan: sanitizePlan(existingUser.plan),
           },
           token: newToken,
         });
@@ -304,7 +305,7 @@ export class PaymentController {
           user: {
             id: updatedUser._id,
             email: updatedUser.email,
-            plan: updatedUser.plan,
+            plan: sanitizePlan(updatedUser.plan),
           },
           token: newToken,
         });

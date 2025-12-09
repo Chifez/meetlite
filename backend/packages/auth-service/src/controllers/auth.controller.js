@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { models } from '../index.js';
 import { AuthService } from '../services/auth.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
+import { sanitizePlan } from '../utils/sanitize-plan.js';
 
 export class AuthController {
   constructor() {
@@ -166,7 +167,7 @@ export class AuthController {
           onboarding: user.onboarding,
           organizationId: user.organizationId,
           role: user.role,
-          plan: user.plan,
+          plan: sanitizePlan(user.plan),
           createdAt: user.createdAt,
         },
         expiresAt: decoded.exp,
@@ -374,7 +375,7 @@ export class AuthController {
           onboarding: user.onboarding,
           organizationId: user.organizationId,
           role: user.role,
-          plan: user.plan,
+          plan: sanitizePlan(user.plan),
           createdAt: user.createdAt,
         },
       });
@@ -426,9 +427,9 @@ export class AuthController {
           useNameInMeetings: updatedUser.useNameInMeetings,
           onboardingCompleted: updatedUser.onboardingCompleted,
           onboarding: updatedUser.onboarding,
-          organizationId: updatedUser.onboardingCompleted,
+          organizationId: updatedUser.organizationId,
           role: updatedUser.role,
-          plan: updatedUser.plan,
+          plan: sanitizePlan(updatedUser.plan),
           createdAt: updatedUser.createdAt,
         },
       });
