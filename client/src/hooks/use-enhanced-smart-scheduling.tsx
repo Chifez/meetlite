@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
 import { extractData } from '@/lib/api-response';
-// import { env } from '@/config/env';
 import { MeetingFormData } from '@/lib/types';
 import { useCalendarIntegration } from './use-calendar-integration';
 import {
@@ -95,11 +94,11 @@ export const useEnhancedSmartScheduling = () => {
           timezone,
         });
 
-        const parseData = extractData<{
+        const parseData = parseResponse.data as {
           success: boolean;
           error?: string;
           data?: ParsedMeetingData;
-        }>(parseResponse);
+        };
         if (!parseData.success) {
           throw new Error(parseData.error || 'Failed to parse meeting');
         }
