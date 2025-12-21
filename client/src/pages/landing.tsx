@@ -4,7 +4,6 @@ import FeaturesSection from '@/components/landing/feature-section';
 import TestimonialsSection from '@/components/landing/testimonials-section';
 import ComparisonSection from '@/components/landing/comparison-section';
 import PricingSection from '@/components/landing/pricing-section';
-import CTASection from '@/components/landing/cta-section';
 import Footer from '@/components/landing/footer';
 
 export default function Landing() {
@@ -20,7 +19,6 @@ export default function Landing() {
         <TestimonialsSection />
         <ComparisonSection />
         <PricingSection />
-        <CTASection />
         <Footer />
       </div>
     </>

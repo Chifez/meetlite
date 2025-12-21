@@ -3,6 +3,7 @@ import { Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import Navbar from './navbar';
 import Breadcrumb from './sidebar/breadcrumb';
 import SettingsModal from './dashboard/settings-modal';
+import { cn } from '@/lib/utils';
 
 const Layout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -11,7 +12,8 @@ const Layout = () => {
 
   // Derive route info (simple checks don't need memoization)
   const pathname = location.pathname;
-  const isRoomPage = pathname.startsWith('/room/');
+  const isRoomPage =
+    pathname.startsWith('/room/') || pathname.startsWith('/lobby/');
   const isAuthPage =
     pathname === '/login' ||
     pathname === '/signup' ||
@@ -50,7 +52,12 @@ const Layout = () => {
   }
 
   return (
-    <div className="relative flex flex-row">
+    <div
+      className={cn(
+        'relative flex flex-row bg-primary/10',
+        shouldShowNavbar && 'lg:max-h-screen'
+      )}
+    >
       {/* Sidebar */}
       {shouldShowNavbar && (
         <Navbar
@@ -60,10 +67,16 @@ const Layout = () => {
       )}
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className={cn(
+          'flex-1 flex flex-col min-w-0 scrollbar-hide',
+          shouldShowNavbar &&
+            'lg:border lg:rounded-xl lg:m-2 lg:max-h-screen overflow-y-scroll '
+        )}
+      >
         {/* Breadcrumb */}
         {shouldShowNavbar && (
-          <div className="sticky top-0 z-40 bg-background/80 backdrop-blur border-b p-2">
+          <div className="sticky top-0 z-40 bg-background/80 backdrop-blur border-b p-4">
             <Breadcrumb
               currentPath={location.pathname}
               isMobileMenuOpen={isMobileMenuOpen}
