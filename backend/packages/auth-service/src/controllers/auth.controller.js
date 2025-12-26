@@ -299,7 +299,7 @@ export class AuthController {
   // Update profile
   async updateProfile(req, res) {
     try {
-      const { name, useNameInMeetings } = req.body;
+      const { name, useNameInMeetings, notificationPreferences } = req.body;
 
       // Handle both middleware and manual token extraction for backward compatibility
       let user;
@@ -323,6 +323,7 @@ export class AuthController {
       const updatedUser = await this.authService.updateUserProfile(user._id, {
         name,
         useNameInMeetings,
+        notificationPreferences,
       });
 
       res.json({
@@ -332,6 +333,7 @@ export class AuthController {
           email: updatedUser.email,
           name: updatedUser.name,
           useNameInMeetings: updatedUser.useNameInMeetings,
+          notificationPreferences: updatedUser.notificationPreferences,
         },
       });
     } catch (error) {
@@ -376,6 +378,20 @@ export class AuthController {
           organizationId: user.organizationId,
           role: user.role,
           plan: sanitizePlan(user.plan),
+          notificationPreferences: user.notificationPreferences || {
+            enabled: true,
+            channels: {
+              inApp: true,
+              email: true,
+              push: false,
+            },
+            types: {
+              meetingReminders: true,
+              meetingInvitations: true,
+              meetingUpdates: true,
+              recordingReady: true,
+            },
+          },
           createdAt: user.createdAt,
         },
       });

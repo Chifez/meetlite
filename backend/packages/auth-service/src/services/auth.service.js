@@ -152,6 +152,42 @@ export class AuthService {
         user.useNameInMeetings = updates.useNameInMeetings;
       }
 
+      // Update notification preferences
+      if (updates.notificationPreferences !== undefined) {
+        const prefs = updates.notificationPreferences;
+        
+        if (prefs.enabled !== undefined) {
+          user.notificationPreferences.enabled = prefs.enabled;
+        }
+        
+        if (prefs.channels !== undefined) {
+          if (prefs.channels.inApp !== undefined) {
+            user.notificationPreferences.channels.inApp = prefs.channels.inApp;
+          }
+          if (prefs.channels.email !== undefined) {
+            user.notificationPreferences.channels.email = prefs.channels.email;
+          }
+          if (prefs.channels.push !== undefined) {
+            user.notificationPreferences.channels.push = prefs.channels.push;
+          }
+        }
+        
+        if (prefs.types !== undefined) {
+          if (prefs.types.meetingReminders !== undefined) {
+            user.notificationPreferences.types.meetingReminders = prefs.types.meetingReminders;
+          }
+          if (prefs.types.meetingInvitations !== undefined) {
+            user.notificationPreferences.types.meetingInvitations = prefs.types.meetingInvitations;
+          }
+          if (prefs.types.meetingUpdates !== undefined) {
+            user.notificationPreferences.types.meetingUpdates = prefs.types.meetingUpdates;
+          }
+          if (prefs.types.recordingReady !== undefined) {
+            user.notificationPreferences.types.recordingReady = prefs.types.recordingReady;
+          }
+        }
+      }
+
       await user.save();
       return user;
     } catch (error) {

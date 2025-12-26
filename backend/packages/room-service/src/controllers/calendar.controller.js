@@ -1,8 +1,8 @@
 import { google } from 'googleapis';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { models } from '../index.js';
-import { SMART_SCHEDULING_CONFIG } from '../config/smartScheduling.js';
-import { oauthTemplates } from '../templates/oauthPage.js';
+import { SMART_SCHEDULING_CONFIG } from '../config/smart-scheduling.js';
+import { oauthTemplates } from '../templates/oauth-page.js';
 import {
   createGoogleOAuth2Client,
   getUserCalendarTokens,
@@ -10,7 +10,7 @@ import {
   disconnectCalendar,
   createAuthenticatedGoogleClient,
   createAuthenticatedMicrosoftClient,
-} from '../services/calendarService.js';
+} from '../services/calendar.service.js';
 
 // Google Calendar OAuth
 export const getGoogleAuthUrl = (req, res) => {
@@ -267,7 +267,7 @@ export const refreshCalendarCache = async (req, res) => {
     const defaultEndDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
     const { getCachedCalendarEvents, invalidateCalendarCache } = await import(
-      '../services/calendarCacheService.js'
+      '../services/calendar-cache.service.js'
     );
 
     // Invalidate existing cache
@@ -581,3 +581,5 @@ export const disconnectCalendarIntegration = async (req, res) => {
     res.status(500).json({ error: 'Failed to disconnect calendar' });
   }
 };
+
+

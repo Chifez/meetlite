@@ -236,6 +236,45 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  // Notification preferences
+  notificationPreferences: {
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+    channels: {
+      inApp: {
+        type: Boolean,
+        default: true,
+      },
+      email: {
+        type: Boolean,
+        default: true,
+      },
+      push: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    types: {
+      meetingReminders: {
+        type: Boolean,
+        default: true,
+      },
+      meetingInvitations: {
+        type: Boolean,
+        default: true,
+      },
+      meetingUpdates: {
+        type: Boolean,
+        default: true,
+      },
+      recordingReady: {
+        type: Boolean,
+        default: true,
+      },
+    },
+  },
   createdAt: {
     type: Date,
     default: Date.now,

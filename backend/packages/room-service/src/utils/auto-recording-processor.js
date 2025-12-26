@@ -1,5 +1,5 @@
 import { models } from '../index.js';
-import { uploadVideoFile } from '../services/cloudflareR2Service.js';
+import { uploadVideoFile } from '../services/cloudflare-r2.service.js';
 import fs from 'fs/promises';
 
 /**
@@ -150,7 +150,75 @@ async function startAutoAIProcessing(recordingId) {
     }
 
     // Import AI processing function
-    const { processRecordingAI } = await import('../routes/recordings.js');
+    // Import AI service functions directly
+    const { transcribeRecording, generateRecordingSummary } = await import('../services/ai.service.js');
+    
+    // Re-implement processRecordingAI locally since it's not exported from routes
+    async function processRecordingAI(recording, type, processingId) {
+      try {
+        let transcriptData = null;
+
+        if (type === 'transcript' || type === 'both') {
+          try {
+            let audioUrl = recording.recording.streamingUrl;
+            transcriptData = await transcribeRecording(audioUrl);
+            recording.transcript.text = transcriptData.text;
+            recording.transcript.segments = transcriptData.segments;
+            recording.transcript.language = transcriptData.language;
+            recording.transcript.status = 'completed';
+            recording.transcript.processingProvider = 'openai';
+          } catch (transcriptError) {
+            console.error('Transcript processing failed:', transcriptError);
+            recording.transcript.status = 'failed';
+          }
+        }
+
+        if (type === 'summary' || type === 'both') {
+          try {
+            const transcriptText = transcriptData?.text || recording.transcript.text;
+            if (!transcriptText) {
+              throw new Error('No transcript available for summary generation');
+            }
+            const summaryData = await generateRecordingSummary(transcriptText, {
+              meetingContext: recording.description || recording.title,
+              participantCount: recording.participants.length,
+              duration: recording.recording.duration,
+            });
+            recording.aiSummary.summary = summaryData.summary;
+            recording.aiSummary.keyPoints = summaryData.keyPoints;
+            recording.aiSummary.actionItems = summaryData.actionItems;
+            recording.aiSummary.topics = summaryData.topics;
+            recording.aiSummary.sentiment = summaryData.sentiment;
+            recording.aiSummary.status = 'completed';
+            recording.aiSummary.processingProvider = 'openai';
+          } catch (summaryError) {
+            console.error('Summary processing failed:', summaryError);
+            recording.aiSummary.status = 'failed';
+          }
+        }
+
+        const transcriptDone = recording.transcript.status === 'completed' || type === 'summary';
+        const summaryDone = recording.aiSummary.status === 'completed' || type === 'transcript';
+
+        if (transcriptDone && summaryDone) {
+          recording.processingStatus = 'completed';
+        } else if (recording.transcript.status === 'failed' || recording.aiSummary.status === 'failed') {
+          recording.processingStatus = 'failed';
+        }
+
+        await recording.save();
+      } catch (error) {
+        console.error('AI processing failed:', error);
+        recording.processingStatus = 'failed';
+        if (type === 'transcript' || type === 'both') {
+          recording.transcript.status = 'failed';
+        }
+        if (type === 'summary' || type === 'both') {
+          recording.aiSummary.status = 'failed';
+        }
+        await recording.save();
+      }
+    }
 
     // Start both transcript and summary processing
     const processingId = `auto_${recordingId}_${Date.now()}`;
@@ -307,3 +375,4 @@ export async function checkRecordingPermissions(
     };
   }
 }
+

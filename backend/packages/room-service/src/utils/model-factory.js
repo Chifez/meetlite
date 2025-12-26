@@ -1,7 +1,7 @@
-import { calendarIntegrationSchema } from '../models/CalendarIntegration.js';
-import { meetingSchema } from '../models/Meeting.js';
-import { roomSchema } from '../models/Room.js';
-import { meetingSummarySchema } from '../models/MeetingSummary.js';
+import { calendarIntegrationSchema } from '../models/calendar-integration.js';
+import { meetingSchema } from '../models/meeting.js';
+import { roomSchema } from '../models/room.js';
+import { meetingSummarySchema } from '../models/meeting-summary.js';
 
 /**
  * Creates local models using the provided database connection
@@ -19,3 +19,4 @@ export const createLocalModels = (connection) => {
     MeetingSummary: connection.model('MeetingSummary', meetingSummarySchema),
   };
 };
+

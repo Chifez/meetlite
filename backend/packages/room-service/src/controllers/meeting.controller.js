@@ -3,7 +3,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
 import { ResponseHelpers } from '@minimeet/shared-models';
 import nodemailer from 'nodemailer';
-import { getMeetingInviteEmailTemplate } from '../templates/meetingInviteEmail.js';
+import { getMeetingInviteEmailTemplate } from '../templates/meeting-invite-email.js';
+import {
+  scheduleMeetingReminders,
+  cancelMeetingReminders,
+  rescheduleMeetingReminders,
+  updateMeetingReminderParticipants,
+} from '../services/notification.service.js';
 
 // Utility to send invite email
 async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
@@ -186,6 +192,27 @@ export class MeetingController {
         }
       }
 
+      // Schedule meeting reminders
+      try {
+        // Get creator's name for reminders
+        const creator = await models.User.findById(req.user.userId).select('name').lean();
+        
+        await scheduleMeetingReminders({
+          meetingId: meeting.meetingId,
+          title: meeting.title,
+          description: meeting.description,
+          scheduledTime: meeting.scheduledTime,
+          duration: meeting.duration,
+          createdBy: meeting.createdBy,
+          createdByName: creator?.name || 'Unknown',
+          participants: [...invites.map(i => i.email), ...(participants || [])],
+          timezone: req.body.timezone || 'UTC',
+        });
+      } catch (reminderError) {
+        console.warn('[Meetings] Failed to schedule reminders:', reminderError);
+        // Don't fail the request if reminder scheduling fails
+      }
+
       return ResponseHelpers.created(
         res,
         { meetingId },
@@ -239,7 +266,7 @@ export class MeetingController {
         const endDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
         const { getCachedCalendarEvents, convertCalendarEventToMeeting } =
-          await import('../services/calendarCacheService.js');
+          await import('../services/calendar-cache.service.js');
 
         const calendarEvents = await getCachedCalendarEvents(
           userId,
@@ -350,6 +377,17 @@ export class MeetingController {
         );
       }
 
+      // Track if time or participants changed
+      const timeChanged = 
+        updates.scheduledTime && 
+        new Date(updates.scheduledTime).getTime() !== new Date(meeting.scheduledTime).getTime();
+      
+      const participantsChanged = 
+        updates.participants && 
+        JSON.stringify(updates.participants) !== JSON.stringify(meeting.participants);
+
+      const oldParticipants = meeting.participants || [];
+      
       const updates = req.body;
       Object.assign(meeting, updates);
       await meeting.save();
@@ -366,6 +404,47 @@ export class MeetingController {
           cacheError
         );
         // Don't fail the request if cache invalidation fails
+      }
+
+      // Handle reminder updates
+      try {
+        // Get creator's name for reminders
+        const creator = await models.User.findById(meeting.createdBy).select('name').lean();
+
+        if (timeChanged) {
+          // Reschedule all reminders if time changed
+          await rescheduleMeetingReminders(
+            meeting.meetingId,
+            {
+              meetingId: meeting.meetingId,
+              title: meeting.title,
+              description: meeting.description,
+              scheduledTime: meeting.scheduledTime,
+              duration: meeting.duration,
+              createdBy: meeting.createdBy,
+              createdByName: creator?.name || 'Unknown',
+              participants: meeting.participants || [],
+              timezone: updates.timezone || 'UTC',
+            },
+            req.user.userId
+          );
+        } else if (participantsChanged) {
+          // Update only participant reminders if only participants changed
+          await updateMeetingReminderParticipants(meeting.meetingId, {
+            meetingId: meeting.meetingId,
+            title: meeting.title,
+            description: meeting.description,
+            scheduledTime: meeting.scheduledTime,
+            duration: meeting.duration,
+            createdBy: meeting.createdBy,
+            createdByName: creator?.name || 'Unknown',
+            participants: meeting.participants || [],
+            timezone: updates.timezone || 'UTC',
+          });
+        }
+      } catch (reminderError) {
+        console.warn('[Meetings] Failed to update reminders:', reminderError);
+        // Don't fail the request if reminder update fails
       }
 
       return ResponseHelpers.ok(res, meeting, 'Meeting updated successfully');
@@ -397,6 +476,18 @@ export class MeetingController {
           res,
           'Not authorized to delete this meeting'
         );
+      }
+
+      // Cancel meeting reminders before deleting
+      try {
+        await cancelMeetingReminders(
+          meeting.meetingId,
+          'Meeting deleted',
+          req.user.userId
+        );
+      } catch (reminderError) {
+        console.warn('[Meetings] Failed to cancel reminders:', reminderError);
+        // Don't fail the request if reminder cancellation fails
       }
 
       await meeting.deleteOne();

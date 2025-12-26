@@ -22,6 +22,7 @@ import OrganizationSettings from './pages/organization-settings';
 import Settings from './pages/settings';
 import InvitationPage from './pages/invitation';
 import PaymentSuccess from './pages/payment-success';
+import Notifications from './pages/notifications';
 import TeamMeetings from './pages/teams/[teamId]/meetings';
 import TeamRecordings from './pages/teams/[teamId]/recordings';
 import TeamSettings from './pages/teams/[teamId]/settings';
@@ -186,6 +187,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
               </ProtectedRoute>
             }
           />

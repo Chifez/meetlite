@@ -6,7 +6,7 @@ import {
   generateDescription,
   parseMeetingDescription,
   callOpenAI,
-} from '../services/aiService.js';
+} from '../services/ai.service.js';
 import { request as undiciRequest } from 'undici';
 
 // Summarize meeting
@@ -222,3 +222,5 @@ export const parseMeeting = async (req, res) => {
     res.status(500).json({ error: 'Failed to parse meeting description.' });
   }
 };
+
+

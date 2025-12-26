@@ -20,7 +20,7 @@ import {
   assessVideoQuality,
   checkFFmpegAvailability,
   extractAudioFromVideo as extractAudio,
-} from './videoProcessingService.js';
+} from './video-processing.service.js';
 
 // Cloudflare R2 Configuration
 const R2_CONFIG = {
@@ -447,3 +447,5 @@ export default {
   extractAudioFromVideo,
   getUploadProgress,
 };
+
+

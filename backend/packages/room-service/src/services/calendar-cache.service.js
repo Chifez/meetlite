@@ -2,7 +2,7 @@ import redisClient from '../config/redis.js';
 import {
   getUserCalendarTokens,
   createAuthenticatedGoogleClient,
-} from './calendarService.js';
+} from './calendar.service.js';
 import { google } from 'googleapis';
 
 /**
@@ -114,7 +114,7 @@ export const getCachedCalendarEvents = async (
       try {
         await redisClient
           .getClient()
-          .setEx(cacheKey, CACHE_TTL, JSON.stringify(events));
+          .setex(cacheKey, CACHE_TTL, JSON.stringify(events));
         console.log(
           `[Calendar Cache] Cached events for userId: ${userId}, count: ${events.length}`
         );
@@ -146,7 +146,7 @@ export const invalidateCalendarCache = async (userId) => {
     const keys = await redisClient.getClient().keys(pattern);
 
     if (keys.length > 0) {
-      await redisClient.getClient().del(keys);
+      await redisClient.getClient().del(...keys);
       console.log(
         `[Calendar Cache] Invalidated ${keys.length} cache entries for userId: ${userId}`
       );
@@ -186,4 +186,5 @@ export const convertCalendarEventToMeeting = (event, userId) => {
     createdBy: userId,
   };
 };
+
 

@@ -155,3 +155,4 @@ export const getMeetingInviteEmailTemplate = ({
 };
 
 export default getMeetingInviteEmailTemplate;
+

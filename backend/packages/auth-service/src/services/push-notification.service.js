@@ -86,46 +86,6 @@ export const sendNotificationToUser = async (userId, payload) => {
 };
 
 /**
- * Send push notification to multiple users
- */
-export const sendNotificationToUsers = async (userIds, payload) => {
-  const results = await Promise.allSettled(
-    userIds.map((userId) => sendNotificationToUser(userId, payload))
-  );
-
-  return results;
-};
-
-/**
- * Send meeting reminder notification
- */
-export const sendMeetingReminder = async (userId, meetingData) => {
-  const payload = {
-    title: 'Meeting Reminder',
-    body: `${meetingData.title} starts in ${meetingData.minutesUntil} minutes`,
-    icon: '/android-chrome-192x192.png',
-    badge: '/android-chrome-192x192.png',
-    data: {
-      url: `/room/${meetingData.roomId}`,
-      meetingId: meetingData.meetingId,
-      type: 'meeting-reminder',
-    },
-    actions: [
-      {
-        action: 'join',
-        title: 'Join Now',
-      },
-      {
-        action: 'dismiss',
-        title: 'Dismiss',
-      },
-    ],
-  };
-
-  return sendNotificationToUser(userId, payload);
-};
-
-/**
  * Save push subscription
  */
 export const saveSubscription = async (

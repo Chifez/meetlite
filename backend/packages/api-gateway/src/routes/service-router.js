@@ -51,6 +51,7 @@ const SERVICE_ROUTES = {
       '/api/ai',
       '/api/analytics',
       '/api/calendar',
+      '/api/notifications',
     ],
     target: config.services.room,
     pathRewrite: {
@@ -61,6 +62,7 @@ const SERVICE_ROUTES = {
       '^/api/ai': '/api/v1/ai',
       '^/api/analytics': '/api/v1/analytics',
       '^/api/calendar': '/api/v1/calendar',
+      '^/api/notifications': '/api/v1/notifications',
     },
   },
 
@@ -79,16 +81,41 @@ const SERVICE_ROUTES = {
  * @returns {Function} Express middleware
  */
 export function createServiceProxy(serviceConfig) {
+  // Check if this is an SSE stream endpoint
+  const isSSEStream = (url) => url && url.includes('/stream');
+
   return createProxyMiddleware({
     target: serviceConfig.target,
     changeOrigin: config.proxy.changeOrigin,
     secure: config.proxy.secure,
-    timeout: config.proxy.timeout,
-    proxyTimeout: config.proxy.proxyTimeout,
+    // Set timeout to 0 (no timeout) to support SSE streams
+    // This allows long-lived connections without timing out
+    timeout: 0,
+    proxyTimeout: 0,
     pathRewrite: serviceConfig.pathRewrite,
     // Industry standard: Don't parse request body in proxy
     parseReqBody: false,
     reqAsBuffer: true,
+    // Don't buffer responses for SSE streams
+    buffer: false,
+
+    // Handle SSE streams properly
+    onProxyReq: (proxyReq, req, res) => {
+      // For SSE, ensure connection stays open
+      if (isSSEStream(req.url)) {
+        proxyReq.setHeader('Connection', 'keep-alive');
+        proxyReq.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+
+    onProxyRes: (proxyRes, req, res) => {
+      // For SSE, ensure headers are passed through correctly
+      if (isSSEStream(req.url)) {
+        // Don't modify SSE response headers - let them pass through
+        // Ensure X-Accel-Buffering is set to prevent nginx buffering
+        res.setHeader('X-Accel-Buffering', 'no');
+      }
+    },
 
     // Error handling
     onError: (err, req, res) => {
@@ -107,12 +134,6 @@ export function createServiceProxy(serviceConfig) {
         timestamp: new Date().toISOString(),
       });
     },
-
-    // Request logging (disabled for performance)
-    // onProxyReq: (proxyReq, req, res) => {},
-
-    // Response logging (disabled for performance)
-    // onProxyRes: (proxyRes, req, res) => {},
   });
 }
 

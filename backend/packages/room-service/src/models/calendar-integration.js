@@ -65,3 +65,4 @@ calendarIntegrationSchema.methods.refreshAccessToken = async function () {
 
 // Export the schema for use with the model factory
 export { calendarIntegrationSchema };
+

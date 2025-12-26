@@ -1,4 +1,5 @@
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import redisClient from './config/redis.js';
@@ -11,18 +12,32 @@ import recordingRoutesV1 from './routes/v1/recordings.routes.js';
 import analyticsRoutesV1 from './routes/v1/analytics.routes.js';
 import aiRoutesV1 from './routes/v1/ai.routes.js';
 import calendarRoutesV1 from './routes/v1/calendar.routes.js';
+import notificationRoutesV1 from './routes/v1/notifications.routes.js';
 import { createSessionStore } from './config/session.js';
 import { connectionPool, createModelFactory } from '@minimeet/shared-models';
-import { createLocalModels } from './utils/modelFactory.js';
+import { createLocalModels } from './utils/model-factory.js';
+
+// Notification services
+import {
+  initializeNotificationSSE,
+  sendNotificationToUser,
+  shutdownNotificationSSE,
+} from './services/notification-sse.service.js';
+import createNotificationWorker from './workers/notification.worker.js';
+import { setNotificationEmitter } from './workers/notification.worker.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Create HTTP server
+const httpServer = createServer(app);
+
 // Connect to MongoDB using shared connection pool
 export let roomConnection = null;
 export let models = null;
+let notificationWorker = null;
 
 // Health check endpoint - must be BEFORE CORS to allow unrestricted access
 app.get('/health', (req, res) => {
@@ -76,6 +91,7 @@ app.use('/api/v1/meetings', meetingRoutesV1);
 app.use('/api/v1/recordings', recordingRoutesV1);
 app.use('/api/v1/analytics', analyticsRoutesV1);
 app.use('/api/v1/ai', aiRoutesV1);
+app.use('/api/v1/notifications', notificationRoutesV1);
 // Note: calendar routes are mounted above before verifyToken for OAuth callbacks
 
 // Connect to MongoDB using shared connection pool
@@ -94,6 +110,10 @@ const connectDB = async () => {
 
     // Merge shared models with local models
     models = { ...models, ...localModels };
+
+    // Inject AuditLog model into audit service to use correct connection
+    const { setAuditLogModel } = await import('./services/audit.service.js');
+    setAuditLogModel(models.AuditLog);
 
     // Handle connection events
     roomConnection.on('error', (err) => {
@@ -132,26 +152,74 @@ const startServer = async () => {
     const sessionMiddleware = await createSessionStore();
     app.use(sessionMiddleware);
 
-    const server = app.listen(PORT, () => {
-      console.log(`Room service started on port ${PORT}`);
+    // Initialize notification SSE service
+    initializeNotificationSSE();
+    console.log('✅ Notification SSE initialized');
+
+    // Create notification emitter for worker
+    const notificationEmitter = {
+      emit: (event, data) => {
+        if (event === 'notification' && data.userId) {
+          sendNotificationToUser(data.userId, data.notification);
+        }
+      },
+    };
+
+    // Set emitter for worker
+    setNotificationEmitter(notificationEmitter);
+
+    // Start notification worker
+    notificationWorker = createNotificationWorker();
+    console.log('✅ Notification worker started');
+
+    // Start HTTP server
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Room service started on port ${PORT}`);
+      console.log(`   - HTTP API: http://localhost:${PORT}`);
+      console.log(
+        `   - SSE: http://localhost:${PORT}/api/v1/notifications/stream`
+      );
+      console.log(
+        `   - Redis: ${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`
+      );
+      console.log(`   - MongoDB: Connected`);
     });
 
     // Graceful shutdown
-    process.on('SIGTERM', () => {
-      server.close(async () => {
-        await redisClient.disconnect();
-        process.exit(0);
-      });
-    });
+    const shutdown = async (signal) => {
+      console.log(`\n⏹️  ${signal} received, shutting down gracefully...`);
 
-    process.on('SIGINT', () => {
-      server.close(async () => {
+      try {
+        // Stop accepting new connections
+        httpServer.close(() => {
+          console.log('✅ HTTP server closed');
+        });
+
+        // Shutdown notification SSE
+        await shutdownNotificationSSE();
+
+        // Close notification worker
+        if (notificationWorker) {
+          await notificationWorker.close();
+          console.log('✅ Notification worker closed');
+        }
+
+        // Disconnect Redis
         await redisClient.disconnect();
+        console.log('✅ Redis disconnected');
+
+        console.log('✅ Graceful shutdown complete');
         process.exit(0);
-      });
-    });
+      } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 };

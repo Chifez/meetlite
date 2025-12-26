@@ -4,6 +4,7 @@ import UserMenu from '@/components/ui/user-menu';
 import PlanBadge, { needsUpgrade } from '@/components/ui/plan-badge';
 import { useCurrentPlan } from '@/hooks/use-current-plan';
 import { useNavigate } from 'react-router-dom';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 interface SidebarFooterProps {
   collapsed: boolean;
@@ -44,6 +45,11 @@ export function SidebarFooter({
           )}
         </div>
       )}
+
+      {/* Notification Bell - Desktop only (mobile shows in breadcrumb) */}
+      <div className="hidden lg:flex items-center justify-center">
+        <NotificationBell variant="sidebar" />
+      </div>
 
       <UserMenu
         collapsed={collapsed}

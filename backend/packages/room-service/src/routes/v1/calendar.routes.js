@@ -1,13 +1,34 @@
 import express from 'express';
-import calendarRouter from '../calendar.js';
+import { verifyToken } from '../../middleware/auth.js';
+import {
+  getGoogleAuthUrl,
+  handleGoogleCallback,
+  connectGoogleCalendar,
+  importCalendarEvents,
+  exportMeetingToCalendar,
+  checkCalendarConflicts,
+  scheduleMeetingOnCalendar,
+  deleteCalendarEvent,
+  getConnectedCalendars,
+  disconnectCalendarIntegration,
+  refreshCalendarCache,
+} from '../../controllers/calendar.controller.js';
 
 const router = express.Router();
 
-// Calendar routes handle their own authentication (some are public for OAuth callbacks)
-// Mount the existing calendar router
-router.use('/', calendarRouter);
+// Public routes (no authentication required for OAuth callbacks)
+router.get('/google/auth', getGoogleAuthUrl);
+router.get('/google/callback', handleGoogleCallback);
+
+// Authenticated routes (require JWT token)
+router.post('/connect/google', verifyToken, connectGoogleCalendar);
+router.post('/import', verifyToken, importCalendarEvents);
+router.post('/refresh', verifyToken, refreshCalendarCache);
+router.post('/export', verifyToken, exportMeetingToCalendar);
+router.post('/conflicts', verifyToken, checkCalendarConflicts);
+router.post('/schedule', verifyToken, scheduleMeetingOnCalendar);
+router.delete('/events/:eventId', verifyToken, deleteCalendarEvent);
+router.get('/connected', verifyToken, getConnectedCalendars);
+router.post('/disconnect', verifyToken, disconnectCalendarIntegration);
 
 export default router;
-
-
-

@@ -38,3 +38,4 @@ const SMART_SCHEDULING_CONFIG = {
 };
 
 export { SMART_SCHEDULING_CONFIG };
+

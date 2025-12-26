@@ -69,3 +69,4 @@ meetingSummarySchema.pre('save', function (next) {
 
 // Export the schema for use with the model factory
 export { meetingSummarySchema };
+
