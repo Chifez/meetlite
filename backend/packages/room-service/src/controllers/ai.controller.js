@@ -222,5 +222,3 @@ export const parseMeeting = async (req, res) => {
     res.status(500).json({ error: 'Failed to parse meeting description.' });
   }
 };
-
-

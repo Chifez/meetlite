@@ -153,7 +153,7 @@ router.get('/stream', verifyToken, async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Adjust for production
+    // Note: CORS is handled by API Gateway - don't override here
 
     // IMPORTANT: Flush headers immediately to establish SSE connection
     res.flushHeaders();

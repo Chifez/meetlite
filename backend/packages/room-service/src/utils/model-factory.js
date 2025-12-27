@@ -19,4 +19,3 @@ export const createLocalModels = (connection) => {
     MeetingSummary: connection.model('MeetingSummary', meetingSummarySchema),
   };
 };
-

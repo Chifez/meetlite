@@ -11,6 +11,9 @@ const activeConnections = new Map();
 // Map of userId -> heartbeat interval ID
 const heartbeatIntervals = new Map();
 
+// Maximum concurrent SSE connections per user (security: prevent DoS)
+const MAX_CONNECTIONS_PER_USER = 3;
+
 /**
  * Initialize SSE service
  * This is called when the server starts
@@ -94,10 +97,18 @@ export const sendNotificationToUsers = (userIds, notification) => {
  * @param {Object} res - Express response object
  */
 export const registerConnection = (userId, res) => {
-  // Clean up any existing connection for this user
-  cleanupConnection(userId);
+  // Security: Enforce connection limit per user to prevent DoS
+  // Since we store one connection per userId in the Map, we ensure only one active connection per user
+  // If user tries to connect again, we close the existing connection first
+  const existingConnection = activeConnections.get(userId);
+  
+  if (existingConnection) {
+    console.log(`🔄 User ${userId} reconnecting - closing existing SSE connection`);
+    // Clean up existing connection before registering new one
+    cleanupConnection(userId);
+  }
 
-  // Store the connection
+  // Store the new connection
   activeConnections.set(userId, res);
 
   // Set up heartbeat to keep connection alive

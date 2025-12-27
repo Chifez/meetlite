@@ -540,5 +540,3 @@ Format as JSON with these fields:
     throw error;
   }
 };
-
-
