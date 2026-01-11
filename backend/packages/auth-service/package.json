@@ -9,7 +9,7 @@
     "validate-stripe": "node validate-stripe.js"
   },
   "dependencies": {
-    "@minimeet/shared-models": "*",
+    "@minimeet/shared": "*",
     "bcryptjs": "^2.4.3",
     "connect-redis": "^9.0.0",
     "cors": "^2.8.5",

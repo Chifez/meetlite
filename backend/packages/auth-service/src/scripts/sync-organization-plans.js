@@ -1,4 +1,4 @@
-import { connectionPool, createModelFactory } from '@minimeet/shared-models';
+import { connectionPool, createModelFactory } from '@minimeet/shared';
 import dotenv from 'dotenv';
 
 dotenv.config();

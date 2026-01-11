@@ -88,20 +88,15 @@ export function createServiceProxy(serviceConfig) {
     target: serviceConfig.target,
     changeOrigin: config.proxy.changeOrigin,
     secure: config.proxy.secure,
-    // Conditional timeout: disable only for SSE streams, use default for others
-    // This prevents DoS attacks while allowing SSE connections to stay open
-    timeout: (req) => {
-      return isSSEStream(req.url) ? 0 : config.proxy.timeout;
-    },
-    proxyTimeout: (req) => {
-      return isSSEStream(req.url) ? 0 : config.proxy.proxyTimeout;
-    },
+    // Use very high timeout to support SSE connections (2 hours)
+    // SSE connections need to stay open indefinitely for real-time updates
+    // Regular HTTP requests complete quickly, so high timeout doesn't hurt them
+    // 2 hours provides safety while being effectively unlimited for SSE with heartbeats
+    timeout: 7200000, // 2 hours in milliseconds
+    proxyTimeout: 7200000, // 2 hours in milliseconds
     pathRewrite: serviceConfig.pathRewrite,
-    // Industry standard: Don't parse request body in proxy
     parseReqBody: false,
-    reqAsBuffer: true,
-    // Conditional buffering: disable only for SSE streams
-    buffer: (req) => !isSSEStream(req.url),
+    // buffer option removed - incompatible with parseReqBody: false
 
     // Handle SSE streams properly
     onProxyReq: (proxyReq, req, res) => {

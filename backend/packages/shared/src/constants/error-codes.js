@@ -418,6 +418,13 @@ export const ERROR_CODES = {
       message: 'The requested resource was not found',
       description: 'Generic resource not found',
     },
+    RESOURCE_CONFLICT: {
+      code: 'SYSTEM_9009',
+      statusCode: 409,
+      message: 'Resource conflict occurred',
+      description:
+        'The requested operation conflicts with the current state of the resource',
+    },
   },
 };
 

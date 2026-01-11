@@ -1,4 +1,4 @@
-import { AuditLog } from '@minimeet/shared-models';
+import { AuditLog } from '@minimeet/shared';
 
 /**
  * Audit Logging Service

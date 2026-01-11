@@ -24,7 +24,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 // Import configs
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
-import { connectionPool, createModelFactory } from '@minimeet/shared-models';
+import { connectionPool, createModelFactory } from '@minimeet/shared';
 
 // Import cron jobs
 import './jobs/usage-reset.job.js';

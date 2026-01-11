@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { MediaSoupWorker } from './MediaSoupWorker.js';
+import { MediaSoupWorker } from './media-soup-worker.js';
 import { logger } from '../utils/logger.js';
 import { mediasoupConfig } from '../config/mediasoup.js';
 

@@ -11,19 +11,19 @@ import {
   errorHandler,
   notFoundHandler,
   socketErrorHandler,
-} from './middleware/errorHandler.js';
-import { MediaSoupService } from './services/MediaSoupService.js';
-import { CollaborationStateManager } from './services/CollaborationStateManager.js';
-import { TldrawService } from './services/TldrawService.js';
-import { YjsSyncService } from './services/YjsSyncService.js';
+} from './middleware/error-handler.js';
+import { MediaSoupService } from './services/media-soup-service.js';
+import { CollaborationStateManager } from './services/collaboration-state-manager.js';
+import { TldrawService } from './services/tldraw-service.js';
+import { YjsSyncService } from './services/yjs-sync-service.js';
 import { mediasoupConfig } from './config/mediasoup.js';
 
 // Import controllers
-import { MediaController } from './controllers/MediaController.js';
-import { CollaborationController } from './controllers/CollaborationController.js';
-import { RoomController } from './controllers/RoomController.js';
-import { YjsController } from './controllers/YjsController.js';
-import { FileHandler } from './handlers/FileHandler.js';
+import { MediaController } from './controllers/media-controller.js';
+import { CollaborationController } from './controllers/collaboration-controller.js';
+import { RoomController } from './controllers/room-controller.js';
+import { YjsController } from './controllers/yjs-controller.js';
+import { FileHandler } from './handlers/file-handler.js';
 
 // Import routes
 import { createMediaRoutes } from './routes/media.js';

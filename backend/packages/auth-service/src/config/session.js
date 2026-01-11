@@ -27,7 +27,7 @@ export async function createSessionStore() {
     const store = new RedisStore({
       client: client,
       prefix: 'meetlite:sess:', // Namespace for session keys
-      ttl: parseInt(process.env.SESSION_MAX_AGE) / 1000, // TTL in seconds
+      ttl: parseInt(process.env.SESSION_MAX_AGE) || 86400000 / 1000, // TTL in seconds
     });
 
     // Session configuration

@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { PlanValidationService } from '@minimeet/shared-models';
+import { PlanValidationService } from '@minimeet/shared';
 import { models } from '../index.js';
 
 /**

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
-import { PlanValidationService } from '@minimeet/shared-models';
+import { PlanValidationService } from '@minimeet/shared';
 import { MultiOrganizationService } from './multi-organization.service.js';
 import { sendOrganizationInviteEmail } from './email-service.js';
 

@@ -1,7 +1,7 @@
 {
-  "name": "@minimeet/shared-models",
+  "name": "@minimeet/shared",
   "version": "1.0.0",
-  "description": "Shared database models and utilities for MeetLite backend services",
+  "description": "Shared database models, utilities, and queue infrastructure for MeetLite backend services",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "mongoose": "^8.2.1",
-    "redis": "^5.8.0"
+    "redis": "^5.8.0",
+    "bullmq": "^5.66.2",
+    "ioredis": "^5.8.2"
   },
   "peerDependencies": {
     "mongoose": "^8.2.1"

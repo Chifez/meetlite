@@ -1,4 +1,4 @@
-import { ERROR_CODES, createError } from '../constants/errorCodes.js';
+import { ERROR_CODES, createError } from '../constants/error-codes.js';
 
 /**
  * Enhanced Application Error class with standardized error codes
@@ -68,6 +68,10 @@ export class AppError extends Error {
 
   static rateLimit(message = null) {
     return new AppError('SYSTEM_9004', message);
+  }
+
+  static conflict(message = null) {
+    return new AppError('SYSTEM_9009', message);
   }
 }
 

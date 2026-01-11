@@ -40,8 +40,21 @@ export function setupSecurityMiddleware(app) {
  * Performance middleware
  */
 export function setupPerformanceMiddleware(app) {
-  // Compression
-  app.use(compression());
+  // Compression - exclude SSE streams to prevent buffering
+  // Compression buffers data, which breaks SSE's real-time streaming nature
+  app.use(
+    compression({
+      filter: (req, res) => {
+        // Don't compress SSE streams - they need real-time streaming
+        // Compression buffers data, which breaks SSE's continuous stream
+        if (req.url?.includes('/stream')) {
+          return false;
+        }
+        // Use default compression filter for all other requests
+        return compression.filter(req, res);
+      },
+    })
+  );
 
   // Request logging
   if (config.server.nodeEnv === 'development') {

@@ -1,12 +1,12 @@
 import nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
-import { getWelcomeEmailTemplate } from '../templates/welcomeEmail.js';
-import { getPasswordResetEmailTemplate } from '../templates/passwordResetEmail.js';
-import { getOrganizationInviteEmailTemplate } from '../templates/organizationInviteEmail.js';
-import { getTeamInviteEmailTemplate } from '../templates/teamInviteEmail.js';
-import { getPlanUpgradeEmailTemplate } from '../templates/planUpgradeEmail.js';
-import { getPlanCancellationEmailTemplate } from '../templates/planCancellationEmail.js';
-import { getPlanExpirationWarningEmailTemplate } from '../templates/planExpirationWarningEmail.js';
+import { getWelcomeEmailTemplate } from '../templates/welcome-email.js';
+import { getPasswordResetEmailTemplate } from '../templates/password-reset-email.js';
+import { getOrganizationInviteEmailTemplate } from '../templates/organization-invite-email.js';
+import { getTeamInviteEmailTemplate } from '../templates/team-invite-email.js';
+import { getPlanUpgradeEmailTemplate } from '../templates/plan-upgrade-email.js';
+import { getPlanCancellationEmailTemplate } from '../templates/plan-cancellation-email.js';
+import { getPlanExpirationWarningEmailTemplate } from '../templates/plan-expiration-warning-email.js';
 
 // Email service configuration - following room-service pattern
 const createTransport = () => {

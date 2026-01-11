@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { MediaController } from '../controllers/MediaController.js';
+import { MediaController } from '../controllers/media-controller.js';
 import { httpAuthMiddleware } from '../middleware/auth.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
+import { asyncHandler } from '../middleware/error-handler.js';
 
 /**
  * Media routes for REST API endpoints

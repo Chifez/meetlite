@@ -1,9 +1,9 @@
-import { PlanValidationService } from '@minimeet/shared-models';
+import { PlanValidationService } from '@minimeet/shared';
 import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 import {
   getPlanConstraints,
   getUpgradeSuggestions,
-} from '@minimeet/shared-models';
+} from '@minimeet/shared';
 import { models } from '../index.js';
 
 export class PlanController {

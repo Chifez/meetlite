@@ -1,7 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import redisClient from './config/redis.js';
 import { verifyToken } from './middleware/auth.js';
 
@@ -14,7 +13,7 @@ import aiRoutesV1 from './routes/v1/ai.routes.js';
 import calendarRoutesV1 from './routes/v1/calendar.routes.js';
 import notificationRoutesV1 from './routes/v1/notifications.routes.js';
 import { createSessionStore } from './config/session.js';
-import { connectionPool, createModelFactory } from '@minimeet/shared-models';
+import { connectionPool, createModelFactory } from '@minimeet/shared';
 import { createLocalModels } from './utils/model-factory.js';
 
 // Notification services
@@ -23,8 +22,18 @@ import {
   sendNotificationToUser,
   shutdownNotificationSSE,
 } from './services/notification-sse.service.js';
-import createNotificationWorker from './workers/notification.worker.js';
-import { setNotificationEmitter } from './workers/notification.worker.js';
+import { NotificationWorker } from '@minimeet/shared';
+import { sendEmail } from './services/email.service.js';
+import { sendPushNotificationToUser } from './services/push-notification.service.js';
+import {
+  auditNotificationSent,
+  auditNotificationFailed,
+} from './services/audit.service.js';
+import {
+  meetingReminderEmailTemplate,
+  meetingReminderEmailText,
+} from './templates/meeting-reminder-email.js';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -39,7 +48,7 @@ export let roomConnection = null;
 export let models = null;
 let notificationWorker = null;
 
-// Health check endpoint - must be BEFORE CORS to allow unrestricted access
+// Health check endpoint - BEFORE CORS to allow unrestricted access
 app.get('/health', (req, res) => {
   const health = {
     status: 'OK',
@@ -165,11 +174,29 @@ const startServer = async () => {
       },
     };
 
-    // Set emitter for worker
-    setNotificationEmitter(notificationEmitter);
-
-    // Start notification worker
-    notificationWorker = createNotificationWorker();
+    // Create notification worker with dependencies
+    notificationWorker = new NotificationWorker(
+      {
+        Notification: models.Notification,
+        User: models.User,
+        notificationEmitter,
+        sendEmail,
+        sendPushNotificationToUser,
+        auditNotificationSent,
+        auditNotificationFailed,
+        emailTemplates: {
+          meetingReminderHtml: meetingReminderEmailTemplate,
+          meetingReminderText: meetingReminderEmailText,
+        },
+      },
+      {
+        concurrency: parseInt(process.env.QUEUE_CONCURRENCY || '5'),
+        limiter: {
+          max: parseInt(process.env.QUEUE_RATE_LIMIT || '100'),
+          duration: 60000,
+        },
+      }
+    );
     console.log('✅ Notification worker started');
 
     // Start HTTP server

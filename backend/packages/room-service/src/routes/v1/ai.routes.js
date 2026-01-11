@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { verifyToken } from '../../middleware/auth.js';
+import { asyncHandler } from '../../middleware/error-handler.js';
 import {
   summarizeMeeting,
   transcribeMeeting,
@@ -26,17 +27,21 @@ router.post(
     { name: 'audio', maxCount: 1 },
     { name: 'video', maxCount: 1 },
   ]),
-  summarizeMeeting
+  asyncHandler(summarizeMeeting)
 );
 
-router.post('/transcribe', upload.single('audio'), transcribeMeeting);
+router.post(
+  '/transcribe',
+  upload.single('audio'),
+  asyncHandler(transcribeMeeting)
+);
 
-router.post('/suggest', suggestMeetingImprovements);
+router.post('/suggest', asyncHandler(suggestMeetingImprovements));
 
-router.get('/insights/:meetingId', getMeetingInsights);
+router.get('/insights/:meetingId', asyncHandler(getMeetingInsights));
 
-router.post('/description', generateMeetingDescription);
+router.post('/description', asyncHandler(generateMeetingDescription));
 
-router.post('/parse-meeting', parseMeeting);
+router.post('/parse-meeting', asyncHandler(parseMeeting));
 
 export default router;

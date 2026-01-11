@@ -1,8 +1,9 @@
-import { Notification, User, PushSubscription } from '@minimeet/shared-models';
 import {
-  addNotificationJob,
-  cancelNotificationJob,
-} from '../queues/notification.queue.js';
+  Notification,
+  User,
+  PushSubscription,
+  NotificationQueue,
+} from '@minimeet/shared';
 import {
   auditNotificationScheduled,
   auditNotificationCancelled,
@@ -14,6 +15,16 @@ import { body, param, validationResult } from 'express-validator';
  * Notification Service
  * Handles scheduling and canceling meeting reminders with validation
  */
+
+// Lazy-load NotificationQueue instance (created on first use)
+// This ensures dotenv.config() has been called before queue instantiation
+let notificationQueue = null;
+const getNotificationQueue = () => {
+  if (!notificationQueue) {
+    notificationQueue = new NotificationQueue();
+  }
+  return notificationQueue;
+};
 
 const REMINDER_MINUTES = parseInt(
   process.env.NOTIFICATION_REMINDER_MINUTES || '10'
@@ -218,7 +229,7 @@ export const scheduleMeetingReminders = async (meeting) => {
 
           // Schedule the job in BullMQ with same channels
           const delay = reminderTime.getTime() - now.getTime();
-          const job = await addNotificationJob(
+          const job = await getNotificationQueue().addNotificationJob(
             'meeting_reminder',
             {
               notificationId: notification._id.toString(),
@@ -320,7 +331,9 @@ export const cancelMeetingReminders = async (
         try {
           // Cancel the BullMQ job
           if (notification.jobId) {
-            await cancelNotificationJob(notification.jobId);
+            await getNotificationQueue().cancelNotificationJob(
+              notification.jobId
+            );
           }
 
           // Update notification status
@@ -436,7 +449,9 @@ export const updateMeetingReminderParticipants = async (meetingId, meeting) => {
         removedNotifications.map(async (notification) => {
           try {
             if (notification.jobId) {
-              await cancelNotificationJob(notification.jobId);
+              await getNotificationQueue().cancelNotificationJob(
+                notification.jobId
+              );
             }
             notification.status = 'cancelled';
             notification.cancelledAt = new Date();

@@ -1,5 +1,5 @@
 import webpush from 'web-push';
-import { PushSubscription } from '@minimeet/shared-models';
+import { PushSubscription } from '@minimeet/shared';
 
 /**
  * Push Notification Service for Room Service

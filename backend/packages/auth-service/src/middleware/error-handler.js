@@ -1,4 +1,4 @@
-import { AppError } from '@minimeet/shared-models';
+import { AppError } from '@minimeet/shared';
 
 export const errorHandler = (err, req, res, next) => {
   // Clone the error to avoid mutation
@@ -81,18 +81,17 @@ const sendErrorResponse = (err, req, res) => {
     return res.status(err.statusCode || 500).json(response);
   }
 
-  // Programming or unknown errors - don't leak details in production
+  // Programming or unknown errors - convert to AppError and don't leak details in production
   console.error('Unknown Error:', err);
 
-  res.status(500).json({
-    success: false,
-    code: 'SYSTEM_9006',
-    message:
-      process.env.NODE_ENV === 'development'
-        ? err.message
-        : 'Something went wrong. Please try again later.',
-    timestamp: new Date().toISOString(),
-  });
+  const appError = AppError.internal(
+    process.env.NODE_ENV === 'development'
+      ? err.message
+      : 'Something went wrong. Please try again later.'
+  );
+
+  const response = appError.toResponse();
+  return res.status(appError.statusCode || 500).json(response);
 };
 
 // 404 handler for unknown routes

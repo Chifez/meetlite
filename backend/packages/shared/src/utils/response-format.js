@@ -116,62 +116,6 @@ export const ResponseHelpers = {
   noContent: (res) => {
     return res.status(HTTP_STATUS.NO_CONTENT).send();
   },
-
-  /**
-   * 400 Bad Request - Invalid request
-   */
-  badRequest: (res, message = 'Bad request', error = null) => {
-    return sendError(res, HTTP_STATUS.BAD_REQUEST, message, error);
-  },
-
-  /**
-   * 401 Unauthorized - Authentication required
-   */
-  unauthorized: (res, message = 'Authentication required') => {
-    return sendError(res, HTTP_STATUS.UNAUTHORIZED, message);
-  },
-
-  /**
-   * 403 Forbidden - Access denied
-   */
-  forbidden: (res, message = 'Access denied', metadata = null) => {
-    return sendError(res, HTTP_STATUS.FORBIDDEN, message, null, metadata);
-  },
-
-  /**
-   * 404 Not Found - Resource not found
-   */
-  notFound: (res, message = 'Resource not found') => {
-    return sendError(res, HTTP_STATUS.NOT_FOUND, message);
-  },
-
-  /**
-   * 409 Conflict - Resource conflict
-   */
-  conflict: (res, message = 'Resource conflict', error = null) => {
-    return sendError(res, HTTP_STATUS.CONFLICT, message, error);
-  },
-
-  /**
-   * 422 Unprocessable Entity - Validation error
-   */
-  unprocessable: (res, message = 'Validation error', errors = null) => {
-    return sendError(res, HTTP_STATUS.UNPROCESSABLE_ENTITY, message, errors);
-  },
-
-  /**
-   * 429 Too Many Requests - Rate limit exceeded
-   */
-  tooManyRequests: (res, message = 'Too many requests') => {
-    return sendError(res, HTTP_STATUS.TOO_MANY_REQUESTS, message);
-  },
-
-  /**
-   * 500 Internal Server Error - Server error
-   */
-  serverError: (res, message = 'Internal server error', error = null) => {
-    return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, message, error);
-  },
 };
 
 /**
@@ -195,6 +139,3 @@ export default {
   ResponseHelpers,
   sendLegacySuccess,
 };
-
-
-

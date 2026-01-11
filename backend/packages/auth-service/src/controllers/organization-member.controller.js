@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
 import { sendOrganizationInviteEmail } from '../services/email-service.js';
 import { OrganizationMemberService } from '../services/organization-member.service.js';
-import { PlanValidationService } from '@minimeet/shared-models';
+import { PlanValidationService } from '@minimeet/shared';
 
 export class OrganizationMemberController {
   constructor() {

@@ -1,4 +1,4 @@
-import { getPlanConstraints } from '@minimeet/shared-models';
+import { getPlanConstraints } from '@minimeet/shared';
 import { models } from '../index.js';
 
 /**

@@ -11,6 +11,7 @@ import {
   createAuthenticatedGoogleClient,
   createAuthenticatedMicrosoftClient,
 } from '../services/calendar.service.js';
+import { AppError } from '@minimeet/shared';
 
 // Google Calendar OAuth
 export const getGoogleAuthUrl = (req, res) => {
@@ -31,103 +32,86 @@ export const getGoogleAuthUrl = (req, res) => {
 export const handleGoogleCallback = async (req, res) => {
   const { code, state } = req.query;
 
+  // Parse state to get user info
+  const stateData = JSON.parse(decodeURIComponent(state));
+  const { userId, email: userEmail } = stateData;
+
+  const oauth2Client = createGoogleOAuth2Client();
+  const { tokens } = await oauth2Client.getToken(code);
+
+  // Try to get user's email from Google, but don't fail if we can't
+  let finalEmail = userEmail; // Use email from JWT as fallback
   try {
-    // Parse state to get user info
-    const stateData = JSON.parse(decodeURIComponent(state));
-    const { userId, email: userEmail } = stateData;
+    const userOAuth2Client = createGoogleOAuth2Client();
+    userOAuth2Client.setCredentials(tokens);
 
-    const oauth2Client = createGoogleOAuth2Client();
-    const { tokens } = await oauth2Client.getToken(code);
-
-    // Try to get user's email from Google, but don't fail if we can't
-    let finalEmail = userEmail; // Use email from JWT as fallback
-    try {
-      const userOAuth2Client = createGoogleOAuth2Client();
-      userOAuth2Client.setCredentials(tokens);
-
-      const oauth2 = google.oauth2({ version: 'v2', auth: userOAuth2Client });
-      const userInfo = await oauth2.userinfo.get();
-      finalEmail = userInfo.data.email; // Use Google's email if available
-    } catch (emailError) {
-      // Could not fetch user email from Google, continue with email from JWT
-    }
-
-    // Save tokens to database
-    await saveCalendarTokens(userId, 'google', tokens, finalEmail);
-
-    // Send success page that closes the popup
-    res.send(oauthTemplates.googleSuccess());
-  } catch (error) {
-    console.error('Google OAuth error:', error);
-    // Send error page
-    res.send(oauthTemplates.googleError());
+    const oauth2 = google.oauth2({ version: 'v2', auth: userOAuth2Client });
+    const userInfo = await oauth2.userinfo.get();
+    finalEmail = userInfo.data.email; // Use Google's email if available
+  } catch (emailError) {
+    // Could not fetch user email from Google, continue with email from JWT
   }
+
+  // Save tokens to database
+  await saveCalendarTokens(userId, 'google', tokens, finalEmail);
+
+  // Send success page that closes the popup
+  res.send(oauthTemplates.googleSuccess());
 };
 
 // Connect Google Calendar
 export const connectGoogleCalendar = async (req, res) => {
+  const userId = req.user.userId; // From JWT token
+  const userEmail = req.user.email; // From JWT token
+
+  // Create state object with user info
+  const stateData = {
+    userId,
+    email: userEmail,
+  };
+  const state = encodeURIComponent(JSON.stringify(stateData));
+
+  // Generate OAuth URL for Google Calendar
+  const oauth2Client = createGoogleOAuth2Client();
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: [
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+    prompt: 'consent',
+    state: state, // Pass user info in state for callback
+  });
+
+  // Validate the URL
   try {
-    const userId = req.user.userId; // From JWT token
-    const userEmail = req.user.email; // From JWT token
-
-    // Create state object with user info
-    const stateData = {
-      userId,
-      email: userEmail,
-    };
-    const state = encodeURIComponent(JSON.stringify(stateData));
-
-    // Generate OAuth URL for Google Calendar
-    const oauth2Client = createGoogleOAuth2Client();
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: [
-        'https://www.googleapis.com/auth/calendar.readonly',
-        'https://www.googleapis.com/auth/calendar.events',
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/userinfo.profile',
-      ],
-      prompt: 'consent',
-      state: state, // Pass user info in state for callback
-    });
-
-    // Validate the URL
-    try {
-      new URL(authUrl);
-    } catch (urlError) {
-      console.error('Generated URL is invalid:', urlError);
-      throw new Error('Invalid OAuth URL generated');
-    }
-
-    // In a real app, you'd store the pending connection in database
-    // For now, return the auth URL for the frontend to redirect to
-    res.json({
-      success: true,
-      authUrl,
-      message: 'Google Calendar connection initiated',
-    });
-  } catch (error) {
-    console.error('Google connection error:', error);
-    res.status(500).json({ error: 'Failed to connect Google Calendar' });
+    new URL(authUrl);
+  } catch (urlError) {
+    throw AppError.internal('Invalid OAuth URL generated');
   }
+
+  // In a real app, you'd store the pending connection in database
+  // For now, return the auth URL for the frontend to redirect to
+  res.json({
+    success: true,
+    authUrl,
+    message: 'Google Calendar connection initiated',
+  });
 };
 
 // Import calendar events
 export const importCalendarEvents = async (req, res) => {
-  try {
-    const { calendarType, startDate, endDate, accessToken } = req.body;
-    const userId = req.user.userId; // From JWT token
+  const { calendarType, startDate, endDate, accessToken } = req.body;
+  const userId = req.user.userId; // From JWT token
 
-    if (calendarType === 'google') {
-      // Get user's stored tokens from database
-      const tokens = await getUserCalendarTokens(userId, 'google');
-      if (!tokens) {
-        return res.status(409).json({
-          error:
-            'Google Calendar not connected. Please reconnect your account.',
-          code: 'GOOGLE_REAUTH_REQUIRED',
-        });
-      }
+  if (calendarType === 'google') {
+    // Get user's stored tokens from database
+    const tokens = await getUserCalendarTokens(userId, 'google');
+    if (!tokens) {
+      throw new AppError('SYSTEM_9009', 'Google Calendar not connected. Please reconnect your account.', { code: 'GOOGLE_REAUTH_REQUIRED' });
+    }
 
       // Create new OAuth client with user's tokens
       const userOAuth2Client = createGoogleOAuth2Client();
@@ -159,160 +143,136 @@ export const importCalendarEvents = async (req, res) => {
       res.json(events);
     } else if (calendarType === 'outlook') {
       if (!accessToken) {
-        return res.status(400).json({ error: 'Missing Outlook access token' });
+        throw AppError.validation('Missing Outlook access token');
       }
       const client = createAuthenticatedMicrosoftClient(accessToken);
       const events = [];
-      try {
-        const response = await client
-          .api('/me/events')
-          .filter(
-            `start/dateTime ge '${startDate}' and end/dateTime le '${endDate}'`
-          )
-          .select('id,subject,bodyPreview,start,end,attendees,location')
-          .orderby('start/dateTime')
-          .get();
-        if (response.value && Array.isArray(response.value)) {
-          response.value.forEach((event) => {
-            events.push({
-              id: event.id,
-              title: event.subject,
-              description: event.bodyPreview,
-              start: event.start.dateTime,
-              end: event.end.dateTime,
-              attendees:
-                event.attendees?.map((a) => a.emailAddress?.address) || [],
-              location: event.location?.displayName,
-              source: 'outlook',
-            });
+      const response = await client
+        .api('/me/events')
+        .filter(
+          `start/dateTime ge '${startDate}' and end/dateTime le '${endDate}'`
+        )
+        .select('id,subject,bodyPreview,start,end,attendees,location')
+        .orderby('start/dateTime')
+        .get();
+      if (response.value && Array.isArray(response.value)) {
+        response.value.forEach((event) => {
+          events.push({
+            id: event.id,
+            title: event.subject,
+            description: event.bodyPreview,
+            start: event.start.dateTime,
+            end: event.end.dateTime,
+            attendees:
+              event.attendees?.map((a) => a.emailAddress?.address) || [],
+            location: event.location?.displayName,
+            source: 'outlook',
           });
-        }
-        res.json(events);
-      } catch (err) {
-        console.error('Outlook import error:', err);
-        res.status(500).json({ error: 'Failed to import Outlook events' });
+        });
       }
+      res.json(events);
     } else {
-      res.status(400).json({ error: 'Unsupported calendar type' });
+      throw AppError.validation('Unsupported calendar type');
     }
-  } catch (error) {
-    console.error('Calendar import error:', error);
-    res.status(500).json({ error: 'Failed to import calendar events' });
-  }
 };
 
 // Export meeting to calendar
 export const exportMeetingToCalendar = async (req, res) => {
-  try {
-    const { meetingId, calendarType } = req.body;
+  const { meetingId, calendarType } = req.body;
 
-    // Get meeting details from your database
-    const meeting = {
-      title: 'Sample Meeting',
-      description: 'Meeting description',
-      start: new Date(),
-      end: new Date(Date.now() + 60 * 60 * 1000), // 1 hour later
-      attendees: ['user1@example.com', 'user2@example.com'],
+  // Get meeting details from your database
+  const meeting = {
+    title: 'Sample Meeting',
+    description: 'Meeting description',
+    start: new Date(),
+    end: new Date(Date.now() + 60 * 60 * 1000), // 1 hour later
+    attendees: ['user1@example.com', 'user2@example.com'],
+  };
+
+  if (calendarType === 'google') {
+    const oauth2Client = createGoogleOAuth2Client();
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    const event = {
+      summary: meeting.title,
+      description: meeting.description,
+      start: {
+        dateTime: meeting.start.toISOString(),
+        timeZone: 'UTC',
+      },
+      end: {
+        dateTime: meeting.end.toISOString(),
+        timeZone: 'UTC',
+      },
+      attendees: meeting.attendees.map((email) => ({ email })),
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'email', minutes: 24 * 60 },
+          { method: 'popup', minutes: 10 },
+        ],
+      },
     };
 
-    if (calendarType === 'google') {
-      const oauth2Client = createGoogleOAuth2Client();
-      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      resource: event,
+    });
 
-      const event = {
-        summary: meeting.title,
-        description: meeting.description,
-        start: {
-          dateTime: meeting.start.toISOString(),
-          timeZone: 'UTC',
-        },
-        end: {
-          dateTime: meeting.end.toISOString(),
-          timeZone: 'UTC',
-        },
-        attendees: meeting.attendees.map((email) => ({ email })),
-        reminders: {
-          useDefault: false,
-          overrides: [
-            { method: 'email', minutes: 24 * 60 },
-            { method: 'popup', minutes: 10 },
-          ],
-        },
-      };
-
-      const response = await calendar.events.insert({
-        calendarId: 'primary',
-        resource: event,
-      });
-
-      res.json({ success: true, eventId: response.data.id });
-    } else {
-      res.status(400).json({ error: 'Unsupported calendar type' });
-    }
-  } catch (error) {
-    console.error('Calendar export error:', error);
-    res.status(500).json({ error: 'Failed to export meeting to calendar' });
+    res.json({ success: true, eventId: response.data.id });
+  } else {
+    throw AppError.validation('Unsupported calendar type');
   }
 };
 
 // Refresh calendar cache manually
 export const refreshCalendarCache = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { startDate, endDate } = req.body;
+  const userId = req.user.userId;
+  const { startDate, endDate } = req.body;
 
-    // Default to 30 days ago to 90 days ahead if not provided
-    const now = new Date();
-    const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const defaultEndDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  // Default to 30 days ago to 90 days ahead if not provided
+  const now = new Date();
+  const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const defaultEndDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-    const { getCachedCalendarEvents, invalidateCalendarCache } = await import(
-      '../services/calendar-cache.service.js'
-    );
+  const { getCachedCalendarEvents, invalidateCalendarCache } = await import(
+    '../services/calendar-cache.service.js'
+  );
 
-    // Invalidate existing cache
-    await invalidateCalendarCache(userId);
+  // Invalidate existing cache
+  await invalidateCalendarCache(userId);
 
-    // Force refresh by fetching with forceRefresh=true
-    const events = await getCachedCalendarEvents(
-      userId,
-      startDate || defaultStartDate,
-      endDate || defaultEndDate,
-      true // forceRefresh
-    );
+  // Force refresh by fetching with forceRefresh=true
+  const events = await getCachedCalendarEvents(
+    userId,
+    startDate || defaultStartDate,
+    endDate || defaultEndDate,
+    true // forceRefresh
+  );
 
-    res.json({
-      success: true,
-      message: 'Calendar cache refreshed successfully',
-      eventCount: events.length,
-    });
-  } catch (error) {
-    console.error('Refresh calendar cache error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to refresh calendar cache',
-      message: error.message,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Calendar cache refreshed successfully',
+    eventCount: events.length,
+  });
 };
 
 // Check calendar conflicts
 export const checkCalendarConflicts = async (req, res) => {
-  try {
-    const { startDate, endDate, attendees } = req.body;
-    const userId = req.user.userId;
+  const { startDate, endDate, attendees } = req.body;
+  const userId = req.user.userId;
 
-    // Check if user has Google Calendar connected
-    const tokens = await getUserCalendarTokens(userId, 'google');
+  // Check if user has Google Calendar connected
+  const tokens = await getUserCalendarTokens(userId, 'google');
 
-    if (!tokens) {
-      return res.json({
-        conflicts: [],
-        availableSlots: [
-          { start: new Date(startDate), end: new Date(endDate) },
-        ],
-      });
-    }
+  if (!tokens) {
+    return res.json({
+      conflicts: [],
+      availableSlots: [
+        { start: new Date(startDate), end: new Date(endDate) },
+      ],
+    });
+  }
 
     // Get Google Calendar events for the time range
     const oauth2Client = createGoogleOAuth2Client();
@@ -406,35 +366,26 @@ export const checkCalendarConflicts = async (req, res) => {
     }
 
     res.json({ conflicts, availableSlots });
-  } catch (error) {
-    console.error('❌ Calendar conflict check error:', error);
-    res.status(500).json({ error: 'Failed to check calendar conflicts' });
-  }
 };
 
 // Schedule meeting directly on Google Calendar
 export const scheduleMeetingOnCalendar = async (req, res) => {
-  try {
-    const {
-      title,
-      description,
-      startDate,
-      endDate,
-      participants,
-      calendarType,
-    } = req.body;
-    const userId = req.user.userId;
+  const {
+    title,
+    description,
+    startDate,
+    endDate,
+    participants,
+    calendarType,
+  } = req.body;
+  const userId = req.user.userId;
 
-    if (calendarType === 'google') {
-      // Get user's stored tokens from database
-      const tokens = await getUserCalendarTokens(userId, 'google');
-      if (!tokens) {
-        return res.status(409).json({
-          error:
-            'Google Calendar not connected. Please reconnect your account.',
-          code: 'GOOGLE_REAUTH_REQUIRED',
-        });
-      }
+  if (calendarType === 'google') {
+    // Get user's stored tokens from database
+    const tokens = await getUserCalendarTokens(userId, 'google');
+    if (!tokens) {
+      throw new AppError('SYSTEM_9009', 'Google Calendar not connected. Please reconnect your account.', { code: 'GOOGLE_REAUTH_REQUIRED' });
+    }
 
       // Create new OAuth client with user's tokens
       const userOAuth2Client = createGoogleOAuth2Client();
@@ -479,31 +430,22 @@ export const scheduleMeetingOnCalendar = async (req, res) => {
         message: 'Meeting scheduled successfully on Google Calendar',
       });
     } else {
-      res.status(400).json({ error: 'Unsupported calendar type' });
+      throw AppError.validation('Unsupported calendar type');
     }
-  } catch (error) {
-    console.error('Calendar scheduling error:', error);
-    res.status(500).json({ error: 'Failed to schedule meeting on calendar' });
-  }
 };
 
 // Delete event from Google Calendar
 export const deleteCalendarEvent = async (req, res) => {
-  try {
-    const { eventId } = req.params;
-    const { calendarType } = req.body;
-    const userId = req.user.userId;
+  const { eventId } = req.params;
+  const { calendarType } = req.body;
+  const userId = req.user.userId;
 
-    if (calendarType === 'google') {
-      // Get user's stored tokens from database
-      const tokens = await getUserCalendarTokens(userId, 'google');
-      if (!tokens) {
-        return res.status(409).json({
-          error:
-            'Google Calendar not connected. Please reconnect your account.',
-          code: 'GOOGLE_REAUTH_REQUIRED',
-        });
-      }
+  if (calendarType === 'google') {
+    // Get user's stored tokens from database
+    const tokens = await getUserCalendarTokens(userId, 'google');
+    if (!tokens) {
+      throw new AppError('SYSTEM_9009', 'Google Calendar not connected. Please reconnect your account.', { code: 'GOOGLE_REAUTH_REQUIRED' });
+    }
 
       // Create new OAuth client with user's tokens
       const userOAuth2Client = createGoogleOAuth2Client();
@@ -526,60 +468,46 @@ export const deleteCalendarEvent = async (req, res) => {
         message: 'Event deleted successfully from Google Calendar',
       });
     } else {
-      res.status(400).json({ error: 'Unsupported calendar type' });
+      throw AppError.validation('Unsupported calendar type');
     }
-  } catch (error) {
-    console.error('Calendar deletion error:', error);
-    res.status(500).json({ error: 'Failed to delete event from calendar' });
-  }
 };
 
 // Get connected calendars
 export const getConnectedCalendars = async (req, res) => {
-  try {
-    const userId = req.user.userId;
+  const userId = req.user.userId;
 
-    // Get connected calendars from database
-    const integrations = await models.CalendarIntegration.find({
-      userId,
-      isConnected: true,
-    });
+  // Get connected calendars from database
+  const integrations = await models.CalendarIntegration.find({
+    userId,
+    isConnected: true,
+  });
 
-    const connectedCalendars = integrations.map((integration) => ({
-      id: integration.calendarType,
-      type: integration.calendarType,
-      name: `${
-        integration.calendarType.charAt(0).toUpperCase() +
-        integration.calendarType.slice(1)
-      } Calendar`,
-      isConnected: integration.isConnected,
-      lastSync: integration.lastSync,
-      email: integration.email,
-    }));
+  const connectedCalendars = integrations.map((integration) => ({
+    id: integration.calendarType,
+    type: integration.calendarType,
+    name: `${
+      integration.calendarType.charAt(0).toUpperCase() +
+      integration.calendarType.slice(1)
+    } Calendar`,
+    isConnected: integration.isConnected,
+    lastSync: integration.lastSync,
+    email: integration.email,
+  }));
 
-    res.json(connectedCalendars);
-  } catch (error) {
-    console.error('Get connected calendars error:', error);
-    res.status(500).json({ error: 'Failed to get connected calendars' });
-  }
+  res.json(connectedCalendars);
 };
 
 // Disconnect calendar
 export const disconnectCalendarIntegration = async (req, res) => {
-  try {
-    const { calendarType } = req.body;
-    const userId = req.user.userId;
+  const { calendarType } = req.body;
+  const userId = req.user.userId;
 
-    await disconnectCalendar(userId, calendarType);
+  await disconnectCalendar(userId, calendarType);
 
-    res.json({
-      success: true,
-      message: `${calendarType} calendar disconnected`,
-    });
-  } catch (error) {
-    console.error('Calendar disconnect error:', error);
-    res.status(500).json({ error: 'Failed to disconnect calendar' });
-  }
+  res.json({
+    success: true,
+    message: `${calendarType} calendar disconnected`,
+  });
 };
 
 
