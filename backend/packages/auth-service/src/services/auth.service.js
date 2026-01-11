@@ -1,11 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { google } from 'googleapis';
 import { models } from '../index.js';
-import {
-  sendWelcomeEmail,
-  sendPasswordResetEmail,
-  generateResetToken,
-} from './email-service.js';
+import { generateResetToken } from './email-service.js';
+import { EmailQueue } from '@minimeet/shared';
 
 export class AuthService {
   // Helper function to create Google OAuth client
@@ -254,11 +251,19 @@ export class AuthService {
 
       await user.save();
 
-      // Send welcome email now (moved from signup)
+      // Queue welcome email
       try {
-        await sendWelcomeEmail(user.email, user.name);
+        const emailQueue = new EmailQueue();
+        await emailQueue.addEmailJob('welcome', {
+          userId: user._id.toString(),
+          userEmail: user.email,
+          userName: user.name || '',
+        }, {
+          priority: 1,
+          jobId: `welcome-email-${user._id}`,
+        });
       } catch (emailError) {
-        console.error('Welcome email error:', emailError);
+        console.error('Failed to queue welcome email:', emailError);
         // Do not fail the onboarding request due to email errors
       }
 

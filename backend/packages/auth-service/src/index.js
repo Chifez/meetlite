@@ -24,12 +24,28 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 // Import configs
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
-import { connectionPool, createModelFactory } from '@minimeet/shared';
+import { connectionPool, createModelFactory, EmailWorker } from '@minimeet/shared';
 
 // Import cron jobs
 import './jobs/usage-reset.job.js';
 import './jobs/plan-expiration.job.js';
 import './jobs/plan-expiry-warning.job.js';
+
+// Import email templates
+import { getWelcomeEmailTemplate } from './templates/welcome-email.js';
+import { getPasswordResetEmailTemplate } from './templates/password-reset-email.js';
+import { getOrganizationInviteEmailTemplate } from './templates/organization-invite-email.js';
+import { getTeamInviteEmailTemplate } from './templates/team-invite-email.js';
+import { getPlanUpgradeEmailTemplate } from './templates/plan-upgrade-email.js';
+import { getPlanCancellationEmailTemplate } from './templates/plan-cancellation-email.js';
+import { getPlanExpirationWarningEmailTemplate } from './templates/plan-expiration-warning-email.js';
+import {
+  adaptWelcomeTemplate,
+  adaptPasswordResetTemplate,
+  adaptOrganizationInviteTemplate,
+  adaptTeamInviteTemplate,
+  adaptPlanEmailTemplate,
+} from '@minimeet/shared';
 
 dotenv.config();
 
@@ -94,6 +110,7 @@ app.use(errorHandler);
 // Connect to MongoDB using shared connection pool
 let authConnection = null;
 export let models = null;
+let emailWorker = null;
 
 const connectDB = async () => {
   try {
@@ -131,10 +148,71 @@ const startServer = async () => {
     const sessionMiddleware = await createSessionStore();
     app.use(sessionMiddleware);
 
+    // Create email templates object with adapters
+    const emailTemplates = {
+      welcome: adaptWelcomeTemplate(getWelcomeEmailTemplate),
+      password_reset: adaptPasswordResetTemplate(getPasswordResetEmailTemplate),
+      organization_invite: adaptOrganizationInviteTemplate(getOrganizationInviteEmailTemplate),
+      team_invite: adaptTeamInviteTemplate(getTeamInviteEmailTemplate),
+      plan_upgrade: adaptPlanEmailTemplate(getPlanUpgradeEmailTemplate),
+      plan_cancellation: adaptPlanEmailTemplate(getPlanCancellationEmailTemplate),
+      plan_expiration_warning: adaptPlanEmailTemplate(getPlanExpirationWarningEmailTemplate),
+    };
+
+    // Start email worker
+    emailWorker = new EmailWorker(
+      {
+        User: models.User,
+        emailTemplates,
+        // Audit functions can be added later
+        auditEmailSent: null,
+        auditEmailFailed: null,
+      },
+      {
+        concurrency: parseInt(process.env.EMAIL_WORKER_CONCURRENCY || '10'),
+        limiter: {
+          max: parseInt(process.env.EMAIL_RATE_LIMIT || '100'),
+          duration: 60000, // Per minute
+        },
+      }
+    );
+    console.log('✅ Email worker started');
+
     // Start server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Auth service started on port ${PORT}`);
     });
+
+    // Graceful shutdown
+    const shutdown = async (signal) => {
+      console.log(`\n⏹️  ${signal} received, shutting down gracefully...`);
+
+      try {
+        // Stop accepting new connections
+        server.close(() => {
+          console.log('✅ HTTP server closed');
+        });
+
+        // Close email worker
+        if (emailWorker) {
+          await emailWorker.close();
+          console.log('✅ Email worker closed');
+        }
+
+        // Disconnect Redis
+        await redisClient.disconnect();
+        console.log('✅ Redis disconnected');
+
+        console.log('✅ Graceful shutdown complete');
+        process.exit(0);
+      } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

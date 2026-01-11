@@ -45,6 +45,9 @@ export * from './config/plans.js';
 export * from './constants/error-codes.js';
 export { AppError } from './utils/app-error.js';
 export { PlanValidationService } from './services/plan-validation.service.js';
+export { emailService } from './services/email.service.js';
+export * from './templates/email-templates.js';
+export * from './templates/template-adapters.js';
 export * from './utils/response-format.js';
 
 // Export queue infrastructure
@@ -54,6 +57,7 @@ export * from './queues/base/queue-manager.js';
 export * from './queues/types/notification-queue.js';
 export * from './queues/types/notification-worker.js';
 export * from './queues/types/email-queue.js';
+export * from './queues/types/email-worker.js';
 export * from './queues/types/video-processing-queue.js';
 export * from './queues/utils/encryption.js';
 export * from './queues/utils/job-helpers.js';
