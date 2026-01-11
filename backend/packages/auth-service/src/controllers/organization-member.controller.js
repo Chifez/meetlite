@@ -1,8 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
-import { sendOrganizationInviteEmail } from '../services/email-service.js';
 import { OrganizationMemberService } from '../services/organization-member.service.js';
-import { PlanValidationService } from '@minimeet/shared';
+import { PlanValidationService, EmailQueue } from '@minimeet/shared';
 
 export class OrganizationMemberController {
   constructor() {
@@ -111,21 +110,25 @@ export class OrganizationMemberController {
 
       await invitation.save();
 
-      // Send invitation email
+      // Queue invitation email
       try {
-        await sendOrganizationInviteEmail({
-          email: email.toLowerCase(),
+        const emailQueue = new EmailQueue();
+        await emailQueue.addEmailJob('organization_invite', {
+          userEmail: email.toLowerCase(),
           organizationName: organization.name,
           inviterName: req.user.name || req.user.email,
           inviterEmail: req.user.email,
           inviteToken,
           message: message.trim(),
           role,
+        }, {
+          priority: 1,
+          jobId: `org-invite-${invitation._id}`,
         });
       } catch (emailError) {
         // If email fails, remove the invitation
         await models.OrganizationInvitation.findByIdAndDelete(invitation._id);
-        console.error('Failed to send invitation email:', emailError);
+        console.error('Failed to queue invitation email:', emailError);
         return res.status(500).json({
           message: 'Failed to send invitation email',
         });

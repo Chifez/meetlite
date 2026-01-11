@@ -1,9 +1,7 @@
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
-import { AppError, ResponseHelpers } from '@minimeet/shared';
-import nodemailer from 'nodemailer';
-import { getMeetingInviteEmailTemplate } from '../templates/meeting-invite-email.js';
+import { AppError, ResponseHelpers, EmailQueue } from '@minimeet/shared';
 import {
   scheduleMeetingReminders,
   cancelMeetingReminders,
@@ -11,52 +9,29 @@ import {
   updateMeetingReminderParticipants,
 } from '../services/notification.service.js';
 
-// Utility to send invite email
-async function sendInviteEmail({ to, meeting, inviteToken, hostEmail }) {
-  // Check if SMTP is properly configured
-  if (
-    !process.env.SMTP_HOST ||
-    !process.env.SMTP_USER ||
-    !process.env.SMTP_PASS ||
-    !process.env.SMTP_FROM
-  ) {
-    throw new Error('SMTP configuration incomplete');
-  }
-
-  const fromEmail = process.env.SMTP_FROM;
-  if (!fromEmail) {
-    throw new Error('Host email configuration missing');
-  }
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
+// Utility to queue invite email
+async function queueInviteEmail({ to, meeting, inviteToken, hostEmail }) {
+  const emailQueue = new EmailQueue();
   const joinUrl = `${process.env.CLIENT_URL}/meeting/${meeting.meetingId}/join?token=${inviteToken}`;
-  const template = getMeetingInviteEmailTemplate({
-    meeting,
-    joinUrl,
-    hostEmail,
-  });
-  const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
-  const emailContent = {
-    from: `${fromName} <${fromEmail}>`,
-    to,
-    subject: template.subject,
-    html: template.html,
-  };
 
-  try {
-    await transporter.sendMail(emailContent);
-  } catch (error) {
-    throw error;
-  }
+  await emailQueue.addEmailJob(
+    'meeting_invite',
+    {
+      userEmail: to,
+      meetingId: meeting.meetingId,
+      meetingTitle: meeting.title,
+      meetingTime: meeting.scheduledTime,
+      meetingDescription: meeting.description,
+      duration: meeting.duration,
+      joinUrl,
+      inviteToken,
+      hostEmail,
+    },
+    {
+      priority: 1,
+      jobId: `meeting-invite-${meeting.meetingId}-${to}-${Date.now()}`,
+    }
+  );
 }
 
 export class MeetingController {
@@ -172,11 +147,11 @@ export class MeetingController {
       // Don't fail the request if cache invalidation fails
     }
 
-    // Send invites
+    // Queue invite emails
     if (invites.length > 0) {
       for (const invite of invites) {
         try {
-          await sendInviteEmail({
+          await queueInviteEmail({
             to: invite.email,
             meeting,
             inviteToken: invite.inviteToken,
@@ -184,6 +159,7 @@ export class MeetingController {
           });
         } catch (error) {
           // Continue with other invites even if one fails
+          console.error('Failed to queue meeting invite email:', error);
         }
       }
     }

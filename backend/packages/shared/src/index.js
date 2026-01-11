@@ -47,7 +47,17 @@ export { AppError } from './utils/app-error.js';
 export { PlanValidationService } from './services/plan-validation.service.js';
 export { emailService } from './services/email.service.js';
 export * from './templates/email-templates.js';
-export * from './templates/template-adapters.js';
+export {
+  adaptTemplate,
+  adaptWelcomeTemplate,
+  adaptPasswordResetTemplate,
+  adaptOrganizationInviteTemplate,
+  adaptTeamInviteTemplate,
+  adaptMeetingInviteTemplate,
+  adaptMeetingReminderTemplate,
+  adaptPlanEmailTemplate,
+  adaptPlanExpirationWarningTemplate,
+} from './templates/template-adapters.js';
 export * from './utils/response-format.js';
 
 // Export queue infrastructure

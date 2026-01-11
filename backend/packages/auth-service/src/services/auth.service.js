@@ -80,11 +80,23 @@ export class AuthService {
       user.resetTokenExpiry = resetTokenExpiry;
       await user.save();
 
-      // Send password reset email
+      // Queue password reset email
       try {
-        await sendPasswordResetEmail(email, resetToken, user.name);
+        const emailQueue = new EmailQueue();
+        await emailQueue.addEmailJob(
+          'password_reset',
+          {
+            userEmail: email,
+            resetToken,
+            userName: user.name || '',
+          },
+          {
+            priority: 1,
+            jobId: `password-reset-${user._id}-${Date.now()}`,
+          }
+        );
       } catch (emailError) {
-        console.error('Password reset email error:', emailError);
+        console.error('Failed to queue password reset email:', emailError);
         // Return error if email fails, but don't reveal if user exists
         return {
           message:
@@ -152,11 +164,11 @@ export class AuthService {
       // Update notification preferences
       if (updates.notificationPreferences !== undefined) {
         const prefs = updates.notificationPreferences;
-        
+
         if (prefs.enabled !== undefined) {
           user.notificationPreferences.enabled = prefs.enabled;
         }
-        
+
         if (prefs.channels !== undefined) {
           if (prefs.channels.inApp !== undefined) {
             user.notificationPreferences.channels.inApp = prefs.channels.inApp;
@@ -168,19 +180,23 @@ export class AuthService {
             user.notificationPreferences.channels.push = prefs.channels.push;
           }
         }
-        
+
         if (prefs.types !== undefined) {
           if (prefs.types.meetingReminders !== undefined) {
-            user.notificationPreferences.types.meetingReminders = prefs.types.meetingReminders;
+            user.notificationPreferences.types.meetingReminders =
+              prefs.types.meetingReminders;
           }
           if (prefs.types.meetingInvitations !== undefined) {
-            user.notificationPreferences.types.meetingInvitations = prefs.types.meetingInvitations;
+            user.notificationPreferences.types.meetingInvitations =
+              prefs.types.meetingInvitations;
           }
           if (prefs.types.meetingUpdates !== undefined) {
-            user.notificationPreferences.types.meetingUpdates = prefs.types.meetingUpdates;
+            user.notificationPreferences.types.meetingUpdates =
+              prefs.types.meetingUpdates;
           }
           if (prefs.types.recordingReady !== undefined) {
-            user.notificationPreferences.types.recordingReady = prefs.types.recordingReady;
+            user.notificationPreferences.types.recordingReady =
+              prefs.types.recordingReady;
           }
         }
       }
@@ -254,14 +270,18 @@ export class AuthService {
       // Queue welcome email
       try {
         const emailQueue = new EmailQueue();
-        await emailQueue.addEmailJob('welcome', {
-          userId: user._id.toString(),
-          userEmail: user.email,
-          userName: user.name || '',
-        }, {
-          priority: 1,
-          jobId: `welcome-email-${user._id}`,
-        });
+        await emailQueue.addEmailJob(
+          'welcome',
+          {
+            userId: user._id.toString(),
+            userEmail: user.email,
+            userName: user.name || '',
+          },
+          {
+            priority: 1,
+            jobId: `welcome-email-${user._id}`,
+          }
+        );
       } catch (emailError) {
         console.error('Failed to queue welcome email:', emailError);
         // Do not fail the onboarding request due to email errors

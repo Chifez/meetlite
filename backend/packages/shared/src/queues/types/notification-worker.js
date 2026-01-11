@@ -1,10 +1,11 @@
 import { BaseWorker } from '../base/base-worker.js';
 import { decryptJobData } from '../utils/encryption.js';
+import { EmailQueue } from './email-queue.js';
 
 /**
  * Notification Worker
  * Processes notification jobs with channel routing (in_app, email, push)
- * 
+ *
  * Note: This worker requires external dependencies to be injected:
  * - Notification model (from shared models)
  * - User model (from shared models)
@@ -43,7 +44,7 @@ export class NotificationWorker extends BaseWorker {
     };
 
     // Process job handler - will be called by BaseWorker with 'this' bound
-    const processJob = async function(job) {
+    const processJob = async function (job) {
       // At this point, 'this' is the NotificationWorker instance
       // The dependencies are stored on 'this' after super() completes
       return await this.processNotificationJob(job);
@@ -111,57 +112,39 @@ export class NotificationWorker extends BaseWorker {
   }
 
   /**
-   * Send email notification
+   * Send email notification via EmailQueue
+   * Routes email notifications to the centralized email queue system
    */
   async sendEmailNotification(jobData) {
     try {
-      if (!this.sendEmail || !this.emailTemplates) {
-        console.warn('⚠️  Email service or templates not configured');
-        return false;
-      }
+      // Queue email notification instead of sending directly
+      const emailQueue = new EmailQueue();
+      await emailQueue.addEmailJob(
+        'meeting_reminder',
+        {
+          userId: jobData.userId,
+          userEmail: jobData.userEmail,
+          userName: jobData.userName,
+          meetingTitle: jobData.meetingTitle,
+          meetingDescription: jobData.meetingDescription,
+          meetingTime: jobData.meetingTime,
+          duration: jobData.duration,
+          timezone: jobData.timezone,
+          joinUrl: jobData.joinUrl,
+          organizerName: jobData.organizerName,
+        },
+        {
+          priority: 1,
+          jobId: `meeting-reminder-${
+            jobData.notificationId || jobData.userId
+          }-${Date.now()}`,
+        }
+      );
 
-      const htmlContent = this.emailTemplates.meetingReminderHtml({
-        recipientName: jobData.userName,
-        meetingTitle: jobData.meetingTitle,
-        meetingDescription: jobData.meetingDescription,
-        meetingDate: jobData.meetingTime,
-        meetingTime: new Date(jobData.meetingTime).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        duration: jobData.duration,
-        timezone: jobData.timezone,
-        joinUrl: jobData.joinUrl,
-        organizerName: jobData.organizerName,
-        logoUrl: process.env.LOGO_URL,
-      });
-
-      const textContent = this.emailTemplates.meetingReminderText({
-        recipientName: jobData.userName,
-        meetingTitle: jobData.meetingTitle,
-        meetingDescription: jobData.meetingDescription,
-        meetingDate: jobData.meetingTime,
-        meetingTime: new Date(jobData.meetingTime).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        duration: jobData.duration,
-        timezone: jobData.timezone,
-        joinUrl: jobData.joinUrl,
-        organizerName: jobData.organizerName,
-      });
-
-      await this.sendEmail({
-        to: jobData.userEmail,
-        subject: `Meeting Reminder: ${jobData.meetingTitle}`,
-        html: htmlContent,
-        text: textContent,
-      });
-
-      console.log(`✅ Sent email notification to ${jobData.userEmail}`);
+      console.log(`✅ Queued email notification to ${jobData.userEmail}`);
       return true;
     } catch (error) {
-      console.error(`❌ Failed to send email notification:`, error);
+      console.error(`❌ Failed to queue email notification:`, error);
       return false;
     }
   }
@@ -198,7 +181,10 @@ export class NotificationWorker extends BaseWorker {
         ],
       };
 
-      const result = await this.sendPushNotificationToUser(jobData.userId, payload);
+      const result = await this.sendPushNotificationToUser(
+        jobData.userId,
+        payload
+      );
 
       if (result.success) {
         console.log(
@@ -254,7 +240,9 @@ export class NotificationWorker extends BaseWorker {
       }
 
       // Get notification from database
-      const notification = await this.Notification.findById(jobData.notificationId);
+      const notification = await this.Notification.findById(
+        jobData.notificationId
+      );
       if (!notification) {
         console.warn(`⚠️  Notification ${jobData.notificationId} not found`);
         return { skipped: true, reason: 'Notification not found' };
@@ -294,7 +282,10 @@ export class NotificationWorker extends BaseWorker {
 
           switch (channel) {
             case 'in_app':
-              success = await this.sendInAppNotification(jobData.userId, notification);
+              success = await this.sendInAppNotification(
+                jobData.userId,
+                notification
+              );
               break;
 
             case 'email':
@@ -367,7 +358,9 @@ export class NotificationWorker extends BaseWorker {
       // Try to update notification status
       try {
         const jobData = decryptJobData(job.data);
-        const notification = await this.Notification.findById(jobData.notificationId);
+        const notification = await this.Notification.findById(
+          jobData.notificationId
+        );
         if (notification) {
           notification.status = 'failed';
           notification.metadata = {
@@ -393,4 +386,3 @@ export class NotificationWorker extends BaseWorker {
     }
   }
 }
-

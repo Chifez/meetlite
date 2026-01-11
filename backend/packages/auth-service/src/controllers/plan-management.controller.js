@@ -3,10 +3,7 @@ import { PlanExpirationService } from '../middleware/plan-validation.js';
 import { PaymentService } from '../services/payment.service.js';
 import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
-import {
-  sendPlanUpgradeEmail,
-  sendPlanCancellationEmail,
-} from '../services/email-service.js';
+import { EmailQueue } from '@minimeet/shared';
 
 export class PlanManagementController {
   /**
@@ -53,16 +50,21 @@ export class PlanManagementController {
       // Generate new token
       const newToken = generateJWTToken(updatedUser);
 
-      // Send upgrade confirmation email
+      // Queue upgrade confirmation email
       try {
-        await sendPlanUpgradeEmail(
-          updatedUser.email,
-          updatedUser.name,
-          updatedUser.plan.type,
-          updatedUser.plan.endDate
-        );
+        const emailQueue = new EmailQueue();
+        await emailQueue.addEmailJob('plan_upgrade', {
+          userId: updatedUser._id.toString(),
+          userEmail: updatedUser.email,
+          userName: updatedUser.name || '',
+          planType: updatedUser.plan.type,
+          endDate: updatedUser.plan.endDate,
+        }, {
+          priority: 1,
+          jobId: `plan-upgrade-${updatedUser._id}`,
+        });
       } catch (emailError) {
-        console.error('Error sending upgrade email:', emailError);
+        console.error('Failed to queue upgrade email:', emailError);
         // Don't fail the request if email fails
       }
 
@@ -118,16 +120,21 @@ export class PlanManagementController {
       // Generate new token
       const newToken = generateJWTToken(updatedUser);
 
-      // Send cancellation confirmation email
+      // Queue cancellation confirmation email
       try {
-        await sendPlanCancellationEmail(
-          updatedUser.email,
-          updatedUser.name,
-          updatedUser.plan.type,
-          updatedUser.plan.endDate
-        );
+        const emailQueue = new EmailQueue();
+        await emailQueue.addEmailJob('plan_cancellation', {
+          userId: updatedUser._id.toString(),
+          userEmail: updatedUser.email,
+          userName: updatedUser.name || '',
+          planType: updatedUser.plan.type,
+          endDate: updatedUser.plan.endDate,
+        }, {
+          priority: 1,
+          jobId: `plan-cancellation-${updatedUser._id}`,
+        });
       } catch (emailError) {
-        console.error('Error sending cancellation email:', emailError);
+        console.error('Failed to queue cancellation email:', emailError);
         // Don't fail the request if email fails
       }
 

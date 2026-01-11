@@ -171,9 +171,9 @@ export class TeamInvitationService {
     const invitation = new models.TeamInvitation(invitationData);
     await invitation.save();
 
-    // Send invitation email
+    // Queue invitation email
     try {
-      const { sendTeamInvitationEmail } = await import('./email-service.js');
+      const { EmailQueue } = await import('@minimeet/shared');
       const inviter = await models.User.findById(invitedBy);
       const inviteUrl = `${process.env.CLIENT_URL}/teams/invite/${invitation.inviteToken}`;
 
@@ -190,20 +190,25 @@ export class TeamInvitationService {
         throw new Error('Cannot determine recipient email address');
       }
 
-      await sendTeamInvitationEmail({
-        email: recipientEmail,
+      const emailQueue = new EmailQueue();
+      await emailQueue.addEmailJob('team_invite', {
+        userEmail: recipientEmail,
         teamName: team.name,
         organizationName: organization.name,
         inviterName: inviter?.name || inviter?.email || 'Someone',
         inviterEmail: inviter?.email || '',
         inviteUrl,
+        inviteToken: invitation.inviteToken,
         message: message.trim(),
         role,
+      }, {
+        priority: 1,
+        jobId: `team-invite-${invitation._id}`,
       });
     } catch (emailError) {
       // If email fails, remove the invitation
       await models.TeamInvitation.findByIdAndDelete(invitation._id);
-      console.error('Failed to send team invitation email:', emailError);
+      console.error('Failed to queue team invitation email:', emailError);
       throw new Error('Failed to send invitation email');
     }
 

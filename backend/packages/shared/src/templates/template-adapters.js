@@ -1,6 +1,6 @@
 /**
  * Template Adapters
- * 
+ *
  * Helper functions to adapt existing template functions to work with EmailWorker
  * Existing templates return {subject, html}, EmailWorker expects {subject, html, text}
  */
@@ -8,19 +8,19 @@
 /**
  * Adapt a template function to work with EmailWorker
  * Adds text field if missing
- * 
+ *
  * @param {Function} templateFn - Original template function
  * @returns {Function} Adapted template function
  */
 export function adaptTemplate(templateFn) {
   return (data) => {
     const result = templateFn(data);
-    
+
     // If already has text, return as-is
     if (result && result.text) {
       return result;
     }
-    
+
     // Add text field by stripping HTML
     return {
       ...result,
@@ -76,7 +76,9 @@ export function adaptOrganizationInviteTemplate(originalTemplate) {
  */
 export function adaptTeamInviteTemplate(originalTemplate) {
   return (data) => {
-    const inviteUrl = data.inviteUrl || `${process.env.CLIENT_URL}/invite/${data.inviteToken || data.token}`;
+    const inviteUrl =
+      data.inviteUrl ||
+      `${process.env.CLIENT_URL}/invite/${data.inviteToken || data.token}`;
     return adaptTemplate(originalTemplate)({
       email: data.userEmail || data.user?.email,
       teamName: data.teamName,
@@ -95,7 +97,11 @@ export function adaptTeamInviteTemplate(originalTemplate) {
  */
 export function adaptMeetingInviteTemplate(originalTemplate) {
   return (data) => {
-    const joinUrl = data.joinUrl || `${process.env.CLIENT_URL}/meeting/${data.meetingId}/join?token=${data.inviteToken || data.token}`;
+    const joinUrl =
+      data.joinUrl ||
+      `${process.env.CLIENT_URL}/meeting/${data.meetingId}/join?token=${
+        data.inviteToken || data.token
+      }`;
     return adaptTemplate(originalTemplate)({
       meeting: data.meeting || {
         meetingId: data.meetingId,
@@ -111,6 +117,51 @@ export function adaptMeetingInviteTemplate(originalTemplate) {
 }
 
 /**
+ * Create template adapter for meeting reminder email
+ * Combines HTML and text templates into single {subject, html, text} object
+ */
+export function adaptMeetingReminderTemplate(htmlTemplate, textTemplate) {
+  return (data) => {
+    const htmlContent = htmlTemplate({
+      recipientName: data.userName || data.user?.name || '',
+      meetingTitle: data.meetingTitle,
+      meetingDescription: data.meetingDescription,
+      meetingDate: data.meetingTime,
+      meetingTime: new Date(data.meetingTime).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      duration: data.duration,
+      timezone: data.timezone || 'UTC',
+      joinUrl: data.joinUrl,
+      organizerName: data.organizerName || '',
+      logoUrl: process.env.LOGO_URL,
+    });
+
+    const textContent = textTemplate({
+      recipientName: data.userName || data.user?.name || '',
+      meetingTitle: data.meetingTitle,
+      meetingDescription: data.meetingDescription,
+      meetingDate: data.meetingTime,
+      meetingTime: new Date(data.meetingTime).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      duration: data.duration,
+      timezone: data.timezone || 'UTC',
+      joinUrl: data.joinUrl,
+      organizerName: data.organizerName || '',
+    });
+
+    return {
+      subject: `Meeting Reminder: ${data.meetingTitle}`,
+      html: htmlContent,
+      text: textContent,
+    };
+  };
+}
+
+/**
  * Create template adapter for plan upgrade/cancellation emails
  */
 export function adaptPlanEmailTemplate(originalTemplate) {
@@ -119,7 +170,24 @@ export function adaptPlanEmailTemplate(originalTemplate) {
     const userName = data.user?.name || data.userName || '';
     const planType = data.planType;
     const endDate = data.endDate;
-    return adaptTemplate(originalTemplate)(userEmail, userName, planType, endDate);
+    return adaptTemplate(originalTemplate)(
+      userEmail,
+      userName,
+      planType,
+      endDate
+    );
   };
 }
 
+/**
+ * Create template adapter for plan expiration warning email
+ * Takes different signature: (userName, planType, daysRemaining)
+ */
+export function adaptPlanExpirationWarningTemplate(originalTemplate) {
+  return (data) => {
+    const userName = data.user?.name || data.userName || '';
+    const planType = data.planType;
+    const daysRemaining = data.daysRemaining;
+    return adaptTemplate(originalTemplate)(userName, planType, daysRemaining);
+  };
+}

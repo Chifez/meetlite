@@ -1,4 +1,7 @@
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 /**
  * Centralized Email Service
@@ -9,10 +12,18 @@ class EmailService {
   constructor() {
     this.transporter = null;
     this.isConfigured = false;
-    this.initializeTransport();
+    // Lazy initialization - don't initialize here
   }
 
-  initializeTransport() {
+  /**
+   * Lazy initialization of transport
+   * Only initializes when first needed
+   */
+  ensureTransport() {
+    if (this.transporter && this.isConfigured) {
+      return;
+    }
+
     try {
       if (
         !process.env.SMTP_HOST ||
@@ -20,7 +31,9 @@ class EmailService {
         !process.env.SMTP_PASS ||
         !process.env.SMTP_FROM
       ) {
-        console.warn('⚠️  SMTP not configured - emails will be queued but not sent');
+        console.warn(
+          '⚠️  SMTP not configured - emails will be queued but not sent'
+        );
         this.isConfigured = false;
         return;
       }
@@ -56,6 +69,9 @@ class EmailService {
    * @returns {Promise<Object>} Result with success flag and messageId
    */
   async sendEmail(options) {
+    // Lazy initialization - only initialize when first used
+    this.ensureTransport();
+
     if (!this.isConfigured) {
       throw new Error('SMTP not configured');
     }
@@ -102,4 +118,3 @@ class EmailService {
 
 // Export singleton instance
 export const emailService = new EmailService();
-

@@ -24,7 +24,11 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 // Import configs
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
-import { connectionPool, createModelFactory, EmailWorker } from '@minimeet/shared';
+import {
+  connectionPool,
+  createModelFactory,
+  EmailWorker,
+} from '@minimeet/shared';
 
 // Import cron jobs
 import './jobs/usage-reset.job.js';
@@ -39,12 +43,21 @@ import { getTeamInviteEmailTemplate } from './templates/team-invite-email.js';
 import { getPlanUpgradeEmailTemplate } from './templates/plan-upgrade-email.js';
 import { getPlanCancellationEmailTemplate } from './templates/plan-cancellation-email.js';
 import { getPlanExpirationWarningEmailTemplate } from './templates/plan-expiration-warning-email.js';
+// Import meeting templates from room-service
+import { getMeetingInviteEmailTemplate } from '../../room-service/src/templates/meeting-invite-email.js';
+import {
+  meetingReminderEmailTemplate,
+  meetingReminderEmailText,
+} from '../../room-service/src/templates/meeting-reminder-email.js';
 import {
   adaptWelcomeTemplate,
   adaptPasswordResetTemplate,
   adaptOrganizationInviteTemplate,
   adaptTeamInviteTemplate,
+  adaptMeetingInviteTemplate,
+  adaptMeetingReminderTemplate,
   adaptPlanEmailTemplate,
+  adaptPlanExpirationWarningTemplate,
 } from '@minimeet/shared';
 
 dotenv.config();
@@ -152,11 +165,22 @@ const startServer = async () => {
     const emailTemplates = {
       welcome: adaptWelcomeTemplate(getWelcomeEmailTemplate),
       password_reset: adaptPasswordResetTemplate(getPasswordResetEmailTemplate),
-      organization_invite: adaptOrganizationInviteTemplate(getOrganizationInviteEmailTemplate),
+      organization_invite: adaptOrganizationInviteTemplate(
+        getOrganizationInviteEmailTemplate
+      ),
       team_invite: adaptTeamInviteTemplate(getTeamInviteEmailTemplate),
+      meeting_invite: adaptMeetingInviteTemplate(getMeetingInviteEmailTemplate),
+      meeting_reminder: adaptMeetingReminderTemplate(
+        meetingReminderEmailTemplate,
+        meetingReminderEmailText
+      ),
       plan_upgrade: adaptPlanEmailTemplate(getPlanUpgradeEmailTemplate),
-      plan_cancellation: adaptPlanEmailTemplate(getPlanCancellationEmailTemplate),
-      plan_expiration_warning: adaptPlanEmailTemplate(getPlanExpirationWarningEmailTemplate),
+      plan_cancellation: adaptPlanEmailTemplate(
+        getPlanCancellationEmailTemplate
+      ),
+      plan_expiration_warning: adaptPlanExpirationWarningTemplate(
+        getPlanExpirationWarningEmailTemplate
+      ),
     };
 
     // Start email worker
