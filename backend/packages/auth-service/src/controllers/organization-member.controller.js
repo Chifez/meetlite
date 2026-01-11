@@ -113,18 +113,22 @@ export class OrganizationMemberController {
       // Queue invitation email
       try {
         const emailQueue = new EmailQueue();
-        await emailQueue.addEmailJob('organization_invite', {
-          userEmail: email.toLowerCase(),
-          organizationName: organization.name,
-          inviterName: req.user.name || req.user.email,
-          inviterEmail: req.user.email,
-          inviteToken,
-          message: message.trim(),
-          role,
-        }, {
-          priority: 1,
-          jobId: `org-invite-${invitation._id}`,
-        });
+        await emailQueue.addEmailJob(
+          'organization_invite',
+          {
+            userEmail: email.toLowerCase(),
+            organizationName: organization.name,
+            inviterName: req.user.name || req.user.email,
+            inviterEmail: req.user.email,
+            inviteToken,
+            message: message.trim(),
+            role,
+          },
+          {
+            priority: 1,
+            jobId: `org-invite-${invitation._id}`,
+          }
+        );
       } catch (emailError) {
         // If email fails, remove the invitation
         await models.OrganizationInvitation.findByIdAndDelete(invitation._id);

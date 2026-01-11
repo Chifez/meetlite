@@ -33,6 +33,8 @@ import {
   meetingReminderEmailTemplate,
   meetingReminderEmailText,
 } from './templates/meeting-reminder-email.js';
+// Import cron jobs
+import './jobs/recurrence.job.js';
 import dotenv from 'dotenv';
 
 dotenv.config();

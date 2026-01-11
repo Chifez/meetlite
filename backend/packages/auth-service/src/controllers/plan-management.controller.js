@@ -53,16 +53,20 @@ export class PlanManagementController {
       // Queue upgrade confirmation email
       try {
         const emailQueue = new EmailQueue();
-        await emailQueue.addEmailJob('plan_upgrade', {
-          userId: updatedUser._id.toString(),
-          userEmail: updatedUser.email,
-          userName: updatedUser.name || '',
-          planType: updatedUser.plan.type,
-          endDate: updatedUser.plan.endDate,
-        }, {
-          priority: 1,
-          jobId: `plan-upgrade-${updatedUser._id}`,
-        });
+        await emailQueue.addEmailJob(
+          'plan_upgrade',
+          {
+            userId: updatedUser._id.toString(),
+            userEmail: updatedUser.email,
+            userName: updatedUser.name || '',
+            planType: updatedUser.plan.type,
+            endDate: updatedUser.plan.endDate,
+          },
+          {
+            priority: 1,
+            jobId: `plan-upgrade-${updatedUser._id}`,
+          }
+        );
       } catch (emailError) {
         console.error('Failed to queue upgrade email:', emailError);
         // Don't fail the request if email fails
@@ -123,16 +127,20 @@ export class PlanManagementController {
       // Queue cancellation confirmation email
       try {
         const emailQueue = new EmailQueue();
-        await emailQueue.addEmailJob('plan_cancellation', {
-          userId: updatedUser._id.toString(),
-          userEmail: updatedUser.email,
-          userName: updatedUser.name || '',
-          planType: updatedUser.plan.type,
-          endDate: updatedUser.plan.endDate,
-        }, {
-          priority: 1,
-          jobId: `plan-cancellation-${updatedUser._id}`,
-        });
+        await emailQueue.addEmailJob(
+          'plan_cancellation',
+          {
+            userId: updatedUser._id.toString(),
+            userEmail: updatedUser.email,
+            userName: updatedUser.name || '',
+            planType: updatedUser.plan.type,
+            endDate: updatedUser.plan.endDate,
+          },
+          {
+            priority: 1,
+            jobId: `plan-cancellation-${updatedUser._id}`,
+          }
+        );
       } catch (emailError) {
         console.error('Failed to queue cancellation email:', emailError);
         // Don't fail the request if email fails

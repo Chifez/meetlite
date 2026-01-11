@@ -92,7 +92,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           onCloseMobile={handleCloseMobileMenu}
         />
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
           <SidebarNavigation
             isContentVisible={isContentVisible}
             visibleNavigationItems={visibleNavigationItems}

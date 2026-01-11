@@ -166,7 +166,7 @@ Rules:
 
 // Parse meeting description
 export const parseMeeting = async (req, res) => {
-  const { input, timezone = 'UTC' } = req.body;
+  const { input, timezone = 'UTC', organizationId, teamId } = req.body;
 
   if (!input || typeof input !== 'string' || !input.trim()) {
     throw AppError.validation('Meeting description is required');
@@ -177,7 +177,52 @@ export const parseMeeting = async (req, res) => {
     throw AppError.internal('AI service not configured properly');
   }
 
-  const parsedData = await parseMeetingDescription(input, timezone);
+  // Fetch teams and members for context if organizationId is provided
+  let teamsContext = [];
+  if (organizationId) {
+    try {
+      const { models } = await import('../index.js');
+      const teams = await models.Team.find({
+        organizationId,
+        status: { $ne: 'deleted' },
+      })
+        .select('_id name')
+        .lean();
+
+      if (teams.length > 0) {
+        // Get team members for each team
+        for (const team of teams) {
+          const teamDoc = await models.Team.findById(team._id)
+            .populate('members.userId', 'email name')
+            .lean();
+
+          if (teamDoc && teamDoc.members) {
+            const members = teamDoc.members
+              .filter((m) => m.status === 'active' && m.userId)
+              .map((m) => ({
+                email: m.userId.email,
+                name: m.userId.name,
+              }));
+
+            teamsContext.push({
+              id: team._id.toString(),
+              name: team.name,
+              members,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching teams context:', error);
+      // Continue without team context if fetch fails
+    }
+  }
+
+  const parsedData = await parseMeetingDescription(
+    input,
+    timezone,
+    teamsContext
+  );
 
   res.json({
     success: true,

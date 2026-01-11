@@ -33,10 +33,12 @@ export default function MeetingFormDateTime({
   displayTime,
 }: any) {
   return (
-    <div className="flex gap-4">
+    <div className=" flex gap-4">
       <div className="flex-1">
-        <label className="block mb-1 font-medium">Date *</label>
-        <Popover>
+        <label className="block mb-1 font-medium">
+          Date <span className="text-red-500">*</span>
+        </label>
+        <Popover modal={true}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -78,8 +80,14 @@ export default function MeetingFormDateTime({
         </Popover>
       </div>
       <div className="flex-1">
-        <label className="block mb-1 font-medium">Time *</label>
-        <Popover open={timePopoverOpen} onOpenChange={setTimePopoverOpen}>
+        <label className="block mb-1 font-medium">
+          Time <span className="text-red-500">*</span>
+        </label>
+        <Popover
+          open={timePopoverOpen}
+          onOpenChange={setTimePopoverOpen}
+          modal={true}
+        >
           <PopoverTrigger asChild>
             <Button
               variant="outline"

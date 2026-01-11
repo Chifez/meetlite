@@ -6,6 +6,7 @@ import {
   Building2,
   Settings,
   Film,
+  Bell,
 } from 'lucide-react';
 import type { NavigationItem } from './types';
 
@@ -25,6 +26,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Film,
     available: true,
     organizationOnly: true,
+  },
+  {
+    path: '/notifications',
+    label: 'Notifications',
+    icon: Bell,
+    available: true,
   },
   { path: '/analytics', label: 'Analytics', icon: BarChart3, available: false },
   {

@@ -125,24 +125,26 @@ export default function OrganizationSettings() {
 
   if (!activeOrganization) {
     return (
-      <Card>
-        <CardHeader className="mb-4">
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Organization Settings
-          </CardTitle>
-          <CardDescription>No organization selected</CardDescription>
-        </CardHeader>
-        <CardContent className="pb-8">
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No organization selected</p>
-            <p className="text-sm">
-              Switch to an organization to manage its settings
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Organization Settings
+            </CardTitle>
+            <CardDescription>No organization selected</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No organization selected</p>
+              <p className="text-sm">
+                Switch to an organization to manage its settings
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -191,7 +193,7 @@ export default function OrganizationSettings() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="relative space-y-2">
               <Label htmlFor="orgIndustry">Industry</Label>
               <Select
                 value={orgFormData.industry}
@@ -202,7 +204,7 @@ export default function OrganizationSettings() {
                 <SelectTrigger className="max-w-xl">
                   <SelectValue placeholder="Select industry" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="item-aligned">
                   {INDUSTRY_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -212,7 +214,7 @@ export default function OrganizationSettings() {
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="relative space-y-2">
               <Label htmlFor="orgSize">Organization Size</Label>
               <Select
                 value={orgFormData.size}
@@ -223,7 +225,7 @@ export default function OrganizationSettings() {
                 <SelectTrigger className="max-w-xl">
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="item-aligned">
                   {SIZE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}

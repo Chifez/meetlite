@@ -49,14 +49,14 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
       (statusValue === 'scheduled' && now >= start && now <= end)
     ) {
       return {
-        label: 'Ongoing',
+        label: 'Started',
         color:
           'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
       };
     }
     if (statusValue === 'completed' || now > end) {
       return {
-        label: 'Completed',
+        label: 'Ended',
         color:
           'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300',
       };
@@ -67,9 +67,9 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         color: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
       };
     }
-    // Default: upcoming
+    // Default: not started
     return {
-      label: 'Upcoming',
+      label: 'Not Started',
       color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
     };
   };

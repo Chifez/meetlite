@@ -44,16 +44,20 @@ cron.schedule('0 9 * * *', async () => {
         // Only send if between 1-7 days
         if (daysRemaining >= 1 && daysRemaining <= 7) {
           const emailQueue = new EmailQueue();
-          await emailQueue.addEmailJob('plan_expiration_warning', {
-            userId: user._id.toString(),
-            userEmail: user.email,
-            userName: user.name || 'User',
-            planType: user.plan.type,
-            daysRemaining,
-          }, {
-            priority: 1,
-            jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
-          });
+          await emailQueue.addEmailJob(
+            'plan_expiration_warning',
+            {
+              userId: user._id.toString(),
+              userEmail: user.email,
+              userName: user.name || 'User',
+              planType: user.plan.type,
+              daysRemaining,
+            },
+            {
+              priority: 1,
+              jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
+            }
+          );
 
           // Update last warning sent
           await models.User.findByIdAndUpdate(user._id, {
@@ -115,16 +119,20 @@ cron.schedule('0 10 * * *', async () => {
         // Only send if between 1-3 days
         if (daysRemaining >= 1 && daysRemaining <= 3) {
           const emailQueue = new EmailQueue();
-          await emailQueue.addEmailJob('plan_expiration_warning', {
-            userId: user._id.toString(),
-            userEmail: user.email,
-            userName: user.name || 'User',
-            planType: user.plan.type,
-            daysRemaining,
-          }, {
-            priority: 1,
-            jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
-          });
+          await emailQueue.addEmailJob(
+            'plan_expiration_warning',
+            {
+              userId: user._id.toString(),
+              userEmail: user.email,
+              userName: user.name || 'User',
+              planType: user.plan.type,
+              daysRemaining,
+            },
+            {
+              priority: 1,
+              jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
+            }
+          );
 
           await models.User.findByIdAndUpdate(user._id, {
             'plan.lastWarningSent': new Date(),
@@ -185,16 +193,20 @@ cron.schedule('0 11 * * *', async () => {
         // Only send if 1 day or less
         if (daysRemaining <= 1) {
           const emailQueue = new EmailQueue();
-          await emailQueue.addEmailJob('plan_expiration_warning', {
-            userId: user._id.toString(),
-            userEmail: user.email,
-            userName: user.name || 'User',
-            planType: user.plan.type,
-            daysRemaining,
-          }, {
-            priority: 1,
-            jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
-          });
+          await emailQueue.addEmailJob(
+            'plan_expiration_warning',
+            {
+              userId: user._id.toString(),
+              userEmail: user.email,
+              userName: user.name || 'User',
+              planType: user.plan.type,
+              daysRemaining,
+            },
+            {
+              priority: 1,
+              jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
+            }
+          );
 
           await models.User.findByIdAndUpdate(user._id, {
             'plan.lastWarningSent': new Date(),

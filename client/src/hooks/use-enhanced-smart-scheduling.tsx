@@ -4,6 +4,7 @@ import api from '@/lib/axios';
 import { extractData } from '@/lib/api-response';
 import { MeetingFormData } from '@/lib/types';
 import { useCalendarIntegration } from './use-calendar-integration';
+import { useWorkspace } from '@/contexts/workspace-context';
 import {
   SMART_SCHEDULING_CONFIG,
   ALTERNATIVE_OFFSETS,
@@ -20,6 +21,16 @@ interface ParsedMeetingData {
   participants: string[];
   duration: number;
   confidence: number;
+  recurrence?: {
+    enabled: boolean;
+    pattern: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
+    interval?: number;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+    endDate?: string;
+    occurrences?: number;
+    endType: 'never' | 'after' | 'on';
+  };
 }
 
 interface CalendarEvent {
@@ -61,6 +72,7 @@ export const useEnhancedSmartScheduling = () => {
     result: null,
   });
 
+  const { activeOrganization } = useWorkspace();
   const {
     checkCalendarConflicts,
     isConnected,
@@ -89,9 +101,11 @@ export const useEnhancedSmartScheduling = () => {
         // Step 1: Parse the meeting using existing endpoint
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+        // Include organization context for team member resolution
         const parseResponse = await api.post(`/api/ai/parse-meeting`, {
           input,
           timezone,
+          organizationId: activeOrganization?.id,
         });
 
         const parseData = parseResponse.data as {
@@ -396,6 +410,23 @@ export const useEnhancedSmartScheduling = () => {
     (parsedData: ParsedMeetingData): Partial<MeetingFormData> => {
       const date = new Date(`${parsedData.date}T${parsedData.time}`);
 
+      // Handle recurrence data
+      let recurrence: MeetingFormData['recurrence'] = undefined;
+      if (parsedData.recurrence && parsedData.recurrence.enabled) {
+        recurrence = {
+          enabled: true,
+          pattern: parsedData.recurrence.pattern,
+          interval: parsedData.recurrence.interval || 1,
+          daysOfWeek: parsedData.recurrence.daysOfWeek,
+          dayOfMonth: parsedData.recurrence.dayOfMonth,
+          endType: parsedData.recurrence.endType || 'never',
+          endDate: parsedData.recurrence.endDate
+            ? new Date(parsedData.recurrence.endDate)
+            : undefined,
+          occurrences: parsedData.recurrence.occurrences,
+        };
+      }
+
       return {
         title: parsedData.title,
         description: parsedData.description || '',
@@ -405,6 +436,7 @@ export const useEnhancedSmartScheduling = () => {
         privacy: parsedData.privacy,
         participants: parsedData.participants,
         participantInput: '',
+        recurrence,
       };
     },
     []

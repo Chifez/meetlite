@@ -5,16 +5,7 @@ import api from '@/lib/axios';
 import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
-interface MeetingFormData {
-  title: string;
-  description: string;
-  date: Date | undefined;
-  time: string;
-  duration: number;
-  privacy: 'public' | 'private';
-  participants: string[];
-  participantInput: string;
-}
+import { MeetingFormData } from '@/lib/types';
 
 const initialFormData: MeetingFormData = {
   title: '',
@@ -25,6 +16,13 @@ const initialFormData: MeetingFormData = {
   privacy: 'public',
   participants: [],
   participantInput: '',
+  autoIncludeTeamMembers: true,
+  recurrence: {
+    enabled: false,
+    pattern: 'weekly',
+    interval: 1,
+    endType: 'never',
+  },
 };
 
 export const useMeetingForm = (
@@ -63,6 +61,16 @@ export const useMeetingForm = (
 
   const handlePrivacyChange = (value: 'public' | 'private') => {
     updateField('privacy', value);
+  };
+
+  const handleRecurrenceChange = (
+    recurrence: MeetingFormData['recurrence']
+  ) => {
+    updateField('recurrence', recurrence);
+  };
+
+  const handleAutoIncludeChange = (checked: boolean) => {
+    updateField('autoIncludeTeamMembers', checked);
   };
 
   const handleParticipantInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,6 +196,22 @@ export const useMeetingForm = (
       inviteEmails: finalParticipants,
       hostEmail: user?.email,
       ...(teamId && { teamId }),
+      ...(teamId && {
+        autoIncludeTeamMembers: formData.autoIncludeTeamMembers ?? true,
+      }),
+      ...(formData.recurrence?.enabled && {
+        recurrence: {
+          pattern: formData.recurrence.pattern,
+          interval: formData.recurrence.interval,
+          daysOfWeek: formData.recurrence.daysOfWeek,
+          dayOfMonth: formData.recurrence.dayOfMonth,
+          endDate: formData.recurrence.endDate
+            ? formData.recurrence.endDate.toISOString()
+            : undefined,
+          occurrences: formData.recurrence.occurrences,
+          endType: formData.recurrence.endType,
+        },
+      }),
     };
 
     try {
@@ -214,6 +238,8 @@ export const useMeetingForm = (
     handleDateChange,
     handleTimeChange,
     handlePrivacyChange,
+    handleRecurrenceChange,
+    handleAutoIncludeChange,
     handleParticipantInput,
     handleKeyPress,
     removeLastParticipant,

@@ -155,11 +155,27 @@ Rules:
 };
 
 // Parse meeting description using AI
-export const parseMeetingDescription = async (input, timezone = 'UTC') => {
+export const parseMeetingDescription = async (
+  input,
+  timezone = 'UTC',
+  teamsContext = []
+) => {
   const now = new Date();
   const currentDate = now.toISOString().split('T')[0];
 
-  const prompt = `Parse this meeting description into JSON: "${input}" (timezone: ${timezone})
+  // Add teams context to prompt if available
+  let teamsInfo = '';
+  if (teamsContext && teamsContext.length > 0) {
+    teamsInfo = '\n\nAvailable Teams:\n';
+    teamsContext.forEach((team) => {
+      const memberEmails = team.members.map((m) => m.email).join(', ');
+      teamsInfo += `- "${team.name}" (members: ${memberEmails})\n`;
+    });
+    teamsInfo +=
+      '\nWhen user mentions a team name (e.g., "dev team", "design team", "the dev team"), extract the team name and include ALL team member emails in the participants array.\n';
+  }
+
+  const prompt = `Parse this meeting description into JSON: "${input}" (timezone: ${timezone})${teamsInfo}
 
 Current date: ${currentDate}
 
@@ -173,7 +189,17 @@ Fill in this exact JSON structure:
   "description": "brief meeting description explaining purpose and key topics",
   "participants": ["email1@example.com", "email2@example.com"],
   "duration": 30,
-  "confidence": 0.8
+  "confidence": 0.8,
+  "recurrence": {
+    "enabled": false,
+    "pattern": "weekly",
+    "interval": 1,
+    "daysOfWeek": [],
+    "dayOfMonth": null,
+    "endType": "never",
+    "endDate": null,
+    "occurrences": null
+  }
 }
 
 Rules:
@@ -190,6 +216,23 @@ Rules:
 - Set privacy to "private" if input contains "private", "confidential", "internal" etc.
 - Default duration is 30 minutes
 - NEVER return "YYYY-MM-DD" as literal text - always provide an actual date
+
+Recurrence Rules:
+- Set recurrence.enabled to true if input contains words like "every", "recurring", "repeat", "weekly", "daily", "monthly", "regularly"
+- Pattern mapping:
+  * "every day" / "daily" → pattern: "daily"
+  * "weekdays" / "week days" / "Mon-Fri" / "Monday to Friday" → pattern: "weekdays"
+  * "every [day]" / "every Wednesday" / "weekly" → pattern: "weekly", daysOfWeek: [day number]
+  * "every month" / "monthly" → pattern: "monthly"
+  * "every year" / "yearly" / "annually" → pattern: "yearly"
+- Day numbers: Sunday=0, Monday=1, Tuesday=2, Wednesday=3, Thursday=4, Friday=5, Saturday=6
+- Interval: Extract number from "every 2 weeks" → interval: 2, or default to 1
+- Days of week: For weekly pattern, extract day names and convert to numbers (e.g., "every Wednesday" → daysOfWeek: [3])
+- End conditions:
+  * "until [date]" / "ending [date]" → endType: "on", endDate: "YYYY-MM-DD"
+  * "for [N] times" / "for [N] occurrences" → endType: "after", occurrences: N
+  * If no end mentioned → endType: "never"
+- If recurrence.enabled is false, set all other recurrence fields to null or default values
 
 Title vs Description:
 - Title: Short, clear meeting name (e.g., "Team Standup", "Project Review")

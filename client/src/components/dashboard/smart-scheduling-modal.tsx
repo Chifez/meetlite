@@ -24,6 +24,7 @@ interface SmartSchedulingModalProps {
   onDateChange: (date: any) => void;
   onTimeChange: (time: any) => void;
   onPrivacyChange: (privacy: any) => void;
+  onRecurrenceChange?: (recurrence: MeetingFormData['recurrence']) => void;
   onParticipantInput: (e: any) => void;
   onRemoveParticipant: (value: string) => void;
   onSubmit: () => void | Promise<void>;
@@ -40,6 +41,7 @@ export default function SmartSchedulingModal({
   onDateChange,
   onTimeChange,
   onPrivacyChange,
+  onRecurrenceChange,
   onParticipantInput,
   onRemoveParticipant,
   onSubmit,
@@ -119,7 +121,12 @@ export default function SmartSchedulingModal({
             target: { name: 'participantInput', value: email },
           } as any);
         });
-      } else if (key !== 'participants') {
+      } else if (key === 'recurrence' && value && onRecurrenceChange) {
+        // Handle recurrence data
+        if (typeof value === 'object' && value !== null && 'enabled' in value) {
+          onRecurrenceChange(value as MeetingFormData['recurrence']);
+        }
+      } else if (key !== 'participants' && key !== 'recurrence') {
         onInputChange({ target: { name: key, value } } as any);
       }
     });
@@ -286,6 +293,7 @@ export default function SmartSchedulingModal({
                 onDateChange={onDateChange}
                 onTimeChange={onTimeChange}
                 onPrivacyChange={onPrivacyChange}
+                onRecurrenceChange={onRecurrenceChange}
                 onParticipantInput={onParticipantInput}
                 onRemoveParticipant={onRemoveParticipant}
                 onSubmit={onSubmit}

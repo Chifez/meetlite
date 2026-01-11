@@ -60,6 +60,23 @@ export interface Meeting {
   }[];
   source?: 'google';
   externalId?: string;
+  isRecurring?: boolean;
+  recurrence?: {
+    pattern: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+    interval?: number;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+    endDate?: string | Date;
+    occurrences?: number;
+    endType: 'never' | 'after' | 'on';
+    rrule?: string;
+  };
+  recurrenceId?: string;
+  recurrenceExceptions?: Array<{
+    date: string | Date;
+    action: 'cancelled' | 'modified';
+    modifiedMeetingId?: string;
+  }>;
 }
 
 export interface MeetingFormData {
@@ -71,6 +88,17 @@ export interface MeetingFormData {
   privacy: 'public' | 'private';
   participants: string[];
   participantInput: string;
+  autoIncludeTeamMembers?: boolean;
+  recurrence?: {
+    enabled: boolean;
+    pattern: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+    interval?: number;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+    endDate?: Date;
+    occurrences?: number;
+    endType: 'never' | 'after' | 'on';
+  };
 }
 
 export interface InviteValidationResponse {

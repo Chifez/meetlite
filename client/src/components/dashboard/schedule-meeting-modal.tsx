@@ -20,12 +20,14 @@ interface ScheduleMeetingModalProps {
   onDateChange: (date: any) => void;
   onTimeChange: (time: any) => void;
   onPrivacyChange: (privacy: any) => void;
+  onRecurrenceChange?: (recurrence: any) => void;
   onParticipantInput: (e: any) => void;
   onRemoveParticipant: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onCancel: () => void;
   teamId?: string;
   teamName?: string;
+  onAutoIncludeChange?: (checked: boolean) => void;
 }
 
 export default function ScheduleMeetingModal({
@@ -37,12 +39,14 @@ export default function ScheduleMeetingModal({
   onDateChange,
   onTimeChange,
   onPrivacyChange,
+  onRecurrenceChange,
   onParticipantInput,
   onRemoveParticipant,
   onSubmit,
   onCancel,
   teamId,
   teamName,
+  onAutoIncludeChange,
 }: ScheduleMeetingModalProps) {
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen && !formLoading) {
@@ -79,10 +83,13 @@ export default function ScheduleMeetingModal({
             onDateChange={onDateChange}
             onTimeChange={onTimeChange}
             onPrivacyChange={onPrivacyChange}
+            onRecurrenceChange={onRecurrenceChange}
             onParticipantInput={onParticipantInput}
             onRemoveParticipant={onRemoveParticipant}
             onSubmit={onSubmit}
             onCancel={onCancel}
+            teamId={teamId}
+            onAutoIncludeChange={onAutoIncludeChange}
           />
         </div>
         <DialogFooter className="flex-shrink-0">

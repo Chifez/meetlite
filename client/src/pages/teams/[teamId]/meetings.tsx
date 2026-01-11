@@ -62,6 +62,8 @@ export default function TeamMeetings() {
     handleDateChange,
     handleTimeChange,
     handlePrivacyChange,
+    handleRecurrenceChange,
+    handleAutoIncludeChange,
     handleParticipantInput,
     removeParticipant,
     handleSubmit: submitForm,
@@ -234,12 +236,14 @@ export default function TeamMeetings() {
           onDateChange={handleDateChange}
           onTimeChange={handleTimeChange}
           onPrivacyChange={handlePrivacyChange}
+          onRecurrenceChange={handleRecurrenceChange}
           onParticipantInput={handleParticipantInput}
           onRemoveParticipant={removeParticipant}
           onSubmit={submitForm}
           onCancel={() => setShowScheduleModal(false)}
           teamId={teamId}
           teamName={team?.name}
+          onAutoIncludeChange={handleAutoIncludeChange}
         />
 
         <ImportModal

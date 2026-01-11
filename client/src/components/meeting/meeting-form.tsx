@@ -5,9 +5,12 @@ import { toast } from 'sonner';
 import MeetingFormTitle from '@/components/meeting/meeting-form-title';
 import MeetingFormDateTime from '@/components/meeting/meeting-form-date-time';
 import MeetingFormDurationPrivacy from '@/components/meeting/meeting-form-duration-privacy';
+import MeetingFormRecurrence from '@/components/meeting/meeting-form-recurrence';
 import MeetingFormInvite from '@/components/meeting/meeting-form-invite';
 import MeetingFormFooter from '@/components/meeting/meeting-form-footer';
 import { useStreamingAI } from '@/hooks/use-streaming-ai';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface MeetingFormProps {
   formData: MeetingFormData;
@@ -19,12 +22,15 @@ interface MeetingFormProps {
   onDateChange: (date: Date | undefined) => void;
   onTimeChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPrivacyChange: (value: 'public' | 'private') => void;
+  onRecurrenceChange?: (recurrence: MeetingFormData['recurrence']) => void;
   onParticipantInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveParticipant: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onCancel: () => void;
   timezone?: string;
   setTimezone?: (tz: string) => void;
+  teamId?: string;
+  onAutoIncludeChange?: (checked: boolean) => void;
 }
 
 const INVITE_METHODS = [
@@ -66,12 +72,15 @@ const MeetingForm = ({
   onDateChange,
   onTimeChange,
   onPrivacyChange,
+  onRecurrenceChange,
   onParticipantInput,
   onRemoveParticipant,
   onSubmit,
   onCancel,
   timezone: propTimezone,
   setTimezone: propSetTimezone,
+  teamId,
+  onAutoIncludeChange,
 }: MeetingFormProps) => {
   const [inviteMethod, setInviteMethod] = useState('email');
   const [timezone, setTimezone] = useState(propTimezone || 'Africa/Lagos');
@@ -285,6 +294,32 @@ const MeetingForm = ({
             onInputChange={onInputChange}
             onPrivacyChange={onPrivacyChange}
           />
+          {onRecurrenceChange && (
+            <MeetingFormRecurrence
+              formData={formData}
+              onRecurrenceChange={onRecurrenceChange}
+            />
+          )}
+          {teamId && onAutoIncludeChange && (
+            <div className="flex items-center justify-between space-x-2 py-2 px-3 rounded-md border bg-muted/30">
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor="auto-include-team-members"
+                  className="text-sm font-medium"
+                >
+                  Auto-include team members
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Automatically add all active team members to this meeting
+                </p>
+              </div>
+              <Switch
+                id="auto-include-team-members"
+                checked={formData.autoIncludeTeamMembers ?? true}
+                onCheckedChange={onAutoIncludeChange}
+              />
+            </div>
+          )}
           <MeetingFormInvite
             inviteMethod={inviteMethod}
             setInviteMethod={setInviteMethod}

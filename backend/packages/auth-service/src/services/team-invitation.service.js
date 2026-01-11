@@ -191,20 +191,24 @@ export class TeamInvitationService {
       }
 
       const emailQueue = new EmailQueue();
-      await emailQueue.addEmailJob('team_invite', {
-        userEmail: recipientEmail,
-        teamName: team.name,
-        organizationName: organization.name,
-        inviterName: inviter?.name || inviter?.email || 'Someone',
-        inviterEmail: inviter?.email || '',
-        inviteUrl,
-        inviteToken: invitation.inviteToken,
-        message: message.trim(),
-        role,
-      }, {
-        priority: 1,
-        jobId: `team-invite-${invitation._id}`,
-      });
+      await emailQueue.addEmailJob(
+        'team_invite',
+        {
+          userEmail: recipientEmail,
+          teamName: team.name,
+          organizationName: organization.name,
+          inviterName: inviter?.name || inviter?.email || 'Someone',
+          inviterEmail: inviter?.email || '',
+          inviteUrl,
+          inviteToken: invitation.inviteToken,
+          message: message.trim(),
+          role,
+        },
+        {
+          priority: 1,
+          jobId: `team-invite-${invitation._id}`,
+        }
+      );
     } catch (emailError) {
       // If email fails, remove the invitation
       await models.TeamInvitation.findByIdAndDelete(invitation._id);

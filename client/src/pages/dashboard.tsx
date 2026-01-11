@@ -35,6 +35,7 @@ const Dashboard = () => {
     handleDateChange,
     handleTimeChange,
     handlePrivacyChange,
+    handleRecurrenceChange,
     handleParticipantInput,
     removeParticipant,
     handleSubmit: submitForm,
@@ -133,6 +134,7 @@ const Dashboard = () => {
         onDateChange={handleDateChange}
         onTimeChange={handleTimeChange}
         onPrivacyChange={handlePrivacyChange}
+        onRecurrenceChange={handleRecurrenceChange}
         onParticipantInput={handleParticipantInput}
         onRemoveParticipant={removeParticipant}
         onSubmit={submitForm}
