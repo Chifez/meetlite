@@ -10,12 +10,15 @@ import {
   Trash2,
   Play,
   Square,
+  Lock,
+  Globe,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Meeting } from '@/lib/types';
 import { useMeetingsStore } from '@/stores/meetings-store';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
+import { formatRecurrenceFrequency } from '@/lib/recurrence-utils';
 
 interface MeetingCardProps {
   meeting: Meeting;
@@ -75,13 +78,14 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   };
 
   const getTypeIcon = (type: string) => {
+    const iconProps = { className: 'w-4 h-4 flex-shrink-0' };
     switch (type) {
       case 'private':
-        return '🔒';
+        return <Lock {...iconProps} />;
       case 'public':
-        return '🌐';
+        return <Globe {...iconProps} />;
       default:
-        return '📅';
+        return <Calendar {...iconProps} />;
     }
   };
 
@@ -122,6 +126,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   const maxParticipantsToShow = 3;
   const visibleParticipants = participants.slice(0, maxParticipantsToShow);
   const overflowCount = participants.length - maxParticipantsToShow;
+  const recurrenceFrequency = formatRecurrenceFrequency(meeting);
 
   const handleButtonClick = async () => {
     if (buttonState.disabled) return;
@@ -169,12 +174,18 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
           <div className="space-y-2 min-w-0 flex-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="text-sm flex-shrink-0">
-                  {getTypeIcon(privacy)}
-                </span>
+                {getTypeIcon(privacy)}
                 <h4 className="font-medium text-foreground group-hover:text-primary transition-colors text-sm sm:text-base truncate">
                   {meeting.title}
                 </h4>
+                {recurrenceFrequency && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 px-2 py-0.5 text-xs font-medium bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900"
+                  >
+                    {recurrenceFrequency}
+                  </Badge>
+                )}
                 {meeting.source === 'google' && (
                   <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900">
                     Google

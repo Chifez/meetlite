@@ -1,5 +1,6 @@
 import MeetingCalendar from '@/components/meeting/meeting-calendar';
 import { Meeting } from '@/lib/types';
+import { useMemo } from 'react';
 
 export default function MeetingCalendarSection({
   meetings,
@@ -9,6 +10,13 @@ export default function MeetingCalendarSection({
   loading: boolean;
   userId?: string;
 }) {
+  const filteredMeetings = useMemo(() => {
+    return meetings.filter((meeting) => {
+      // Exclude parent recurring meetings, only show instances and regular meetings
+      return !(meeting.isRecurring && !meeting.recurrenceId);
+    });
+  }, [meetings]);
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -17,5 +25,5 @@ export default function MeetingCalendarSection({
       </div>
     );
   }
-  return <MeetingCalendar meetings={meetings} onEventClick={() => {}} />;
+  return <MeetingCalendar meetings={filteredMeetings} onEventClick={() => {}} />;
 }

@@ -1,6 +1,7 @@
 import { Calendar } from 'lucide-react';
 import MeetingCard from '@/components/meeting/meeting-card';
 import { Meeting } from '@/lib/types';
+import { useMemo } from 'react';
 
 export default function MeetingListSection({
   meetings,
@@ -9,6 +10,43 @@ export default function MeetingListSection({
   meetings: Meeting[];
   loading: boolean;
 }) {
+  const filteredMeetings = useMemo(() => {
+    if (!meetings || meetings.length === 0) {
+      return [];
+    }
+    const nonInstances = meetings.filter((meeting) => !meeting.recurrenceId);
+
+    // Separate non-instances into recurring parents and regular meetings
+    const existingRecurringParents: Meeting[] = [];
+    const regularMeetings: Meeting[] = [];
+
+    nonInstances.forEach((meeting) => {
+      if (meeting.isRecurring === true) {
+        existingRecurringParents.push(meeting);
+      } else {
+        regularMeetings.push(meeting);
+      }
+    });
+
+    const allRecurringParents = existingRecurringParents;
+
+    // Sort recurring parents by scheduled time
+    allRecurringParents.sort(
+      (a, b) =>
+        new Date(a.scheduledTime).getTime() -
+        new Date(b.scheduledTime).getTime()
+    );
+
+    // Sort regular meetings by scheduled time
+    regularMeetings.sort(
+      (a, b) =>
+        new Date(a.scheduledTime).getTime() -
+        new Date(b.scheduledTime).getTime()
+    );
+
+    return [...allRecurringParents, ...regularMeetings];
+  }, [meetings]);
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -17,7 +55,7 @@ export default function MeetingListSection({
       </div>
     );
   }
-  if (meetings.length === 0) {
+  if (filteredMeetings.length === 0) {
     return (
       <div className="text-center space-y-6 py-12 text-muted-foreground">
         <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
@@ -36,7 +74,7 @@ export default function MeetingListSection({
   }
   return (
     <div className="space-y-4">
-      {meetings.map((meeting) => (
+      {filteredMeetings.map((meeting) => (
         <MeetingCard
           key={meeting.meetingId}
           meeting={meeting}

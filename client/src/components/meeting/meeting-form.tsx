@@ -91,7 +91,7 @@ const MeetingForm = ({
     minute: '',
     ampm: 'AM' as 'AM' | 'PM',
   });
-  const { streamDescription, generateDescriptionNonStreaming } =
+  const { isStreaming, streamDescription, generateDescriptionNonStreaming } =
     useStreamingAI();
 
   // Derived state for time parsing - replaces the useEffect
@@ -264,6 +264,7 @@ const MeetingForm = ({
             formData={formData}
             onInputChange={onInputChange}
             onGenerateDescription={handleGenerateDescription}
+            isGenerating={isStreaming}
           />
           <MeetingFormDateTime
             formData={formData}

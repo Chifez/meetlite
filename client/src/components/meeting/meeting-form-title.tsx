@@ -1,20 +1,20 @@
 import { Input } from '@/components/ui/input';
 import { Wand2, Loader2 } from 'lucide-react';
 import React from 'react';
-import { useStreamingAI } from '@/hooks/use-streaming-ai';
 
 interface MeetingFormTitleProps {
   formData: any;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onGenerateDescription?: () => void;
+  isGenerating?: boolean;
 }
 
 const MeetingFormTitle: React.FC<MeetingFormTitleProps> = ({
   formData,
   onInputChange,
   onGenerateDescription,
+  isGenerating = false,
 }) => {
-  const { isStreaming } = useStreamingAI();
 
   return (
     <>
@@ -34,7 +34,7 @@ const MeetingFormTitle: React.FC<MeetingFormTitleProps> = ({
           value={formData.description}
           onChange={onInputChange}
           autoComplete="off"
-          disabled={isStreaming}
+          disabled={isGenerating}
           className="pr-10"
         />
         {onGenerateDescription && (
@@ -43,10 +43,10 @@ const MeetingFormTitle: React.FC<MeetingFormTitleProps> = ({
             className="absolute right-2 top-8 p-1 rounded hover:bg-muted transition-colors"
             onClick={onGenerateDescription}
             tabIndex={-1}
-            disabled={isStreaming}
+            disabled={isGenerating}
             aria-label="Generate description"
           >
-            {isStreaming ? (
+            {isGenerating ? (
               <Loader2 className="animate-spin w-5 h-5 text-primary" />
             ) : (
               <Wand2 className="w-5 h-5 text-primary" />

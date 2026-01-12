@@ -168,9 +168,15 @@ const Meetings = () => {
         />
 
         {view === 'list' ? (
-          <MeetingListSection meetings={meetings} loading={loading} />
+          <MeetingListSection
+            meetings={meetings.filter((meeting) => !meeting.teamId)}
+            loading={loading}
+          />
         ) : (
-          <MeetingCalendarSection meetings={meetings} loading={loading} />
+          <MeetingCalendarSection
+            meetings={meetings.filter((meeting) => !meeting.teamId)}
+            loading={loading}
+          />
         )}
 
         <DeleteMeetingDialog />

@@ -343,9 +343,11 @@ export class MeetingController {
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + 30); // 30 days ahead
 
-        await createRecurrenceInstances(meeting, models, now, endDate);
-        console.log(
-          `✅ Created initial recurrence instances for meeting ${meetingId}`
+        const instances = await createRecurrenceInstances(
+          meeting,
+          models,
+          now,
+          endDate
         );
       } catch (recurrenceError) {
         console.error(
@@ -441,8 +443,37 @@ export class MeetingController {
       ],
     }).sort({ scheduledTime: 1 });
 
+    // Also fetch parent recurring meetings for any instances found
+    // Collect unique recurrenceIds from instances
+    const instanceRecurrenceIds = new Set();
+    nativeMeetings.forEach((meeting) => {
+      if (meeting.recurrenceId) {
+        instanceRecurrenceIds.add(meeting.recurrenceId.toString());
+      }
+    });
+
+    if (instanceRecurrenceIds.size > 0) {
+      // Mongoose auto-converts string IDs to ObjectIds in queries
+      const parentMeetings = await models.Meeting.find({
+        _id: { $in: Array.from(instanceRecurrenceIds) },
+        ...orgFilter,
+        ...teamFilter,
+      });
+
+      // Add parent meetings to the list (avoid duplicates)
+      const existingMeetingIds = new Set(
+        nativeMeetings.map((m) => m._id.toString())
+      );
+      parentMeetings.forEach((parent) => {
+        if (!existingMeetingIds.has(parent._id.toString())) {
+          nativeMeetings.push(parent);
+        }
+      });
+    }
+
     // Post-filter: For team meetings, only include if user is a participant
     const userDoc = await models.User.findById(userId).lean();
+
     const filteredMeetings = nativeMeetings.filter((meeting) => {
       // Non-team meetings: use existing access logic
       if (!meeting.teamId) {
@@ -499,20 +530,29 @@ export class MeetingController {
       );
 
       // Merge and deduplicate (in case a meeting was created in-app that also exists in calendar)
+      // Use meetingId as key to avoid parent meetings being overwritten by instances with same title/time
       const meetingMap = new Map();
 
-      // Add native meetings first
+      // Add native meetings first (use meetingId as key to preserve all meetings including parents)
       filteredMeetings.forEach((meeting) => {
-        const key = `${meeting.scheduledTime}-${meeting.title}`;
-        meetingMap.set(key, meeting);
+        meetingMap.set(meeting.meetingId, meeting);
       });
 
       // Add calendar events, avoiding duplicates
       calendarMeetings.forEach((calendarMeeting) => {
+        // Use scheduledTime-title for calendar events (they don't have meetingId)
         const key = `${calendarMeeting.scheduledTime}-${calendarMeeting.title}`;
-        // Only add if not already present (native meetings take precedence)
-        if (!meetingMap.has(key)) {
-          meetingMap.set(key, calendarMeeting);
+        // Check if we already have a native meeting with same time/title
+        const existingNativeMeeting = Array.from(meetingMap.values()).find(
+          (m) =>
+            m.scheduledTime?.toString() ===
+              calendarMeeting.scheduledTime?.toString() &&
+            m.title === calendarMeeting.title
+        );
+        // Only add calendar event if no native meeting matches (native meetings take precedence)
+        if (!existingNativeMeeting) {
+          // Use a unique key for calendar events
+          meetingMap.set(`calendar-${key}`, calendarMeeting);
         }
       });
 
@@ -777,7 +817,11 @@ export class MeetingController {
     if (meeting.isRecurring) {
       // Delete parent meeting and cancel all future instances
       try {
-        await cancelRecurrenceSeries(meeting, models, 'Recurring series deleted');
+        await cancelRecurrenceSeries(
+          meeting,
+          models,
+          'Recurring series deleted'
+        );
 
         // Cancel reminders for parent
         await cancelMeetingReminders(

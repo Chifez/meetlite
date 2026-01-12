@@ -113,8 +113,9 @@ const Dashboard = () => {
     }
   }, [user?.id, activeOrganization?.id, fetchMeetings]);
 
-  // Get upcoming meetings (first 3)
-  const upcomingMeetings = meetings
+  // Get upcoming meetings (first 3) - exclude team meetings
+  const organizationMeetings = meetings.filter((meeting) => !meeting.teamId);
+  const upcomingMeetings = organizationMeetings
     .sort(
       (a, b) =>
         new Date(a.scheduledTime).getTime() -
