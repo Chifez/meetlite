@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { stripeConfig } from '../config/stripe.js';
 import { models } from '../index.js';
 import { OrganizationPlanSyncService } from './organization-plan-sync.service.js';
+import { WebhookEvent } from '../models/WebhookEvent.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
@@ -238,13 +239,25 @@ export class PaymentService {
   }
 
   /**
-   * Handle webhook events
+   * Handle webhook events with replay protection
+   * Idempotency is handled by checking existing records (stripeSessionId, subscriptionId, etc.)
    */
   static async handleWebhookEvent(event) {
     try {
+      // Replay protection - check event timestamp (Stripe events are timestamped)
+      const eventAge = Date.now() - event.created * 1000; // event.created is in seconds
+      const maxEventAge = 24 * 60 * 60 * 1000; // 24 hours
+      if (eventAge > maxEventAge) {
+        // Event is too old, likely a replay attack
+        return {
+          handled: false,
+          message: 'Event too old, possible replay attack',
+        };
+      }
+
+      // Process the event (idempotency is handled within each handler)
       switch (event.type) {
         case 'checkout.session.completed':
-          // Handle checkout session completion (more reliable than success page)
           return await this.handleCheckoutSessionCompleted(event.data.object);
 
         case 'payment_intent.succeeded':
@@ -285,20 +298,37 @@ export class PaymentService {
     try {
       // Only process if payment was successful
       if (session.payment_status !== 'paid') {
-        return { handled: false };
+        return { handled: false, message: 'Payment not completed' };
       }
 
       const { userId, planType, duration } = session.metadata;
 
       if (!userId || !planType) {
         console.error('Missing metadata in checkout session:', session.id);
-        return { handled: false };
+        return { handled: false, message: 'Missing required metadata' };
       }
 
-      // Check if already processed (idempotency)
+      // Validate userId format (MongoDB ObjectId)
+      if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+        console.error('Invalid userId format in session metadata:', userId);
+        return { handled: false, message: 'Invalid userId format' };
+      }
+
+      // Validate planType
+      const validPlans = ['pro', 'enterprise'];
+      if (!validPlans.includes(planType)) {
+        console.error('Invalid planType in session metadata:', planType);
+        return { handled: false, message: 'Invalid planType' };
+      }
+
+      // Check if already processed (idempotency - additional check at handler level)
       const existingUser = await models.User.findById(userId);
       if (existingUser && existingUser.plan.stripeSessionId === session.id) {
-        return { handled: true, message: 'Already processed' };
+        return {
+          handled: true,
+          message: 'Already processed',
+          idempotent: true,
+        };
       }
 
       // Retrieve subscription if available

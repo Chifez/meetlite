@@ -63,14 +63,37 @@ export class PaymentController {
       const { planType, duration = 'monthly' } = req.body;
       const user = req.user;
 
+      // Validation is handled by middleware, but double-check
       if (!planType) {
-        return res.status(400).json({ message: 'planType is required' });
+        return res.status(400).json({ 
+          success: false,
+          message: 'planType is required' 
+        });
       }
 
       // Validate plan type
       const validPlans = ['pro', 'enterprise'];
       if (!validPlans.includes(planType)) {
-        return res.status(400).json({ message: 'Invalid plan type' });
+        return res.status(400).json({ 
+          success: false,
+          message: 'Invalid plan type' 
+        });
+      }
+
+      // Prevent downgrades (users can only upgrade)
+      if (user.plan.type === 'enterprise' && planType === 'pro') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot downgrade from Enterprise to Pro',
+        });
+      }
+
+      // Prevent same plan upgrade
+      if (user.plan.type === planType && user.plan.status === 'active') {
+        return res.status(400).json({
+          success: false,
+          message: `You already have an active ${planType} plan`,
+        });
       }
 
       // Get or create Stripe customer
@@ -88,12 +111,13 @@ export class PaymentController {
         });
       }
 
-      // Get price ID based on plan and duration
-      const priceId = getPriceId(planType, duration);
+      // Get price ID based on plan and duration (validated by middleware)
+      const priceId = req.validatedPayment?.priceId || getPriceId(planType, duration);
       if (!priceId) {
-        return res
-          .status(400)
-          .json({ message: 'Price not found for this plan' });
+        return res.status(400).json({ 
+          success: false,
+          message: 'Price not found for this plan' 
+        });
       }
 
       // Create checkout session

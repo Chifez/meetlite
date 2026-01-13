@@ -2,6 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { useNavigate } from 'react-router-dom';
+import { PaymentService } from '@/services/payment-service';
+import { toast } from 'sonner';
 
 interface PricingCardProps {
   title: string;
@@ -12,6 +16,7 @@ interface PricingCardProps {
   buttonText: string;
   buttonVariant?: 'default' | 'outline';
   isPopular?: boolean;
+  planType?: 'pro' | 'enterprise' | 'free';
 }
 
 const PricingCard = ({
@@ -23,7 +28,42 @@ const PricingCard = ({
   buttonText,
   buttonVariant = 'default',
   isPopular = false,
+  planType,
 }: PricingCardProps) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleButtonClick = async () => {
+    // Free plan - redirect to signup/login
+    if (!planType || planType === 'free') {
+      if (!user) {
+        navigate('/signup', { state: { from: 'pricing' } });
+      } else {
+        // User is already on free plan, can navigate to dashboard
+        navigate('/dashboard');
+      }
+      return;
+    }
+
+    // Paid plans - check authentication
+    if (!user) {
+      // Redirect to signup with plan info in state
+      navigate('/signup', {
+        state: { from: 'pricing', planType, redirectToCheckout: true },
+      });
+      return;
+    }
+
+    // User is authenticated - proceed to checkout
+    try {
+      // Default to monthly, user can change in checkout
+      await PaymentService.redirectToCheckout(planType, 'monthly');
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      toast.error(error.message || 'Failed to start checkout process');
+    }
+  };
+
   return (
     <Card
       className={`relative border-2 transition-all duration-300 hover:shadow-lg ${
@@ -72,6 +112,7 @@ const PricingCard = ({
               : 'bg-primary text-primary-foreground hover:bg-primary/90'
           }`}
           variant={buttonVariant}
+          onClick={handleButtonClick}
         >
           {buttonText}
         </Button>

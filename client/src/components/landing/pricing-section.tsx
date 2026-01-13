@@ -15,6 +15,7 @@ const pricingPlans = [
     ],
     buttonText: 'Get Started',
     buttonVariant: 'default' as const,
+    planType: 'free' as const,
   },
   {
     title: 'Pro',
@@ -31,6 +32,7 @@ const pricingPlans = [
     buttonText: 'Subscribe Now',
     buttonVariant: 'default' as const,
     isPopular: true,
+    planType: 'pro' as const,
   },
   {
     title: 'Enterprise',
@@ -45,6 +47,7 @@ const pricingPlans = [
     ],
     buttonText: 'Contact Sales',
     buttonVariant: 'outline' as const,
+    planType: 'enterprise' as const,
   },
 ];
 
@@ -77,6 +80,7 @@ const PricingSection = () => {
               buttonText={plan.buttonText}
               buttonVariant={plan.buttonVariant}
               isPopular={plan.isPopular}
+              planType={plan.planType}
             />
           ))}
         </div>
