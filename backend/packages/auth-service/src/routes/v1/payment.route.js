@@ -1,8 +1,15 @@
 import express from 'express';
 import { authenticateToken } from '../../middleware/authenticate-token.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
-import { paymentRateLimiter, webhookRateLimiter } from '../../middleware/payment-rate-limiter.js';
-import { validatePlanType, validateUserOwnership, validateSessionId } from '../../middleware/payment-validation.js';
+import {
+  paymentRateLimiter,
+  webhookRateLimiter,
+} from '../../middleware/payment-rate-limiter.js';
+import {
+  validatePlanType,
+  validateUserOwnership,
+  validateSessionId,
+} from '../../middleware/payment-validation.js';
 import PaymentController from '../../controllers/payment.controller.js';
 
 const router = express.Router();

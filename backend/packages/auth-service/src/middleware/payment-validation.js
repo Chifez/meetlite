@@ -116,4 +116,3 @@ export const validateSessionId = (req, res, next) => {
 
   next();
 };
-

@@ -65,18 +65,18 @@ export class PaymentController {
 
       // Validation is handled by middleware, but double-check
       if (!planType) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'planType is required' 
+          message: 'planType is required',
         });
       }
 
       // Validate plan type
       const validPlans = ['pro', 'enterprise'];
       if (!validPlans.includes(planType)) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'Invalid plan type' 
+          message: 'Invalid plan type',
         });
       }
 
@@ -112,11 +112,12 @@ export class PaymentController {
       }
 
       // Get price ID based on plan and duration (validated by middleware)
-      const priceId = req.validatedPayment?.priceId || getPriceId(planType, duration);
+      const priceId =
+        req.validatedPayment?.priceId || getPriceId(planType, duration);
       if (!priceId) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'Price not found for this plan' 
+          message: 'Price not found for this plan',
         });
       }
 
