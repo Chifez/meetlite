@@ -2,7 +2,6 @@ import Stripe from 'stripe';
 import { stripeConfig } from '../config/stripe.js';
 import { models } from '../index.js';
 import { OrganizationPlanSyncService } from './organization-plan-sync.service.js';
-import { WebhookEvent } from '../models/WebhookEvent.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {

@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 // Import routes
 import authRoutes from './routes/v1/auth.route.js';
@@ -15,11 +16,14 @@ import paymentRoutes from './routes/v1/payment.route.js';
 import pushNotificationsRoutes from './routes/v1/push-notifications.route.js';
 import teamRoutes from './routes/v1/team.route.js';
 import teamInvitationRoutes from './routes/v1/team-invitation.route.js';
+import adminRoutes from './routes/v1/admin.route.js';
+import { blockSystemAdmin } from './middleware/block-system-admin.js';
 
 // Import simple middleware
 import corsMiddleware from './middleware/cors.js';
 import rateLimiter from './middleware/rate-limiter.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
+import { authenticateToken } from './middleware/authenticate-token.js';
 
 // Import configs
 import redisClient from './config/redis.js';
@@ -90,17 +94,63 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1', teamRoutes); // Mount team routes at /api/v1 (routes defined as /organizations/:organizationId/teams)
-app.use('/api/v1/organizations', organizationRoutes);
-app.use('/api/v1/organizations/members', organizationMemberRoutes);
-app.use('/api/v1/invitations', invitationRoutes);
-app.use('/api/v1/workspace', workspaceRoutes);
-app.use('/api/v1/plan', planRoutes);
-app.use('/api/v1/plan-management', planManagementRoutes);
-app.use('/api/v1/multi-org', multiOrganizationRoutes);
-app.use('/api/v1/bulk', bulkOperationsRoutes);
-app.use('/api/v1/push-notifications', pushNotificationsRoutes);
-app.use('/api/v1', teamInvitationRoutes); // Mount team invitation routes at /api/v1 (handles both org-scoped and user-scoped routes)
+
+// Admin routes (requires admin access) - must come BEFORE catch-all /api/v1 routes
+app.use('/api/v1/admin', adminRoutes);
+
+// User routes - block system admins (they can only access /admin routes)
+// Note: Routes already have authenticateToken, but we apply it here first so blockSystemAdmin can access req.user
+app.use('/api/v1', authenticateToken, blockSystemAdmin, teamRoutes); // Mount team routes at /api/v1 (routes defined as /organizations/:organizationId/teams)
+app.use(
+  '/api/v1/organizations',
+  authenticateToken,
+  blockSystemAdmin,
+  organizationRoutes
+);
+app.use(
+  '/api/v1/organizations/members',
+  authenticateToken,
+  blockSystemAdmin,
+  organizationMemberRoutes
+);
+app.use(
+  '/api/v1/invitations',
+  authenticateToken,
+  blockSystemAdmin,
+  invitationRoutes
+);
+app.use(
+  '/api/v1/workspace',
+  authenticateToken,
+  blockSystemAdmin,
+  workspaceRoutes
+);
+app.use('/api/v1/plan', authenticateToken, blockSystemAdmin, planRoutes);
+app.use(
+  '/api/v1/plan-management',
+  authenticateToken,
+  blockSystemAdmin,
+  planManagementRoutes
+);
+app.use(
+  '/api/v1/multi-org',
+  authenticateToken,
+  blockSystemAdmin,
+  multiOrganizationRoutes
+);
+app.use(
+  '/api/v1/bulk',
+  authenticateToken,
+  blockSystemAdmin,
+  bulkOperationsRoutes
+);
+app.use(
+  '/api/v1/push-notifications',
+  authenticateToken,
+  blockSystemAdmin,
+  pushNotificationsRoutes
+);
+app.use('/api/v1', authenticateToken, blockSystemAdmin, teamInvitationRoutes); // Mount team invitation routes at /api/v1 (handles both org-scoped and user-scoped routes)
 
 // Only load payment routes if Stripe is configured
 if (process.env.STRIPE_SECRET_KEY) {
@@ -132,8 +182,40 @@ const connectDB = async () => {
       process.env.MONGODB_URI
     );
 
+    // Wait for connection to be ready
+    if (authConnection.readyState !== 1) {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('MongoDB connection timeout'));
+        }, 10000);
+
+        const onConnected = () => {
+          clearTimeout(timeout);
+          authConnection.removeListener('error', onError);
+          resolve();
+        };
+
+        const onError = (err) => {
+          clearTimeout(timeout);
+          authConnection.removeListener('connected', onConnected);
+          reject(err);
+        };
+
+        if (authConnection.readyState === 1) {
+          clearTimeout(timeout);
+          resolve();
+        } else {
+          authConnection.once('connected', onConnected);
+          authConnection.once('error', onError);
+        }
+      });
+    }
+
     // Create all shared models with this specific connection
     models = createModelFactory(authConnection);
+
+    // Create initial system admin (if configured) - after models are created
+    await createInitialSystemAdmin(authConnection);
 
     // Handle connection events
     authConnection.on('error', (err) => {
@@ -142,6 +224,67 @@ const connectDB = async () => {
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error.message);
     process.exit(1);
+  }
+};
+
+/**
+ * Create initial system admin from environment variables
+ * Only runs if no system admin exists
+ * @param {Object} connection - Mongoose connection instance
+ */
+const createInitialSystemAdmin = async (connection) => {
+  // Guard check: ensure connection is ready
+  if (!connection || connection.readyState !== 1) {
+    console.log(
+      'ℹ️  MongoDB connection not ready - skipping initial admin creation'
+    );
+    return;
+  }
+
+  const adminEmail = process.env.INITIAL_SYSTEM_ADMIN_EMAIL;
+  const adminPassword = process.env.INITIAL_SYSTEM_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    console.log(
+      'ℹ️  INITIAL_SYSTEM_ADMIN_EMAIL and INITIAL_SYSTEM_ADMIN_PASSWORD not set - skipping initial admin creation'
+    );
+    return;
+  }
+
+  try {
+    // Check if system admin already exists
+    const existingAdmin = await models.User.findOne({ isSystemAdmin: true });
+    if (existingAdmin) {
+      console.log('✅ System admin already exists');
+      return;
+    }
+
+    // Check if user with this email exists
+    let user = await models.User.findOne({ email: adminEmail.toLowerCase() });
+
+    if (user) {
+      // User exists, just make them system admin
+      user.isSystemAdmin = true;
+      await user.save();
+      console.log(`✅ Existing user ${adminEmail} promoted to system admin`);
+    } else {
+      // Create new system admin user
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(adminPassword, salt);
+
+      user = await models.User.create({
+        email: adminEmail.toLowerCase(),
+        password: hashedPassword,
+        name: 'System Admin',
+        isSystemAdmin: true,
+        onboardingCompleted: true,
+      });
+
+      console.log(`✅ System admin created: ${adminEmail}`);
+    }
+  } catch (error) {
+    console.error('❌ Error creating initial system admin:', error);
+    // Don't exit - allow server to start even if admin creation fails
   }
 };
 

@@ -7,6 +7,7 @@ import { createTeamModel } from './models/team.js';
 import { createTeamInvitationModel } from './models/team-invitation.js';
 import { createNotificationModel } from './models/notification.js';
 import { createAuditLogModel } from './models/audit-log.js';
+import { createMeetingModel } from './models/meeting.js';
 
 // Export all shared models and utilities
 export { default as User, createUserModel } from './models/user.js';
@@ -39,6 +40,7 @@ export {
   default as AuditLog,
   createAuditLogModel,
 } from './models/audit-log.js';
+export { default as Meeting, createMeetingModel } from './models/meeting.js';
 export { default as connectionPool } from './utils/connection-pool.js';
 export * from './utils/query-helpers.js';
 export * from './config/plans.js';
@@ -83,7 +85,7 @@ export const createModelFactory = (connection) => ({
   TeamInvitation: createTeamInvitationModel(connection),
   Notification: createNotificationModel(connection),
   AuditLog: createAuditLogModel(connection),
+  Meeting: createMeetingModel(connection),
   // Add more shared models here as they're created
-  // Meeting: createMeetingModel(connection),
   // Room: createRoomModel(connection),
 });

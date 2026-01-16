@@ -297,6 +297,7 @@ export class AuthController {
         organizationId: user.organizationId,
         role: user.role,
         plan: sanitizePlan(user.plan),
+        isSystemAdmin: user.isSystemAdmin || false,
         notificationPreferences: user.notificationPreferences || {
           enabled: true,
           channels: {

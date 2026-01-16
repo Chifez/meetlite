@@ -11,7 +11,7 @@ interface AuthPageProps {
 }
 
 const AuthPage = ({ mode }: AuthPageProps) => {
-  const { login, signup, redirectTo, setRedirectTo } = useAuth();
+  const { login, signup, redirectTo, setRedirectTo, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -26,8 +26,10 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   useEffect(() => {
     if (token) {
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });
-      // Priority: redirect > invitation (legacy) > default
-      if (redirect) {
+      // System admins always go to /admin (unless redirect param overrides)
+      if (user?.isSystemAdmin && !redirect) {
+        navigate('/admin');
+      } else if (redirect) {
         navigate(decodeURIComponent(redirect));
       } else if (invitation) {
         navigate(`/invite/${invitation}`);
@@ -41,9 +43,15 @@ const AuthPage = ({ mode }: AuthPageProps) => {
         } failed. Please try again.`
       );
     }
-  }, [token, error, mode, navigate, invitation, redirect]);
+  }, [token, error, mode, navigate, invitation, redirect, user]);
 
   const handlePostAuthNavigation = () => {
+    // System admins always go to /admin
+    if (user?.isSystemAdmin) {
+      navigate('/admin');
+      return;
+    }
+
     // Priority: redirect param > redirectTo context > invitation (legacy) > default
     if (redirect) {
       navigate(decodeURIComponent(redirect));

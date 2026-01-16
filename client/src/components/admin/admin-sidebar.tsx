@@ -1,42 +1,26 @@
 import { useState, useCallback } from 'react';
-import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
 import { cn } from '@/lib/utils';
-import { useWorkspace } from '@/contexts/workspace-context';
-import { useNavigate } from 'react-router-dom';
-import { NAVIGATION_ITEMS } from '@/lib/constants';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ADMIN_NAVIGATION_ITEMS } from '@/lib/admin-constants';
 import { useIsDesktop } from '@/hooks/use-media-query';
-import { useCurrentPlan } from '@/hooks/use-current-plan';
-import { useAuth } from '@/hooks/use-auth';
 import type { NavigationItem } from '@/lib/types';
 
-import { SidebarHeader } from './sidebar-header';
-import { SidebarNavigation } from './sidebar-navigation';
-import { SidebarFooter } from './sidebar-footer';
+import { SidebarHeader } from '../sidebar/sidebar-header';
+import UserMenu from '../ui/user-menu';
 
-interface SidebarProps {
+interface AdminSidebarProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
 }
 
-export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
+export function AdminSidebar({
+  mobileMenuOpen,
+  setMobileMenuOpen,
+}: AdminSidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
-  const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const { isPersonalMode } = useWorkspace();
-  const { currentPlan } = useCurrentPlan();
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isDesktop = useIsDesktop();
-
-  // Memoize visible navigation items to prevent unnecessary recalculations
-  const visibleNavigationItems = NAVIGATION_ITEMS.filter(
-    (item) => !(item.organizationOnly && isPersonalMode)
-  );
-
-  // Add admin navigation items if user is system admin
-  const allNavigationItems = user?.isSystemAdmin
-    ? [...visibleNavigationItems, ...ADMIN_NAVIGATION_ITEMS]
-    : visibleNavigationItems;
 
   // Simple boolean expression (no memoization needed)
   const isContentVisible = collapsed && isDesktop;
@@ -61,11 +45,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   // Stable handler for closing mobile menu
   const handleCloseMobileMenu = useCallback(() => {
     setMobileMenuOpen(false);
-  }, [setMobileMenuOpen]);
-
-  // Stable handler for opening plan dialog
-  const handleOpenPlanDialog = useCallback(() => {
-    setPlanDialogOpen(true);
   }, []);
 
   return (
@@ -101,26 +80,51 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
         />
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <SidebarNavigation
-            isContentVisible={isContentVisible}
-            visibleNavigationItems={allNavigationItems}
-            onNavigationClick={handleNavigationClick}
-          />
+          <nav className="flex-1 p-2">
+            <ul className="space-y-1">
+              {ADMIN_NAVIGATION_ITEMS.map((item) => {
+                const isActive = location.pathname === item.path;
+                const Icon = item.icon;
+
+                return (
+                  <li key={item.path}>
+                    <button
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        isContentVisible
+                          ? 'justify-center px-2'
+                          : 'justify-start',
+                        isActive
+                          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                          : 'text-sidebar-foreground hover:bg-sidebar-accent',
+                        !item.available && 'opacity-50 cursor-not-allowed'
+                      )}
+                      onClick={() => handleNavigationClick(item)}
+                      disabled={!item.available}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {!isContentVisible && (
+                        <span className="text-xs font-medium">
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
         </div>
 
-        <SidebarFooter
-          collapsed={collapsed}
-          isContentVisible={isContentVisible}
-          onOpenPlanDialog={handleOpenPlanDialog}
-        />
+        <div className="p-4 border-t border-sidebar-border">
+          <UserMenu
+            collapsed={collapsed}
+            onOpenSettings={() =>
+              navigate('/admin?settings=true', { replace: false })
+            }
+          />
+        </div>
       </div>
-
-      {/* Plan Settings Dialog */}
-      <PlanSettingsDialog
-        open={planDialogOpen}
-        onOpenChange={setPlanDialogOpen}
-        currentPlan={currentPlan}
-      />
     </>
   );
 }

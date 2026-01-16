@@ -223,6 +223,12 @@ const userSchema = new mongoose.Schema({
       default: null,
     },
   },
+  // System-level admin flag (separate from organization/team roles)
+  isSystemAdmin: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
   // Token versioning for JWT invalidation
   tokenVersion: {
     type: Number,
@@ -293,6 +299,7 @@ userSchema.index({ 'teamMemberships.status': 1 });
 userSchema.index({ 'plan.type': 1 });
 userSchema.index({ 'plan.status': 1 });
 userSchema.index({ onboardingCompleted: 1 });
+userSchema.index({ isSystemAdmin: 1 });
 
 // Export the schema and a factory function to create models with specific connections
 export const createUserModel = (connection) => {

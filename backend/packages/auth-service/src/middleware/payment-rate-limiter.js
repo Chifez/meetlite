@@ -24,9 +24,9 @@ export const paymentRateLimiter = rateLimit({
     );
   },
   // Use user ID if available for better rate limiting
-  keyGenerator: (req) => {
-    return req.user?._id?.toString() || req.ip;
-  },
+  // keyGenerator: (req) => {
+  //   return req.user?._id?.toString() || req.ip;
+  // },
 });
 
 /**

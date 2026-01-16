@@ -72,16 +72,16 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     ? (user?.organizationId === activeOrganization.id && user?.role) || null
     : null;
 
-  // Load organizations when user authenticates
+  // Load organizations when user authenticates (skip for system admins)
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && !user.isSystemAdmin) {
       refreshOrganizations();
     } else {
-      // Clear state when user logs out
+      // Clear state when user logs out or is system admin
       setOrganizations([]);
       setActiveOrganization(null);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, user?.isSystemAdmin]);
 
   // Set active organization based on user's current organizationId
   useEffect(() => {

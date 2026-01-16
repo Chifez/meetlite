@@ -25,6 +25,7 @@ const SERVICE_ROUTES = {
       '/api/push-notifications',
       '/api/payment',
       '/api/teams', // Team invitation routes (user-scoped)
+      '/api/admin', // Admin routes (system admin only)
     ],
     target: config.services.auth,
     pathRewrite: {
@@ -39,6 +40,7 @@ const SERVICE_ROUTES = {
       '^/api/push-notifications': '/api/v1/push-notifications',
       '^/api/payment': '/api/v1/payment',
       '^/api/teams': '/api/v1/teams',
+      '^/api/admin': '/api/v1/admin', // Admin routes follow /api/v1/ convention
     },
   },
 

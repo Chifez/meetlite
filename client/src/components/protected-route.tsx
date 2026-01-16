@@ -1,4 +1,4 @@
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 
 interface ProtectedRouteProps {
@@ -9,6 +9,7 @@ interface ProtectedRouteProps {
 /**
  * ProtectedRoute - Wrapper for routes that require authentication
  * Handles redirects for unauthenticated users and onboarding checks
+ * Blocks system admins from accessing normal user routes
  */
 export function ProtectedRoute({
   children,
@@ -16,6 +17,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuth();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const redirect = searchParams.get('redirect');
 
   // If not authenticated, redirect to login with redirect parameter
@@ -30,8 +32,19 @@ export function ProtectedRoute({
     );
   }
 
+  // System admins can only access /admin routes
+  if (user?.isSystemAdmin && !location.pathname.startsWith('/admin')) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  // Non-system-admins cannot access /admin routes
+  if (!user?.isSystemAdmin && location.pathname.startsWith('/admin')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   // If onboarding is required but not completed, redirect to onboarding
-  if (requireOnboarding && !user?.onboardingCompleted) {
+  // Skip onboarding check for system admins
+  if (requireOnboarding && !user?.onboardingCompleted && !user?.isSystemAdmin) {
     return <Navigate to="/onboarding" replace />;
   }
 

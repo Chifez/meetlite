@@ -12,6 +12,7 @@ type User = {
   name?: string;
   useNameInMeetings?: boolean;
   onboardingCompleted?: boolean;
+  isSystemAdmin?: boolean;
   onboarding?: {
     name?: string;
     useCase?: 'personal' | 'education' | 'business' | 'team';
@@ -109,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         organizationId: profile.organizationId ?? null,
         role: profile.role,
         plan: profile.plan,
+        isSystemAdmin: profile.isSystemAdmin || false,
       });
 
       console.log('Profile fetched successfully:', {

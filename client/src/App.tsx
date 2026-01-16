@@ -26,6 +26,10 @@ import Notifications from './pages/notifications';
 import TeamMeetings from './pages/teams/[teamId]/meetings';
 import TeamRecordings from './pages/teams/[teamId]/recordings';
 import TeamSettings from './pages/teams/[teamId]/settings';
+import AdminOverview from './pages/admin/index';
+import AdminManage from './pages/admin/manage';
+import AdminRevenue from './pages/admin/revenue';
+import AdminSystem from './pages/admin/system';
 
 function App() {
   // Initialize hotkeys
@@ -195,6 +199,40 @@ function App() {
             element={
               <ProtectedRoute>
                 <Notifications />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminOverview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/manage"
+            element={
+              <ProtectedRoute>
+                <AdminManage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/revenue"
+            element={
+              <ProtectedRoute>
+                <AdminRevenue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/system"
+            element={
+              <ProtectedRoute>
+                <AdminSystem />
               </ProtectedRoute>
             }
           />

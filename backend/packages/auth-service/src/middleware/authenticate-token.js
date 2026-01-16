@@ -16,7 +16,7 @@ export const authenticateToken = (req, res, next) => {
 
     // Get user info and attach to request
     try {
-      const user = await models.User.findById(decoded.userId);
+      const user = await models.User.findById(decoded.userId).select('+isSystemAdmin');
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }

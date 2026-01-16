@@ -22,7 +22,8 @@ const Layout = () => {
     pathname === '/onboarding' ||
     pathname.startsWith('/invite/');
   const isLandingPage = pathname === '/';
-  const shouldShowNavbar = !isRoomPage && !isAuthPage;
+  const isAdminPage = pathname.startsWith('/admin');
+  const shouldShowNavbar = !isRoomPage && !isAuthPage && !isAdminPage;
 
   // Simple derived value (no memoization needed)
   const showSettingsModal = searchParams.get('settings') === 'true';
@@ -48,6 +49,15 @@ const Layout = () => {
           <Outlet />
         </main>
       </div>
+    );
+  }
+
+  // Admin pages use AdminLayout internally, so skip regular Layout
+  if (isAdminPage) {
+    return (
+      <main className="flex-1">
+        <Outlet />
+      </main>
     );
   }
 

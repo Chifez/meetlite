@@ -591,7 +591,7 @@ export class MeetingController {
     );
 
     if (!hasAccess) {
-      throw AppError.forbidden(
+    throw AppError.forbidden(
         'Access denied. You need to be invited or be a team member to access this meeting.'
       );
     }
@@ -679,9 +679,9 @@ export class MeetingController {
 
     if (!participantsChanged) {
       participantsChanged =
-        updates.participants &&
-        JSON.stringify(updates.participants) !==
-          JSON.stringify(meeting.participants);
+      updates.participants &&
+      JSON.stringify(updates.participants) !==
+        JSON.stringify(meeting.participants);
     }
 
     // Prevent participant changes for ongoing meetings
