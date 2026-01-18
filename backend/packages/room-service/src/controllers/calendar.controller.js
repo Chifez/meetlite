@@ -11,6 +11,10 @@ import {
   createAuthenticatedGoogleClient,
   createAuthenticatedMicrosoftClient,
 } from '../services/calendar.service.js';
+import {
+  getCachedCalendarEvents,
+  invalidateCalendarCache,
+} from '../services/calendar-cache.service.js';
 import { AppError } from '@minimeet/shared';
 
 // Google Calendar OAuth
@@ -234,10 +238,6 @@ export const refreshCalendarCache = async (req, res) => {
   const now = new Date();
   const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const defaultEndDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-  const { getCachedCalendarEvents, invalidateCalendarCache } = await import(
-    '../services/calendar-cache.service.js'
-  );
 
   // Invalidate existing cache
   await invalidateCalendarCache(userId);

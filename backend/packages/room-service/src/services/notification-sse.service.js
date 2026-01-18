@@ -11,8 +11,21 @@ const activeConnections = new Map();
 // Map of userId -> heartbeat interval ID
 const heartbeatIntervals = new Map();
 
-// Maximum concurrent SSE connections per user (security: prevent DoS)
-const MAX_CONNECTIONS_PER_USER = 3;
+// Map of userId -> last successful write timestamp (for timeout detection)
+const lastWriteTime = new Map();
+
+// Timeout check interval ID (for cleanup on shutdown)
+let timeoutCheckIntervalId = null;
+
+// Maximum total concurrent SSE connections across all users (prevent resource exhaustion)
+// Default: 10,000 connections (adjust based on server capacity)
+const MAX_TOTAL_CONNECTIONS = parseInt(
+  process.env.MAX_SSE_CONNECTIONS || '10000',
+  10
+);
+
+// Connection timeout in milliseconds (60 seconds)
+const CONNECTION_TIMEOUT_MS = 60000;
 
 /**
  * Initialize SSE service
@@ -20,6 +33,27 @@ const MAX_CONNECTIONS_PER_USER = 3;
  */
 export const initializeNotificationSSE = () => {
   console.log('✅ Notification SSE service initialized');
+  console.log(`   - Max total connections: ${MAX_TOTAL_CONNECTIONS}`);
+  console.log(`   - Connection timeout: ${CONNECTION_TIMEOUT_MS / 1000}s`);
+  
+  // Set up periodic timeout check (runs every 30 seconds to check for stale connections)
+  timeoutCheckIntervalId = setInterval(() => {
+    const now = Date.now();
+    const timedOutUsers = [];
+    
+    for (const [userId, lastWrite] of lastWriteTime.entries()) {
+      if (now - lastWrite > CONNECTION_TIMEOUT_MS) {
+        timedOutUsers.push(userId);
+      }
+    }
+    
+    // Clean up timed out connections
+    for (const userId of timedOutUsers) {
+      console.log(`⏱️  Cleaning up timed out connection for user ${userId}`);
+      cleanupConnection(userId);
+    }
+  }, 30000); // Check every 30 seconds
+  
   return {
     activeConnections,
     getConnectionCount: () => activeConnections.size,
@@ -63,6 +97,9 @@ export const sendNotificationToUser = (userId, notification) => {
 
     connection.write(`data: ${data}\n\n`);
 
+    // Update last successful write time
+    lastWriteTime.set(userId, Date.now());
+
     console.log(`📨 Sent SSE notification to user ${userId}`);
     return true;
   } catch (error) {
@@ -92,11 +129,51 @@ export const sendNotificationToUsers = (userIds, notification) => {
 };
 
 /**
+ * Get the maximum total connections limit
+ * @returns {number} - Maximum total connections allowed
+ */
+export const getMaxTotalConnections = () => {
+  return MAX_TOTAL_CONNECTIONS;
+};
+
+/**
+ * Check if we can accept a new connection (global limit check)
+ * @returns {boolean} - True if we can accept a new connection
+ */
+export const canAcceptNewConnection = () => {
+  // Clean up dead connections first to get accurate count
+  for (const [userId, connection] of activeConnections.entries()) {
+    if (connection.destroyed || connection.closed) {
+      cleanupConnection(userId);
+    }
+  }
+  
+  return activeConnections.size < MAX_TOTAL_CONNECTIONS;
+};
+
+/**
  * Register a new SSE connection for a user
  * @param {string} userId - User ID
  * @param {Object} res - Express response object
+ * @throws {Error} If global connection limit is reached
  */
 export const registerConnection = (userId, res) => {
+  // Check global connection limit BEFORE registering
+  // Clean up dead connections first to get accurate count
+  for (const [uid, connection] of activeConnections.entries()) {
+    if (connection.destroyed || connection.closed) {
+      cleanupConnection(uid);
+    }
+  }
+  
+  if (activeConnections.size >= MAX_TOTAL_CONNECTIONS) {
+    const error = new Error(
+      `Server at capacity: Maximum concurrent connections (${MAX_TOTAL_CONNECTIONS}) reached`
+    );
+    error.code = 'CONNECTION_LIMIT_EXCEEDED';
+    throw error;
+  }
+
   // Security: Enforce connection limit per user to prevent DoS
   // Since we store one connection per userId in the Map, we ensure only one active connection per user
   // If user tries to connect again, we close the existing connection first
@@ -111,15 +188,32 @@ export const registerConnection = (userId, res) => {
   // Store the new connection
   activeConnections.set(userId, res);
 
-  // Set up heartbeat to keep connection alive
+  // Initialize last write time
+  lastWriteTime.set(userId, Date.now());
+
+  // Set up heartbeat to keep connection alive and detect timeouts
   const heartbeat = setInterval(() => {
     const connection = activeConnections.get(userId);
     if (connection && !connection.destroyed && !connection.closed) {
       try {
+        // Check if connection has timed out (no successful write in CONNECTION_TIMEOUT_MS)
+        const lastWrite = lastWriteTime.get(userId);
+        const now = Date.now();
+        
+        if (lastWrite && now - lastWrite > CONNECTION_TIMEOUT_MS) {
+          console.log(`⏱️  Connection timeout detected for user ${userId} (last write: ${now - lastWrite}ms ago)`);
+          cleanupConnection(userId);
+          return;
+        }
+
         // Send heartbeat comment (SSE format)
         connection.write(': heartbeat\n\n');
+        
+        // Update last successful write time
+        lastWriteTime.set(userId, Date.now());
       } catch (error) {
         // Connection is dead, clean it up
+        console.log(`❌ Heartbeat failed for user ${userId}:`, error.message);
         cleanupConnection(userId);
       }
     } else {
@@ -144,6 +238,9 @@ export const cleanupConnection = (userId) => {
     clearInterval(heartbeat);
     heartbeatIntervals.delete(userId);
   }
+
+  // Remove last write time tracking
+  lastWriteTime.delete(userId);
 
   // Close and remove connection
   const connection = activeConnections.get(userId);
@@ -204,6 +301,12 @@ export const getConnectedUserIds = () => {
 export const shutdownNotificationSSE = async () => {
   console.log('⏹️  Shutting down notification SSE service...');
 
+  // Clear timeout check interval
+  if (timeoutCheckIntervalId) {
+    clearInterval(timeoutCheckIntervalId);
+    timeoutCheckIntervalId = null;
+  }
+
   // Close all connections
   for (const [userId, connection] of activeConnections.entries()) {
     try {
@@ -215,7 +318,7 @@ export const shutdownNotificationSSE = async () => {
     }
   }
 
-  // Clear all intervals
+  // Clear all heartbeat intervals
   for (const heartbeat of heartbeatIntervals.values()) {
     clearInterval(heartbeat);
   }
@@ -223,6 +326,7 @@ export const shutdownNotificationSSE = async () => {
   // Clear maps
   activeConnections.clear();
   heartbeatIntervals.clear();
+  lastWriteTime.clear();
 
   console.log('✅ Notification SSE service shut down');
 };
@@ -236,6 +340,8 @@ export default {
   isUserConnected,
   getConnectedUserCount,
   getConnectedUserIds,
+  canAcceptNewConnection,
+  getMaxTotalConnections,
   shutdownNotificationSSE,
 };
 

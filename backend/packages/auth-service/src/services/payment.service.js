@@ -2,6 +2,8 @@ import Stripe from 'stripe';
 import { stripeConfig } from '../config/stripe.js';
 import { models } from '../index.js';
 import { OrganizationPlanSyncService } from './organization-plan-sync.service.js';
+import { EmailQueue } from '@minimeet/shared';
+import { getPaymentFailureEmailTemplate } from '../templates/payment-failure-email.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
@@ -447,14 +449,37 @@ export class PaymentService {
    */
   static async handlePaymentFailure(paymentIntent) {
     try {
-      const { userId } = paymentIntent.metadata;
+      const { userId, planType } = paymentIntent.metadata;
 
       if (userId) {
         // Send failure notification email
         const user = await models.User.findById(userId);
         if (user) {
-          // Send payment failure email
-          // Implementation would go here
+          try {
+            const emailQueue = new EmailQueue();
+            const template = getPaymentFailureEmailTemplate(
+              user.name || user.email,
+              planType || 'premium',
+              paymentIntent.last_payment_error?.message || 'Payment could not be processed'
+            );
+
+            await emailQueue.addEmailJob(
+              'payment_failure',
+              {
+                userEmail: user.email,
+                userName: user.name || user.email,
+                planType: planType || 'premium',
+                errorMessage: paymentIntent.last_payment_error?.message || 'Payment could not be processed',
+              },
+              {
+                priority: 1,
+                jobId: `payment-failure-${paymentIntent.id}`,
+              }
+            );
+          } catch (emailError) {
+            console.error('Failed to queue payment failure email:', emailError);
+            // Don't throw - email failure shouldn't break webhook processing
+          }
         }
       }
 
@@ -622,11 +647,26 @@ export class PaymentService {
       }
 
       if (user) {
+        // Downgrade to free plan when subscription is deleted
         await models.User.findByIdAndUpdate(user._id, {
-          'plan.status': 'cancelled',
+          'plan.type': 'free',
+          'plan.status': 'active',
           'plan.stripeSubscriptionId': null,
+          'plan.endDate': null,
+          'plan.startDate': new Date(),
           $inc: { tokenVersion: 1 },
         });
+
+        // Also downgrade all organizations owned by this user
+        await models.Organization.updateMany(
+          { ownerId: user._id },
+          {
+            'plan.type': 'free',
+            'plan.status': 'active',
+            'plan.startDate': new Date(),
+            'plan.endDate': null,
+          }
+        );
 
         // Sync organizations to reflect cancelled status
         await OrganizationPlanSyncService.syncUserOrganizations(user._id);

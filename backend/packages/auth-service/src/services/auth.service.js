@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 import { models } from '../index.js';
 import { generateResetToken } from './email-service.js';
 import { EmailQueue } from '@minimeet/shared';
+import { generateJWTToken } from '../utils/generate-token.js';
 
 export class AuthService {
   // Helper function to create Google OAuth client
@@ -48,7 +49,6 @@ export class AuthService {
       }
 
       // Generate JWT token
-      const { generateJWTToken } = await import('../utils/generate-token.js');
       const token = generateJWTToken(user);
 
       return { token };

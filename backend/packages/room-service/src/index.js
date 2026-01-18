@@ -22,6 +22,7 @@ import {
   sendNotificationToUser,
   shutdownNotificationSSE,
 } from './services/notification-sse.service.js';
+import { setAuditLogModel } from './services/audit.service.js';
 import { NotificationWorker } from '@minimeet/shared';
 import { sendEmail } from './services/email.service.js';
 import { sendPushNotificationToUser } from './services/push-notification.service.js';
@@ -123,7 +124,6 @@ const connectDB = async () => {
     models = { ...models, ...localModels };
 
     // Inject AuditLog model into audit service to use correct connection
-    const { setAuditLogModel } = await import('./services/audit.service.js');
     setAuditLogModel(models.AuditLog);
 
     // Handle connection events

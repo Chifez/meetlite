@@ -26,6 +26,7 @@ const SERVICE_ROUTES = {
       '/api/payment',
       '/api/teams', // Team invitation routes (user-scoped)
       '/api/admin', // Admin routes (system admin only)
+      '/api/contact', // Contact form routes (public)
     ],
     target: config.services.auth,
     pathRewrite: {
@@ -41,6 +42,7 @@ const SERVICE_ROUTES = {
       '^/api/payment': '/api/v1/payment',
       '^/api/teams': '/api/v1/teams',
       '^/api/admin': '/api/v1/admin', // Admin routes follow /api/v1/ convention
+      '^/api/contact': '/api/v1/contact', // Contact routes follow /api/v1/ convention
     },
   },
 
@@ -112,7 +114,24 @@ export function createServiceProxy(serviceConfig) {
     onProxyRes: (proxyRes, req, res) => {
       // For SSE, ensure headers are passed through correctly
       if (isSSEStream(req.url)) {
-        // Don't modify SSE response headers - let them pass through
+        // Ensure CORS headers are explicitly set for SSE streams
+        // EventSource requires CORS headers to be present
+        const origin = req.headers.origin;
+        const allowedOrigins = [
+          process.env.FRONTEND_URL || 'http://localhost:5174',
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'http://127.0.0.1:5173',
+          'http://127.0.0.1:5174',
+        ];
+        
+        // Set CORS headers if origin is allowed
+        if (origin && allowedOrigins.includes(origin)) {
+          res.setHeader('Access-Control-Allow-Origin', origin);
+          res.setHeader('Access-Control-Allow-Credentials', 'true');
+          res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Cache-Control, Connection');
+        }
+        
         // Ensure X-Accel-Buffering is set to prevent nginx buffering
         res.setHeader('X-Accel-Buffering', 'no');
       }

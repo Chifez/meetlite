@@ -1,10 +1,31 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Play, Video, Users } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 import StatsDisplay from '@/components/landing/stats-display';
 import FeaturePills from '@/components/landing/feature-pills';
+import VideoDemoModal from '@/components/landing/video-demo-modal';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
+  const handleStartMeeting = () => {
+    if (isAuthenticated) {
+      // Redirect to dashboard where user can start a meeting
+      navigate('/dashboard');
+    } else {
+      // Redirect to login page
+      navigate('/login', { state: { from: 'landing' } });
+    }
+  };
+
+  const handleWatchDemo = () => {
+    setIsVideoModalOpen(true);
+  };
   return (
     <div className="relative min-h-[90vh] flex items-center bg-background overflow-hidden transition-colors duration-300">
       {/* Subtle background pattern */}
@@ -50,6 +71,7 @@ const HeroSection = () => {
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button
               size="default"
+              onClick={handleStartMeeting}
               className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-6 py-2.5 text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 group"
             >
               Start Meeting Now
@@ -59,12 +81,19 @@ const HeroSection = () => {
             <Button
               variant="outline"
               size="default"
+              onClick={handleWatchDemo}
               className="rounded-lg px-6 py-2.5 text-sm font-medium border-2 hover:bg-muted transition-all duration-200 group"
             >
               <Play className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
               Watch Demo
             </Button>
           </div>
+
+          {/* Video Demo Modal */}
+          <VideoDemoModal
+            open={isVideoModalOpen}
+            onClose={() => setIsVideoModalOpen(false)}
+          />
 
           {/* Feature Pills */}
           <div className="pt-4">

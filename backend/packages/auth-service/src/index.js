@@ -17,6 +17,7 @@ import pushNotificationsRoutes from './routes/v1/push-notifications.route.js';
 import teamRoutes from './routes/v1/team.route.js';
 import teamInvitationRoutes from './routes/v1/team-invitation.route.js';
 import adminRoutes from './routes/v1/admin.route.js';
+import contactRoutes from './routes/v1/contact.routes.js';
 import { blockSystemAdmin } from './middleware/block-system-admin.js';
 
 // Import simple middleware
@@ -47,6 +48,8 @@ import { getTeamInviteEmailTemplate } from './templates/team-invite-email.js';
 import { getPlanUpgradeEmailTemplate } from './templates/plan-upgrade-email.js';
 import { getPlanCancellationEmailTemplate } from './templates/plan-cancellation-email.js';
 import { getPlanExpirationWarningEmailTemplate } from './templates/plan-expiration-warning-email.js';
+import { getPlanExpirationEmailTemplate } from './templates/plan-expiration-email.js';
+import { getPaymentFailureEmailTemplate } from './templates/payment-failure-email.js';
 // Import meeting templates from room-service
 import { getMeetingInviteEmailTemplate } from '../../room-service/src/templates/meeting-invite-email.js';
 import {
@@ -94,6 +97,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
+
+// Public contact routes (no authentication required)
+app.use('/api/v1/contact', contactRoutes);
 
 // Admin routes (requires admin access) - must come BEFORE catch-all /api/v1 routes
 app.use('/api/v1/admin', adminRoutes);
@@ -324,6 +330,8 @@ const startServer = async () => {
       plan_expiration_warning: adaptPlanExpirationWarningTemplate(
         getPlanExpirationWarningEmailTemplate
       ),
+      plan_expiration: adaptPlanEmailTemplate(getPlanExpirationEmailTemplate),
+      payment_failure: adaptPlanEmailTemplate(getPaymentFailureEmailTemplate),
     };
 
     // Start email worker

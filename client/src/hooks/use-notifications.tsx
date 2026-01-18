@@ -38,6 +38,7 @@ interface UseNotificationsReturn {
   deleteNotification: (notificationId: string) => Promise<void>;
   fetchNotifications: (page?: number, limit?: number) => Promise<void>;
   refreshNotifications: () => Promise<void>;
+  retryConnection: () => Promise<void>;
 }
 
 export const useNotifications = (): UseNotificationsReturn => {
@@ -55,7 +56,24 @@ export const useNotifications = (): UseNotificationsReturn => {
   const reconnectAttemptsRef = useRef(0);
   const currentPageRef = useRef(1);
   const maxReconnectAttempts = 5;
-  const reconnectDelay = 3000; // 3 seconds
+
+  /**
+   * Calculate exponential backoff delay for reconnection
+   * Pattern: 3s, 6s, 12s, 24s, 48s, capped at 60s
+   * @param attempt - Current reconnection attempt number (1-indexed)
+   * @returns Delay in milliseconds
+   */
+  const getReconnectDelay = (attempt: number): number => {
+    // Exponential backoff: 3000 * 2^(attempt-1)
+    // Attempt 1: 3000ms (3s)
+    // Attempt 2: 6000ms (6s)
+    // Attempt 3: 12000ms (12s)
+    // Attempt 4: 24000ms (24s)
+    // Attempt 5: 48000ms (48s)
+    const delay = 3000 * Math.pow(2, attempt - 1);
+    // Cap at 60 seconds
+    return Math.min(delay, 60000);
+  };
 
   /**
    * Fetch notifications from API
@@ -190,8 +208,7 @@ export const useNotifications = (): UseNotificationsReturn => {
   /**
    * Setup SSE connection
    */
-  useEffect(() => {
-    const setupSSE = async () => {
+  const setupSSE = useCallback(async () => {
       try {
         const token = Cookies.get('token');
         if (!token) {
@@ -206,6 +223,8 @@ export const useNotifications = (): UseNotificationsReturn => {
         const notificationPrefs = profile.notificationPreferences;
         if (notificationPrefs?.enabled === false) {
           console.log('Notifications disabled by user preferences');
+          setError(null); // Clear any previous errors since this is intentional
+          setIsConnected(false);
           return;
         }
 
@@ -241,6 +260,27 @@ export const useNotifications = (): UseNotificationsReturn => {
             // Handle connection confirmation
             if (data.type === 'connected') {
               console.log('📨 Notification SSE connected:', data);
+              return;
+            }
+
+            // Handle error messages from server
+            if (data.type === 'error') {
+              console.error('❌ SSE error from server:', data);
+              let errorMessage = data.message || 'Connection error occurred';
+              
+              // Provide specific messages for known error codes
+              if (data.error === 'CONNECTION_LIMIT_EXCEEDED') {
+                errorMessage = 'Server is at capacity. Please try again in a moment.';
+              }
+              
+              setError(errorMessage);
+              setIsConnected(false);
+              
+              // Close the connection on error
+              if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+              }
               return;
             }
 
@@ -284,6 +324,9 @@ export const useNotifications = (): UseNotificationsReturn => {
           console.error('❌ SSE connection error:', err);
           setIsConnected(false);
 
+          // Determine error type based on EventSource readyState
+          const readyState = eventSource.readyState;
+
           // Close the connection
           if (eventSourceRef.current) {
             eventSourceRef.current.close();
@@ -293,25 +336,108 @@ export const useNotifications = (): UseNotificationsReturn => {
           // Attempt to reconnect if we haven't exceeded max attempts
           if (reconnectAttemptsRef.current < maxReconnectAttempts) {
             reconnectAttemptsRef.current++;
+            const delay = getReconnectDelay(reconnectAttemptsRef.current);
+            const attemptNumber = reconnectAttemptsRef.current;
+            const maxAttempts = maxReconnectAttempts;
+            
+            // Set error message showing reconnection status (only if not in connecting state)
+            if (readyState !== EventSource.CONNECTING) {
+              setError(
+                `Connection lost. Reconnecting... (${attemptNumber}/${maxAttempts})`
+              );
+            } else {
+              // Clear error if still connecting
+              setError('');
+            }
+            
             console.log(
-              `🔄 Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`
+              `🔄 Attempting to reconnect (${attemptNumber}/${maxAttempts}) in ${delay / 1000}s...`
             );
 
             reconnectTimeoutRef.current = setTimeout(() => {
               setupSSE();
-            }, reconnectDelay);
+            }, delay);
           } else {
-            setError('Failed to connect to notification service');
+            // Max attempts reached - provide actionable error message
+            setError(
+              'Unable to connect to notification service. Please check your internet connection and try again, or refresh the page.'
+            );
             console.error('❌ Max reconnection attempts reached');
           }
         };
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to setup notification SSE connection:', error);
-        setError('Failed to setup notification connection');
+        
+        // Provide specific error messages based on error type
+        let errorMessage = 'Failed to connect to notification service';
+        
+        if (error.response) {
+          // HTTP error response
+          const status = error.response.status;
+          const errorData = error.response.data;
+          
+          if (status === 401) {
+            errorMessage = 'Authentication failed. Please log in again.';
+          } else if (status === 403) {
+            errorMessage = 'Access denied. Please check your permissions.';
+          } else if (status === 429) {
+            errorMessage = 'Too many connection attempts. Please wait a moment and try again.';
+          } else if (status === 503) {
+            errorMessage = errorData?.message || 'Service temporarily unavailable. Please try again later.';
+          } else if (status >= 500) {
+            errorMessage = 'Server error. Please try again later.';
+          } else {
+            errorMessage = errorData?.message || `Connection failed (${status}). Please try again.`;
+          }
+        } else if (error.request) {
+          // Network error (no response received)
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message) {
+          // Other error with message
+          if (error.message.includes('token') || error.message.includes('auth')) {
+            errorMessage = 'Authentication error. Please log in again.';
+          } else {
+            errorMessage = `Connection error: ${error.message}`;
+          }
+        }
+        
+        setError(errorMessage);
         setIsConnected(false);
       }
-    };
+    }, []);
 
+  /**
+   * Manual retry connection function
+   * Allows user to manually retry connecting to SSE stream
+   */
+  const retryConnection = useCallback(async () => {
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    // Reset reconnect attempts counter
+    reconnectAttemptsRef.current = 0;
+
+    // Clear error state
+    setError(null);
+
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    // Attempt to reconnect immediately
+    console.log('🔄 Manual retry: Attempting to reconnect to notification SSE stream...');
+    await setupSSE();
+  }, [setupSSE]);
+
+  /**
+   * Setup SSE connection on mount
+   */
+  useEffect(() => {
     setupSSE();
 
     // Cleanup on unmount
@@ -324,7 +450,7 @@ export const useNotifications = (): UseNotificationsReturn => {
         eventSourceRef.current = null;
       }
     };
-  }, []);
+  }, [setupSSE]);
 
   /**
    * Initial fetch on mount
@@ -360,5 +486,6 @@ export const useNotifications = (): UseNotificationsReturn => {
     deleteNotification,
     fetchNotifications,
     refreshNotifications,
+    retryConnection,
   };
 };

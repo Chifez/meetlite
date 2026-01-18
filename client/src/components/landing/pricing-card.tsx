@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import { PaymentService } from '@/services/payment-service';
 import { toast } from 'sonner';
+import ContactSalesModal from './contact-sales-modal';
 
 interface PricingCardProps {
   title: string;
@@ -32,8 +34,15 @@ const PricingCard = ({
 }: PricingCardProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   const handleButtonClick = async () => {
+    // Enterprise plan - open contact sales modal
+    if (planType === 'enterprise') {
+      setIsContactModalOpen(true);
+      return;
+    }
+
     // Free plan - redirect to signup/login
     if (!planType || planType === 'free') {
       if (!user) {
@@ -45,7 +54,7 @@ const PricingCard = ({
       return;
     }
 
-    // Paid plans - check authentication
+    // Pro plan - check authentication
     if (!user) {
       // Redirect to signup with plan info in state
       navigate('/signup', {
@@ -117,6 +126,14 @@ const PricingCard = ({
           {buttonText}
         </Button>
       </CardContent>
+
+      {/* Contact Sales Modal for Enterprise plan */}
+      {planType === 'enterprise' && (
+        <ContactSalesModal
+          open={isContactModalOpen}
+          onClose={() => setIsContactModalOpen(false)}
+        />
+      )}
     </Card>
   );
 };

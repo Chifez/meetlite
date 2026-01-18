@@ -1,5 +1,9 @@
 import { models } from '../index.js';
 import { uploadVideoFile } from '../services/cloudflare-r2.service.js';
+import {
+  transcribeRecording,
+  generateRecordingSummary,
+} from '../services/ai.service.js';
 import fs from 'fs/promises';
 
 /**
@@ -149,10 +153,6 @@ async function startAutoAIProcessing(recordingId) {
       return;
     }
 
-    // Import AI processing function
-    // Import AI service functions directly
-    const { transcribeRecording, generateRecordingSummary } = await import('../services/ai.service.js');
-    
     // Re-implement processRecordingAI locally since it's not exported from routes
     async function processRecordingAI(recording, type, processingId) {
       try {
@@ -287,9 +287,31 @@ export async function checkRecordingPermissions(
   duration
 ) {
   try {
-    // Get user's plan (this would come from organization or user model)
-    // For now, we'll assume 'free' - this should be updated to check actual plan
-    const userPlan = 'free'; // TODO: Get from organization.plan or user.plan
+    // Get user's plan (organizations sync from user plan, so user plan is source of truth)
+    // For organization-scoped features, check organization plan (which is synced from user)
+    // For user-scoped features, check user plan directly
+    let userPlan = 'free'; // Default to free
+
+    if (organizationId) {
+      // For organization-scoped features, check organization plan first
+      // Organization plans are synced from user plans via OrganizationPlanSyncService
+      const organization = await models.Organization.findById(organizationId).select('plan.type').lean();
+      if (organization?.plan?.type) {
+        userPlan = organization.plan.type;
+      } else {
+        // Fallback: Get plan from user (source of truth)
+        const user = await models.User.findById(userId).select('plan.type').lean();
+        if (user?.plan?.type) {
+          userPlan = user.plan.type;
+        }
+      }
+    } else {
+      // No organization ID, get plan from user (source of truth)
+      const user = await models.User.findById(userId).select('plan.type').lean();
+      if (user?.plan?.type) {
+        userPlan = user.plan.type;
+      }
+    }
 
     const limits = getRecordingLimits(userPlan);
 

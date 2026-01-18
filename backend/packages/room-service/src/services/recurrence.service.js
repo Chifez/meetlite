@@ -1,5 +1,6 @@
 import pkg from 'rrule';
 import { nanoid } from 'nanoid';
+import { cancelMeetingReminders } from './notification.service.js';
 
 const { RRule, RRuleSet, rrulestr } = pkg;
 /**
@@ -478,9 +479,6 @@ export async function cancelRecurrenceSeries(
           await instance.save();
 
           // Cancel reminders for this instance
-          const { cancelMeetingReminders } = await import(
-            '../services/notification.service.js'
-          );
           await cancelMeetingReminders(
             instance.meetingId,
             cancelReason,

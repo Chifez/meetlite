@@ -9,6 +9,7 @@ import {
 } from '../services/ai.service.js';
 import { request as undiciRequest } from 'undici';
 import { AppError } from '@minimeet/shared';
+import { models } from '../index.js';
 
 // Summarize meeting
 export const summarizeMeeting = async (req, res) => {
@@ -181,7 +182,6 @@ export const parseMeeting = async (req, res) => {
   let teamsContext = [];
   if (organizationId) {
     try {
-      const { models } = await import('../index.js');
       const teams = await models.Team.find({
         organizationId,
         status: { $ne: 'deleted' },

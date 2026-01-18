@@ -593,7 +593,7 @@ export class MeetingController {
     if (!hasAccess) {
     throw AppError.forbidden(
         'Access denied. You need to be invited or be a team member to access this meeting.'
-      );
+    );
     }
 
     return ResponseHelpers.ok(res, meeting);

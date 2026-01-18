@@ -4,6 +4,7 @@ import { auditLog } from '../services/audit.service.js';
 import {
   registerConnection,
   cleanupConnection,
+  canAcceptNewConnection,
 } from '../services/notification-sse.service.js';
 
 export class NotificationController {
@@ -82,18 +83,61 @@ export class NotificationController {
   async streamNotifications(req, res) {
     const userId = req.user.userId;
 
+    // Check global connection limit BEFORE setting headers
+    // This allows us to return a proper error response if limit is reached
+    if (!canAcceptNewConnection()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Server at capacity: Maximum concurrent connections reached. Please try again later.',
+        error: 'CONNECTION_LIMIT_EXCEEDED',
+      });
+    }
+
     // Set SSE headers BEFORE any writes
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-    // Note: CORS is handled by API Gateway - don't override here
+    
+    // CORS headers for SSE (backup in case API Gateway doesn't set them)
+    // Primary CORS handling is done by API Gateway, but we set them here as fallback
+    const origin = req.headers.origin;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+    const allowedOrigins = [
+      frontendUrl,
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+    ];
+    
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Cache-Control, Connection');
+    }
 
     // IMPORTANT: Flush headers immediately to establish SSE connection
     res.flushHeaders();
 
-    // Register this connection
-    registerConnection(userId, res);
+    // Register this connection (may throw if limit reached between check and register)
+    try {
+      registerConnection(userId, res);
+    } catch (error) {
+      // If limit was reached between check and register, close connection gracefully
+      if (error.code === 'CONNECTION_LIMIT_EXCEEDED') {
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'error',
+            message: 'Server at capacity. Please try again later.',
+            error: 'CONNECTION_LIMIT_EXCEEDED',
+          })}\n\n`
+        );
+        res.end();
+        return;
+      }
+      throw error; // Re-throw other errors
+    }
 
     // Send initial connection event
     res.write(

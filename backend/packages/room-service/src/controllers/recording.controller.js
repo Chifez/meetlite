@@ -6,6 +6,7 @@ import {
   checkR2Config,
   extractAudioFromVideo,
   generateSignedUrl,
+  deleteFile,
 } from '../services/cloudflare-r2.service.js';
 import {
   transcribeRecording,
@@ -533,8 +534,6 @@ export class RecordingController {
     }
 
     // Actually delete the recording and clean up files
-    const { deleteFile } = await import('../services/cloudflare-r2.service.js');
-
     // Delete files from R2
     if (recording.recording.storagePath) {
       try {

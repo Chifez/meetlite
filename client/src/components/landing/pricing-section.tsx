@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import PricingCard from '@/components/landing/pricing-card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import ScheduleDemoModal from '@/components/landing/schedule-demo-modal';
 
 const pricingPlans = [
   {
@@ -52,6 +54,8 @@ const pricingPlans = [
 ];
 
 const PricingSection = () => {
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
   return (
     <section
       id="pricing"
@@ -110,6 +114,7 @@ const PricingSection = () => {
                 <Button
                   variant="outline"
                   size="default"
+                  onClick={() => setIsScheduleModalOpen(true)}
                   className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 rounded-lg px-6 py-2.5 text-sm font-medium bg-transparent"
                 >
                   Schedule a Demo
@@ -118,6 +123,12 @@ const PricingSection = () => {
             </div>
           </div>
         </div>
+
+        {/* Schedule Demo Modal */}
+        <ScheduleDemoModal
+          open={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+        />
       </div>
     </section>
   );

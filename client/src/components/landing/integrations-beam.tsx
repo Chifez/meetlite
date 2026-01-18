@@ -307,8 +307,9 @@ const IntegrationsBeam = () => {
             elementsSelectable={true}
             nodesFocusable={false}
             zoomOnScroll={false}
-            panOnScroll={true}
-            panOnDrag={true}
+            panOnScroll={false}
+            panOnDrag={false}
+            preventScrolling={false}
             className="bg-transparent"
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
           >
@@ -320,25 +321,6 @@ const IntegrationsBeam = () => {
             />
           </ReactFlow>
         </ReactFlowProvider>
-        <style>{`
-          .react-flow__node {
-            cursor: grab;
-          }
-          .react-flow__node:active {
-            cursor: grabbing;
-          }
-          .react-flow__node.dragging {
-            box-shadow: none !important;
-            outline: none !important;
-          }
-          .react-flow__node.selected {
-            box-shadow: none !important;
-            outline: none !important;
-          }
-          .react-flow__node:hover {
-            box-shadow: none !important;
-          }
-        `}</style>
       </div>
     </BrowserMockup>
   );

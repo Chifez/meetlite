@@ -1,5 +1,7 @@
 import { getPlanConstraints } from '@minimeet/shared';
 import { models } from '../index.js';
+import { EmailQueue } from '@minimeet/shared';
+import { getPlanExpirationEmailTemplate } from '../templates/plan-expiration-email.js';
 
 /**
  * Middleware to validate user's plan status and enforce restrictions
@@ -160,8 +162,25 @@ export class PlanExpirationService {
         }
       );
 
-      // TODO: Send email notification about plan expiration
-      // await sendPlanExpirationEmail(user.email, user.name, user.plan.type);
+      // Send email notification about plan expiration
+      try {
+        const emailQueue = new EmailQueue();
+        await emailQueue.addEmailJob(
+          'plan_expiration',
+          {
+            userEmail: user.email,
+            userName: user.name || user.email,
+            planType: user.plan.type,
+          },
+          {
+            priority: 1,
+            jobId: `plan-expiration-${user._id}`,
+          }
+        );
+      } catch (emailError) {
+        console.error('Failed to queue plan expiration email:', emailError);
+        // Don't throw - email failure shouldn't break plan expiration processing
+      }
     } catch (error) {
       console.error(`Error handling expired plan for user ${user._id}:`, error);
     }

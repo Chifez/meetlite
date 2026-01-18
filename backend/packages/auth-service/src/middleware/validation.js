@@ -1,4 +1,5 @@
 // Input validation middleware for authentication endpoints
+import { body } from 'express-validator';
 
 // Validate login input
 export const validateLoginInput = (req, res, next) => {
@@ -221,3 +222,37 @@ export const validateObjectId = (paramName) => {
     next();
   };
 };
+
+// ================================
+// EXPRESS-VALIDATOR VALIDATIONS
+// ================================
+
+/**
+ * Validation rules for contact sales form
+ * Returns express-validator chain array
+ */
+export const validateContactSales = [
+  body('name')
+    .trim()
+    .notEmpty()
+    .withMessage('Name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Name must be between 2 and 100 characters'),
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Invalid email format')
+    .normalizeEmail(),
+  body('company')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Company name must be less than 200 characters'),
+  body('message')
+    .optional()
+    .trim()
+    .isLength({ max: 2000 })
+    .withMessage('Message must be less than 2000 characters'),
+];

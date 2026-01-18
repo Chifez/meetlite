@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
 import { TeamService } from './team.service.js';
 import { MultiOrganizationService } from './multi-organization.service.js';
+import { EmailQueue } from '@minimeet/shared';
 
 export class TeamInvitationService {
   constructor() {
@@ -173,7 +174,6 @@ export class TeamInvitationService {
 
     // Queue invitation email
     try {
-      const { EmailQueue } = await import('@minimeet/shared');
       const inviter = await models.User.findById(invitedBy);
       const inviteUrl = `${process.env.CLIENT_URL}/teams/invite/${invitation.inviteToken}`;
 

@@ -11,6 +11,7 @@ export const env = {
   // Other configuration
   BASE_URL: import.meta.env.VITE_BASE_URL,
   VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY,
+  CALENDLY_URL: import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/emmanuel01/meetlite-product-demo',
 } as const;
 
 // Type-safe environment variables
