@@ -3,6 +3,7 @@ import { ParticipantCount } from '@/components/room/participant-count';
 import { MediaControls } from '@/components/room/media-control';
 import { MoreOptionsMenu } from '@/components/room/more-options-menu';
 import { CollaborationMenu } from '@/components/room/collaboration/collaboration-menu';
+import { RecordingControls, RecordingIndicator } from '@/components/room/recording-controls';
 import { useAuth } from '@/hooks/use-auth';
 import { useLayoutManager } from '@/hooks/use-layout-manager';
 
@@ -57,7 +58,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
         <div className="container max-w-6xl mx-auto px-4">
           {/* Desktop Layout */}
           <div className="hidden md:flex items-center justify-between">
-            {/* Left: Meeting Info, Participant Count and Collaboration Menu */}
+            {/* Left: Meeting Info, Participant Count, Recording and Collaboration Menu */}
             <div className="flex items-center gap-4">
               {/* Meeting Title/ID */}
               {(meetingTitle || roomId) && (
@@ -66,6 +67,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
                 </div>
               )}
               <ParticipantCount count={participantCount} />
+              <RecordingControls roomId={roomId} variant="default" />
               <CollaborationMenu />
             </div>
 

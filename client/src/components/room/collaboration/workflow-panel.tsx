@@ -25,9 +25,12 @@ import { useRoom } from '@/contexts/room-context';
 import { CustomNode } from '@/components/room/collaboration/nodes/custom-nodes';
 import { EdgeLabel } from '@/components/room/collaboration/edges/edge-label';
 import { NodeToolbar } from '@/components/room/collaboration/nodes/node-toolbar';
+import { WorkflowCursorOverlay } from '@/components/room/collaboration/workflow-cursor-overlay';
+import { useWorkflowAwareness } from '@/hooks/use-workflow-awareness';
 import { Crown, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
+import { useParams } from 'react-router-dom';
 
 interface WorkflowPanelProps {
   className?: string;
@@ -74,10 +77,18 @@ const defaultEdgeOptions = {
 };
 
 const Flow = ({ className }: WorkflowPanelProps) => {
+  const { roomId } = useParams<{ roomId: string }>();
   const { socket, collaborationState, sendWorkflowOperation, canEdit } =
     useRoom();
   const { user } = useAuth();
   const [nodes, setNodes] = useState<Node<NodeData | any>[]>([]);
+  
+  // Workflow awareness for cursor presence
+  const { remoteUsers, updateCursor, setActive } = useWorkflowAwareness(
+    roomId,
+    collaborationState?.mode === 'workflow'
+  );
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('smoothstep');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -321,6 +332,34 @@ const Flow = ({ className }: WorkflowPanelProps) => {
     [reactFlowInstance, sendWorkflowOperation, canUserEdit]
   );
 
+  // Set active status when component mounts/unmounts
+  useEffect(() => {
+    if (collaborationState?.mode === 'workflow') {
+      setActive(true);
+    }
+    return () => {
+      setActive(false);
+    };
+  }, [collaborationState?.mode, setActive]);
+
+  // Handle mouse move for cursor tracking
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (!reactFlowWrapper.current || !reactFlowInstance) return;
+
+      const bounds = reactFlowWrapper.current.getBoundingClientRect();
+      
+      // Convert screen coordinates to flow coordinates
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      updateCursor(position.x, position.y);
+    },
+    [reactFlowInstance, updateCursor]
+  );
+
   if (!socket || collaborationState?.mode !== 'workflow') {
     return null;
   }
@@ -328,10 +367,18 @@ const Flow = ({ className }: WorkflowPanelProps) => {
   return (
     <div className={className}>
       <div
+        ref={reactFlowWrapper}
         className="h-full w-full relative"
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onMouseMove={handleMouseMove}
       >
+        {/* Remote user cursors overlay */}
+        <WorkflowCursorOverlay
+          remoteUsers={remoteUsers}
+          reactFlowInstance={reactFlowInstance}
+        />
+        
         {/* Add overlay to prevent interactions when user can't edit */}
         {!canUserEdit && (
           <div className="absolute inset-0 bg-transparent z-10 pointer-events-none" />

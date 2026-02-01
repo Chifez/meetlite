@@ -349,6 +349,33 @@ export class CollaborationController {
   }
 
   /**
+   * Handle workflow awareness update (cursor position, active node)
+   */
+  async handleWorkflowAwareness(socket, data) {
+    try {
+      const { roomId, cursor, activeNodeId, isActive } = data;
+      const userId = socket.user.userId;
+
+      if (!roomId || !socket.rooms.has(roomId)) {
+        return;
+      }
+
+      // Broadcast awareness update to all other users in room (not sender)
+      socket.to(roomId).emit('workflow:awareness', {
+        userId,
+        userName: socket.user.name || socket.user.email,
+        userEmail: socket.user.email,
+        cursor,
+        activeNodeId,
+        isActive,
+        timestamp: Date.now(),
+      });
+    } catch (error) {
+      logger.error('Failed to handle workflow awareness', error);
+    }
+  }
+
+  /**
    * Handle workflow sync request
    */
   async handleWorkflowSyncRequest(socket, data) {

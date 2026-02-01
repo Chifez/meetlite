@@ -4,6 +4,9 @@ import { documentManager } from '@/lib/yjs/yjs-document-manager';
 import { awarenessManager } from '@/lib/yjs/yjs-awareness-manager';
 import { indexToLineColumn } from '@/lib/yjs/cursor-utils';
 
+// Throttle interval for cursor updates (60ms = ~16fps, smooth but efficient)
+const CURSOR_THROTTLE_MS = 60;
+
 /**
  * Hook for collaborative code editing with Yjs
  * Pure YJS implementation - no legacy callback system
@@ -15,6 +18,11 @@ export function useYjsCode(
   const [yText, setYText] = useState<Y.Text | null>(null);
   const [isReady, setIsReady] = useState(false);
   const docIdRef = useRef<string | null>(null);
+  
+  // Throttling refs for cursor updates
+  const lastCursorUpdate = useRef<number>(0);
+  const pendingCursorUpdate = useRef<{ index: number; text?: string } | null>(null);
+  const throttleTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!roomId || !enabled) {
@@ -41,23 +49,55 @@ export function useYjsCode(
       // Don't destroy here - let the provider/document manager handle it
       setYText(null);
       setIsReady(false);
+      
+      // Clear any pending throttle timeout
+      if (throttleTimeout.current) {
+        clearTimeout(throttleTimeout.current);
+        throttleTimeout.current = null;
+      }
     };
   }, [roomId, enabled]);
 
-  // Update cursor position in awareness
+  // Throttled cursor update function - updates at most every 60ms
   const updateCursor = useCallback(
     (index: number, text?: string) => {
       if (!docIdRef.current || !yText) return;
 
-      const textContent = text ?? yText.toString();
-      const { line, column } = indexToLineColumn(textContent, index);
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastCursorUpdate.current;
 
-      awarenessManager.updateCursor(docIdRef.current, {
-        index,
-        line,
-        column,
-        timestamp: Date.now(),
-      });
+      // Store pending update
+      pendingCursorUpdate.current = { index, text };
+
+      // Helper to send the cursor update
+      const sendCursorUpdate = () => {
+        if (!pendingCursorUpdate.current || !docIdRef.current || !yText) return;
+
+        const { index: cursorIndex, text: cursorText } = pendingCursorUpdate.current;
+        const textContent = cursorText ?? yText.toString();
+        const { line, column } = indexToLineColumn(textContent, cursorIndex);
+
+        awarenessManager.updateCursor(docIdRef.current, {
+          index: cursorIndex,
+          line,
+          column,
+          timestamp: Date.now(),
+        });
+
+        pendingCursorUpdate.current = null;
+        lastCursorUpdate.current = Date.now();
+      };
+
+      // If enough time has passed, send immediately
+      if (timeSinceLastUpdate >= CURSOR_THROTTLE_MS) {
+        sendCursorUpdate();
+      } else if (!throttleTimeout.current) {
+        // Schedule a delayed update
+        throttleTimeout.current = setTimeout(() => {
+          throttleTimeout.current = null;
+          sendCursorUpdate();
+        }, CURSOR_THROTTLE_MS - timeSinceLastUpdate);
+      }
     },
     [yText]
   );

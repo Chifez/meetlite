@@ -9,7 +9,8 @@ export const setupSocketRoutes = (
   mediaController,
   collaborationController,
   roomController,
-  yjsController
+  yjsController,
+  recordingController = null
 ) => {
   // Socket.IO connection handling
   io.on('connection', (socket) => {
@@ -130,6 +131,10 @@ export const setupSocketRoutes = (
       collaborationController.handleWorkflowSyncRequest(socket, data)
     );
 
+    socket.on('workflow:awareness', (data) =>
+      collaborationController.handleWorkflowAwareness(socket, data)
+    );
+
     // Whiteboard events
     socket.on('whiteboard:update', (data) =>
       collaborationController.handleWhiteboardUpdate(socket, data)
@@ -195,5 +200,36 @@ export const setupSocketRoutes = (
 
     // Disconnect handling
     socket.on('disconnect', () => roomController.handleDisconnect(socket));
+
+    // ============================================================================
+    // RECORDING EVENTS - Route to RecordingController
+    // ============================================================================
+
+    if (recordingController) {
+      // Start recording
+      socket.on('recording:start', (data) =>
+        recordingController.handleStartRecording(socket, data)
+      );
+
+      // Stop recording
+      socket.on('recording:stop', (data) =>
+        recordingController.handleStopRecording(socket, data)
+      );
+
+      // Get recording status
+      socket.on('recording:status', (data) =>
+        recordingController.handleGetStatus(socket, data)
+      );
+
+      // Receive recording chunk from client
+      socket.on('recording:chunk', (data) =>
+        recordingController.handleRecordingChunk(socket, data)
+      );
+
+      // Finalize recording (complete upload from client)
+      socket.on('recording:finalize', (data) =>
+        recordingController.handleFinalizeRecording(socket, data)
+      );
+    }
   });
 };

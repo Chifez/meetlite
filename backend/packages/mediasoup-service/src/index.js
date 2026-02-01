@@ -16,6 +16,7 @@ import { MediaSoupService } from './services/media-soup-service.js';
 import { CollaborationStateManager } from './services/collaboration-state-manager.js';
 import { TldrawService } from './services/tldraw-service.js';
 import { YjsSyncService } from './services/yjs-sync-service.js';
+import { RecordingService } from './services/recording-service.js';
 import { mediasoupConfig } from './config/mediasoup.js';
 
 // Import controllers
@@ -23,6 +24,7 @@ import { MediaController } from './controllers/media-controller.js';
 import { CollaborationController } from './controllers/collaboration-controller.js';
 import { RoomController } from './controllers/room-controller.js';
 import { YjsController } from './controllers/yjs-controller.js';
+import { RecordingController } from './controllers/recording-controller.js';
 import { FileHandler } from './handlers/file-handler.js';
 
 // Import routes
@@ -106,6 +108,9 @@ const yjsSyncService = new YjsSyncService();
 // Start Yjs awareness cleanup task (runs every 60 seconds)
 yjsSyncService.startAwarenessCleanup(60000);
 
+// Initialize Recording service (after mediaSoupService)
+const recordingService = new RecordingService(mediaSoupService);
+
 // Initialize FileHandler
 const fileHandler = new FileHandler();
 
@@ -122,6 +127,7 @@ const collaborationController = new CollaborationController(
 );
 const roomController = new RoomController(mediaSoupService, io);
 const yjsController = new YjsController(yjsSyncService, io);
+const recordingController = new RecordingController(recordingService, io);
 
 // ============================================================================
 // WEBSOCKET UPGRADE HANDLING FOR TLdraw
@@ -191,7 +197,8 @@ setupSocketRoutes(
   mediaController,
   collaborationController,
   roomController,
-  yjsController
+  yjsController,
+  recordingController
 );
 
 // ============================================================================
@@ -216,6 +223,9 @@ const gracefulShutdown = async () => {
     httpServer.close(() => {
       logger.info('HTTP server closed');
     });
+
+    // Cleanup Recording service first (stop active recordings)
+    await recordingService.cleanup();
 
     // Shutdown MediaSoup service
     await mediaSoupService.shutdown();

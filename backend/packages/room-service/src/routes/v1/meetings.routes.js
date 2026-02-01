@@ -3,12 +3,14 @@ import { MeetingController } from '../../controllers/meeting.controller.js';
 import { verifyToken } from '../../middleware/auth.js';
 import { requireTeamAccess } from '../../middleware/team-access.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
+import { validatePlanStatus } from '../../middleware/plan-validation.js';
 
 const router = express.Router();
 const meetingController = new MeetingController();
 
-// Apply authentication to all routes
+// Apply authentication and plan validation to all routes
 router.use(verifyToken);
+router.use(validatePlanStatus);
 
 // POST /meetings - Create a new meeting
 router.post(

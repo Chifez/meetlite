@@ -6,13 +6,18 @@ import { verifyToken } from '../../middleware/auth.js';
 import { requireTeamAccess } from '../../middleware/team-access.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { RecordingController } from '../../controllers/recording.controller.js';
-import { AppError } from '@minimeet/shared';
+import { AppError, PLAN_FEATURES } from '@minimeet/shared';
+import {
+  validatePlanStatus,
+  requirePlanFeature,
+} from '../../middleware/plan-validation.js';
 
 const router = express.Router();
 const recordingController = new RecordingController();
 
-// Apply authentication to all routes
+// Apply authentication and plan validation to all routes
 router.use(verifyToken);
+router.use(validatePlanStatus);
 
 // Configure multer for file uploads with disk storage for better progress tracking
 const storage = multer.diskStorage({
@@ -80,11 +85,12 @@ const handleMulterError = (err, req, res, next) => {
 /**
  * @route   POST /api/v1/recordings
  * @desc    Upload a new recording
- * @access  Private
+ * @access  Private - Requires meeting_recording_basic feature
  * Note: Upload handler needs special handling for multer file size errors
  */
 router.post(
   '/',
+  requirePlanFeature(PLAN_FEATURES.MEETING_RECORDING_BASIC),
   upload.single('recording'),
   handleMulterError,
   asyncHandler(recordingController.uploadRecording.bind(recordingController))
@@ -145,10 +151,11 @@ router.delete(
 /**
  * @route   POST /api/v1/recordings/:id/process
  * @desc    Start AI processing (transcript/summary)
- * @access  Private
+ * @access  Private - Requires meeting_recording_basic feature
  */
 router.post(
   '/:id/process',
+  requirePlanFeature(PLAN_FEATURES.MEETING_RECORDING_BASIC),
   asyncHandler(recordingController.processRecording.bind(recordingController))
 );
 

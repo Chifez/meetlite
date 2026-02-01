@@ -26,6 +26,10 @@ export class YjsProvider implements IYjsProvider {
   awareness: Map<string, Awareness>;
   connected: boolean;
   private eventListeners: Map<string, Set<Function>>;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectDelay: number = 1000;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
 
   constructor(config: YjsProviderConfig) {
     this.config = config;
@@ -58,11 +62,94 @@ export class YjsProvider implements IYjsProvider {
 
     // Setup Socket.IO event listeners
     this.setupSocketListeners();
+    
+    // Setup reconnection handlers
+    this.setupReconnectionHandlers();
 
     this.connected = true;
+    this.reconnectAttempts = 0;
     this.emit('connected');
 
     console.log('[YjsProvider] Connected successfully');
+  }
+  
+  /**
+   * Setup reconnection handlers for socket disconnect events
+   */
+  private setupReconnectionHandlers(): void {
+    if (!this.config.socket) return;
+
+    // Handle socket disconnect
+    this.config.socket.on('disconnect', (reason: string) => {
+      console.warn('[YjsProvider] Socket disconnected:', reason);
+      this.connected = false;
+      this.emit('disconnected', reason);
+
+      // Don't auto-reconnect if it was a clean disconnect
+      if (reason === 'io client disconnect') {
+        return;
+      }
+
+      // Attempt to reconnect
+      this.attemptReconnect();
+    });
+
+    // Handle socket reconnect
+    this.config.socket.on('connect', () => {
+      if (this.reconnectAttempts > 0) {
+        console.log('[YjsProvider] Socket reconnected, re-syncing documents...');
+        this.connected = true;
+        this.reconnectAttempts = 0;
+        
+        // Re-sync all documents
+        this.resyncAllDocuments();
+        
+        this.emit('reconnected');
+      }
+    });
+
+    // Handle connection error
+    this.config.socket.on('connect_error', (error: Error) => {
+      console.error('[YjsProvider] Connection error:', error.message);
+      this.emit('error', error);
+    });
+  }
+
+  /**
+   * Attempt to reconnect with exponential backoff
+   */
+  private attemptReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('[YjsProvider] Max reconnect attempts reached');
+      this.emit('error', new Error('Max reconnect attempts reached'));
+      return;
+    }
+
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+    this.reconnectAttempts++;
+
+    console.log(`[YjsProvider] Attempting reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+    this.reconnectTimeout = setTimeout(() => {
+      if (this.config.socket && !this.config.socket.connected) {
+        this.config.socket.connect();
+      }
+    }, delay);
+  }
+
+  /**
+   * Re-sync all documents after reconnection
+   */
+  private resyncAllDocuments(): void {
+    console.log('[YjsProvider] Re-syncing all documents...');
+    
+    this.documents.forEach((yjsDoc, docId) => {
+      // Mark as unsynced
+      yjsDoc.synced = false;
+      
+      // Request fresh sync from server
+      this.requestSync(docId);
+    });
   }
 
   /**
@@ -72,6 +159,12 @@ export class YjsProvider implements IYjsProvider {
     if (!this.connected) return;
 
     console.log('[YjsProvider] Disconnecting...');
+
+    // Clear any pending reconnect timeout
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
 
     // Cleanup all documents
     this.documents.forEach((_doc, docId) => {
@@ -83,9 +176,13 @@ export class YjsProvider implements IYjsProvider {
       this.config.socket.off('yjs:sync-step2');
       this.config.socket.off('yjs:update');
       this.config.socket.off('yjs:awareness');
+      this.config.socket.off('disconnect');
+      this.config.socket.off('connect');
+      this.config.socket.off('connect_error');
     }
 
     this.connected = false;
+    this.reconnectAttempts = 0;
     this.emit('disconnected');
 
     console.log('[YjsProvider] Disconnected');
