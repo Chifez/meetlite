@@ -8,6 +8,7 @@ import OrganizationSettings from '@/components/settings/organization-settings';
 import { NotificationSettings } from '@/components/settings/notification-settings';
 import PlanUsageCard from '@/components/plan/plan-usage-card';
 import PlanComparison from '@/components/plan/plan-comparison';
+import SubscriptionManagement from '@/components/settings/subscription-management';
 import { useCurrentPlan } from '@/hooks/use-current-plan';
 import { useWorkspace } from '@/contexts/workspace-context';
 
@@ -68,9 +69,14 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="plan" className="mt-6 space-y-6">
+          {/* Subscription Management */}
+          <SubscriptionManagement />
+
+          {/* Plan Usage */}
           <PlanUsageCard showUpgradeButton={false} />
 
-          <div className="space-y-6">
+          {/* Available Plans */}
+          <div id="available-plans" className="space-y-6">
             <h2 className="text-2xl font-bold">Available Plans</h2>
             <PlanComparison
               currentPlan={currentPlan}

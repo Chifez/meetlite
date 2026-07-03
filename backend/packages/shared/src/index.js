@@ -41,6 +41,10 @@ export {
   createAuditLogModel,
 } from './models/audit-log.js';
 export { default as Meeting, createMeetingModel } from './models/meeting.js';
+export {
+  default as EnterpriseInquiry,
+  EnterpriseInquiry as EnterpriseInquiryModel,
+} from './models/enterprise-inquiry.js';
 export { default as connectionPool } from './utils/connection-pool.js';
 export * from './utils/query-helpers.js';
 export * from './config/plans.js';

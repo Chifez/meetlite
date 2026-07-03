@@ -3,7 +3,7 @@ import { PaymentService } from '../services/payment.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import { sanitizePlan } from '../utils/sanitize-plan.js';
 import Stripe from 'stripe';
-import { stripeConfig, getPriceId } from '../config/stripe.js';
+import { stripeConfig, getPriceId, isSalesLedPlan } from '../config/stripe.js';
 import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 
 // Lazy initialization of Stripe
@@ -77,6 +77,14 @@ export class PaymentController {
         return res.status(400).json({
           success: false,
           message: 'Invalid plan type',
+        });
+      }
+
+      // Check if plan is sales-led (Enterprise)
+      if (isSalesLedPlan(planType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Enterprise plan requires contacting sales. Please use the Contact Sales form.',
         });
       }
 
@@ -273,31 +281,49 @@ export class PaymentController {
         });
       }
 
-      // Retrieve subscription to get actual period end date
+      // Retrieve subscription to get actual period dates - NO FALLBACKS
       let subscriptionId = null;
       let endDate = null;
-      let startDate = new Date();
+      let startDate = null;
 
-      if (session.subscription) {
-        // Subscription mode - get actual subscription object
-        const subscription =
-          typeof session.subscription === 'string'
-            ? await stripe.subscriptions.retrieve(session.subscription)
-            : session.subscription;
+      if (!session.subscription) {
+        // No subscription = error (no fallback calculations)
+        console.error('Checkout session missing subscription data:', session_id);
+        return res.status(400).json({
+          message: 'Checkout session missing subscription data - cannot determine billing dates',
+        });
+      }
 
-        subscriptionId = subscription.id;
-        // Use subscription's current_period_end as endDate (in seconds, convert to Date)
-        endDate = new Date(subscription.current_period_end * 1000);
-        startDate = new Date(subscription.current_period_start * 1000);
-      } else {
-        // Fallback: Calculate end date based on duration (shouldn't happen in subscription mode)
-        const { duration = 'monthly' } = session.metadata;
-        endDate = new Date();
-        if (duration === 'monthly') {
-          endDate.setMonth(endDate.getMonth() + 1);
-        } else if (duration === 'yearly') {
-          endDate.setFullYear(endDate.getFullYear() + 1);
-        }
+      // Subscription mode - get actual subscription object
+      const subscription =
+        typeof session.subscription === 'string'
+          ? await stripe.subscriptions.retrieve(session.subscription)
+          : session.subscription;
+
+      subscriptionId = subscription.id;
+
+      // REQUIRED: Subscription must have valid dates - no fallbacks
+      if (!subscription.current_period_end || !subscription.current_period_start) {
+        console.error('Subscription missing period dates:', subscription.id);
+        return res.status(400).json({
+          message: 'Subscription missing required period dates from Stripe',
+        });
+      }
+
+      // Convert Unix timestamps to Date objects
+      endDate = new Date(subscription.current_period_end * 1000);
+      startDate = new Date(subscription.current_period_start * 1000);
+
+      // Validate dates are not Invalid Date
+      if (isNaN(endDate.getTime()) || isNaN(startDate.getTime())) {
+        console.error('Invalid subscription dates:', {
+          subscriptionId: subscription.id,
+          periodEnd: subscription.current_period_end,
+          periodStart: subscription.current_period_start,
+        });
+        return res.status(400).json({
+          message: 'Invalid subscription dates received from Stripe',
+        });
       }
 
       // Update user plan with subscription details

@@ -32,6 +32,21 @@ export interface PaymentSuccessResponse {
   token: string;
 }
 
+export interface CancelSubscriptionResponse {
+  success: boolean;
+  message: string;
+  user: {
+    id: string;
+    email: string;
+    plan: {
+      type: string;
+      status: string;
+      endDate?: string;
+    };
+  };
+  token: string;
+}
+
 export class PaymentService {
   /**
    * Create a Stripe checkout session for plan upgrade
@@ -115,6 +130,31 @@ export class PaymentService {
       console.error('Error redirecting to billing portal:', error);
       throw error;
     }
+  }
+
+  /**
+   * Cancel subscription
+   * @param immediately - If true, cancel immediately. If false, cancel at period end.
+   */
+  static async cancelSubscription(
+    immediately: boolean = false
+  ): Promise<CancelSubscriptionResponse> {
+    try {
+      const response = await api.post(`/api/plan/cancel`, { immediately });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error cancelling subscription:', error);
+      throw new Error(
+        error.response?.data?.message || 'Failed to cancel subscription'
+      );
+    }
+  }
+
+  /**
+   * Downgrade to free plan (immediate cancellation)
+   */
+  static async downgradeToFree(): Promise<CancelSubscriptionResponse> {
+    return this.cancelSubscription(true);
   }
 }
 

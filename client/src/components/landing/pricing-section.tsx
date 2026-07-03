@@ -3,11 +3,19 @@ import PricingCard from '@/components/landing/pricing-card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import ScheduleDemoModal from '@/components/landing/schedule-demo-modal';
+import { cn } from '@/lib/utils';
+
+// Pricing configuration
+const PRICING = {
+  pro: {
+    monthly: 19,
+    yearly: 190,
+  },
+};
 
 const pricingPlans = [
   {
     title: 'Starter',
-    price: 'Free',
     description: 'Perfect for personal use',
     features: [
       'Up to 3 participants',
@@ -21,8 +29,6 @@ const pricingPlans = [
   },
   {
     title: 'Pro',
-    price: '$12',
-    period: '/month',
     description: 'For growing teams',
     features: [
       'Up to 100 participants',
@@ -35,10 +41,11 @@ const pricingPlans = [
     buttonVariant: 'default' as const,
     isPopular: true,
     planType: 'pro' as const,
+    monthlyPrice: PRICING.pro.monthly,
+    yearlyPrice: PRICING.pro.yearly,
   },
   {
     title: 'Enterprise',
-    price: 'Custom',
     description: 'For large organizations',
     features: [
       'Unlimited participants',
@@ -55,6 +62,11 @@ const pricingPlans = [
 
 const PricingSection = () => {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [billingDuration, setBillingDuration] = useState<'monthly' | 'yearly'>('monthly');
+
+  // Calculate savings for yearly
+  const yearlySavings = PRICING.pro.monthly * 12 - PRICING.pro.yearly;
+  const yearlySavingsPercent = Math.round((yearlySavings / (PRICING.pro.monthly * 12)) * 100);
 
   return (
     <section
@@ -63,7 +75,7 @@ const PricingSection = () => {
     >
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-3 mb-12">
+        <div className="text-center space-y-3 mb-8">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground">
             Simple pricing
           </h2>
@@ -72,19 +84,53 @@ const PricingSection = () => {
           </p>
         </div>
 
+        {/* Monthly/Yearly Toggle */}
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <div className="inline-flex items-center rounded-full bg-muted p-1 border border-border">
+            <button
+              onClick={() => setBillingDuration('monthly')}
+              className={cn(
+                'px-4 py-2 rounded-full text-sm font-medium transition-all duration-200',
+                billingDuration === 'monthly'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingDuration('yearly')}
+              className={cn(
+                'px-4 py-2 rounded-full text-sm font-medium transition-all duration-200',
+                billingDuration === 'yearly'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Yearly
+            </button>
+          </div>
+          {billingDuration === 'yearly' && (
+            <span className="text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-3 py-1 rounded-full border border-green-200 dark:border-green-800">
+              Save {yearlySavingsPercent}%
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
           {pricingPlans.map((plan, index) => (
             <PricingCard
               key={index}
               title={plan.title}
-              price={plan.price}
-              period={plan.period}
               description={plan.description}
               features={plan.features}
               buttonText={plan.buttonText}
               buttonVariant={plan.buttonVariant}
               isPopular={plan.isPopular}
               planType={plan.planType}
+              duration={billingDuration}
+              monthlyPrice={plan.monthlyPrice}
+              yearlyPrice={plan.yearlyPrice}
             />
           ))}
         </div>

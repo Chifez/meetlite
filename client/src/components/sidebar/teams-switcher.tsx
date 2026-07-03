@@ -99,26 +99,37 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
         return (
           <div key={team.id} className="space-y-0.5">
             {/* Team Header */}
-            <Button
-              variant="ghost"
+            <div
               className={cn(
-                'w-full justify-between h-auto p-2 hover:bg-sidebar-accent',
-                'text-sidebar-foreground'
+                'flex items-center w-full h-auto p-2 rounded-md',
+                'hover:bg-sidebar-accent text-sidebar-foreground'
               )}
-              onClick={() => toggleTeam(team.id)}
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                {isExpanded ? (
-                  <ChevronDown className="h-3 w-3 text-sidebar-foreground/60 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-sidebar-foreground/60 flex-shrink-0" />
-                )}
+                {/* Chevron - clickable for toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleTeam(team.id)}
+                  className="p-0.5 rounded hover:bg-sidebar-foreground/10 transition-colors"
+                  aria-label={isExpanded ? 'Collapse team' : 'Expand team'}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-3 w-3 text-sidebar-foreground/60 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 text-sidebar-foreground/60 flex-shrink-0" />
+                  )}
+                </button>
                 <Users className="h-3.5 w-3.5 text-sidebar-foreground/80 flex-shrink-0" />
-                <span className="text-xs font-medium text-sidebar-foreground truncate">
+                {/* Team name - clickable for toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleTeam(team.id)}
+                  className="text-xs font-medium text-sidebar-foreground truncate text-left flex-1 hover:text-sidebar-foreground/80 transition-colors"
+                >
                   @{team.name}
-                </span>
+                </button>
               </div>
-            </Button>
+            </div>
 
             {/* Team Submenu */}
             {isExpanded && (

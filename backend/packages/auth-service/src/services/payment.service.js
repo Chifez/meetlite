@@ -4,6 +4,7 @@ import { models } from '../index.js';
 import { OrganizationPlanSyncService } from './organization-plan-sync.service.js';
 import { EmailQueue } from '@minimeet/shared';
 import { getPaymentFailureEmailTemplate } from '../templates/payment-failure-email.js';
+import { getPlanDowngradeEmailTemplate } from '../templates/plan-downgrade-email.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
@@ -647,6 +648,9 @@ export class PaymentService {
       }
 
       if (user) {
+        // Store previous plan type before downgrade
+        const previousPlanType = user.plan?.type || 'pro';
+
         // Downgrade to free plan when subscription is deleted
         await models.User.findByIdAndUpdate(user._id, {
           'plan.type': 'free',
@@ -670,6 +674,28 @@ export class PaymentService {
 
         // Sync organizations to reflect cancelled status
         await OrganizationPlanSyncService.syncUserOrganizations(user._id);
+
+        // Send downgrade email notification
+        try {
+          const emailQueue = new EmailQueue();
+          await emailQueue.addEmailJob(
+            'plan_downgrade',
+            {
+              userId: user._id.toString(),
+              userEmail: user.email,
+              userName: user.name || '',
+              previousPlanType: previousPlanType,
+              newPlanType: 'free',
+            },
+            {
+              priority: 1,
+              jobId: `plan-downgrade-${user._id}-${Date.now()}`,
+            }
+          );
+        } catch (emailError) {
+          console.error('Failed to queue downgrade email:', emailError);
+          // Don't fail the webhook if email fails
+        }
       }
 
       return { handled: true };

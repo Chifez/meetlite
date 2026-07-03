@@ -50,6 +50,7 @@ import { getPlanCancellationEmailTemplate } from './templates/plan-cancellation-
 import { getPlanExpirationWarningEmailTemplate } from './templates/plan-expiration-warning-email.js';
 import { getPlanExpirationEmailTemplate } from './templates/plan-expiration-email.js';
 import { getPaymentFailureEmailTemplate } from './templates/payment-failure-email.js';
+import { getPlanDowngradeEmailTemplate } from './templates/plan-downgrade-email.js';
 // Import meeting templates from room-service
 import { getMeetingInviteEmailTemplate } from '../../room-service/src/templates/meeting-invite-email.js';
 import {
@@ -327,6 +328,7 @@ const startServer = async () => {
       plan_cancellation: adaptPlanEmailTemplate(
         getPlanCancellationEmailTemplate
       ),
+      plan_downgrade: adaptPlanEmailTemplate(getPlanDowngradeEmailTemplate),
       plan_expiration_warning: adaptPlanExpirationWarningTemplate(
         getPlanExpirationWarningEmailTemplate
       ),

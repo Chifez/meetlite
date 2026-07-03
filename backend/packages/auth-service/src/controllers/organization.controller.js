@@ -7,33 +7,54 @@ export class OrganizationController {
   async listOrganizations(req, res) {
     const userId = req.user._id;
 
+    // Get the user's memberships to find all organizations they belong to
+    const user = await models.User.findById(userId).lean();
+    const membershipOrgIds = (user?.memberships || [])
+      .filter((m) => m.status !== 'inactive' && m.status !== 'removed')
+      .map((m) => m.organizationId);
+
     // Get organizations where user is owner
     const ownedOrgs = await models.Organization.find({
       ownerId: userId,
       status: 'active',
     }).sort({ createdAt: -1 });
 
-    // Get organizations where user is a member
+    // Get organizations where user is a member (from memberships array)
+    // Exclude organizations the user already owns to avoid duplicates
+    const ownedOrgIds = ownedOrgs.map((org) => org._id.toString());
+    const memberOnlyOrgIds = membershipOrgIds.filter(
+      (orgId) => !ownedOrgIds.includes(orgId.toString())
+    );
+
     const memberOrgs = await models.Organization.find({
-      _id: req.user.organizationId,
+      _id: { $in: memberOnlyOrgIds },
       status: 'active',
-      ownerId: { $ne: userId }, // Not owned by user
     }).sort({ createdAt: -1 });
 
+    // Create a map of membership roles for quick lookup
+    const membershipRoleMap = new Map(
+      (user?.memberships || []).map((m) => [m.organizationId.toString(), m.role])
+    );
+
     // Combine and format organizations
-    const organizations = [...ownedOrgs, ...memberOrgs].map((org) => ({
-      id: org._id,
-      name: org.name,
-      slug: org.slug,
-      logo: org.logo,
-      industry: org.industry,
-      size: org.size,
-      plan: org.plan,
-      role: org.ownerId.toString() === userId.toString() ? 'owner' : 'member',
-      memberCount: org.stats.totalMembers,
-      settings: org.settings,
-      createdAt: org.createdAt,
-    }));
+    const organizations = [...ownedOrgs, ...memberOrgs].map((org) => {
+      const isOwner = org.ownerId.toString() === userId.toString();
+      const membershipRole = membershipRoleMap.get(org._id.toString());
+      
+      return {
+        id: org._id,
+        name: org.name,
+        slug: org.slug,
+        logo: org.logo,
+        industry: org.industry,
+        size: org.size,
+        plan: org.plan,
+        role: isOwner ? 'owner' : membershipRole || 'member',
+        memberCount: org.stats.totalMembers,
+        settings: org.settings,
+        createdAt: org.createdAt,
+      };
+    });
 
     return ResponseHelpers.ok(res, { organizations });
   }

@@ -30,6 +30,7 @@ import AdminOverview from './pages/admin/index';
 import AdminManage from './pages/admin/manage';
 import AdminRevenue from './pages/admin/revenue';
 import AdminSystem from './pages/admin/system';
+import AdminInquiries from './pages/admin/inquiries';
 
 function App() {
   // Initialize hotkeys
@@ -217,6 +218,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminManage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/inquiries"
+            element={
+              <ProtectedRoute>
+                <AdminInquiries />
               </ProtectedRoute>
             }
           />

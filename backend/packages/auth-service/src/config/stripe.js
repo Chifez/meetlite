@@ -18,15 +18,13 @@ export const stripeConfig = {
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
 
   // Price IDs for different plans and durations
+  // Note: Enterprise is sales-led only - no direct checkout
   priceIds: {
     pro: {
       monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
       yearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
     },
-    enterprise: {
-      monthly: process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-      yearly: process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
-    },
+    // Enterprise has no price IDs - sales-led only
   },
 
   // Plan configurations
@@ -46,8 +44,8 @@ export const stripeConfig = {
     },
     enterprise: {
       name: 'Enterprise',
-      monthlyPrice: 49,
-      yearlyPrice: 490,
+      // No monthlyPrice or yearlyPrice - sales-led only (custom pricing)
+      isSalesLed: true,
       features: [
         'Unlimited organizations',
         'Unlimited team members',
@@ -98,21 +96,26 @@ export function validateStripeConfig() {
   if (!stripeConfig.secretKey) missing.push('STRIPE_SECRET_KEY');
   if (!stripeConfig.webhookSecret) missing.push('STRIPE_WEBHOOK_SECRET');
 
-  // Check price IDs
-  Object.entries(stripeConfig.priceIds).forEach(([planType, durations]) => {
-    Object.entries(durations).forEach(([duration, priceId]) => {
-      if (!priceId) {
-        missing.push(
-          `STRIPE_${planType.toUpperCase()}_${duration.toUpperCase()}_PRICE_ID`
-        );
-      }
-    });
-  });
+  // Check Pro price IDs only (Enterprise is sales-led, no direct checkout)
+  const proPrices = stripeConfig.priceIds.pro;
+  if (proPrices) {
+    if (!proPrices.monthly) missing.push('STRIPE_PRO_MONTHLY_PRICE_ID');
+    if (!proPrices.yearly) missing.push('STRIPE_PRO_YEARLY_PRICE_ID');
+  }
 
   return {
     isValid: missing.length === 0,
     missing,
   };
+}
+
+/**
+ * Check if a plan is sales-led (no direct checkout)
+ * @param {string} planType - 'pro' or 'enterprise'
+ * @returns {boolean} True if plan is sales-led
+ */
+export function isSalesLedPlan(planType) {
+  return stripeConfig.plans[planType]?.isSalesLed === true;
 }
 
 export default stripeConfig;

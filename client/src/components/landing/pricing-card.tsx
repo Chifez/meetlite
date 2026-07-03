@@ -7,34 +7,58 @@ import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import { PaymentService } from '@/services/payment-service';
 import { toast } from 'sonner';
-import ContactSalesModal from './contact-sales-modal';
+import ContactSalesModal from '@/components/shared/contact-sales-modal';
 
 interface PricingCardProps {
   title: string;
-  price: string;
-  period?: string;
   description: string;
   features: string[];
   buttonText: string;
   buttonVariant?: 'default' | 'outline';
   isPopular?: boolean;
   planType?: 'pro' | 'enterprise' | 'free';
+  duration?: 'monthly' | 'yearly';
+  monthlyPrice?: number;
+  yearlyPrice?: number;
 }
 
 const PricingCard = ({
   title,
-  price,
-  period,
   description,
   features,
   buttonText,
   buttonVariant = 'default',
   isPopular = false,
   planType,
+  duration = 'monthly',
+  monthlyPrice,
+  yearlyPrice,
 }: PricingCardProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
+  // Calculate displayed price based on plan type and duration
+  const getDisplayPrice = () => {
+    // Free plan
+    if (planType === 'free' || !planType) {
+      return { price: 'Free', period: '' };
+    }
+    // Enterprise plan - always show "Custom"
+    if (planType === 'enterprise') {
+      return { price: 'Custom', period: '' };
+    }
+    // Pro plan - show based on duration
+    if (monthlyPrice && yearlyPrice) {
+      if (duration === 'yearly') {
+        return { price: `$${yearlyPrice}`, period: '/year' };
+      }
+      return { price: `$${monthlyPrice}`, period: '/month' };
+    }
+    return { price: '$19', period: '/month' };
+  };
+
+  const { price, period } = getDisplayPrice();
 
   const handleButtonClick = async () => {
     // Enterprise plan - open contact sales modal
@@ -58,15 +82,14 @@ const PricingCard = ({
     if (!user) {
       // Redirect to signup with plan info in state
       navigate('/signup', {
-        state: { from: 'pricing', planType, redirectToCheckout: true },
+        state: { from: 'pricing', planType, duration, redirectToCheckout: true },
       });
       return;
     }
 
-    // User is authenticated - proceed to checkout
+    // User is authenticated - proceed to checkout with selected duration
     try {
-      // Default to monthly, user can change in checkout
-      await PaymentService.redirectToCheckout(planType, 'monthly');
+      await PaymentService.redirectToCheckout(planType, duration);
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Failed to start checkout process');
@@ -132,6 +155,7 @@ const PricingCard = ({
         <ContactSalesModal
           open={isContactModalOpen}
           onClose={() => setIsContactModalOpen(false)}
+          source="landing_page"
         />
       )}
     </Card>

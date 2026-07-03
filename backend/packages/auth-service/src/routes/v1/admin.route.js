@@ -4,8 +4,10 @@ import { requireAdmin } from '../../middleware/require-admin.js';
 import { adminRateLimiter, adminLogRateLimiter } from '../../middleware/admin-rate-limiter.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import AdminController from '../../controllers/admin.controller.js';
+import { EnterpriseInquiryController } from '../../controllers/enterprise-inquiry.controller.js';
 
 const router = express.Router();
+const enterpriseInquiryController = new EnterpriseInquiryController();
 
 // All admin routes require authentication and admin access
 router.use(authenticateToken);
@@ -39,6 +41,13 @@ router.get('/revenue/chart', asyncHandler(AdminController.getRevenueChartData.bi
 
 // System health
 router.get('/system/health', asyncHandler(AdminController.getSystemHealth.bind(AdminController)));
+
+// Enterprise Inquiries management
+router.get('/inquiries', asyncHandler(enterpriseInquiryController.listInquiries.bind(enterpriseInquiryController)));
+router.get('/inquiries/stats', asyncHandler(enterpriseInquiryController.getStats.bind(enterpriseInquiryController)));
+router.get('/inquiries/:id', asyncHandler(enterpriseInquiryController.getInquiry.bind(enterpriseInquiryController)));
+router.patch('/inquiries/:id', asyncHandler(enterpriseInquiryController.updateInquiry.bind(enterpriseInquiryController)));
+router.post('/inquiries/:id/notes', asyncHandler(enterpriseInquiryController.addNote.bind(enterpriseInquiryController)));
 
 export default router;
 
