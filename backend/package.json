@@ -15,7 +15,8 @@
     "dev:all": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:mediasoup\"",
     "install:all": "npm install",
     "build:all": "npm run build --workspaces",
-    "test:all": "npm run test --workspaces"
+    "test:all": "npm run test --workspaces",
+    "start": "npm run start --workspaces"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
