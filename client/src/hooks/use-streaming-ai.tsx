@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { env } from '@/config/env';
 import api from '@/lib/axios';
 import Cookies from 'js-cookie';
+import { extractData } from '@/lib/api-response';
 
 interface StreamingAIResponse {
   type: 'connected' | 'content' | 'done' | 'error';
@@ -120,7 +121,8 @@ export const useStreamingAI = () => {
         const response = await api.post('/api/ai/description', {
           title,
         });
-        return response.data.description || '';
+        const data = extractData<{ description?: string }>(response);
+        return data.description || '';
       } catch (error) {
         console.error('Description generation error:', error);
         throw error;

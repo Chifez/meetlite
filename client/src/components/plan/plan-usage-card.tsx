@@ -25,6 +25,7 @@ import planService from '@/services/plan-service';
 import { PlanSummary } from '@/types/plan';
 import { toast } from 'sonner';
 import { PaymentService } from '../../services/payment-service';
+import { useWorkspace } from '@/contexts/workspace-context';
 
 interface PlanUsageCardProps {
   className?: string;
@@ -40,10 +41,12 @@ export default function PlanUsageCard({
   const [planSummary, setPlanSummary] = useState<PlanSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { activeOrganization } = useWorkspace();
 
   useEffect(() => {
     loadPlanUsage();
-  }, []);
+    // Reload when organization changes to get updated plan
+  }, [activeOrganization?.id]);
 
   const loadPlanUsage = async () => {
     try {
@@ -306,21 +309,6 @@ export default function PlanUsageCard({
                   <span>
                     {usage.storageUsedGB} /{' '}
                     {limits.maxStorageGB === -1 ? '∞' : limits.maxStorageGB} GB
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">API Calls Today</span>
-                  <span>
-                    {usage.apiCallsToday} /{' '}
-                    {limits.maxAPICallsPerDay === -1
-                      ? '∞'
-                      : limits.maxAPICallsPerDay}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Webhooks</span>
-                  <span>
-                    0 / {limits.maxWebhooks === -1 ? '∞' : limits.maxWebhooks}
                   </span>
                 </div>
               </div>

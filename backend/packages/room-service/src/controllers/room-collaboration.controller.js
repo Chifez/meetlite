@@ -1,0 +1,248 @@
+import { models } from '../index.js';
+import { ResponseHelpers } from '@minimeet/shared-models';
+
+export const updateCollaborationMode = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { mode } = req.body;
+
+    const room = await models.Room.findOne({ roomId });
+
+    if (!room) {
+      return ResponseHelpers.notFound(res, 'Room not found');
+    }
+
+    const participant = room.participants.find(
+      (p) => p.userId === req.user.userId
+    );
+    if (!participant) {
+      return ResponseHelpers.forbidden(
+        res,
+        'User is not a participant in this room'
+      );
+    }
+
+    if (participant.role === 'viewer') {
+      return ResponseHelpers.forbidden(
+        res,
+        'Viewers cannot change collaboration mode'
+      );
+    }
+
+    room.collaborationMode = mode;
+    room.activeTool = mode;
+    await room.save();
+
+    return ResponseHelpers.ok(res, {
+      collaborationMode: room.collaborationMode,
+      activeTool: room.activeTool,
+    });
+  } catch (error) {
+    console.error('Update collaboration mode error:', error);
+    return ResponseHelpers.serverError(
+      res,
+      'Failed to update collaboration mode',
+      error
+    );
+  }
+};
+
+export const updateParticipantRole = async (req, res) => {
+  try {
+    const { roomId, userId } = req.params;
+    const { role } = req.body;
+
+    const room = await models.Room.findOne({ roomId });
+
+    if (!room) {
+      return ResponseHelpers.notFound(res, 'Room not found');
+    }
+
+    const requester = room.participants.find(
+      (p) => p.userId === req.user.userId
+    );
+    if (!requester || requester.role !== 'host') {
+      return ResponseHelpers.forbidden(
+        res,
+        'Only host can update participant roles'
+      );
+    }
+
+    const participant = room.participants.find((p) => p.userId === userId);
+    if (!participant) {
+      return ResponseHelpers.notFound(res, 'Participant not found');
+    }
+
+    participant.role = role;
+    await room.save();
+
+    return ResponseHelpers.ok(res, { userId, role });
+  } catch (error) {
+    console.error('Update participant role error:', error);
+    return ResponseHelpers.serverError(
+      res,
+      'Failed to update participant role',
+      error
+    );
+  }
+};
+
+export const updateRoomSettings = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { settings } = req.body;
+
+    const room = await models.Room.findOne({ roomId });
+
+    if (!room) {
+      return ResponseHelpers.notFound(res, 'Room not found');
+    }
+
+    const requester = room.participants.find(
+      (p) => p.userId === req.user.userId
+    );
+    if (!requester || requester.role !== 'host') {
+      return ResponseHelpers.forbidden(
+        res,
+        'Only host can update room settings'
+      );
+    }
+
+    room.settings = { ...room.settings, ...settings };
+    await room.save();
+
+    return ResponseHelpers.ok(res, { settings: room.settings });
+  } catch (error) {
+    console.error('Update room settings error:', error);
+    return ResponseHelpers.serverError(
+      res,
+      'Failed to update room settings',
+      error
+    );
+  }
+};
+
+export const joinRoom = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user.userId;
+    const now = new Date();
+
+    // SINGLE ATOMIC OPERATION: Find room AND add/update participant in one query
+    const room = await models.Room.findOneAndUpdate(
+      {
+        roomId,
+        // Only match rooms where user is NOT already a participant
+        'participants.userId': { $ne: userId },
+        // Ensure room is not at capacity
+        $expr: {
+          $lt: [{ $size: '$participants' }, '$settings.maxParticipants'],
+        },
+      },
+      {
+        $push: {
+          participants: {
+            userId,
+            role: 'viewer', // Default, will update if creator below
+            joinedAt: now,
+            lastActive: now,
+          },
+        },
+      },
+      { new: true, lean: true } // lean() = faster (plain JS object)
+    );
+
+    // Case 1: User successfully added as new participant
+    if (room) {
+      // Update role if user is creator (atomic operation)
+      if (userId === room.createdBy) {
+        await models.Room.updateOne(
+          { roomId, 'participants.userId': userId },
+          { $set: { 'participants.$.role': 'host' } }
+        );
+        // Get updated participant for response
+        const updatedRoom = await models.Room.findOne(
+          { roomId },
+          {
+            participants: { $elemMatch: { userId } },
+            collaborationMode: 1,
+            activeTool: 1,
+            settings: 1,
+          }
+        ).lean();
+        const participant = updatedRoom?.participants[0];
+
+        return ResponseHelpers.ok(res, {
+          participant,
+          collaborationMode: updatedRoom.collaborationMode,
+          activeTool: updatedRoom.activeTool,
+          settings: updatedRoom.settings,
+        });
+      }
+
+      const participant = room.participants.find((p) => p.userId === userId);
+      return ResponseHelpers.ok(res, {
+        participant,
+        collaborationMode: room.collaborationMode,
+        activeTool: room.activeTool,
+        settings: room.settings,
+      });
+    }
+
+    // Case 2: User is already a participant - just update lastActive (atomic)
+    const existingRoom = await models.Room.findOneAndUpdate(
+      {
+        roomId,
+        'participants.userId': userId,
+      },
+      {
+        $set: { 'participants.$.lastActive': now },
+      },
+      {
+        new: true,
+        projection: {
+          participants: { $elemMatch: { userId } },
+          collaborationMode: 1,
+          activeTool: 1,
+          settings: 1,
+        },
+        lean: true, // lean() = faster
+      }
+    );
+
+    if (!existingRoom) {
+      // Room not found OR at capacity
+      const capacityCheck = await models.Room.findOne(
+        { roomId },
+        { 'settings.maxParticipants': 1, participants: 1 }
+      ).lean();
+
+      if (!capacityCheck) {
+        return ResponseHelpers.notFound(res, 'Room not found');
+      }
+
+      if (
+        capacityCheck.participants.length >=
+        capacityCheck.settings.maxParticipants
+      ) {
+        return ResponseHelpers.forbidden(res, 'Room is at maximum capacity');
+      }
+
+      return ResponseHelpers.notFound(res, 'Room not found');
+    }
+
+    const participant = existingRoom.participants[0];
+    return ResponseHelpers.ok(res, {
+      participant,
+      collaborationMode: existingRoom.collaborationMode,
+      activeTool: existingRoom.activeTool,
+      settings: existingRoom.settings,
+    });
+  } catch (error) {
+    console.error('Join room error:', error);
+    return ResponseHelpers.serverError(res, 'Failed to join room', error);
+  }
+};
+
+
+

@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import { UploadProgress } from '@/types/meetingAssets';
 
 export class UploadService {
@@ -10,7 +11,8 @@ export class UploadService {
       description?: string;
       tags?: string[];
       meetingId?: string;
-      visibility?: 'organization' | 'participants' | 'private';
+      teamId?: string;
+      visibility?: 'organization' | 'team' | 'participants' | 'private';
     },
     onProgress?: (progress: UploadProgress) => void,
     signal?: AbortSignal
@@ -27,6 +29,9 @@ export class UploadService {
       }
       if (metadata.meetingId) {
         formData.append('meetingId', metadata.meetingId);
+      }
+      if (metadata.teamId) {
+        formData.append('teamId', metadata.teamId);
       }
       if (metadata.visibility) {
         formData.append('visibility', metadata.visibility);
@@ -53,7 +58,7 @@ export class UploadService {
         },
       });
 
-      return response.data;
+      return extractData<any>(response);
     } catch (error: any) {
       throw new Error(
         error.response?.data?.message || 'Failed to upload recording'

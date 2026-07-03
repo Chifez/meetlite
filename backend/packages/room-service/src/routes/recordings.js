@@ -15,6 +15,7 @@ import {
   generateRecordingSummary,
   analyzeRecordingSpeakers,
 } from '../services/aiService.js';
+import { requireTeamAccess } from '../middleware/team-access.js';
 
 const router = express.Router();
 
@@ -119,6 +120,7 @@ router.post('/', upload.single('recording'), async (req, res) => {
     const recording = new models.MeetingRecording({
       meetingId: meetingId || null,
       organizationId: req.user.organizationId || null,
+      teamId: req.body.teamId || null,
       title: title.trim(),
       description: description?.trim(),
       recording: {
@@ -282,7 +284,7 @@ router.post('/', upload.single('recording'), async (req, res) => {
  * @desc    Get recordings list
  * @access  Private
  */
-router.get('/', async (req, res) => {
+router.get('/', requireTeamAccess, async (req, res) => {
   try {
     const {
       page = 1,
@@ -293,6 +295,7 @@ router.get('/', async (req, res) => {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       isArchived,
+      teamId,
     } = req.query;
 
     // Organization is required for accessing recordings
@@ -317,6 +320,7 @@ router.get('/', async (req, res) => {
           : isArchived === 'false'
           ? false
           : undefined,
+      teamId: teamId || undefined,
     };
 
     const recordings = await models.MeetingRecording.findByOrganization(
@@ -325,6 +329,9 @@ router.get('/', async (req, res) => {
     );
 
     const countQuery = { organizationId: req.user.organizationId };
+    if (teamId) {
+      countQuery.teamId = teamId;
+    }
     if (isArchived !== undefined) {
       countQuery.isArchived = isArchived === 'true' ? true : false;
     } else {
@@ -358,7 +365,7 @@ router.get('/', async (req, res) => {
  * @desc    Get recording details
  * @access  Private
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireTeamAccess, async (req, res) => {
   try {
     const recording = await models.MeetingRecording.findById(req.params.id)
       .populate('meetingId', 'title scheduledTime')
@@ -388,7 +395,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -436,7 +443,7 @@ router.get('/:id/stream', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -485,11 +492,13 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    // Check if user can edit (host or organization owner)
+    // Check if user can edit (host or organization owner/admin)
     const canEdit =
       recording.participants.some(
         (p) => p.userId.toString() === req.user.userId && p.role === 'host'
-      ) || req.user.role === 'owner';
+      ) ||
+      req.user.role === 'owner' ||
+      req.user.role === 'admin';
 
     if (!canEdit) {
       return res.status(403).json({
@@ -542,11 +551,13 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Check if user can delete (host or organization owner)
+    // Check if user can delete (host or organization owner/admin)
     const canDelete =
       recording.participants.some(
         (p) => p.userId.toString() === req.user.userId && p.role === 'host'
-      ) || req.user.role === 'owner';
+      ) ||
+      req.user.role === 'owner' ||
+      req.user.role === 'admin';
 
     if (!canDelete) {
       return res.status(403).json({
@@ -616,7 +627,7 @@ router.post('/:id/process', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -691,7 +702,7 @@ router.post('/:id/share', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,
@@ -742,11 +753,13 @@ router.post('/:id/archive', async (req, res) => {
       });
     }
 
-    // Check if user can archive (host or organization owner)
+    // Check if user can archive (host or organization owner/admin)
     const canArchive =
       recording.participants.some(
         (p) => p.userId.toString() === req.user.userId && p.role === 'host'
-      ) || req.user.role === 'owner';
+      ) ||
+      req.user.role === 'owner' ||
+      req.user.role === 'admin';
 
     if (!canArchive) {
       return res.status(403).json({
@@ -790,11 +803,13 @@ router.post('/:id/unarchive', async (req, res) => {
       });
     }
 
-    // Check if user can unarchive (host or organization owner)
+    // Check if user can unarchive (host or organization owner/admin)
     const canUnarchive =
       recording.participants.some(
         (p) => p.userId.toString() === req.user.userId && p.role === 'host'
-      ) || req.user.role === 'owner';
+      ) ||
+      req.user.role === 'owner' ||
+      req.user.role === 'admin';
 
     if (!canUnarchive) {
       return res.status(403).json({
@@ -917,7 +932,7 @@ router.get('/:id/download', async (req, res) => {
     }
 
     // Check access permissions
-    const canAccess = recording.canAccess(req.user.userId, req.user.role);
+    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
     if (!canAccess) {
       return res.status(403).json({
         success: false,

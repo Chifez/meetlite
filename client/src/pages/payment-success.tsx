@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { PaymentService } from '@/services/payment-service';
 import { useAuth } from '@/hooks/use-auth';
+import Cookies from 'js-cookie';
 import { useToast } from '@/hooks/use-toast';
-import { User } from '@/lib/types';
 
 const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -32,9 +32,30 @@ const PaymentSuccess: React.FC = () => {
         const result = await PaymentService.handlePaymentSuccess(sessionId);
 
         if (result.success) {
-          // Update user context with new plan and token
-          // remind me to add the result.token to this updateUser function
-          updateUser({ ...result.user, token: result.token } as Partial<User>);
+          // Store new token in cookies
+          if (result.token) {
+            Cookies.set('token', result.token, {
+              secure: true,
+              sameSite: 'lax',
+            });
+          }
+
+          // Update user context with new plan
+          updateUser({
+            plan: {
+              type: result.user.plan.type as 'free' | 'pro' | 'enterprise',
+              status: result.user.plan.status as
+                | 'active'
+                | 'expired'
+                | 'cancelled',
+              startDate: result.user.plan.startDate
+                ? new Date(result.user.plan.startDate)
+                : undefined,
+              endDate: result.user.plan.endDate
+                ? new Date(result.user.plan.endDate)
+                : null,
+            },
+          });
 
           setSuccess(true);
           toast({

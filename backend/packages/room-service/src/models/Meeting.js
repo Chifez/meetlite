@@ -32,6 +32,13 @@ const meetingSchema = new mongoose.Schema({
     index: true,
     default: null, // null means personal workspace
   },
+  // Team scope - optional, only present when meeting belongs to a team
+  teamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    index: true,
+    default: null, // null means organization-level meeting
+  },
   participants: [
     {
       type: String, // userId
@@ -71,6 +78,8 @@ const meetingSchema = new mongoose.Schema({
 // Indexes for better performance
 meetingSchema.index({ organizationId: 1, createdBy: 1 });
 meetingSchema.index({ organizationId: 1, scheduledTime: 1 });
+meetingSchema.index({ organizationId: 1, teamId: 1 });
+meetingSchema.index({ teamId: 1, scheduledTime: 1 });
 
 // Export the schema for use with the model factory
 export { meetingSchema };

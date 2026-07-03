@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import SEO from '@/components/seo';
 import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import WelcomeHeader from '@/components/dashboard/welcome-header';
 import QuickActions from '@/components/dashboard/quick-action';
 import UpcomingMeetingsSection from '@/components/dashboard/upcoming-meetings-section';
@@ -78,24 +79,12 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch upcoming meetings
-  const initializeDashboard = useCallback(async () => {
-    if (user?.id) {
-      // Fetch meetings for current user and organization context
-      await fetchMeetings(user.id);
-    }
-  }, [user?.id, activeOrganization?.id, fetchMeetings]);
-
-  useEffect(() => {
-    initializeDashboard();
-  }, [initializeDashboard]);
-
-  // Handlers
   const handleQuickMeeting = async () => {
     try {
       setGlobalLoading(true);
       const response = await api.post('/api/rooms', {});
-      const { roomId } = response.data;
+      const result = extractData<{ roomId: string }>(response);
+      const { roomId } = result;
       navigate(`/lobby/${roomId}`);
     } catch (error) {
       toast.error('Error', {
@@ -115,6 +104,13 @@ const Dashboard = () => {
     }
     navigate(`/lobby/${joinRoomId.trim()}`);
   };
+
+  // Fetch upcoming meetings on mount and when organization changes
+  useEffect(() => {
+    if (user?.id) {
+      fetchMeetings(user.id);
+    }
+  }, [user?.id, activeOrganization?.id, fetchMeetings]);
 
   // Get upcoming meetings (first 3)
   const upcomingMeetings = meetings

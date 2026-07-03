@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
 interface MeetingFormData {
@@ -26,7 +27,10 @@ const initialFormData: MeetingFormData = {
   participantInput: '',
 };
 
-export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
+export const useMeetingForm = (
+  onSuccess?: (meetingId: string) => void,
+  teamId?: string
+) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
@@ -183,13 +187,15 @@ export const useMeetingForm = (onSuccess?: (meetingId: string) => void) => {
       privacy: formData.privacy,
       inviteEmails: finalParticipants,
       hostEmail: user?.email,
+      ...(teamId && { teamId }),
     };
 
     try {
       const response = await api.post(`/api/meetings`, meetingData);
+      const result = extractData<{ meetingId: string }>(response);
 
       toast.success('Meeting created successfully!');
-      onSuccess?.(response.data.meetingId);
+      onSuccess?.(result.meetingId);
       resetForm();
     } catch (error) {
       toast.error('Failed to create meeting');

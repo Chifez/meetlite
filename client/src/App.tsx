@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './hooks/use-auth';
+import { Routes, Route } from 'react-router-dom';
 import { useHotkeys } from './hooks/use-hotkeys';
 import { GlobalHotkeyHelp } from './components/hotkeys/hotkey-help';
+import { ProtectedRoute } from './components/protected-route';
+import { PublicRoute } from './components/public-route';
 import Login from './pages/login';
 import Signup from './pages/signup';
 import ForgotPassword from './pages/forgot-password';
@@ -21,10 +22,11 @@ import OrganizationSettings from './pages/organization-settings';
 import Settings from './pages/settings';
 import InvitationPage from './pages/invitation';
 import PaymentSuccess from './pages/payment-success';
+import TeamMeetings from './pages/teams/[teamId]/meetings';
+import TeamRecordings from './pages/teams/[teamId]/recordings';
+import TeamSettings from './pages/teams/[teamId]/settings';
 
 function App() {
-  const { isAuthenticated, redirectTo, user } = useAuth();
-
   // Initialize hotkeys
   useHotkeys();
 
@@ -36,36 +38,65 @@ function App() {
           <Route
             path="/login"
             element={
-              isAuthenticated ? (
-                <Navigate to={redirectTo || '/dashboard'} />
-              ) : (
+              <PublicRoute redirectIfAuthenticated>
                 <Login />
-              )
+              </PublicRoute>
             }
           />
           <Route
             path="/signup"
             element={
-              isAuthenticated ? (
-                <Navigate to={redirectTo || '/dashboard'} />
-              ) : (
+              <PublicRoute redirectIfAuthenticated>
                 <Signup />
-              )
+              </PublicRoute>
             }
           />
-          <Route path="/meeting/:meetingId/join" element={<MeetingJoin />} />
-          <Route path="/invite/:token" element={<InvitationPage />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/meeting/:meetingId/join"
+            element={
+              <PublicRoute>
+                <MeetingJoin />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/invite/:token"
+            element={
+              <PublicRoute>
+                <InvitationPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/payment/success"
+            element={
+              <PublicRoute>
+                <PaymentSuccess />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPassword />
+              </PublicRoute>
+            }
+          />
           <Route
             path="/onboarding"
             element={
-              isAuthenticated && user?.onboardingCompleted ? (
-                <Navigate to={redirectTo || '/dashboard'} />
-              ) : (
+              <PublicRoute redirectIfAuthenticated>
                 <Onboarding />
-              )
+              </PublicRoute>
             }
           />
 
@@ -73,113 +104,89 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Dashboard />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/lobby/:roomId"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Lobby />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Lobby />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/room/:roomId"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Room />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Room />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/meetings"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Meetings />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Meetings />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/members"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Members />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Members />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/recordings"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Recordings />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Recordings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/meetings"
+            element={
+              <ProtectedRoute>
+                <TeamMeetings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/recordings"
+            element={
+              <ProtectedRoute>
+                <TeamRecordings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teams/:teamId/settings"
+            element={
+              <ProtectedRoute>
+                <TeamSettings />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/organization/:orgId/settings"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <OrganizationSettings />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <OrganizationSettings />
+              </ProtectedRoute>
             }
           />
           <Route
             path="/settings"
             element={
-              isAuthenticated ? (
-                user?.onboardingCompleted ? (
-                  <Settings />
-                ) : (
-                  <Navigate to="/onboarding" />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
             }
           />
 
@@ -187,11 +194,9 @@ function App() {
           <Route
             path="/"
             element={
-              isAuthenticated ? (
-                <Navigate to={redirectTo || '/dashboard'} />
-              ) : (
+              <PublicRoute redirectIfAuthenticated>
                 <Landing />
-              )
+              </PublicRoute>
             }
           />
           <Route path="*" element={<NotFound />} />

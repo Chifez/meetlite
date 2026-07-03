@@ -31,12 +31,13 @@ function createApp() {
   const app = express();
 
   // Setup middleware in correct order
+  // Health check must be BEFORE security middleware (CORS) to allow unrestricted access
+  setupHealthCheckMiddleware(app);
   setupSecurityMiddleware(app);
   setupPerformanceMiddleware(app);
   setupRateLimitMiddleware(app);
   // Note: Body parsing removed - backend services handle their own parsing
   setupRequestLoggingMiddleware(app);
-  setupHealthCheckMiddleware(app);
 
   return app;
 }

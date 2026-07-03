@@ -46,8 +46,8 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({
     <div className="space-y-6">
       {/* Summary */}
       <div>
-        <h3 className="font-semibold text-lg mb-3 text-gray-900">Summary</h3>
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <h3 className="font-semibold text-lg mb-3 text-foreground">Summary</h3>
+        <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-sm text-gray-700 leading-relaxed">
             {recording.aiSummary.summary}
           </p>
@@ -67,7 +67,9 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({
                 className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
               >
                 <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                <p className="text-sm text-gray-700 leading-relaxed">{point}</p>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {point}
+                </p>
               </div>
             ))}
           </div>

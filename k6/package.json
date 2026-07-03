@@ -5,12 +5,13 @@
   "type": "module",
   "main": "run-tests.js",
   "scripts": {
-    "test:room-capacity": "k6 run scenarios/room-capacity.js",
-    "test:room-operations": "k6 run scenarios/room-operation.js",
-    "test:connection-load": "k6 run scenarios/connection-load.js",
-    "test:stress": "k6 run scenarios/stress-test.js",
-    "test:all": "npm run test:room-capacity && npm run test:room-operations && npm run test:connection-load && npm run test:stress",
-    "create-users": "node utils/create-test-users.js",
+    "setup": "node scripts/setup-users.js 100",
+    "test:backend:load": "node run-tests.js backend load",
+    "test:backend:stress": "node run-tests.js backend stress",
+    "test:backend:spike": "node run-tests.js backend spike",
+    "test:backend:soak": "node run-tests.js backend soak",
+    "test:frontend:load": "node run-tests.js frontend load",
+    "test:all": "node run-tests.js backend load && node run-tests.js frontend load",
     "runner:help": "node run-tests.js --help",
     "runner:list": "node run-tests.js --list",
     "runner:room-capacity": "node run-tests.js room-capacity",
@@ -35,7 +36,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "glob": "^11.0.0"
+  },
   "devDependencies": {},
   "repository": {
     "type": "git",

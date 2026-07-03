@@ -9,16 +9,36 @@ import { Toaster } from 'sonner';
 import { ThemeProvider } from 'next-themes';
 import { HelmetProvider } from 'react-helmet-async';
 
-// Register PWA service worker
+// Register PWA service worker (for push notifications)
+// We register manually to ensure push notifications work correctly with our custom sw.js
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js')
+      .register('/sw.js', { scope: '/' })
       .then((registration) => {
-        console.log('SW registered: ', registration);
+        console.log('Service Worker registered:', registration.scope);
+
+        // Handle service worker updates to prevent duplicate requests
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (
+                newWorker.state === 'installed' &&
+                navigator.serviceWorker.controller
+              ) {
+                // New service worker installed, but old one still active
+                // User needs to refresh to activate new worker
+                console.log(
+                  'New service worker available - refresh to activate'
+                );
+              }
+            });
+          }
+        });
       })
       .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
+        console.error('Service Worker registration failed:', registrationError);
       });
   });
 }

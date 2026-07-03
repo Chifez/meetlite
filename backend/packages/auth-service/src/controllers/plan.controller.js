@@ -1,4 +1,5 @@
-import { PlanValidationService } from '../services/plan-validation.service.js';
+import { PlanValidationService } from '@minimeet/shared-models';
+import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 import {
   getPlanConstraints,
   getUpgradeSuggestions,
@@ -7,19 +8,79 @@ import { models } from '../index.js';
 
 export class PlanController {
   /**
+   * Get effective plan for user (organization plan if in org mode, user plan otherwise)
+   */
+  async getEffectivePlan(req) {
+    const user = req.user;
+
+    // If user is in organization mode, use organization plan
+    if (user.organizationId) {
+      const organization = await models.Organization.findById(
+        user.organizationId
+      );
+
+      if (organization) {
+        // Ensure organization plan is synced with owner
+        await OrganizationPlanSyncService.syncOrganizationWithOwner(
+          organization._id
+        );
+
+        // Reload to get updated plan
+        const syncedOrg = await models.Organization.findById(
+          user.organizationId
+        );
+
+        return {
+          planType: syncedOrg.plan.type,
+          planStatus: syncedOrg.plan.status,
+          plan: syncedOrg.plan,
+          isOrganizationPlan: true,
+        };
+      }
+    }
+
+    // Personal mode: use user plan
+    return {
+      planType: user.plan.type,
+      planStatus: user.plan.status,
+      plan: user.plan,
+      isOrganizationPlan: false,
+    };
+  }
+
+  /**
    * GET /plan/usage - Get current user's plan usage
    */
   async getPlanUsage(req, res) {
     try {
       const userId = req.user._id;
 
-      const usageSummary = await PlanValidationService.getUserUsageSummary(
-        userId
-      );
+      // Get effective plan (org or user)
+      const effectivePlan = await this.getEffectivePlan(req);
 
-      if (!usageSummary) {
+      // Get usage summary using effective plan
+      const user = await models.User.findById(userId);
+      if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
+
+      const planConstraints = getPlanConstraints(effectivePlan.planType);
+
+      const usageSummary = {
+        plan: effectivePlan.planType,
+        limits: planConstraints,
+        usage: {
+          organizationsOwned: user.usage.organizationsOwned,
+          organizationsMember: user.usage.organizationsMember,
+          invitationsSentToday: user.usage.invitationsSentToday,
+          invitationsSentThisMonth: user.usage.invitationsSentThisMonth,
+          meetingsCreatedToday: user.usage.meetingsCreatedToday,
+          meetingsCreatedThisMonth: user.usage.meetingsCreatedThisMonth,
+          storageUsedGB: user.usage.storageUsedGB,
+          apiCallsToday: user.usage.apiCallsToday,
+        },
+        canUpgrade: effectivePlan.planType !== 'enterprise',
+      };
 
       // Get upgrade suggestions
       const suggestions = getUpgradeSuggestions(
@@ -45,19 +106,15 @@ export class PlanController {
    */
   async getPlanConstraints(req, res) {
     try {
-      const userId = req.user._id;
-      const user = await models.User.findById(userId);
+      // Get effective plan (org or user)
+      const effectivePlan = await this.getEffectivePlan(req);
 
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      const constraints = getPlanConstraints(user.plan.type);
+      const constraints = getPlanConstraints(effectivePlan.planType);
 
       res.json({
         success: true,
         data: {
-          plan: user.plan.type,
+          plan: effectivePlan.planType,
           constraints,
         },
       });
@@ -80,7 +137,8 @@ export class PlanController {
       switch (action) {
         case 'send_invitation':
           validation = await PlanValidationService.validateInvitationSending(
-            userId
+            userId,
+            models
           );
           break;
 
@@ -94,7 +152,8 @@ export class PlanController {
           validation = await PlanValidationService.validateInvitationAcceptance(
             userId,
             data.organizationId,
-            data.role
+            data.role,
+            models
           );
           break;
 
@@ -105,7 +164,8 @@ export class PlanController {
             });
           }
           validation = await PlanValidationService.validateOrganizationCapacity(
-            data.organizationId
+            data.organizationId,
+            models
           );
           break;
 

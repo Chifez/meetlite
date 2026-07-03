@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
 interface AISummary {
@@ -52,7 +53,7 @@ export const useAIFeatures = () => {
 
         const response = await api.post(`/api/ai/summarize`, formData);
 
-        return response.data;
+        return extractData<any>(response);
       } catch (error) {
         console.error('Summary generation error:', error);
         throw error;
@@ -88,12 +89,13 @@ export const useAIFeatures = () => {
 
           try {
             const response = await api.post(`/api/ai/transcribe`, formData);
+            const data = extractData<any>(response);
 
-            if (response.data) {
+            if (data) {
               // Emit transcription event
               window.dispatchEvent(
                 new CustomEvent('transcription', {
-                  detail: response.data,
+                  detail: data,
                 })
               );
             }
@@ -133,7 +135,7 @@ export const useAIFeatures = () => {
           topic,
         });
 
-        return response.data;
+        return extractData<any>(response);
       } catch (error) {
         console.error('Smart suggestions error:', error);
         return [];
@@ -156,7 +158,7 @@ export const useAIFeatures = () => {
       try {
         const response = await api.get(`/api/ai/insights/${meetingId}`);
 
-        return response.data;
+        return extractData<any>(response);
       } catch (error) {
         console.error('Meeting insights error:', error);
         return {

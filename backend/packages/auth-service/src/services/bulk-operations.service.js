@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { models } from '../index.js';
-import { PlanValidationService } from './plan-validation.service.js';
+import { PlanValidationService } from '@minimeet/shared-models';
 import { MultiOrganizationService } from './multi-organization.service.js';
 import { sendOrganizationInviteEmail } from './email-service.js';
 
@@ -22,13 +22,34 @@ export class BulkOperationsService {
         throw new Error('Organization not found');
       }
 
-      if (organization.ownerId.toString() !== inviterId.toString()) {
-        throw new Error('Only organization owners can invite members');
+      // Check if user is organization owner or admin
+      const inviter = await models.User.findById(inviterId);
+      if (!inviter) {
+        throw new Error('Inviter not found');
+      }
+
+      const inviterMembership = inviter.memberships?.find(
+        (m) =>
+          m.organizationId.toString() === organizationId.toString() &&
+          m.status === 'active'
+      );
+
+      if (
+        !inviterMembership ||
+        (inviterMembership.role !== 'owner' &&
+          inviterMembership.role !== 'admin')
+      ) {
+        throw new Error(
+          'Only organization owners and admins can invite members'
+        );
       }
 
       // Check inviter's plan limits
       const invitationValidation =
-        await PlanValidationService.validateInvitationSending(inviterId);
+        await PlanValidationService.validateInvitationSending(
+          inviterId,
+          models
+        );
       if (!invitationValidation.isValid) {
         throw new Error(invitationValidation.message);
       }
@@ -36,7 +57,8 @@ export class BulkOperationsService {
       // Check organization capacity
       const capacityValidation =
         await PlanValidationService.validateOrganizationCapacity(
-          organizationId
+          organizationId,
+          models
         );
       if (!capacityValidation.isValid) {
         throw new Error(capacityValidation.message);
@@ -127,10 +149,10 @@ export class BulkOperationsService {
 
       // Update inviter's invitation usage
       if (results.successful.length > 0) {
-        await PlanValidationService.updateInvitationUsage(
-          inviterId,
-          results.successful.length
-        );
+        // Note: updateInvitationUsage increments by 1, so we call it for each successful invitation
+        for (let i = 0; i < results.successful.length; i++) {
+          await PlanValidationService.updateInvitationUsage(inviterId, models);
+        }
       }
 
       return results;
@@ -156,8 +178,26 @@ export class BulkOperationsService {
         throw new Error('Organization not found');
       }
 
-      if (organization.ownerId.toString() !== removerId.toString()) {
-        throw new Error('Only organization owners can remove members');
+      // Check if user is organization owner or admin
+      const remover = await models.User.findById(removerId);
+      if (!remover) {
+        throw new Error('Remover not found');
+      }
+
+      const removerMembership = remover.memberships?.find(
+        (m) =>
+          m.organizationId.toString() === organizationId.toString() &&
+          m.status === 'active'
+      );
+
+      if (
+        !removerMembership ||
+        (removerMembership.role !== 'owner' &&
+          removerMembership.role !== 'admin')
+      ) {
+        throw new Error(
+          'Only organization owners and admins can remove members'
+        );
       }
 
       for (const memberId of memberIds) {
@@ -244,8 +284,26 @@ export class BulkOperationsService {
         throw new Error('Organization not found');
       }
 
-      if (organization.ownerId.toString() !== updaterId.toString()) {
-        throw new Error('Only organization owners can update member roles');
+      // Check if user is organization owner or admin
+      const updater = await models.User.findById(updaterId);
+      if (!updater) {
+        throw new Error('Updater not found');
+      }
+
+      const updaterMembership = updater.memberships?.find(
+        (m) =>
+          m.organizationId.toString() === organizationId.toString() &&
+          m.status === 'active'
+      );
+
+      if (
+        !updaterMembership ||
+        (updaterMembership.role !== 'owner' &&
+          updaterMembership.role !== 'admin')
+      ) {
+        throw new Error(
+          'Only organization owners and admins can update member roles'
+        );
       }
 
       for (const update of roleUpdates) {
@@ -253,10 +311,10 @@ export class BulkOperationsService {
           const { memberId, newRole } = update;
 
           // Validate role
-          if (!['owner', 'member'].includes(newRole)) {
+          if (!['owner', 'admin', 'member'].includes(newRole)) {
             results.failed.push({
               memberId,
-              error: 'Invalid role. Must be "owner" or "member"',
+              error: 'Invalid role. Must be "owner", "admin", or "member"',
             });
             continue;
           }
@@ -373,13 +431,29 @@ export class BulkOperationsService {
           (m) => m.organizationId.toString() === organizationId.toString()
         );
 
-        return {
+        const formatted = {
           id: member._id,
           name: member.name,
           email: member.email,
           role: membership.role,
           joinedAt: membership.joinedAt,
         };
+
+        console.log('[BACKEND SERVICE] Formatted member:', {
+          id: formatted.id,
+          name: formatted.name,
+          hasTeamMemberships: !!member.teamMemberships,
+          teamMembershipsCount: member.teamMemberships?.length || 0,
+        });
+
+        return formatted;
+      });
+
+      console.log('[BACKEND SERVICE] Returning members:', {
+        count: formattedMembers.length,
+        firstMemberKeys: formattedMembers[0]
+          ? Object.keys(formattedMembers[0])
+          : [],
       });
 
       return {

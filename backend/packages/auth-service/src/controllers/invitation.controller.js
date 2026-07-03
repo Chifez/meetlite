@@ -1,7 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { models } from '../index.js';
 import { generateJWTToken } from '../utils/generate-token.js';
-import { PlanValidationService } from '../services/plan-validation.service.js';
+import {
+  PlanValidationService,
+  ResponseHelpers,
+} from '@minimeet/shared-models';
+
 import { MultiOrganizationService } from '../services/multi-organization.service.js';
 
 export class InvitationController {
@@ -14,13 +18,11 @@ export class InvitationController {
       const invitation = await models.OrganizationInvitation.findByToken(token);
 
       if (!invitation) {
-        return res.status(404).json({
-          message: 'Invitation not found or expired',
-        });
+        return ResponseHelpers.notFound(res, 'Invitation not found or expired');
       }
 
       // Return invitation details without sensitive information
-      res.json({
+      return ResponseHelpers.ok(res, {
         invitation: {
           id: invitation._id,
           organizationName: invitation.organizationId.name,
@@ -35,7 +37,10 @@ export class InvitationController {
       });
     } catch (error) {
       console.error('Get invitation error:', error);
-      res.status(500).json({ message: 'Server error' });
+      return ResponseHelpers.serverError(
+        res,
+        'Failed to retrieve invitation details'
+      );
     }
   }
 
@@ -47,7 +52,7 @@ export class InvitationController {
       const authToken = authHeader && authHeader.split(' ')[1];
 
       if (!authToken) {
-        return res.status(401).json({ message: 'Authentication required' });
+        return ResponseHelpers.unauthorized(res, 'Authentication required');
       }
 
       // Verify JWT token
@@ -56,7 +61,7 @@ export class InvitationController {
         const decoded = jwt.verify(authToken, process.env.JWT_SECRET);
         const user = await models.User.findById(decoded.userId);
         if (!user) {
-          return res.status(404).json({ message: 'User not found' });
+          return ResponseHelpers.notFound(res, 'User not found');
         }
         userId = user._id;
 
@@ -65,24 +70,26 @@ export class InvitationController {
           token
         );
         if (!invitation) {
-          return res.status(404).json({
-            message: 'Invitation not found or expired',
-          });
+          return ResponseHelpers.notFound(
+            res,
+            'Invitation not found or expired'
+          );
         }
 
         // Check if invitation email matches user email
         if (invitation.email !== user.email.toLowerCase()) {
-          return res.status(403).json({
-            message: 'This invitation is for a different email address',
-          });
+          return ResponseHelpers.forbidden(
+            res,
+            'This invitation is for a different email address'
+          );
         }
 
         // Check if invitation can be accepted
         if (!invitation.canBeAccepted()) {
-          return res.status(400).json({
-            message:
-              'Invitation cannot be accepted (expired or already processed)',
-          });
+          return ResponseHelpers.badRequest(
+            res,
+            'Invitation cannot be accepted (expired or already processed)'
+          );
         }
 
         // 1. Validate plan constraints for invitation acceptance
@@ -90,11 +97,11 @@ export class InvitationController {
           await PlanValidationService.validateInvitationAcceptance(
             userId,
             invitation.organizationId,
-            invitation.role
+            invitation.role,
+            models
           );
         if (!acceptanceValidation.isValid) {
-          return res.status(403).json({
-            message: acceptanceValidation.message,
+          return ResponseHelpers.forbidden(res, acceptanceValidation.message, {
             upgradeRequired: acceptanceValidation.upgradeRequired,
             currentPlan: acceptanceValidation.currentPlan,
             currentUsage: acceptanceValidation.currentUsage,
@@ -105,11 +112,11 @@ export class InvitationController {
         // 2. Validate organization capacity based on owner's plan
         const capacityValidation =
           await PlanValidationService.validateOrganizationCapacity(
-            invitation.organizationId
+            invitation.organizationId,
+            models
           );
         if (!capacityValidation.isValid) {
-          return res.status(403).json({
-            message: capacityValidation.message,
+          return ResponseHelpers.forbidden(res, capacityValidation.message, {
             upgradeRequired: capacityValidation.upgradeRequired,
             organizationPlan: capacityValidation.organizationPlan,
             currentMembers: capacityValidation.currentMembers,
@@ -144,29 +151,34 @@ export class InvitationController {
         // 3. Update user's membership usage after successful acceptance
         await PlanValidationService.updateMembershipUsage(
           userId,
-          invitation.role
+          invitation.role,
+          models
         );
 
         // Generate new token with organization context
         const newToken = generateJWTToken(updatedUser);
 
-        res.json({
-          message: 'Invitation accepted successfully',
-          organization: {
-            id: invitation.organizationId._id,
-            name: invitation.organizationId.name,
-            role: invitation.role,
+        return ResponseHelpers.ok(
+          res,
+          {
+            organization: {
+              id: invitation.organizationId._id,
+              name: invitation.organizationId.name,
+              role: invitation.role,
+            },
+            token: newToken, // Return new token
           },
-          token: newToken, // Return new token
-        });
+          'Invitation accepted successfully'
+        );
       } catch (jwtError) {
-        return res
-          .status(401)
-          .json({ message: 'Invalid authentication token' });
+        return ResponseHelpers.unauthorized(
+          res,
+          'Invalid authentication token'
+        );
       }
     } catch (error) {
       console.error('Accept invitation error:', error);
-      res.status(500).json({ message: 'Server error' });
+      return ResponseHelpers.serverError(res, 'Failed to accept invitation');
     }
   }
 
@@ -179,27 +191,24 @@ export class InvitationController {
       const invitation = await models.OrganizationInvitation.findByToken(token);
 
       if (!invitation) {
-        return res.status(404).json({
-          message: 'Invitation not found or expired',
-        });
+        return ResponseHelpers.notFound(res, 'Invitation not found or expired');
       }
 
       // Check if invitation can be declined
       if (invitation.status !== 'pending') {
-        return res.status(400).json({
-          message: 'Invitation cannot be declined (already processed)',
-        });
+        return ResponseHelpers.badRequest(
+          res,
+          'Invitation cannot be declined (already processed)'
+        );
       }
 
       // Decline invitation
       await invitation.decline();
 
-      res.json({
-        message: 'Invitation declined successfully',
-      });
+      return ResponseHelpers.ok(res, null, 'Invitation declined successfully');
     } catch (error) {
       console.error('Decline invitation error:', error);
-      res.status(500).json({ message: 'Server error' });
+      return ResponseHelpers.serverError(res, 'Failed to decline invitation');
     }
   }
 }

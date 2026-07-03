@@ -172,11 +172,11 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 <span className="text-sm flex-shrink-0">
                   {getTypeIcon(privacy)}
                 </span>
-                <h4 className="font-medium text-foreground group-hover:text-indigo-600 transition-colors text-sm sm:text-base truncate">
+                <h4 className="font-medium text-foreground group-hover:text-primary transition-colors text-sm sm:text-base truncate">
                   {meeting.title}
                 </h4>
                 {meeting.source === 'google' && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100">
+                  <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900">
                     Google
                   </span>
                 )}

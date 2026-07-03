@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -22,12 +22,13 @@ interface UploadRecordingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadSuccess?: (recording: any) => void;
+  teamId?: string;
 }
 
 interface UploadFormData {
   title: string;
   description?: string;
-  visibility: 'organization' | 'participants' | 'private';
+  visibility: 'organization' | 'team' | 'participants' | 'private';
   tags: string;
 }
 
@@ -37,6 +38,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
   open,
   onOpenChange,
   onUploadSuccess,
+  teamId,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
@@ -56,12 +58,21 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
     defaultValues: {
       title: '',
       description: '',
-      visibility: 'organization',
+      visibility: teamId ? 'team' : 'organization',
       tags: '',
     },
   });
 
   const visibility = watch('visibility');
+
+  // Update default visibility when teamId changes
+  useEffect(() => {
+    if (teamId && open) {
+      setValue('visibility', 'team');
+    } else if (!teamId && open) {
+      setValue('visibility', 'organization');
+    }
+  }, [teamId, open, setValue]);
 
   const handleFileSelect = (file: File) => {
     // Validate file type
@@ -128,6 +139,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean),
+          ...(teamId && { teamId }),
         },
         (progress) => {
           setUploadProgress(progress.percentage);
@@ -274,7 +286,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
               className={cn(
                 'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
                 dragActive
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
                   : selectedFile
                   ? 'border-green-500 bg-green-50'
                   : 'border-gray-300 hover:border-gray-400'
@@ -291,7 +303,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                       <p className="font-medium text-gray-900">
                         {selectedFile.name}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {formatFileSize(selectedFile.size)}
                       </p>
                     </div>
@@ -313,7 +325,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                     <p className="text-lg font-medium text-gray-900">
                       Drop your recording here
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       or click to browse files
                     </p>
                   </div>
@@ -375,11 +387,27 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                 <RadioGroup
                   value={visibility}
                   onValueChange={(
-                    value: 'organization' | 'participants' | 'private'
+                    value: 'organization' | 'team' | 'participants' | 'private'
                   ) => setValue('visibility', value)}
                   className="space-y-2"
                 >
-                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                  {teamId && (
+                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
+                      <RadioGroupItem value="team" id="team" />
+                      <div className="flex-1">
+                        <Label
+                          htmlFor="team"
+                          className="font-medium cursor-pointer"
+                        >
+                          Team
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Visible to all team members
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                     <RadioGroupItem value="organization" id="organization" />
                     <div className="flex-1">
                       <Label
@@ -388,12 +416,12 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                       >
                         Organization
                       </Label>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Visible to all organization members
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                     <RadioGroupItem value="participants" id="participants" />
                     <div className="flex-1">
                       <Label
@@ -402,12 +430,12 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                       >
                         Participants Only
                       </Label>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Only meeting participants can access
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                     <RadioGroupItem value="private" id="private" />
                     <div className="flex-1">
                       <Label
@@ -416,7 +444,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                       >
                         Private
                       </Label>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Only you can access this recording
                       </p>
                     </div>
@@ -434,7 +462,7 @@ export const UploadRecordingModal: React.FC<UploadRecordingModalProps> = ({
                   placeholder="Enter tags separated by commas"
                   {...register('tags')}
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Use tags to organize and search your recordings
                 </p>
               </div>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 
 export interface MeetingFormData {
   title: string;
@@ -41,7 +42,10 @@ interface FormState {
   closeScheduleModal: () => void;
 
   // Submit action
-  handleSubmit: (onSuccess?: (meetingId: string) => void) => Promise<void>;
+  handleSubmit: (
+    onSuccess?: (meetingId: string) => void,
+    teamId?: string
+  ) => Promise<void>;
 }
 
 const initialFormData: MeetingFormData = {
@@ -126,7 +130,7 @@ export const useFormStore = create<FormState>((set, get) => ({
   closeScheduleModal: () => set({ showScheduleModal: false }),
 
   // Submit action
-  handleSubmit: async (onSuccess) => {
+  handleSubmit: async (onSuccess, teamId) => {
     const { formData } = get();
 
     if (!formData.title.trim()) {
@@ -157,12 +161,14 @@ export const useFormStore = create<FormState>((set, get) => ({
       privacy: formData.privacy,
       inviteEmails: formData.participants,
       hostEmail: '', // Will be set from auth context when used
+      ...(teamId && { teamId }),
     };
 
     try {
       const response = await api.post(`/api/meetings`, meetingData);
+      const result = extractData<{ meetingId: string }>(response);
       toast.success('Meeting created successfully!');
-      onSuccess?.(response.data.meetingId);
+      onSuccess?.(result.meetingId);
       get().resetForm();
       get().closeScheduleModal();
     } catch (error) {

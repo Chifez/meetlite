@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 import { useMeetingsStore } from '@/stores';
 import { toast } from 'sonner';
@@ -23,7 +24,7 @@ interface CalendarIntegration {
 }
 
 export const useCalendarIntegration = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [integrations, setIntegrations] = useState<CalendarIntegration[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -33,13 +34,7 @@ export const useCalendarIntegration = () => {
   const { meetings, setMeetings } = useMeetingsStore();
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const [isPolling, setIsPolling] = useState(false);
-
-  // Load connected calendars on mount
-  useEffect(() => {
-    if (user?.id) {
-      getConnectedCalendars();
-    }
-  }, [user?.id]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Check if user is connected to a specific calendar
   const isConnected = useCallback(
@@ -67,10 +62,17 @@ export const useCalendarIntegration = () => {
     CalendarIntegration[]
   > => {
     try {
-      const response = await api.get(`/api/calendar/connected`);
-      setIntegrations(response.data);
-      return response.data;
-    } catch (error) {
+      const response = await api.get(`/api/calendar/connected`, {
+        signal: abortControllerRef.current?.signal,
+      });
+      const data = extractData<CalendarIntegration[]>(response);
+      setIntegrations(data);
+      return data;
+    } catch (error: any) {
+      // Don't update state if request was aborted
+      if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+        return [];
+      }
       return [];
     }
   }, []);
@@ -81,8 +83,9 @@ export const useCalendarIntegration = () => {
       try {
         setIsLoading(true);
         const response = await api.post(`/api/calendar/connect/google`, {});
-        if (response.data.authUrl) {
-          window.open(response.data.authUrl, '_blank', 'width=500,height=600');
+        const data = extractData<{ authUrl?: string }>(response);
+        if (data.authUrl) {
+          window.open(data.authUrl, '_blank', 'width=500,height=600');
           setImportError(
             'Google OAuth window opened! Please complete the authorization in the new window. This page will update automatically once you are connected.'
           );
@@ -125,7 +128,7 @@ export const useCalendarIntegration = () => {
           endDate: endDate.toISOString(),
         });
 
-        const events = response.data;
+        const events = extractData<any[]>(response);
         const taggedEvents = events.map((e: any) => ({
           ...e,
           source: calendarType,
@@ -186,7 +189,8 @@ export const useCalendarIntegration = () => {
           calendarType,
         });
 
-        return response.data.success;
+        const data = extractData<{ success: boolean }>(response);
+        return data.success;
       } catch (error) {
         console.error('Calendar export error:', error);
         return false;
@@ -228,13 +232,14 @@ export const useCalendarIntegration = () => {
         calendarType,
       });
 
-      if (response.data.success) {
+      const data = extractData<{ success: boolean }>(response);
+      if (data.success) {
         setIntegrations((prev) =>
           prev.filter((integration) => integration.type !== calendarType)
         );
       }
 
-      return response.data.success;
+      return data.success;
     } catch (error) {
       console.error('Calendar disconnect error:', error);
       return false;
@@ -296,7 +301,8 @@ export const useCalendarIntegration = () => {
           calendarType: 'google',
         });
 
-        return response.data.success;
+        const data = extractData<{ success: boolean }>(response);
+        return data.success;
       } catch (error) {
         console.error('Calendar scheduling error:', error);
         return false;
@@ -325,18 +331,47 @@ export const useCalendarIntegration = () => {
     []
   );
 
-  // When modal closes, stop polling
+  // Handle import modal state changes with cleanup
+  const handleSetShowImportModal = useCallback(
+    (show: boolean) => {
+      setShowImportModal(show);
+      // Stop polling when modal closes
+      if (!show) {
+        stopPolling();
+      }
+    },
+    [stopPolling]
+  );
+
+  // Load connected calendars on mount - ONLY when auth is ready
+  // Debounced to prevent race conditions during rapid state changes
   useEffect(() => {
-    if (!showImportModal) {
-      stopPolling();
+    if (user?.id && isAuthenticated && !authLoading) {
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Debounce the call by 300ms
+      const timeoutId = setTimeout(() => {
+        abortControllerRef.current = new AbortController();
+        getConnectedCalendars();
+      }, 300);
+
+      return () => {
+        clearTimeout(timeoutId);
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+      };
     }
-  }, [showImportModal, stopPolling]);
+  }, [user?.id, isAuthenticated, authLoading]);
 
   return {
     integrations,
     isLoading,
     showImportModal,
-    setShowImportModal,
+    setShowImportModal: handleSetShowImportModal,
     importLoading,
     importedEvents,
     importError,

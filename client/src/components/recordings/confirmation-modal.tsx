@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface ConfirmationModalProps {
   open: boolean;
@@ -66,7 +67,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             disabled={isLoading}
             className="text-white"
           >
-            {isLoading ? 'Processing...' : confirmText}
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              confirmText
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

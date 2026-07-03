@@ -108,45 +108,118 @@ export const updateRoomSettings = async (req, res) => {
 export const joinRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const room = await models.Room.findOne({ roomId });
+    const userId = req.user.userId;
+    const now = new Date();
 
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-
-    const existingParticipant = room.participants.find(
-      (p) => p.userId === req.user.userId
+    // ✅ SINGLE ATOMIC OPERATION: Find room AND add/update participant in one query
+    const room = await models.Room.findOneAndUpdate(
+      {
+        roomId,
+        // Only match rooms where user is NOT already a participant
+        'participants.userId': { $ne: userId },
+        // Ensure room is not at capacity
+        $expr: {
+          $lt: [{ $size: '$participants' }, '$settings.maxParticipants'],
+        },
+      },
+      {
+        $push: {
+          participants: {
+            userId,
+            role: 'viewer', // Default, will update if creator below
+            joinedAt: now,
+            lastActive: now,
+          },
+        },
+      },
+      { new: true, lean: true } // ✅ lean() = faster (plain JS object)
     );
-    if (existingParticipant) {
-      existingParticipant.lastActive = new Date();
-      await room.save();
+
+    // Case 1: User successfully added as new participant
+    if (room) {
+      // Update role if user is creator (atomic operation)
+      if (userId === room.createdBy) {
+        await models.Room.updateOne(
+          { roomId, 'participants.userId': userId },
+          { $set: { 'participants.$.role': 'host' } }
+        );
+        // Get updated participant for response
+        const updatedRoom = await models.Room.findOne(
+          { roomId },
+          {
+            participants: { $elemMatch: { userId } },
+            collaborationMode: 1,
+            activeTool: 1,
+            settings: 1,
+          }
+        ).lean();
+        const participant = updatedRoom?.participants[0];
+
+        return res.json({
+          participant,
+          collaborationMode: updatedRoom.collaborationMode,
+          activeTool: updatedRoom.activeTool,
+          settings: updatedRoom.settings,
+        });
+      }
+
+      const participant = room.participants.find((p) => p.userId === userId);
       return res.json({
-        participant: existingParticipant,
+        participant,
         collaborationMode: room.collaborationMode,
         activeTool: room.activeTool,
         settings: room.settings,
       });
     }
 
-    if (room.participants.length >= room.settings.maxParticipants) {
-      return res.status(403).json({ message: 'Room is at maximum capacity' });
+    // Case 2: User is already a participant - just update lastActive (atomic)
+    const existingRoom = await models.Room.findOneAndUpdate(
+      {
+        roomId,
+        'participants.userId': userId,
+      },
+      {
+        $set: { 'participants.$.lastActive': now },
+      },
+      {
+        new: true,
+        projection: {
+          participants: { $elemMatch: { userId } },
+          collaborationMode: 1,
+          activeTool: 1,
+          settings: 1,
+        },
+        lean: true, // ✅ lean() = faster
+      }
+    );
+
+    if (!existingRoom) {
+      // Room not found OR at capacity
+      const capacityCheck = await models.Room.findOne(
+        { roomId },
+        { 'settings.maxParticipants': 1, participants: 1 }
+      ).lean();
+
+      if (!capacityCheck) {
+        return res.status(404).json({ message: 'Room not found' });
+      }
+
+      if (
+        capacityCheck.participants.length >=
+        capacityCheck.settings.maxParticipants
+      ) {
+        return res.status(403).json({ message: 'Room is at maximum capacity' });
+      }
+
+      return res.status(404).json({ message: 'Room not found' });
     }
 
-    const newParticipant = {
-      userId: req.user.userId,
-      role: req.user.userId === room.createdBy ? 'host' : 'viewer',
-      joinedAt: new Date(),
-      lastActive: new Date(),
-    };
-
-    room.participants.push(newParticipant);
-    await room.save();
-
+    const participant = existingRoom.participants[0];
     res.json({
-      participant: newParticipant,
-      collaborationMode: room.collaborationMode,
-      activeTool: room.activeTool,
-      settings: room.settings,
+      participant,
+      collaborationMode: existingRoom.collaborationMode,
+      activeTool: existingRoom.activeTool,
+      settings: existingRoom.settings,
     });
   } catch (error) {
     console.error('Join room error:', error);

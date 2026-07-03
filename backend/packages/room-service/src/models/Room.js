@@ -17,6 +17,13 @@ const roomSchema = new mongoose.Schema({
     index: true,
     default: null, // null means personal workspace
   },
+  // Team scope - optional, only present when room belongs to a team
+  teamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    index: true,
+    default: null, // null means organization-level room
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -119,10 +126,12 @@ const roomSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-roomSchema.index({ roomId: 1 });
-roomSchema.index({ organizationId: 1, createdBy: 1 });
-roomSchema.index({ 'participants.userId': 1 });
-roomSchema.index({ collaborationMode: 1 });
+roomSchema.index({ roomId: 1 }, { unique: true }); // ✅ Ensure unique index
+roomSchema.index({ organizationId: 1, createdBy: 1 }); // ✅ Compound index for org queries
+roomSchema.index({ organizationId: 1, teamId: 1 }); // ✅ Compound index for team queries
+roomSchema.index({ 'participants.userId': 1 }); // ✅ Index for participant lookups
+roomSchema.index({ collaborationMode: 1 }); // ✅ Index for collaboration queries
+roomSchema.index({ createdAt: -1 }); // ✅ Index for time-based queries (if needed)
 
 // Export the schema for use with the model factory
 export { roomSchema };

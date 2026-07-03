@@ -24,7 +24,7 @@ interface InviteMemberModalProps {
 
 interface InviteForm {
   email: string;
-  role: 'member' | 'owner';
+  role: 'member' | 'admin' | 'owner';
   message: string;
 }
 
@@ -70,6 +70,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       return;
     }
 
+    // Modal stays open during operation (inviting state is handled by useMembers hook)
     const success = await inviteMember({
       organizationId,
       email: data.email.toLowerCase().trim(),
@@ -77,20 +78,29 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       message: data.message.trim(),
     });
 
+    // Only close modal and reset form on success
     if (success) {
       reset();
       onOpenChange(false);
     }
+    // On error, modal stays open so user can retry
   };
 
   const handleClose = () => {
+    if (inviting) return; // Prevent closing during operation
     reset();
     setEmailError('');
     onOpenChange(false);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && !inviting) {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
@@ -135,12 +145,12 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                 <Label className="text-sm font-medium">Role</Label>
                 <RadioGroup
                   value={selectedRole}
-                  onValueChange={(value: 'member' | 'owner') =>
+                  onValueChange={(value: 'member' | 'admin' | 'owner') =>
                     setValue('role', value)
                   }
                   className="space-y-3"
                 >
-                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
+                  <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
                     <RadioGroupItem value="member" id="member" />
                     <div className="flex-1">
                       <Label
@@ -149,7 +159,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                       >
                         Member
                       </Label>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Can join meetings, participate in collaborations, and
                         view organization content
                       </p>
@@ -157,21 +167,38 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   </div>
 
                   {canInviteOwners && (
-                    <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-gray-50">
-                      <RadioGroupItem value="owner" id="owner" />
-                      <div className="flex-1">
-                        <Label
-                          htmlFor="owner"
-                          className="font-medium cursor-pointer"
-                        >
-                          Owner
-                        </Label>
-                        <p className="text-sm text-gray-600">
-                          Full access including member management, billing, and
-                          organization settings
-                        </p>
+                    <>
+                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
+                        <RadioGroupItem value="admin" id="admin" />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor="admin"
+                            className="font-medium cursor-pointer"
+                          >
+                            Admin
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Can invite members, create meetings, upload
+                            recordings, and manage teams
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted transition-colors">
+                        <RadioGroupItem value="owner" id="owner" />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor="owner"
+                            className="font-medium cursor-pointer"
+                          >
+                            Owner
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Full access including member management, billing,
+                            and organization settings
+                          </p>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </RadioGroup>
               </div>
@@ -180,7 +207,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <div className="space-y-2">
                 <Label htmlFor="message" className="text-sm font-medium">
                   Personal Message{' '}
-                  <span className="text-gray-500">(Optional)</span>
+                  <span className="text-muted-foreground">(Optional)</span>
                 </Label>
                 <Textarea
                   id="message"
@@ -189,7 +216,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   maxLength={500}
                   {...register('message')}
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   This message will be included in the invitation email
                 </p>
               </div>

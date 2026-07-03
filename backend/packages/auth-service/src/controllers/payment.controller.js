@@ -3,6 +3,7 @@ import { PaymentService } from '../services/payment.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import Stripe from 'stripe';
 import { stripeConfig, getPriceId } from '../config/stripe.js';
+import { OrganizationPlanSyncService } from '../services/organization-plan-sync.service.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
@@ -136,7 +137,11 @@ export class PaymentController {
         });
       }
 
-      const returnUrl = `${process.env.FRONTEND_URL}/settings`;
+      const returnUrl = `${
+        process.env.CLIENT_URL ||
+        process.env.FRONTEND_URL ||
+        'http://localhost:5174'
+      }/settings`;
       const session = await PaymentService.createBillingPortalSession(
         user.stripeCustomerId,
         returnUrl
@@ -186,6 +191,8 @@ export class PaymentController {
 
   /**
    * GET /payment/success - Handle successful payment
+   * Note: This endpoint should be called after Stripe redirects user back
+   * Authentication is handled via session metadata verification
    */
   async handlePaymentSuccess(req, res) {
     try {
@@ -195,58 +202,114 @@ export class PaymentController {
         return res.status(400).json({ message: 'Session ID is required' });
       }
 
-      // Retrieve the session
+      // Retrieve the session with subscription details
       const stripe = getStripe();
-      const session = await stripe.checkout.sessions.retrieve(session_id);
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ['subscription'],
+      });
 
-      if (session.payment_status === 'paid') {
-        const { userId, planType, duration } = session.metadata;
+      // Verify session exists and is paid
+      if (session.payment_status !== 'paid') {
+        return res.status(400).json({ message: 'Payment not completed' });
+      }
 
-        if (userId && planType) {
-          // Calculate end date
-          const endDate = new Date();
-          if (duration === 'monthly') {
-            endDate.setMonth(endDate.getMonth() + 1);
-          } else if (duration === 'yearly') {
-            endDate.setFullYear(endDate.getFullYear() + 1);
-          }
+      const { userId, planType } = session.metadata;
 
-          // Update user plan
-          const updatedUser = await models.User.findByIdAndUpdate(
-            userId,
-            {
-              'plan.type': planType,
-              'plan.status': 'active',
-              'plan.startDate': new Date(),
-              'plan.endDate': endDate,
-              'plan.stripeSessionId': session_id,
-              $inc: { tokenVersion: 1 },
-            },
-            { new: true }
-          );
+      if (!userId || !planType) {
+        return res.status(400).json({ message: 'Invalid session metadata' });
+      }
 
-          if (updatedUser) {
-            // Generate new token
-            const newToken = generateJWTToken(updatedUser);
-
-            res.json({
-              success: true,
-              message: 'Payment successful! Plan upgraded.',
-              user: {
-                id: updatedUser._id,
-                email: updatedUser.email,
-                plan: updatedUser.plan,
-              },
-              token: newToken,
-            });
-          } else {
-            res.status(404).json({ message: 'User not found' });
-          }
-        } else {
-          res.status(400).json({ message: 'Invalid session metadata' });
+      // SECURITY: Verify session belongs to authenticated user (if authenticated)
+      // OR verify via session metadata if no auth token
+      if (req.user) {
+        // If user is authenticated, verify session belongs to them
+        if (userId !== req.user._id.toString()) {
+          return res.status(403).json({
+            message: 'Session does not belong to authenticated user',
+          });
         }
+      }
+
+      // Check if payment was already processed (idempotency)
+      const existingUser = await models.User.findById(userId);
+      if (existingUser && existingUser.plan.stripeSessionId === session_id) {
+        // Payment already processed, return success but don't update again
+        const newToken = generateJWTToken(existingUser);
+        return res.json({
+          success: true,
+          message: 'Payment already processed',
+          user: {
+            id: existingUser._id,
+            email: existingUser.email,
+            plan: existingUser.plan,
+          },
+          token: newToken,
+        });
+      }
+
+      // Retrieve subscription to get actual period end date
+      let subscriptionId = null;
+      let endDate = null;
+      let startDate = new Date();
+
+      if (session.subscription) {
+        // Subscription mode - get actual subscription object
+        const subscription =
+          typeof session.subscription === 'string'
+            ? await stripe.subscriptions.retrieve(session.subscription)
+            : session.subscription;
+
+        subscriptionId = subscription.id;
+        // Use subscription's current_period_end as endDate (in seconds, convert to Date)
+        endDate = new Date(subscription.current_period_end * 1000);
+        startDate = new Date(subscription.current_period_start * 1000);
       } else {
-        res.status(400).json({ message: 'Payment not completed' });
+        // Fallback: Calculate end date based on duration (shouldn't happen in subscription mode)
+        const { duration = 'monthly' } = session.metadata;
+        endDate = new Date();
+        if (duration === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (duration === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        }
+      }
+
+      // Update user plan with subscription details
+      const updatedUser = await models.User.findByIdAndUpdate(
+        userId,
+        {
+          'plan.type': planType,
+          'plan.status': 'active',
+          'plan.startDate': startDate,
+          'plan.endDate': endDate,
+          'plan.stripeSessionId': session_id,
+          ...(subscriptionId && {
+            'plan.stripeSubscriptionId': subscriptionId,
+          }),
+          $inc: { tokenVersion: 1 },
+        },
+        { new: true }
+      );
+
+      if (updatedUser) {
+        // Sync all organizations owned by this user
+        await OrganizationPlanSyncService.syncUserOrganizations(userId);
+
+        // Generate new token
+        const newToken = generateJWTToken(updatedUser);
+
+        return res.json({
+          success: true,
+          message: 'Payment successful! Plan upgraded.',
+          user: {
+            id: updatedUser._id,
+            email: updatedUser.email,
+            plan: updatedUser.plan,
+          },
+          token: newToken,
+        });
+      } else {
+        return res.status(404).json({ message: 'User not found' });
       }
     } catch (error) {
       console.error('Payment success error:', error);

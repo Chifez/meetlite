@@ -11,11 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CreditCard, Check, Zap, Crown } from 'lucide-react';
 import { PaymentService } from '@/services/payment-service';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 
 interface PaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentPlan?: string;
+  currentPlan?: string; // Deprecated: kept for backward compatibility, but uses hook internally
 }
 
 interface PlanOption {
@@ -32,10 +33,14 @@ interface PlanOption {
 const PaymentModal: React.FC<PaymentModalProps> = ({
   open,
   onOpenChange,
-  currentPlan = 'free',
+  currentPlan: propCurrentPlan, // Deprecated prop
 }) => {
+  const { currentPlan } = useCurrentPlan();
   const [loading, setLoading] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Use hook value, fallback to prop for backward compatibility
+  const effectivePlan = currentPlan || propCurrentPlan || 'free';
 
   const plans: PlanOption[] = [
     {
@@ -113,8 +118,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && loading !== null) return; // Prevent closing during operation
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
@@ -125,13 +135,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
         <div className="space-y-6">
           {/* Current Plan Status */}
-          {currentPlan !== 'free' && (
+          {effectivePlan !== 'free' && (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-600" />
                   <span className="text-sm text-green-800">
-                    You're currently on the <strong>{currentPlan}</strong> plan
+                    You're currently on the <strong>{effectivePlan}</strong>{' '}
+                    plan
                   </span>
                 </div>
               </CardContent>
@@ -192,12 +203,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     <Button
                       className="w-full"
                       onClick={() => handleUpgrade(plan.type, 'monthly')}
-                      disabled={loading !== null || currentPlan === plan.type}
+                      disabled={loading !== null || effectivePlan === plan.type}
                     >
                       {loading === `${plan.type}-monthly` ? (
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       ) : null}
-                      {currentPlan === plan.type
+                      {effectivePlan === plan.type
                         ? 'Current Plan'
                         : 'Upgrade Monthly'}
                     </Button>
@@ -206,12 +217,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                       variant="outline"
                       className="w-full"
                       onClick={() => handleUpgrade(plan.type, 'yearly')}
-                      disabled={loading !== null || currentPlan === plan.type}
+                      disabled={loading !== null || effectivePlan === plan.type}
                     >
                       {loading === `${plan.type}-yearly` ? (
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       ) : null}
-                      {currentPlan === plan.type
+                      {effectivePlan === plan.type
                         ? 'Current Plan'
                         : 'Upgrade Yearly'}
                     </Button>
@@ -222,7 +233,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
 
           {/* Billing Management */}
-          {currentPlan !== 'free' && (
+          {effectivePlan !== 'free' && (
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">

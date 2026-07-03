@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 // import { env } from '@/config/env';
 import { MeetingFormData } from '@/lib/types';
 import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
@@ -41,10 +42,15 @@ export const useSmartScheduling = () => {
           timezone,
         });
 
-        if (response.data.success) {
-          return response.data.data;
+        const parseData = extractData<{
+          success: boolean;
+          data?: ParsedMeetingData;
+          error?: string;
+        }>(response);
+        if (parseData.success && parseData.data) {
+          return parseData.data;
         } else {
-          throw new Error(response.data.error || 'Failed to parse meeting');
+          throw new Error(parseData.error || 'Failed to parse meeting');
         }
       } catch (error: any) {
         console.error('Natural language parsing error:', error);

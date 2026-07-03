@@ -6,7 +6,7 @@ export interface MeetingRecording {
   title: string;
   description?: string;
   processingStatus: 'pending' | 'processing' | 'completed' | 'failed';
-  visibility: 'organization' | 'participants' | 'private';
+  visibility: 'organization' | 'team' | 'participants' | 'private';
   recording: {
     fileName: string;
     fileSize: number;
@@ -93,6 +93,7 @@ export interface MeetingAssetsQuery {
   isArchived?: boolean;
   hasTranscript?: boolean;
   hasSummary?: boolean;
+  teamId?: string;
 }
 
 export interface MeetingAssetsResponse {

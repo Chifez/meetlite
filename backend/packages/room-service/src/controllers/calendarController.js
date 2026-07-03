@@ -67,7 +67,7 @@ export const handleGoogleCallback = async (req, res) => {
 // Connect Google Calendar
 export const connectGoogleCalendar = async (req, res) => {
   try {
-    const userId = req.user.id; // From JWT token
+    const userId = req.user.userId; // From JWT token
     const userEmail = req.user.email; // From JWT token
 
     // Create state object with user info
@@ -116,14 +116,16 @@ export const connectGoogleCalendar = async (req, res) => {
 export const importCalendarEvents = async (req, res) => {
   try {
     const { calendarType, startDate, endDate, accessToken } = req.body;
-    const userId = req.user.id; // From JWT token
+    const userId = req.user.userId; // From JWT token
 
     if (calendarType === 'google') {
       // Get user's stored tokens from database
       const tokens = await getUserCalendarTokens(userId, 'google');
       if (!tokens) {
-        return res.status(401).json({
-          error: 'Google Calendar not connected. Please connect first.',
+        return res.status(409).json({
+          error:
+            'Google Calendar not connected. Please reconnect your account.',
+          code: 'GOOGLE_REAUTH_REQUIRED',
         });
       }
 
@@ -253,11 +255,52 @@ export const exportMeetingToCalendar = async (req, res) => {
   }
 };
 
+// Refresh calendar cache manually
+export const refreshCalendarCache = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { startDate, endDate } = req.body;
+
+    // Default to 30 days ago to 90 days ahead if not provided
+    const now = new Date();
+    const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const defaultEndDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const { getCachedCalendarEvents, invalidateCalendarCache } = await import(
+      '../services/calendarCacheService.js'
+    );
+
+    // Invalidate existing cache
+    await invalidateCalendarCache(userId);
+
+    // Force refresh by fetching with forceRefresh=true
+    const events = await getCachedCalendarEvents(
+      userId,
+      startDate || defaultStartDate,
+      endDate || defaultEndDate,
+      true // forceRefresh
+    );
+
+    res.json({
+      success: true,
+      message: 'Calendar cache refreshed successfully',
+      eventCount: events.length,
+    });
+  } catch (error) {
+    console.error('Refresh calendar cache error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to refresh calendar cache',
+      message: error.message,
+    });
+  }
+};
+
 // Check calendar conflicts
 export const checkCalendarConflicts = async (req, res) => {
   try {
     const { startDate, endDate, attendees } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Check if user has Google Calendar connected
     const tokens = await getUserCalendarTokens(userId, 'google');
@@ -380,14 +423,16 @@ export const scheduleMeetingOnCalendar = async (req, res) => {
       participants,
       calendarType,
     } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (calendarType === 'google') {
       // Get user's stored tokens from database
       const tokens = await getUserCalendarTokens(userId, 'google');
       if (!tokens) {
-        return res.status(401).json({
-          error: 'Google Calendar not connected. Please connect first.',
+        return res.status(409).json({
+          error:
+            'Google Calendar not connected. Please reconnect your account.',
+          code: 'GOOGLE_REAUTH_REQUIRED',
         });
       }
 
@@ -447,14 +492,16 @@ export const deleteCalendarEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { calendarType } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (calendarType === 'google') {
       // Get user's stored tokens from database
       const tokens = await getUserCalendarTokens(userId, 'google');
       if (!tokens) {
-        return res.status(401).json({
-          error: 'Google Calendar not connected. Please connect first.',
+        return res.status(409).json({
+          error:
+            'Google Calendar not connected. Please reconnect your account.',
+          code: 'GOOGLE_REAUTH_REQUIRED',
         });
       }
 
@@ -490,7 +537,7 @@ export const deleteCalendarEvent = async (req, res) => {
 // Get connected calendars
 export const getConnectedCalendars = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Get connected calendars from database
     const integrations = await models.CalendarIntegration.find({
@@ -521,7 +568,7 @@ export const getConnectedCalendars = async (req, res) => {
 export const disconnectCalendarIntegration = async (req, res) => {
   try {
     const { calendarType } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     await disconnectCalendar(userId, calendarType);
 

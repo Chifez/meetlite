@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 interface PWAState {
   isInstalled: boolean;
   isOnline: boolean;
-  hasUpdate: boolean;
   canInstall: boolean;
 }
 
@@ -12,7 +11,6 @@ export const usePWA = () => {
   const [pwaState, setPwaState] = useState<PWAState>({
     isInstalled: false,
     isOnline: navigator.onLine,
-    hasUpdate: false,
     canInstall: false,
   });
 

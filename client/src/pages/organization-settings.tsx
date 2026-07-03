@@ -62,7 +62,8 @@ export default function OrganizationSettings() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { handleNewToken } = useAuth();
-  const { refreshOrganizations } = useWorkspace();
+  const { refreshOrganizations, isPersonalMode, activeOrganization } =
+    useWorkspace();
 
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -74,10 +75,17 @@ export default function OrganizationSettings() {
     size: '',
   });
 
+  // Redirect if not in organization mode
+  useEffect(() => {
+    if (isPersonalMode || !activeOrganization) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isPersonalMode, activeOrganization, navigate]);
+
   // Load organization details
   useEffect(() => {
     const loadOrganization = async () => {
-      if (!orgId) return;
+      if (!orgId || isPersonalMode || !activeOrganization) return;
 
       try {
         const response = await OrganizationService.getOrganizationDetails(
@@ -99,7 +107,7 @@ export default function OrganizationSettings() {
     };
 
     loadOrganization();
-  }, [orgId, navigate]);
+  }, [orgId, navigate, isPersonalMode, activeOrganization]);
 
   // Check if user is owner
   const isOwner = organization?.role === 'owner';

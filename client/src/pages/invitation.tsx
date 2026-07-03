@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/contexts/workspace-context';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +23,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import Logo from '@/components/logo';
 
 interface InvitationData {
@@ -38,7 +40,8 @@ interface InvitationData {
 export default function InvitationPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, handleNewToken } = useAuth();
+  const { refreshOrganizations } = useWorkspace();
 
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [isValid, setIsValid] = useState<boolean>(false);
@@ -58,8 +61,14 @@ export default function InvitationPage() {
 
       try {
         const response = await api.get(`/api/invitations/${token}`);
-        setInvitation(response.data.invitation);
-        setIsValid(response.data.isValid);
+        const data = extractData<{
+          invitation: InvitationData;
+          isValid: boolean;
+        }>(response);
+        if (data) {
+          setInvitation(data.invitation);
+          setIsValid(data.isValid);
+        }
       } catch (error: any) {
         console.error('Failed to load invitation:', error);
         if (error.response?.status === 404) {
@@ -78,31 +87,28 @@ export default function InvitationPage() {
   // Handle invitation acceptance
   const handleAccept = async () => {
     if (!isAuthenticated) {
-      // Redirect to login with invitation token
-      navigate(`/login?invitation=${token}`);
+      // Redirect to login with redirect parameter to come back to invitation
+      const currentPath = `/invite/${token}`;
+      navigate(`/login?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
 
     setAccepting(true);
     try {
-      const response = await api.post(
-        `/api/invitations/${token}/accept`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      const response = await api.post(`/api/invitations/${token}/accept`, {});
+      const data = extractData<{ organization: any; token: string }>(response);
 
       toast.success('Invitation accepted successfully!');
 
-      // If a new token is returned, handle it
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+      // If a new token is returned, handle it properly
+      if (data.token) {
+        handleNewToken(data.token);
       }
 
-      // Redirect to dashboard or organization
+      // Refresh workspace context to show new organization
+      await refreshOrganizations();
+
+      // Redirect to dashboard
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Failed to accept invitation:', error);
@@ -125,15 +131,7 @@ export default function InvitationPage() {
 
     setDeclining(true);
     try {
-      await api.post(
-        `/api/invitations/${token}/decline`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      await api.post(`/api/invitations/${token}/decline`, {});
 
       toast.success('Invitation declined');
       navigate('/dashboard');

@@ -18,31 +18,31 @@ self.addEventListener('install', (event) => {
 });
 
 // Fetch event - serve from cache when offline
+// CRITICAL: Must properly skip API requests to prevent duplicate requests and 429 errors
 self.addEventListener('fetch', (event) => {
-  const requestUrl = new URL(event.request.url);
-  if (
-    event.request.url.includes('sw.js') ||
-    event.request.url.includes('onrender.com')
-  ) {
+  const url = event.request.url;
+
+  // Skip service worker entirely for:
+  // 1. Service worker file itself
+  // 2. All API requests (any path starting with /api/)
+  // 3. All uploads/downloads
+  // 4. All non-GET requests (POST, PUT, DELETE, PATCH)
+  // 5. External API domains (onrender.com, etc.)
+  const shouldSkip =
+    url.includes('sw.js') ||
+    url.includes('/sw.js') ||
+    url.includes('onrender.com') ||
+    url.includes('/api/') ||
+    url.includes('/uploads/') ||
+    event.request.method !== 'GET';
+
+  if (shouldSkip) {
+    // Don't call event.respondWith() - let browser handle request normally
+    // This prevents service worker from intercepting API requests
     return;
   }
 
-  // Skip service worker for API requests (especially uploads)
-  // This allows Axios to handle progress tracking
-  if (
-    requestUrl.pathname.startsWith('/api/') ||
-    requestUrl.pathname.startsWith('/uploads/') || // Skip file uploads/downloads
-    requestUrl.port === '5001' || // room-service
-    requestUrl.port === '5000' || // auth-service
-    requestUrl.port === '5003' || // signaling-service (old)
-    requestUrl.port === '3003' || // mediasoup-service
-    requestUrl.port === '3000' || // api-gateway
-    event.request.method !== 'GET' // Skip all non-GET requests (POST, PUT, DELETE)
-  ) {
-    // Let the request go directly to the network without SW intervention
-    return;
-  }
-
+  // Only handle GET requests for static assets (HTML, CSS, JS, images)
   event.respondWith(
     caches.match(event.request).then((response) => {
       // Return cached version or fetch from network

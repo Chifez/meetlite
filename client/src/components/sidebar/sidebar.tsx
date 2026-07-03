@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useNavigate } from 'react-router-dom';
 import { NAVIGATION_ITEMS } from '@/lib/constants';
 import { useIsDesktop } from '@/hooks/use-media-query';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 import type { NavigationItem } from '@/lib/types';
 
 import { SidebarHeader } from './sidebar-header';
@@ -20,22 +20,14 @@ interface SidebarProps {
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const { user } = useAuth();
-  const { activeOrganization, isPersonalMode } = useWorkspace();
+  const { isPersonalMode } = useWorkspace();
+  const { currentPlan } = useCurrentPlan();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
 
   // Memoize visible navigation items to prevent unnecessary recalculations
-  const visibleNavigationItems = useMemo<NavigationItem[]>(() => {
-    return NAVIGATION_ITEMS.filter(
-      (item) => !(item.organizationOnly && isPersonalMode)
-    );
-  }, [isPersonalMode]);
-
-  // Memoize current plan calculation (prevent recalculation on unrelated re-renders)
-  const currentPlan = useMemo(
-    () => activeOrganization?.plan?.type || user?.plan?.type || 'free',
-    [activeOrganization?.plan?.type, user?.plan?.type]
+  const visibleNavigationItems = NAVIGATION_ITEMS.filter(
+    (item) => !(item.organizationOnly && isPersonalMode)
   );
 
   // Simple boolean expression (no memoization needed)
@@ -100,11 +92,13 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           onCloseMobile={handleCloseMobileMenu}
         />
 
-        <SidebarNavigation
-          isContentVisible={isContentVisible}
-          visibleNavigationItems={visibleNavigationItems}
-          onNavigationClick={handleNavigationClick}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <SidebarNavigation
+            isContentVisible={isContentVisible}
+            visibleNavigationItems={visibleNavigationItems}
+            onNavigationClick={handleNavigationClick}
+          />
+        </div>
 
         <SidebarFooter
           collapsed={collapsed}

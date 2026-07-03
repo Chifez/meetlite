@@ -2,8 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Zap } from 'lucide-react';
 import UserMenu from '@/components/ui/user-menu';
 import PlanBadge, { needsUpgrade } from '@/components/ui/plan-badge';
-import { useAuth } from '@/hooks/use-auth';
-import { useWorkspace } from '@/contexts/workspace-context';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
 import { useNavigate } from 'react-router-dom';
 
 interface SidebarFooterProps {
@@ -17,8 +16,7 @@ export function SidebarFooter({
   isContentVisible,
   onOpenPlanDialog,
 }: SidebarFooterProps) {
-  const { user } = useAuth();
-  const { activeOrganization } = useWorkspace();
+  const { currentPlan } = useCurrentPlan();
   const navigate = useNavigate();
 
   return (
@@ -30,13 +28,10 @@ export function SidebarFooter({
             <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide font-medium">
               Current Plan
             </p>
-            <PlanBadge
-              activeOrganization={activeOrganization}
-              userPlan={user?.plan}
-            />
+            <PlanBadge />
           </div>
 
-          {needsUpgrade(activeOrganization, user?.plan) && (
+          {needsUpgrade(currentPlan) && (
             <Button
               variant="outline"
               size="sm"

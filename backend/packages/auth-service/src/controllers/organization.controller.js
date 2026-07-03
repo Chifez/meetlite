@@ -1,5 +1,6 @@
 import { models } from '../index.js';
 import { generateJWTToken } from '../utils/generate-token.js';
+import { ResponseHelpers } from '@minimeet/shared-models';
 
 export class OrganizationController {
   // GET /organizations - List user's organizations (owned + member)
@@ -35,10 +36,14 @@ export class OrganizationController {
         createdAt: org.createdAt,
       }));
 
-      res.json({ organizations });
+      return ResponseHelpers.ok(res, { organizations });
     } catch (error) {
       console.error('List organizations error:', error);
-      res.status(500).json({ message: 'Server error' });
+      return ResponseHelpers.serverError(
+        res,
+        'Failed to list organizations',
+        error
+      );
     }
   }
 
@@ -61,18 +66,28 @@ export class OrganizationController {
         });
       }
 
-      // Check if user already owns the maximum number of organizations (for free plan)
+      // Prevent free plan users from creating organizations
+      if (req.user.plan.type === 'free') {
+        return ResponseHelpers.forbidden(
+          res,
+          'Organization creation is not available on the free plan. Please upgrade to create organizations.',
+          {
+            upgradeRequired: true,
+            currentPlan: 'free',
+          }
+        );
+      }
+
+      // Check if user already owns the maximum number of organizations
       const ownedOrgsCount = await models.Organization.countDocuments({
         ownerId: userId,
         status: 'active',
       });
 
-      const maxOrgsAllowed = req.user.plan.type === 'free' ? 1 : 10; // Free users can own 1 org
+      const maxOrgsAllowed = 10; // Paid users can own up to 10 orgs
       if (ownedOrgsCount >= maxOrgsAllowed) {
         return res.status(400).json({
-          message: `You can only create ${maxOrgsAllowed} organization${
-            maxOrgsAllowed > 1 ? 's' : ''
-          } on your current plan`,
+          message: `You can only create ${maxOrgsAllowed} organizations on your current plan`,
         });
       }
 

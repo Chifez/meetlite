@@ -26,7 +26,7 @@ const pricingPlans = [
       'Priority support',
       'Recording & transcripts',
     ],
-    buttonText: 'Start Free Trial',
+    buttonText: 'Subscribe Now',
     buttonVariant: 'default' as const,
     isPopular: true,
   },
@@ -50,20 +50,20 @@ const PricingSection = () => {
   return (
     <section
       id="pricing"
-      className="py-10 bg-gradient-to-br from-gray-50 to-purple-50/30 dark:from-gray-800 dark:to-purple-900/20 relative overflow-hidden transition-colors duration-300"
+      className="py-20 bg-muted/30 relative overflow-hidden transition-colors duration-300"
     >
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-4 mb-16">
-          <h2 className="text-3xl py-2 sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            Simple, transparent pricing
+        <div className="text-center space-y-3 mb-12">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground">
+            Simple pricing
           </h2>
-          <p className="text-sm sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Choose the plan that fits your needs. Always know what you'll pay.
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+            Choose the plan that fits your needs.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-4 lg:gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
           {pricingPlans.map((plan, index) => (
             <PricingCard
               key={index}

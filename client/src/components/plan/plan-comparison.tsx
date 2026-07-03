@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Check, Crown, Star } from 'lucide-react';
 import { PLAN_INFO } from '@/types/plan';
 import { toast } from 'sonner';
+import { PaymentService } from '@/services/payment-service';
 
 interface PlanComparisonProps {
   currentPlan?: string;
@@ -24,14 +25,25 @@ export default function PlanComparison({
 }: PlanComparisonProps) {
   const plans = Object.entries(PLAN_INFO);
 
-  const handleUpgrade = (planName: string) => {
+  const handleUpgrade = async (planName: string) => {
     if (planName === currentPlan) {
       toast.info('This is your current plan');
       return;
     }
 
-    // TODO: Implement upgrade flow
-    toast.info(`Upgrade to ${planName.toUpperCase()} coming soon!`);
+    if (planName === 'free') {
+      toast.info('You are already on the free plan');
+      return;
+    }
+
+    try {
+      // Convert plan name to payment service format
+      const planType = planName === 'pro' ? 'pro' : 'enterprise';
+      await PaymentService.redirectToCheckout(planType, 'monthly');
+    } catch (error: any) {
+      console.error('Upgrade error:', error);
+      toast.error(error.message || 'Failed to start upgrade process');
+    }
   };
 
   const getPlanCardVariant = (planName: string) => {

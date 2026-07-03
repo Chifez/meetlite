@@ -65,6 +65,21 @@ export function setupRateLimitMiddleware(app) {
     },
     standardHeaders: true,
     legacyHeaders: false,
+
+    skip: (req) => {
+      const env = config.server.nodeEnv;
+      const disableRateLimit = process.env.DISABLE_RATE_LIMIT === 'true';
+
+      // Skip if:
+      // 1. Test environment
+      // 2. DISABLE_RATE_LIMIT=true is set
+      // 3. Request has X-Bypass-Rate-Limit header (for k6 tests)
+      return (
+        env === 'test' ||
+        disableRateLimit ||
+        req.headers['x-bypass-rate-limit'] === 'true'
+      );
+    },
   });
 
   app.use(limiter);

@@ -4,6 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import MeetingCard from '@/components/meeting/meeting-card';
 import { Meeting } from '@/lib/types';
+import { useCanCreateMeetings } from '@/hooks/use-permissions';
+import { useWorkspace } from '@/contexts/workspace-context';
 
 export default function UpcomingMeetingsSection({
   meetings,
@@ -14,6 +16,8 @@ export default function UpcomingMeetingsSection({
   loading: boolean;
   onSchedule: () => void;
 }) {
+  const { isPersonalMode } = useWorkspace();
+  const canCreateMeetings = useCanCreateMeetings();
   return (
     <div className="mt-12">
       <div className="flex justify-between items-center mb-4">
@@ -43,14 +47,17 @@ export default function UpcomingMeetingsSection({
                   No upcoming meetings
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Schedule your first meeting to get started with your team
-                  collaboration.
+                  {isPersonalMode || canCreateMeetings
+                    ? 'Schedule your first meeting to get started with your team collaboration.'
+                    : 'No upcoming meetings. Contact your organization owner or admin to schedule meetings.'}
                 </p>
               </div>
-              <Button size="sm" onClick={onSchedule} className="mt-4">
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Schedule Meeting
-              </Button>
+              {(isPersonalMode || canCreateMeetings) && (
+                <Button size="sm" onClick={onSchedule} className="mt-4">
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Schedule Meeting
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

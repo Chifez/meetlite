@@ -1,5 +1,7 @@
 import Stripe from 'stripe';
 import { stripeConfig } from '../config/stripe.js';
+import { models } from '../index.js';
+import { OrganizationPlanSyncService } from './organization-plan-sync.service.js';
 
 // Lazy initialization of Stripe
 const getStripe = () => {
@@ -7,6 +9,21 @@ const getStripe = () => {
     throw new Error('STRIPE_SECRET_KEY environment variable is required');
   }
   return new Stripe(stripeConfig.secretKey);
+};
+
+/**
+ * Find user from Stripe customer ID (fallback when metadata is missing)
+ */
+const findUserByCustomerId = async (customerId) => {
+  try {
+    const user = await models.User.findOne({
+      stripeCustomerId: customerId,
+    });
+    return user;
+  } catch (error) {
+    console.error('Error finding user by customer ID:', error);
+    return null;
+  }
 };
 
 export class PaymentService {
@@ -226,6 +243,10 @@ export class PaymentService {
   static async handleWebhookEvent(event) {
     try {
       switch (event.type) {
+        case 'checkout.session.completed':
+          // Handle checkout session completion (more reliable than success page)
+          return await this.handleCheckoutSessionCompleted(event.data.object);
+
         case 'payment_intent.succeeded':
           return await this.handlePaymentSuccess(event.data.object);
 
@@ -257,6 +278,85 @@ export class PaymentService {
   }
 
   /**
+   * Handle checkout session completed (primary webhook for subscription creation)
+   * This is more reliable than relying on the success page callback
+   */
+  static async handleCheckoutSessionCompleted(session) {
+    try {
+      // Only process if payment was successful
+      if (session.payment_status !== 'paid') {
+        return { handled: false };
+      }
+
+      const { userId, planType, duration } = session.metadata;
+
+      if (!userId || !planType) {
+        console.error('Missing metadata in checkout session:', session.id);
+        return { handled: false };
+      }
+
+      // Check if already processed (idempotency)
+      const existingUser = await models.User.findById(userId);
+      if (existingUser && existingUser.plan.stripeSessionId === session.id) {
+        return { handled: true, message: 'Already processed' };
+      }
+
+      // Retrieve subscription if available
+      let subscriptionId = null;
+      let endDate = null;
+      let startDate = new Date();
+
+      if (session.subscription) {
+        const stripe = getStripe();
+        const subscription =
+          typeof session.subscription === 'string'
+            ? await stripe.subscriptions.retrieve(session.subscription)
+            : session.subscription;
+
+        subscriptionId = subscription.id;
+        endDate = new Date(subscription.current_period_end * 1000);
+        startDate = new Date(subscription.current_period_start * 1000);
+      } else {
+        // Fallback: Calculate end date based on duration
+        endDate = new Date();
+        if (duration === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (duration === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        }
+      }
+
+      // Update user plan
+      const updatedUser = await models.User.findByIdAndUpdate(
+        userId,
+        {
+          'plan.type': planType,
+          'plan.status': 'active',
+          'plan.startDate': startDate,
+          'plan.endDate': endDate,
+          'plan.stripeSessionId': session.id,
+          ...(subscriptionId && {
+            'plan.stripeSubscriptionId': subscriptionId,
+          }),
+          $inc: { tokenVersion: 1 },
+        },
+        { new: true }
+      );
+
+      if (updatedUser) {
+        // Sync all organizations owned by this user
+        await OrganizationPlanSyncService.syncUserOrganizations(userId);
+        return { handled: true, userId, planType };
+      }
+
+      return { handled: false };
+    } catch (error) {
+      console.error('Error handling checkout session completed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Handle successful payment
    */
   static async handlePaymentSuccess(paymentIntent) {
@@ -277,7 +377,7 @@ export class PaymentService {
       }
 
       // Update user plan
-      const { models } = await import('../index.js');
+
       const user = await models.User.findByIdAndUpdate(
         userId,
         {
@@ -322,9 +422,6 @@ export class PaymentService {
 
       if (userId) {
         // Send failure notification email
-        const { models } = await import('../index.js');
-        const { PlanEmailService } = await import('./plan-email.service.js');
-
         const user = await models.User.findById(userId);
         if (user) {
           // Send payment failure email
@@ -346,12 +443,46 @@ export class PaymentService {
     try {
       const { userId, planType } = subscription.metadata;
 
-      if (userId && planType) {
-        const { models } = await import('../index.js');
-        await models.User.findByIdAndUpdate(userId, {
+      let user = null;
+
+      // Try metadata first
+      if (userId) {
+        user = await models.User.findById(userId);
+      }
+
+      // Fallback: Find by customer ID
+      if (!user && subscription.customer) {
+        const customerId =
+          typeof subscription.customer === 'string'
+            ? subscription.customer
+            : subscription.customer.id;
+        user = await findUserByCustomerId(customerId);
+      }
+
+      if (user) {
+        // Use subscription period dates
+        const endDate = new Date(subscription.current_period_end * 1000);
+        const startDate = new Date(subscription.current_period_start * 1000);
+
+        // Determine plan type from metadata or subscription items
+        let planTypeToSet = planType;
+        if (!planTypeToSet && subscription.items?.data?.[0]?.price) {
+          // Could extract from price ID if needed
+          // For now, keep existing plan type
+          planTypeToSet = user.plan.type;
+        }
+
+        await models.User.findByIdAndUpdate(user._id, {
           'plan.stripeSubscriptionId': subscription.id,
           'plan.status': 'active',
+          ...(planTypeToSet && { 'plan.type': planTypeToSet }),
+          'plan.startDate': startDate,
+          'plan.endDate': endDate,
+          $inc: { tokenVersion: 1 },
         });
+
+        // Sync organizations
+        await OrganizationPlanSyncService.syncUserOrganizations(user._id);
       }
 
       return { handled: true };
@@ -368,15 +499,61 @@ export class PaymentService {
     try {
       const { userId } = subscription.metadata;
 
-      if (userId) {
-        const { models } = await import('../index.js');
-        const status =
-          subscription.status === 'active' ? 'active' : 'cancelled';
+      let user = null;
 
-        await models.User.findByIdAndUpdate(userId, {
+      // Try metadata first
+      if (userId) {
+        user = await models.User.findById(userId);
+      }
+
+      // Fallback: Find by customer ID or existing subscription ID
+      if (!user) {
+        if (subscription.customer) {
+          const customerId =
+            typeof subscription.customer === 'string'
+              ? subscription.customer
+              : subscription.customer.id;
+          user = await findUserByCustomerId(customerId);
+        }
+
+        // Also try by subscription ID
+        if (!user) {
+          user = await models.User.findOne({
+            'plan.stripeSubscriptionId': subscription.id,
+          });
+        }
+      }
+
+      if (user) {
+        const status =
+          subscription.status === 'active'
+            ? 'active'
+            : subscription.status === 'canceled' ||
+              subscription.cancel_at_period_end
+            ? 'cancelled'
+            : 'cancelled';
+
+        const updateData = {
           'plan.status': status,
           $inc: { tokenVersion: 1 },
-        });
+        };
+
+        // Update endDate if subscription is active and has period end
+        if (
+          subscription.status === 'active' &&
+          subscription.current_period_end
+        ) {
+          updateData['plan.endDate'] = new Date(
+            subscription.current_period_end * 1000
+          );
+        }
+
+        // Update cancel_at_period_end flag if needed
+        if (subscription.cancel_at_period_end) {
+          updateData['plan.status'] = 'active'; // Still active until period end
+        }
+
+        await models.User.findByIdAndUpdate(user._id, updateData);
       }
 
       return { handled: true };
@@ -393,13 +570,37 @@ export class PaymentService {
     try {
       const { userId } = subscription.metadata;
 
+      let user = null;
+
+      // Try metadata first
       if (userId) {
-        const { models } = await import('../index.js');
-        await models.User.findByIdAndUpdate(userId, {
+        user = await models.User.findById(userId);
+      }
+
+      // Fallback: Find by subscription ID or customer ID
+      if (!user) {
+        user = await models.User.findOne({
+          'plan.stripeSubscriptionId': subscription.id,
+        });
+      }
+
+      if (!user && subscription.customer) {
+        const customerId =
+          typeof subscription.customer === 'string'
+            ? subscription.customer
+            : subscription.customer.id;
+        user = await findUserByCustomerId(customerId);
+      }
+
+      if (user) {
+        await models.User.findByIdAndUpdate(user._id, {
           'plan.status': 'cancelled',
           'plan.stripeSubscriptionId': null,
           $inc: { tokenVersion: 1 },
         });
+
+        // Sync organizations to reflect cancelled status
+        await OrganizationPlanSyncService.syncUserOrganizations(user._id);
       }
 
       return { handled: true };
@@ -410,18 +611,55 @@ export class PaymentService {
   }
 
   /**
-   * Handle successful invoice payment
+   * Handle successful invoice payment (subscription renewal)
    */
   static async handleInvoicePaymentSucceeded(invoice) {
     try {
+      const stripe = getStripe();
       const { userId } = invoice.metadata;
 
+      let user = null;
+
+      // Try metadata first
       if (userId) {
-        const { models } = await import('../index.js');
-        await models.User.findByIdAndUpdate(userId, {
+        user = await models.User.findById(userId);
+      }
+
+      // Fallback: Find by customer ID
+      if (!user && invoice.customer) {
+        const customerId =
+          typeof invoice.customer === 'string'
+            ? invoice.customer
+            : invoice.customer.id;
+        user = await findUserByCustomerId(customerId);
+      }
+
+      if (user && invoice.subscription) {
+        // Retrieve subscription to get current period end
+        const subscriptionId =
+          typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription.id;
+
+        const subscription = await stripe.subscriptions.retrieve(
+          subscriptionId
+        );
+
+        // Update endDate to subscription's current_period_end
+        const endDate = new Date(subscription.current_period_end * 1000);
+        const startDate = new Date(subscription.current_period_start * 1000);
+
+        await models.User.findByIdAndUpdate(user._id, {
           'plan.status': 'active',
           'plan.lastPaymentDate': new Date(),
+          'plan.endDate': endDate,
+          'plan.startDate': startDate,
+          'plan.stripeSubscriptionId': subscriptionId,
+          $inc: { tokenVersion: 1 },
         });
+
+        // Sync organizations to reflect renewed plan
+        await OrganizationPlanSyncService.syncUserOrganizations(user._id);
       }
 
       return { handled: true };
@@ -433,16 +671,38 @@ export class PaymentService {
 
   /**
    * Handle failed invoice payment
+   * Sets status to past_due and allows grace period before downgrade
    */
   static async handleInvoicePaymentFailed(invoice) {
     try {
       const { userId } = invoice.metadata;
 
+      let user = null;
+
+      // Try metadata first
       if (userId) {
-        const { models } = await import('../index.js');
-        await models.User.findByIdAndUpdate(userId, {
+        user = await models.User.findById(userId);
+      }
+
+      // Fallback: Find by customer ID
+      if (!user && invoice.customer) {
+        const customerId =
+          typeof invoice.customer === 'string'
+            ? invoice.customer
+            : invoice.customer.id;
+        user = await findUserByCustomerId(customerId);
+      }
+
+      if (user) {
+        // Set to past_due status (allows grace period)
+        // Actual downgrade will happen after grace period expires
+        await models.User.findByIdAndUpdate(user._id, {
           'plan.status': 'past_due',
+          $inc: { tokenVersion: 1 },
         });
+
+        // TODO: Send payment failure notification email
+        // TODO: Schedule downgrade after grace period (3 days)
       }
 
       return { handled: true };

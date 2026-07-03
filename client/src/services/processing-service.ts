@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import { ProcessingResponse } from '@/types/meetingAssets';
 
 export class ProcessingService {
@@ -14,7 +15,7 @@ export class ProcessingService {
           type,
         }
       );
-      return response.data;
+      return extractData<ProcessingResponse>(response);
     } catch (error: any) {
       console.error('Failed to start processing:', error);
       throw new Error(
@@ -26,8 +27,8 @@ export class ProcessingService {
   // Get processing status for a recording
   async getProcessingStatus(recordingId: string): Promise<ProcessingResponse> {
     try {
-      const response = await api.get(`/api/recordings/${recordingId}/process`);
-      return response.data;
+      const response = await api.get(`/api/recordings/${recordingId}/status`);
+      return extractData<ProcessingResponse>(response);
     } catch (error: any) {
       console.error('Failed to get processing status:', error);
       throw new Error(

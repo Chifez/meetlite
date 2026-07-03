@@ -20,7 +20,7 @@ type User = {
     experience?: 'beginner' | 'intermediate' | 'advanced';
   };
   organizationId?: string | null;
-  role?: 'owner' | 'member';
+  role?: 'owner' | 'admin' | 'member';
   plan?: {
     type: 'free' | 'pro' | 'enterprise';
     startDate?: Date;
@@ -49,7 +49,7 @@ type TokenPayload = {
   userId: string;
   email: string;
   organizationId?: string | null;
-  role?: 'owner' | 'member';
+  role?: 'owner' | 'admin' | 'member';
   tokenVersion?: number;
   exp: number;
 };
@@ -185,12 +185,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await api.post('/api/auth/login', {
         email,
         password,
-      });
-      // Add this debug log:
-      console.log('Login completed, user state:', {
-        user,
-        isAuthenticated: !!user,
-        onboardingCompleted: user?.onboardingCompleted,
       });
       const { token } = response.data;
       Cookies.set('token', token, { secure: true, sameSite: 'lax' });

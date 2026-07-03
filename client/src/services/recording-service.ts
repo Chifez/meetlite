@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { extractData } from '@/lib/api-response';
 import {
   MeetingRecording,
   MeetingAssetsQuery,
@@ -25,7 +26,32 @@ export class RecordingService {
       const response = await api.get('/api/recordings', {
         params,
       });
-      return response.data;
+
+      // Handle backend response structure: { success: true, recordings: [...], pagination: {...} }
+      if (response.data && typeof response.data === 'object') {
+        if ('success' in response.data && response.data.success) {
+          // Backend returns data directly, not nested under 'data'
+          return {
+            recordings: response.data.recordings || [],
+            pagination: response.data.pagination || {
+              page: 1,
+              limit: 20,
+              total: 0,
+              totalPages: 0,
+            },
+            stats: response.data.stats || {
+              totalRecordings: 0,
+              totalSize: 0,
+              totalDuration: 0,
+              completedTranscripts: 0,
+              completedSummaries: 0,
+            },
+          } as MeetingAssetsResponse;
+        }
+      }
+
+      // Fallback to extractData for other formats
+      return extractData<MeetingAssetsResponse>(response);
     } catch (error: any) {
       console.error('Failed to fetch recordings:', error);
       throw new Error(
@@ -38,7 +64,7 @@ export class RecordingService {
   async getRecordingById(recordingId: string): Promise<MeetingRecording> {
     try {
       const response = await api.get(`/api/recordings/${recordingId}`);
-      return response.data;
+      return extractData<MeetingRecording>(response);
     } catch (error: any) {
       console.error('Failed to fetch recording:', error);
       throw new Error(
@@ -90,7 +116,9 @@ export class RecordingService {
   }> {
     try {
       const response = await api.get(`/api/recordings/${recordingId}/stream`);
-      return response.data;
+      return extractData<{ streamingUrl: string; thumbnailUrl?: string }>(
+        response
+      );
     } catch (error: any) {
       console.error('Failed to get streaming URL:', error);
       throw new Error(
@@ -106,7 +134,7 @@ export class RecordingService {
   }> {
     try {
       const response = await api.post(`/api/recordings/${recordingId}/share`);
-      return response.data;
+      return extractData<{ shareableUrl: string; expiresAt: Date }>(response);
     } catch (error: any) {
       console.error('Failed to generate share link:', error);
       throw new Error(

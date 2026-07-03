@@ -1,0 +1,11 @@
+version: '2'
+# Authtoken is read from NGROK_AUTHTOKEN environment variable
+# Set it in your .env file or export it: export NGROK_AUTHTOKEN=your_token_here
+tunnels:
+  frontend:
+    addr: 5174
+    proto: http
+  api-gateway:
+    addr: 3000
+    proto: http
+

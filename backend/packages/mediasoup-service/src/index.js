@@ -41,6 +41,16 @@ const PORT = process.env.PORT || 3003;
 // For production, consider custom security headers or Helmet with proper CORP configuration
 // app.use(helmet());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+  });
+});
+
 // CORS configuration - Allow frontend to access MediaSoup service directly
 app.use(
   cors({
@@ -164,25 +174,6 @@ app.use((req, res, next) => {
 // ============================================================================
 // ROUTES SETUP
 // ============================================================================
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const stats = mediaSoupService.getStats();
-
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    mediasoup: stats,
-    tldrawRooms: tldrawService.getRoomStats(),
-    config: {
-      port: PORT,
-      environment: process.env.NODE_ENV,
-      workerPoolSize: mediasoupConfig.performance.workerPoolSize,
-    },
-  });
-});
 
 // API Routes
 app.use('/api/media', createMediaRoutes(mediaController));

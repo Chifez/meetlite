@@ -44,9 +44,14 @@ export default function UserMenu({ onOpenSettings, collapsed }: UserMenuProps) {
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start">
-                <div className="font-medium leading-tight text-xs ">{name}</div>
-                <div className="text-xs text-gray-500 leading-tight truncate">
+              <div className="flex flex-col items-start min-w-0 flex-1">
+                <div className="font-medium leading-tight text-xs truncate w-full">
+                  {name}
+                </div>
+                <div
+                  className="text-xs text-gray-500 leading-tight truncate w-full max-w-[150px]"
+                  title={email}
+                >
                   {email}
                 </div>
               </div>
@@ -66,9 +71,14 @@ export default function UserMenu({ onOpenSettings, collapsed }: UserMenuProps) {
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start  md:hidden">
-                <div className="font-medium leading-tight text-xs ">{name}</div>
-                <div className="text-xs text-gray-500 leading-tight truncate">
+              <div className="flex flex-col items-start min-w-0 flex-1 md:hidden">
+                <div className="font-medium leading-tight text-xs truncate w-full">
+                  {name}
+                </div>
+                <div
+                  className="text-xs text-gray-500 leading-tight truncate w-full max-w-[150px]"
+                  title={email}
+                >
                   {email}
                 </div>
               </div>
@@ -106,9 +116,14 @@ export default function UserMenu({ onOpenSettings, collapsed }: UserMenuProps) {
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col items-start">
+            <div className="flex flex-col items-start min-w-0 flex-1">
               {/* <div className="font-medium leading-tight text-sm">{name}</div> */}
-              <div className="font-medium text-xs truncate">{email}</div>
+              <div
+                className="font-medium text-xs truncate w-full max-w-[150px]"
+                title={email}
+              >
+                {email}
+              </div>
             </div>
           </div>
         </DropdownMenuItem>

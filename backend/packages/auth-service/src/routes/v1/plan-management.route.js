@@ -27,6 +27,14 @@ router.post(
   )
 );
 
+// POST /plan/cancel-auto-renewal - Cancel auto-renewal but keep access until period end
+router.post(
+  '/cancel-auto-renewal',
+  asyncHandler(
+    planManagementController.cancelAutoRenewal.bind(planManagementController)
+  )
+);
+
 // POST /plan/extend - Extend user's plan (admin only)
 router.post(
   '/extend',
