@@ -16,6 +16,15 @@ interface EnhancedVideoParticipantProps {
   isMainSpeaker?: boolean;
 }
 
+const getInitials = (name?: string, email?: string) => {
+  const source = name || email || '?';
+  if (source === '?') return '?';
+  const parts = source.split('@')[0].split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
+
 export const EnhancedVideoParticipant = ({
   stream,
   mediaState,
@@ -36,10 +45,7 @@ export const EnhancedVideoParticipant = ({
       return;
     }
 
-    // Reset states
     setVideoError(false);
-
-    // Set the stream
     videoElement.srcObject = stream;
 
     const handleLoadedMetadata = () => {
@@ -68,7 +74,6 @@ export const EnhancedVideoParticipant = ({
       setVideoError(true);
     };
 
-    // Add event listeners
     videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
     videoElement.addEventListener('canplay', handleCanPlay);
     videoElement.addEventListener('error', handleError);
@@ -84,16 +89,13 @@ export const EnhancedVideoParticipant = ({
   const showError = videoError && !isLocal;
   const showLoading = isLoading && !isLocal && !stream;
 
-  // Determine display name with fallback
   const getDisplayName = () => {
     if (isLocal) return 'You';
-
     if (userName) {
       return userName.length > 20
         ? `${userName.substring(0, 20)}...`
         : userName;
     }
-
     if (userEmail) {
       return userEmail.length > 20
         ? `${userEmail.substring(0, 20)}...`
@@ -102,23 +104,20 @@ export const EnhancedVideoParticipant = ({
     return 'Participant';
   };
 
-  // Generate dynamic background color based on user name/email (Google Meet color scheme)
-  const getDynamicBackgroundColor = () => {
+  // Generate dynamic soft background color for the avatar badge circle
+  const getDynamicAvatarColor = () => {
     const name = userName || userEmail || 'Participant';
     const colors = [
-      'bg-blue-500', // Google Blue
-      'bg-green-500', // Google Green
-      'bg-purple-500', // Google Purple
-      'bg-yellow-500', // Google Yellow
-      'bg-pink-500', // Google Pink
-      'bg-indigo-500', // Google Indigo
-      'bg-teal-500', // Google Teal
-      'bg-orange-500', // Google Orange
-      'bg-cyan-500', // Google Cyan
-      'bg-emerald-500', // Google Emerald
+      'bg-primary/20 text-primary border-primary/30',
+      'bg-emerald-500/20 text-emerald-500 border-emerald-500/30',
+      'bg-amber-500/20 text-amber-500 border-amber-500/30',
+      'bg-indigo-500/20 text-indigo-500 border-indigo-500/30',
+      'bg-rose-500/20 text-rose-500 border-rose-500/30',
+      'bg-sky-500/20 text-sky-500 border-sky-500/30',
+      'bg-violet-500/20 text-violet-500 border-violet-500/30',
+      'bg-teal-500/20 text-teal-500 border-teal-500/30',
     ];
 
-    // Simple hash function to get consistent color for same name
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -127,47 +126,30 @@ export const EnhancedVideoParticipant = ({
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // Get camera-off icon size based on layout mode
-  const getCameraOffIconSize = () => {
+  const getAvatarSize = () => {
     if (layoutMode === 'presentation') {
-      return 'h-8 w-8'; // Smaller for presentation mode
+      return 'w-10 h-10 text-xs';
     }
     if (layoutMode === 'speaker' && !isMainSpeaker) {
-      return 'h-6 w-6'; // Smaller for speaker thumbnails
+      return 'w-10 h-10 text-xs';
     }
-    return 'h-12 w-12'; // Default size for main grids
+    return 'w-16 h-16 text-lg';
   };
 
-  // Get appropriate styling based on layout mode and speaker status
   const getContainerClasses = () => {
     const baseClasses =
-      'relative bg-muted rounded-lg overflow-hidden w-full h-full min-w-0 min-h-0 transition-all duration-200';
+      'relative bg-zinc-950 border border-zinc-800/80 rounded-2xl overflow-hidden w-full h-full min-w-0 min-h-0 transition-all duration-150';
 
     if (isMainSpeaker) {
-      return `${baseClasses} ring-2 ring-blue-500 shadow-lg`;
+      return `${baseClasses} ring-2 ring-primary ring-offset-2 ring-offset-zinc-950`;
     }
-
     if (layoutMode === 'speaker') {
-      return `${baseClasses} hover:ring-2 hover:ring-blue-400`;
+      return `${baseClasses} hover:border-zinc-700`;
     }
-
     if (layoutMode === 'presentation') {
-      return `${baseClasses} hover:ring-2 hover:ring-gray-400`;
+      return `${baseClasses} hover:border-zinc-700`;
     }
-
-    return `${baseClasses} hover:ring-2 hover:ring-blue-300`;
-  };
-
-  // Portrait tile styling for better face visibility
-  const getVideoClasses = () => {
-    const baseClasses = 'w-full h-full object-cover';
-
-    if (layoutMode === 'grid' && !isMainSpeaker) {
-      // Portrait tiles: crop to show more face area
-      return `${baseClasses} object-top object-cover`;
-    }
-
-    return baseClasses;
+    return `${baseClasses} hover:border-zinc-700`;
   };
 
   return (
@@ -181,7 +163,7 @@ export const EnhancedVideoParticipant = ({
         autoPlay
         playsInline
         muted={isLocal}
-        className={getVideoClasses()}
+        className="w-full h-full object-cover"
       />
 
       {/* Speaking Indicator */}
@@ -193,52 +175,50 @@ export const EnhancedVideoParticipant = ({
 
       {/* Video Off / Error / Loading States */}
       {(showVideoOff || showError || showLoading) && (
-        <div
-          className={`absolute inset-0 flex items-center justify-center ${getDynamicBackgroundColor()}`}
-        >
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
           {showLoading ? (
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 text-white animate-spin" />
-              <span className="text-sm text-white">Connecting...</span>
+              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+              <span className="text-xs text-zinc-400">Connecting...</span>
             </div>
           ) : showVideoOff ? (
-            <div className="bg-white/20 rounded-full p-3">
-              <VideoOff className={`${getCameraOffIconSize()} text-white`} />
+            <div
+              className={`rounded-full border flex items-center justify-center font-bold tracking-tight ${getAvatarSize()} ${getDynamicAvatarColor()}`}
+            >
+              {getInitials(userName, userEmail)}
             </div>
           ) : null}
           {showError && (
-            <div className="absolute bottom-2 left-2 text-xs text-red-200">
-              Video Error
+            <div className="absolute bottom-2.5 left-2.5 text-[0.75rem] text-rose-400 font-medium">
+              Video error
             </div>
           )}
         </div>
       )}
 
-      {/* Participant Info Overlay */}
-      <div className="absolute bottom-2 left-2 flex items-center gap-2 text-sm text-white bg-black/50 px-2 py-1 rounded max-w-[calc(100%-1rem)]">
-        <span className="truncate" title={userName || userEmail}>
+      {/* Participant Info Overlay - translucent pill */}
+      <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 text-[0.8125rem] text-white bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-xl max-w-[calc(100%-1.25rem)] border border-white/5">
+        <span className="truncate font-medium" title={userName || userEmail}>
           {getDisplayName()}
         </span>
 
-        {/* Audio Status */}
+        {/* Audio Status indicator */}
         {!mediaState.audioEnabled && (
-          <MicOff className="h-3 w-3 text-red-400 flex-shrink-0" />
+          <MicOff className="h-3.5 w-3.5 text-rose-400 flex-shrink-0" />
         )}
       </div>
 
       {/* Hover Actions */}
       {isHovered && !isLocal && (
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2.5 right-2.5">
           <button
-            className="p-1 bg-black/50 hover:bg-black/70 rounded text-white transition-colors"
+            className="p-1.5 bg-black/60 hover:bg-black/85 border border-white/5 backdrop-blur-md rounded-xl text-white transition-colors"
             title="Pin participant"
           >
-            <Maximize2 className="h-3 w-3" />
+            <Maximize2 className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
-
-      {/* Main Speaker Indicator - Only border and audio visualizer */}
     </div>
   );
 };

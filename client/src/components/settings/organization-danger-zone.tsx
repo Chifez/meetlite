@@ -34,7 +34,6 @@ export default function OrganizationDangerZone({
   const { refreshOrganizations } = useWorkspace();
   const [deleting, setDeleting] = useState(false);
 
-  // Handle organization deletion
   const handleDeleteOrganization = async () => {
     if (!activeOrganization?.id) return;
 
@@ -61,40 +60,36 @@ export default function OrganizationDangerZone({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="p-4 border border-destructive/20 rounded-lg bg-destructive/5">
-          <div className="flex items-start justify-between">
+        <div className="p-4 border border-destructive/20 rounded-xl bg-destructive/3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h4 className="font-medium text-destructive mb-1">
+              <h4 className="font-semibold text-destructive mb-1">
                 Delete Organization
               </h4>
-              <p className="text-sm text-muted-foreground">
-                Permanently delete "{activeOrganization?.name}" and all
-                associated data
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Permanently delete "{activeOrganization?.name}" and all associated workspace data. All members will be switched to their personal accounts.
               </p>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="ml-4">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                <Button id="delete-org-trigger" variant="destructive" size="sm" className="sm:ml-4 rounded-xl flex-shrink-0">
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Delete organization
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Organization</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete "{activeOrganization?.name}
-                    "? This action cannot be undone. All organization data will
-                    be permanently deleted, and all members will be switched to
-                    their personal accounts.
+                    Are you sure you want to delete "{activeOrganization?.name}"? This action cannot be undone. All organization data will be permanently deleted, and all members will be switched to their personal accounts.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDeleteOrganization}
                     disabled={deleting}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
                   >
                     {deleting ? (
                       <>
@@ -102,7 +97,7 @@ export default function OrganizationDangerZone({
                         Deleting...
                       </>
                     ) : (
-                      'Delete Organization'
+                      'Delete organization'
                     )}
                   </AlertDialogAction>
                 </AlertDialogFooter>

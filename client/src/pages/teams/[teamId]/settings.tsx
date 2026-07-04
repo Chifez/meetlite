@@ -50,8 +50,8 @@ import {
   AlertCircle,
   UserPlus,
   Mail,
+  UserX,
 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Team, TeamMember } from '@/types/team';
 import SEO from '@/components/seo';
 import { AddTeamMemberModal } from '@/components/teams/add-team-member-modal';
@@ -77,14 +77,12 @@ export default function TeamSettings() {
     description: '',
   });
 
-  // Redirect if not in organization mode
   useEffect(() => {
     if (isPersonalMode || !activeOrganization) {
       navigate('/dashboard', { replace: true });
     }
   }, [isPersonalMode, activeOrganization, navigate]);
 
-  // Load team data
   useEffect(() => {
     const loadTeam = async () => {
       if (!teamId || !activeOrganization?.id || isPersonalMode) return;
@@ -101,12 +99,8 @@ export default function TeamSettings() {
           description: teamData.description || '',
         });
       } catch (error: any) {
-        console.error('Error loading team:', error);
-        if (error.response?.status === 403 || error.response?.status === 404) {
-          setAccessDenied(true);
-        } else {
-          toast.error('Failed to load team details');
-        }
+        console.error('Failed to load team:', error);
+        setAccessDenied(true);
       } finally {
         setLoading(false);
       }
@@ -125,30 +119,19 @@ export default function TeamSettings() {
   const handleSave = async () => {
     if (!teamId || !activeOrganization?.id) return;
 
-    if (!formData.name.trim()) {
-      toast.error('Team name is required');
-      return;
-    }
-
+    setSaving(true);
     try {
-      setSaving(true);
       const updatedTeam = await TeamService.updateTeam(
         activeOrganization.id,
         teamId,
-        {
-          name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
-        }
+        formData
       );
       setTeam(updatedTeam);
-      toast.success('Team updated successfully');
-      // Refresh teams list
-      if (activeOrganization.id) {
-        fetchTeams(activeOrganization.id);
-      }
+      toast.success('Team settings updated successfully');
+      await fetchTeams(activeOrganization.id);
     } catch (error: any) {
-      console.error('Error updating team:', error);
-      toast.error(error.response?.data?.message || 'Failed to update team');
+      console.error('Failed to update team:', error);
+      toast.error(error.message || 'Failed to update team settings');
     } finally {
       setSaving(false);
     }
@@ -157,44 +140,36 @@ export default function TeamSettings() {
   const handleDelete = async () => {
     if (!teamId || !activeOrganization?.id) return;
 
+    setDeleting(true);
     try {
-      setDeleting(true);
       await TeamService.deleteTeam(activeOrganization.id, teamId);
       toast.success('Team deleted successfully');
-      // Refresh teams list
-      if (activeOrganization.id) {
-        fetchTeams(activeOrganization.id);
-      }
-      // Navigate back to dashboard
-      navigate('/members');
+      await fetchTeams(activeOrganization.id);
+      navigate('/dashboard');
     } catch (error: any) {
-      console.error('Error deleting team:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete team');
+      console.error('Failed to delete team:', error);
+      toast.error(error.message || 'Failed to delete team');
     } finally {
       setDeleting(false);
     }
   };
 
-  const handleRemoveMember = async (userId: string) => {
+  const handleRemoveMember = async (memberId: string) => {
     if (!teamId || !activeOrganization?.id) return;
 
+    setRemovingMember(memberId);
     try {
-      setRemovingMember(userId);
-      await TeamService.removeMemberFromTeam(
-        activeOrganization.id,
-        teamId,
-        userId
-      );
-      // Reload team data
+      await TeamService.removeMember(activeOrganization.id, teamId, memberId);
+      toast.success('Member removed from team');
+      
       const teamData = await TeamService.getTeamById(
         activeOrganization.id,
         teamId
       );
       setTeam(teamData);
-      toast.success('Member removed successfully');
     } catch (error: any) {
-      console.error('Error removing member:', error);
-      toast.error(error.response?.data?.message || 'Failed to remove member');
+      console.error('Failed to remove member:', error);
+      toast.error(error.message || 'Failed to remove member');
     } finally {
       setRemovingMember(null);
     }
@@ -202,163 +177,182 @@ export default function TeamSettings() {
 
   const handleMemberAdded = async () => {
     if (!teamId || !activeOrganization?.id) return;
-    // Reload team data
-    const teamData = await TeamService.getTeamById(
-      activeOrganization.id,
-      teamId
-    );
-    setTeam(teamData);
+    try {
+      const teamData = await TeamService.getTeamById(
+        activeOrganization.id,
+        teamId
+      );
+      setTeam(teamData);
+    } catch (error) {
+      console.error('Failed to reload team after member added:', error);
+    }
   };
 
   const handleInvitationSent = async () => {
-    // Refresh invitations list will be handled by the component
     if (!teamId || !activeOrganization?.id) return;
-    // Optionally reload team data
-    const teamData = await TeamService.getTeamById(
-      activeOrganization.id,
-      teamId
-    );
-    setTeam(teamData);
+    try {
+      const teamData = await TeamService.getTeamById(
+        activeOrganization.id,
+        teamId
+      );
+      setTeam(teamData);
+    } catch (error) {
+      console.error('Failed to reload team after invitation:', error);
+    }
   };
 
-  const isOwner = team?.ownerId === user?.id;
+  const isOwner = team?.role === 'owner';
 
+  // ── LOADING STATE ──────────────────────────────────────────────
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <SEO title="Loading Settings · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          <p className="text-[0.875rem] text-muted-foreground">Loading team settings…</p>
         </div>
       </DashboardLayout>
     );
   }
 
+  // ── ACCESS DENIED STATE ────────────────────────────────────────
   if (accessDenied || !team) {
     return (
       <DashboardLayout>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You don't have permission to view this team or the team doesn't
-            exist.
-          </AlertDescription>
-        </Alert>
+        <SEO title="Access Denied · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-destructive" />
+          </div>
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em] mb-1">
+              Access denied
+            </h2>
+            <p className="text-[0.8125rem] text-muted-foreground max-w-xs">
+              You don't have permission to manage settings for this team, or it does not exist.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/dashboard')} variant="outline" size="sm">
+            Back to dashboard
+          </Button>
+        </div>
       </DashboardLayout>
     );
   }
 
+  // ── POPULATED STATE ────────────────────────────────────────────
   return (
-    <>
-      <SEO title={`${team.name} - Settings`} />
-      <DashboardLayout>
-        <div className="space-y-6">
-          {/* Header */}
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Team Settings</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage your team details and members
-            </p>
-          </div>
+    <DashboardLayout>
+      <SEO title={`Team Settings · ${team.name} · MeetLite`} />
 
-          {/* Team Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Information</CardTitle>
-              <CardDescription>
-                Update your team's name and description
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Team Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter team name"
-                  disabled={!isOwner}
-                />
+      {/* Page Header */}
+      <div className="mb-6">
+        <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+          Team Settings
+        </h1>
+        <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+          Manage team information, members, and invitations for @{team.name}.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {/* Team Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Information</CardTitle>
+            <CardDescription>
+              Update your team's name and description.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Team Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Enter team name"
+                disabled={!isOwner}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Describe your team's focus"
+                rows={3}
+                disabled={!isOwner}
+              />
+            </div>
+            {isOwner && (
+              <div className="flex justify-end pt-1">
+                <Button id="team-settings-save-btn" onClick={handleSave} disabled={saving} className="rounded-xl font-semibold px-6">
+                  {saving ? 'Saving...' : 'Save changes'}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter team description"
-                  rows={4}
-                  disabled={!isOwner}
-                />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Team Members */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-4.5 w-4.5 text-primary" />
+                  Team Members
+                </CardTitle>
+                <CardDescription>
+                  Manage members assigned to this team workspace.
+                </CardDescription>
               </div>
               {isOwner && (
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Team Members */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Team Members
-                  </CardTitle>
-                  <CardDescription>
-                    Manage team members and their roles
-                  </CardDescription>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddMemberModalOpen(true)}
+                    className="gap-1.5 rounded-xl"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Add
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setInviteModalOpen(true)}
+                    className="gap-1.5 rounded-xl"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Invite
+                  </Button>
                 </div>
-                {isOwner && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAddMemberModalOpen(true)}
-                    >
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Add Member
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setInviteModalOpen(true)}
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Invite
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {team.members && team.members.length > 0 ? (
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {team.members && team.members.length > 0 ? (
+              <div className="border border-border rounded-xl overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/30">
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Joined</TableHead>
-                      {isOwner && <TableHead>Actions</TableHead>}
+                      {isOwner && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {team.members.map((member: TeamMember) => (
                       <TableRow key={member.userId}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-semibold text-foreground">
                           {member.userName}
                         </TableCell>
                         <TableCell>{member.userEmail}</TableCell>
@@ -366,20 +360,11 @@ export default function TeamSettings() {
                           {isOwner && member.role !== 'owner' ? (
                             <Select
                               value={member.role}
-                              onValueChange={async () => {
-                                // Note: Backend doesn't support updating team member roles yet
-                                // This is UI-only for now
-                                toast.info('Role update feature coming soon');
-                                // TODO: Implement when backend endpoint is available
-                                // await TeamService.updateMemberRole(
-                                //   activeOrganization.id,
-                                //   teamId,
-                                //   member.userId,
-                                //   newRole
-                                // );
+                              onValueChange={() => {
+                                toast.info('Role updates are coming soon.');
                               }}
                             >
-                              <SelectTrigger className="w-24 h-8">
+                              <SelectTrigger className="w-24 h-8 text-[0.8125rem] rounded-lg">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -388,31 +373,23 @@ export default function TeamSettings() {
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className="capitalize">{member.role}</span>
+                            <span className="capitalize text-[0.8125rem] font-medium">{member.role}</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-[0.8125rem]">
                           {new Date(member.joinedAt).toLocaleDateString()}
                         </TableCell>
                         {isOwner && (
-                          <TableCell>
+                          <TableCell className="text-right">
                             {member.role !== 'owner' && (
                               <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={() =>
-                                  handleRemoveMember(member.userId)
-                                }
+                                onClick={() => handleRemoveMember(member.userId)}
                                 disabled={removingMember === member.userId}
+                                className="rounded-lg h-7.5 text-[0.75rem] px-2.5"
                               >
-                                {removingMember === member.userId ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Removing...
-                                  </>
-                                ) : (
-                                  'Remove'
-                                )}
+                                {removingMember === member.userId ? 'Removing...' : 'Remove'}
                               </Button>
                             )}
                           </TableCell>
@@ -421,120 +398,127 @@ export default function TeamSettings() {
                     ))}
                   </TableBody>
                 </Table>
-              ) : (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground mb-4">
-                    No members yet
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center gap-4">
+                <Users className="h-10 w-10 text-muted-foreground/60" />
+                <div>
+                  <p className="text-[0.875rem] font-semibold text-foreground">No members in team</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add members directly or invite them via email.
                   </p>
-                  {isOwner && (
-                    <div className="flex gap-2 justify-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAddMemberModalOpen(true)}
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Add Member
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setInviteModalOpen(true)}
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        Invite Member
-                      </Button>
-                    </div>
-                  )}
                 </div>
-              )}
+                {isOwner && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddMemberModalOpen(true)}
+                      className="gap-1.5"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Add member
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setInviteModalOpen(true)}
+                      className="gap-1.5"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Invite member
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pending Invitations */}
+        {isOwner && activeOrganization?.id && (
+          <TeamInvitationsList
+            teamId={teamId!}
+            organizationId={activeOrganization.id}
+            onInvitationCancelled={handleInvitationSent}
+          />
+        )}
+
+        {/* Danger Zone */}
+        {isOwner && (
+          <Card className="border-destructive/20">
+            <CardHeader>
+              <CardTitle className="text-destructive">Danger Zone</CardTitle>
+              <CardDescription>
+                Permanently delete this team. This action cannot be undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 border border-destructive/20 rounded-xl bg-destructive/3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h4 className="font-semibold text-destructive mb-1">
+                      Delete Team
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Permanently delete this team and remove access for all assigned members.
+                    </p>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button id="delete-team-btn" variant="destructive" size="sm" className="sm:ml-4 rounded-xl flex-shrink-0" disabled={deleting}>
+                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                        Delete team
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the team "{team.name}" and all associated data. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+                          disabled={deleting}
+                        >
+                          {deleting ? 'Deleting...' : 'Delete team'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
             </CardContent>
           </Card>
-
-          {/* Pending Invitations */}
-          {isOwner && activeOrganization?.id && (
-            <TeamInvitationsList
-              teamId={teamId!}
-              organizationId={activeOrganization.id}
-              onInvitationCancelled={handleInvitationSent}
-            />
-          )}
-
-          {/* Danger Zone */}
-          {isOwner && (
-            <Card className="border-destructive">
-              <CardHeader>
-                <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                <CardDescription>
-                  Permanently delete this team. This action cannot be undone.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" disabled={deleting}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Team
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Are you absolutely sure?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the team "{team.name}" and
-                        all associated data. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        disabled={deleting}
-                      >
-                        {deleting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          'Delete Team'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Add Member Modal */}
-        {team && activeOrganization?.id && (
-          <AddTeamMemberModal
-            open={addMemberModalOpen}
-            onOpenChange={setAddMemberModalOpen}
-            teamId={teamId!}
-            teamName={team.name}
-            existingMemberIds={team.members?.map((m) => m.userId) || []}
-            onMemberAdded={handleMemberAdded}
-          />
         )}
+      </div>
 
-        {/* Invite Member Modal */}
-        {team && activeOrganization?.id && (
-          <TeamInvitationModal
-            open={inviteModalOpen}
-            onOpenChange={setInviteModalOpen}
-            teamId={teamId!}
-            teamName={team.name}
-            onInvitationSent={handleInvitationSent}
-          />
-        )}
-      </DashboardLayout>
-    </>
+      {/* Add Member Modal */}
+      {team && activeOrganization?.id && (
+        <AddTeamMemberModal
+          open={addMemberModalOpen}
+          onOpenChange={setAddMemberModalOpen}
+          teamId={teamId!}
+          teamName={team.name}
+          existingMemberIds={team.members?.map((m) => m.userId) || []}
+          onMemberAdded={handleMemberAdded}
+        />
+      )}
+
+      {/* Invite Member Modal */}
+      {team && activeOrganization?.id && (
+        <TeamInvitationModal
+          open={inviteModalOpen}
+          onOpenChange={setInviteModalOpen}
+          teamId={teamId!}
+          teamName={team.name}
+          onInvitationSent={handleInvitationSent}
+        />
+      )}
+    </DashboardLayout>
   );
 }

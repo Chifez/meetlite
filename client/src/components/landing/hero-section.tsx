@@ -47,7 +47,7 @@ const HeroSection = () => {
                 clipRule="evenodd"
               />
             </svg>
-            The future of video meetings is here
+            Premium WebRTC-powered meetings, simplified
           </Badge>
 
           {/* HEADLINE */}

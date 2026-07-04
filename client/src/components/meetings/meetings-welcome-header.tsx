@@ -9,23 +9,18 @@ export default function MeetingsWelcomeHeader({
   onSchedule,
 }: MeetingsWelcomeHeaderProps) {
   return (
-    <div className="space-y-4 mb-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-foreground mb-2">
-          <span className="text-foreground">My </span>
-          <span className="bg-primary bg-clip-text text-transparent">
-            Meetings
-          </span>
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div>
+        <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+          My Meetings
         </h1>
-        <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-          View, schedule, and manage all your meetings in one place. Start
-          meetings, invite participants, and keep track of your schedule
-          effortlessly.
+        <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+          View, schedule, and manage all your meetings in one place.
         </p>
       </div>
-      <div className="text-center">
-        <Button size="sm" onClick={onSchedule}>
-          <PlusCircle className="h-4 w-4 mr-2" /> Schedule Meeting
+      <div>
+        <Button id="meetings-schedule-btn" size="sm" onClick={onSchedule} className="gap-1.5 rounded-xl font-semibold">
+          <PlusCircle className="h-4 w-4" /> Schedule Meeting
         </Button>
       </div>
     </div>

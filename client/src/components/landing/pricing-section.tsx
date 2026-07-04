@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PricingCard from '@/components/landing/pricing-card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -61,6 +62,7 @@ const pricingPlans = [
 ];
 
 const PricingSection = () => {
+  const navigate = useNavigate();
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [billingDuration, setBillingDuration] = useState<'monthly' | 'yearly'>('monthly');
 
@@ -137,7 +139,7 @@ const PricingSection = () => {
 
         {/* CTA Card */}
         <div className="mt-12 max-w-4xl mx-auto">
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 dark:from-orange-600 dark:via-amber-600 dark:to-yellow-600 p-8 sm:p-12 shadow-xl border border-orange-400/20">
+          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-primary/80 p-8 sm:p-12 shadow-xl border border-primary/20">
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
 
             <div className="relative text-center space-y-6">
@@ -151,7 +153,8 @@ const PricingSection = () => {
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-4">
                 <Button
                   size="default"
-                  className="w-full sm:w-auto bg-white text-orange-600 hover:bg-white/90 rounded-lg px-6 py-2.5 text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200 group"
+                  onClick={() => navigate('/signup')}
+                  className="w-full sm:w-auto bg-white text-primary hover:bg-white/92 rounded-lg px-6 py-2.5 text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200 group"
                 >
                   Start Your First Meeting
                   <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />

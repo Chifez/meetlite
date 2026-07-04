@@ -54,7 +54,7 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
       />
 
       {/* Main Controls Bar */}
-      <div className="bg-background border-t py-4 relative">
+      <div className="bg-zinc-950 border-t border-zinc-900 py-3.5 relative text-zinc-200">
         <div className="container max-w-6xl mx-auto px-4">
           {/* Desktop Layout */}
           <div className="hidden md:flex items-center justify-between">

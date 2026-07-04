@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import { PaymentService } from '@/services/payment-service';
 import { toast } from 'sonner';
 import ContactSalesModal from '@/components/shared/contact-sales-modal';
+import { cn } from '@/lib/utils';
 
 interface PricingCardProps {
   title: string;
@@ -38,21 +38,11 @@ const PricingCard = ({
   const navigate = useNavigate();
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
-  // Calculate displayed price based on plan type and duration
   const getDisplayPrice = () => {
-    // Free plan
-    if (planType === 'free' || !planType) {
-      return { price: 'Free', period: '' };
-    }
-    // Enterprise plan - always show "Custom"
-    if (planType === 'enterprise') {
-      return { price: 'Custom', period: '' };
-    }
-    // Pro plan - show based on duration
+    if (planType === 'free' || !planType) return { price: '$0', period: '/month' };
+    if (planType === 'enterprise') return { price: 'Custom', period: '' };
     if (monthlyPrice && yearlyPrice) {
-      if (duration === 'yearly') {
-        return { price: `$${yearlyPrice}`, period: '/year' };
-      }
+      if (duration === 'yearly') return { price: `$${yearlyPrice}`, period: '/year' };
       return { price: `$${monthlyPrice}`, period: '/month' };
     }
     return { price: '$19', period: '/month' };
@@ -61,96 +51,116 @@ const PricingCard = ({
   const { price, period } = getDisplayPrice();
 
   const handleButtonClick = async () => {
-    // Enterprise plan - open contact sales modal
     if (planType === 'enterprise') {
       setIsContactModalOpen(true);
       return;
     }
-
-    // Free plan - redirect to signup/login
     if (!planType || planType === 'free') {
-      if (!user) {
-        navigate('/signup', { state: { from: 'pricing' } });
-      } else {
-        // User is already on free plan, can navigate to dashboard
-        navigate('/dashboard');
-      }
+      navigate(user ? '/dashboard' : '/signup', { state: { from: 'pricing' } });
       return;
     }
-
-    // Pro plan - check authentication
     if (!user) {
-      // Redirect to signup with plan info in state
       navigate('/signup', {
         state: { from: 'pricing', planType, duration, redirectToCheckout: true },
       });
       return;
     }
-
-    // User is authenticated - proceed to checkout with selected duration
     try {
       await PaymentService.redirectToCheckout(planType, duration);
     } catch (error: any) {
       console.error('Checkout error:', error);
-      toast.error(error.message || 'Failed to start checkout process');
+      toast.error(error.message || 'Failed to start checkout. Please try again.');
     }
   };
 
   return (
-    <Card
-      className={`relative border-2 transition-all duration-300 hover:shadow-lg ${
+    <div
+      className={cn(
+        'relative flex flex-col rounded-2xl border p-6 transition-colors duration-200',
         isPopular
-          ? 'border-primary bg-card shadow-lg scale-105'
-          : 'border-border bg-card hover:border-primary/50'
-      }`}
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-card hover:border-primary/40'
+      )}
     >
       {isPopular && (
-        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-          <Badge className="bg-primary text-primary-foreground px-4 py-1">
-            Most Popular
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+          <Badge variant="solid" className="bg-white text-primary text-[0.6875rem]">
+            Most popular
           </Badge>
         </div>
       )}
-      <CardContent className="p-6 sm:p-8 space-y-6">
-        <div className="space-y-2">
-          <h3 className="text-xl font-bold text-foreground">{title}</h3>
-          <div className="space-y-1">
-            <div className="flex items-baseline space-x-1">
-              <span className="text-4xl font-bold text-primary">{price}</span>
-              {period && (
-                <span className="text-muted-foreground">{period}</span>
-              )}
-            </div>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+
+      {/* Plan header */}
+      <div className="mb-5">
+        <h3 className={cn(
+          'text-[0.9375rem] font-bold tracking-[-0.01em] mb-1',
+          isPopular ? 'text-primary-foreground' : 'text-foreground'
+        )}>
+          {title}
+        </h3>
+        <p className={cn(
+          'text-[0.8125rem] leading-relaxed',
+          isPopular ? 'text-primary-foreground/80' : 'text-muted-foreground'
+        )}>
+          {description}
+        </p>
+      </div>
+
+      {/* Price */}
+      <div className="mb-6">
+        <div className="flex items-baseline gap-1">
+          <span className={cn(
+            'text-[2.5rem] font-bold tracking-[-0.04em]',
+            isPopular ? 'text-primary-foreground' : 'text-foreground'
+          )}>
+            {price}
+          </span>
+          {period && (
+            <span className={cn(
+              'text-[0.8125rem]',
+              isPopular ? 'text-primary-foreground/70' : 'text-muted-foreground'
+            )}>
+              {period}
+            </span>
+          )}
         </div>
+      </div>
 
-        <ul className="space-y-3">
-          {features.map((feature, index) => (
-            <li key={index} className="flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-              <span className="text-foreground text-sm lg:text-base">
-                {feature}
-              </span>
-            </li>
-          ))}
-        </ul>
+      {/* Features */}
+      <ul className="space-y-2.5 flex-1 mb-7">
+        {features.map((feature, i) => (
+          <li key={i} className="flex items-start gap-2.5">
+            <Check
+              className={cn(
+                'w-4 h-4 mt-0.5 flex-shrink-0',
+                isPopular ? 'text-primary-foreground/90' : 'text-primary'
+              )}
+              strokeWidth={2.5}
+            />
+            <span className={cn(
+              'text-[0.8125rem] leading-snug',
+              isPopular ? 'text-primary-foreground/90' : 'text-foreground'
+            )}>
+              {feature}
+            </span>
+          </li>
+        ))}
+      </ul>
 
-        <Button
-          size="default"
-          className={`w-full rounded-lg py-2.5 text-sm font-medium transition-all duration-200 hover:shadow-md ${
-            buttonVariant === 'outline'
-              ? 'border-2 border-primary text-primary hover:bg-primary/10'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'
-          }`}
-          variant={buttonVariant}
-          onClick={handleButtonClick}
-        >
-          {buttonText}
-        </Button>
-      </CardContent>
+      <Button
+        id={`pricing-cta-${planType ?? 'free'}`}
+        className={cn(
+          'w-full rounded-xl font-semibold',
+          isPopular
+            ? 'bg-white text-primary hover:bg-white/90'
+            : ''
+        )}
+        variant={isPopular ? 'default' : buttonVariant}
+        onClick={handleButtonClick}
+      >
+        {buttonText}
+      </Button>
 
-      {/* Contact Sales Modal for Enterprise plan */}
       {planType === 'enterprise' && (
         <ContactSalesModal
           open={isContactModalOpen}
@@ -158,7 +168,7 @@ const PricingCard = ({
           source="landing_page"
         />
       )}
-    </Card>
+    </div>
   );
 };
 

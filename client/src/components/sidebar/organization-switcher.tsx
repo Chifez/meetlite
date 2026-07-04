@@ -1,5 +1,4 @@
 import type React from 'react';
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +25,7 @@ import {
   Loader2,
   ChevronsUpDown,
   Zap,
+  Check,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useWorkspace } from '@/contexts/workspace-context';
@@ -34,10 +34,10 @@ import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
 import { toast } from 'sonner';
 
 interface OrganizationSwitcherProps {
-  // Props are no longer needed as we get data from context
+  collapsed?: boolean;
 }
 
-export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
+export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcherProps) {
   const {
     activeOrganization,
     organizations,
@@ -62,18 +62,14 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent free plan users from creating organizations
     if (isFreePlan) {
-      toast.error(
-        'Organization creation requires a paid plan. Please upgrade to continue.'
-      );
+      toast.error('Organization creation requires a paid plan. Please upgrade to continue.');
       setIsCreateDialogOpen(false);
       setIsPlanDialogOpen(true);
       return;
     }
 
     setIsLoading(true);
-
     try {
       const newOrg = await createOrganization({
         name: newOrgName.trim(),
@@ -83,7 +79,6 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
       });
 
       if (newOrg) {
-        // Reset form and close dialog
         setNewOrgName('');
         setNewOrgDescription('');
         setNewOrgIndustry('');
@@ -91,12 +86,8 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
         setIsCreateDialogOpen(false);
       }
     } catch (error: any) {
-      // Handle backend error response
       if (error?.response?.data?.upgradeRequired) {
-        toast.error(
-          error.response.data.message ||
-            'Please upgrade to create organizations'
-        );
+        toast.error(error.response.data.message || 'Please upgrade to create organizations');
         setIsCreateDialogOpen(false);
         setIsPlanDialogOpen(true);
       }
@@ -112,7 +103,6 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
 
   const handleSwitchToOrg = (orgId: string) => {
     if (switchingOrg) return;
-
     switchToOrganization(orgId);
   };
 
@@ -138,203 +128,214 @@ export function OrganizationSwitcher({}: OrganizationSwitcherProps) {
         .toUpperCase()
         .slice(0, 2);
     }
-    return 'PA'; // Personal Account
+    return 'PA';
   };
 
   return (
-    <div className="space-y-2">
-      {/* Current Organization/Personal Display - Clickable Dropdown */}
+    <div className="space-y-1">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="w-full justify-between h-auto p-3 hover:bg-sidebar-accent"
-            disabled={switchingOrg}
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  {getCurrentInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-left flex-1 min-w-0">
-                <div className="text-xs font-medium text-sidebar-foreground truncate uppercase">
-                  {getCurrentDisplayName()}
-                </div>
-                <div className="text-xs text-sidebar-foreground/60 truncate">
-                  {getCurrentDisplayDescription()}
+          {collapsed ? (
+            <Button
+              variant="ghost"
+              className="h-10 w-10 p-0 rounded-xl hover:bg-sidebar-accent flex items-center justify-center border border-border/20 transition-all duration-200"
+              disabled={switchingOrg}
+              aria-label="Switch workspace"
+            >
+              {switchingOrg ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : (
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-lg">
+                    {getCurrentInitials()}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              className="w-full justify-between h-auto p-2 bg-muted/30 border border-border/60 hover:bg-sidebar-accent rounded-xl transition-all duration-200"
+              disabled={switchingOrg}
+            >
+              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20">
+                    {getCurrentInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-xs font-bold text-foreground truncate">
+                    {getCurrentDisplayName()}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate font-medium">
+                    {getCurrentDisplayDescription()}
+                  </div>
                 </div>
               </div>
-            </div>
-            {switchingOrg ? (
-              <Loader2 className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0 animate-spin" />
-            ) : (
-              <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/60 flex-shrink-0" />
-            )}
-          </Button>
+              {switchingOrg ? (
+                <Loader2 className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0 animate-spin" />
+              ) : (
+                <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0 ml-1" />
+              )}
+            </Button>
+          )}
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="start" className="w-full">
+        <DropdownMenuContent
+          align={collapsed ? "center" : "start"}
+          side={collapsed ? "right" : "bottom"}
+          className="w-60 border border-border/80 bg-popover/95 backdrop-blur-md rounded-2xl shadow-xl p-1.5 z-[100]"
+        >
           {/* Personal Account Option */}
           <DropdownMenuItem
             onClick={handleSwitchToPersonal}
-            className="flex items-center gap-3 p-3 cursor-pointer"
+            className="flex items-center justify-between p-2 rounded-xl cursor-pointer hover:bg-sidebar-accent transition-colors"
           >
-            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-              <User className="w-4 h-4 text-primary" />
-            </div>
-            <div className="text-left">
-              <div className="font-medium">Personal Account</div>
-              <div className="text-xs text-muted-foreground">
-                Individual meetings
-              </div>
-            </div>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          {/* Organizations List */}
-          {organizations.map((org) => (
-            <DropdownMenuItem
-              key={org.id}
-              onClick={() => handleSwitchToOrg(org.id)}
-              className="flex items-center gap-3 p-3 cursor-pointer"
-              disabled={switchingOrg}
-            >
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Building2 className="w-4 h-4 text-primary" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
+                <User className="w-4 h-4 text-primary" />
               </div>
               <div className="text-left">
-                <div className="font-medium">{org.name}</div>
-                <div className="text-xs text-muted-foreground ">
-                  {org.memberCount || 0} members •{' '}
-                  {org.plan?.type.toUpperCase() || 'FREE'}
-                </div>
+                <div className="text-xs font-semibold text-foreground">Personal Account</div>
+                <div className="text-[10px] text-muted-foreground">Individual meetings</div>
               </div>
-            </DropdownMenuItem>
-          ))}
+            </div>
+            {!activeOrganization && (
+              <Check className="w-4 h-4 text-primary" />
+            )}
+          </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+          <DropdownMenuSeparator className="my-1.5" />
+
+          {/* Organizations List */}
+          <div className="max-h-48 overflow-y-auto scrollbar-hide space-y-0.5">
+            {organizations.map((org) => {
+              const isSelected = activeOrganization?.id === org.id;
+              return (
+                <DropdownMenuItem
+                  key={org.id}
+                  onClick={() => handleSwitchToOrg(org.id)}
+                  className="flex items-center justify-between p-2 rounded-xl cursor-pointer hover:bg-sidebar-accent transition-colors"
+                  disabled={switchingOrg}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
+                      <Building2 className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-xs font-semibold text-foreground">{org.name}</div>
+                      <div className="text-[10px] text-muted-foreground font-medium">
+                        {org.memberCount || 0} members • {org.plan?.type.toUpperCase() || 'FREE'}
+                      </div>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <Check className="w-4 h-4 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+
+          <DropdownMenuSeparator className="my-1.5" />
 
           {/* Create New Organization */}
           {isFreePlan ? (
             <DropdownMenuItem
-              className="flex items-center gap-3 p-3 cursor-pointer border-2 border-dashed border-border rounded-lg m-2 opacity-60"
+              className="flex items-center gap-3 p-2 cursor-pointer border border-dashed border-border/80 rounded-xl m-1 opacity-70 hover:opacity-100 transition-opacity"
               onSelect={(e) => {
                 e.preventDefault();
                 setIsPlanDialogOpen(true);
-                toast.info(
-                  'Organization creation requires a paid plan. Upgrade to continue.'
-                );
+                toast.info('Organization creation requires a paid plan. Upgrade to continue.');
               }}
             >
               <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
                 <Zap className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="text-left">
-                <div className="font-medium text-muted-foreground">
-                  Create Organization
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Upgrade required
-                </div>
+                <div className="text-xs font-semibold text-muted-foreground">Create Organization</div>
+                <div className="text-[10px] text-primary font-bold">Upgrade required</div>
               </div>
             </DropdownMenuItem>
           ) : (
-            <>
-              <Dialog
-                open={isCreateDialogOpen}
-                onOpenChange={setIsCreateDialogOpen}
-              >
-                <DialogTrigger asChild>
-                  <DropdownMenuItem
-                    className="flex items-center gap-3 p-3 cursor-pointer border-2 border-dashed border-border rounded-lg m-2"
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
-                      <Plus className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-muted-foreground">
-                        Create Organization
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Start a new team
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Organization</DialogTitle>
-                    <DialogDescription>
-                      Set up a new organization to collaborate with your team.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form
-                    onSubmit={handleCreateOrganization}
-                    className="space-y-4"
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="orgName">Organization Name</Label>
-                      <Input
-                        id="orgName"
-                        value={newOrgName}
-                        onChange={(e) => setNewOrgName(e.target.value)}
-                        placeholder="Enter organization name"
-                        required
-                        className="bg-input"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="orgDescription">
-                        Description (optional)
-                      </Label>
-                      <Input
-                        id="orgDescription"
-                        value={newOrgDescription}
-                        onChange={(e) => setNewOrgDescription(e.target.value)}
-                        placeholder="What does your organization do?"
-                        className="bg-input"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setIsCreateDialogOpen(false)}
-                        disabled={isLoading}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={isLoading || !newOrgName.trim()}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Creating...
-                          </>
-                        ) : (
-                          'Create Organization'
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <DropdownMenuItem
+                  className="flex items-center gap-3 p-2 cursor-pointer border border-dashed border-border/80 rounded-xl m-1 hover:border-primary/50"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-semibold text-muted-foreground">Create Organization</div>
+                    <div className="text-[10px] text-muted-foreground">Start a new team</div>
+                  </div>
+                </DropdownMenuItem>
+              </DialogTrigger>
+              <DialogContent className="border border-border/80 bg-zinc-950/90 backdrop-blur-xl rounded-2xl shadow-2xl p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-bold text-foreground">Create New Organization</DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground">
+                    Set up a new organization to collaborate with your team.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateOrganization} className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="orgName" className="text-xs font-semibold">Organization Name</Label>
+                    <Input
+                      id="orgName"
+                      value={newOrgName}
+                      onChange={(e) => setNewOrgName(e.target.value)}
+                      placeholder="Enter organization name"
+                      required
+                      className="bg-muted/30 border-border/60 focus:border-primary rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orgDescription" className="text-xs font-semibold">Description (optional)</Label>
+                    <Input
+                      id="orgDescription"
+                      value={newOrgDescription}
+                      onChange={(e) => setNewOrgDescription(e.target.value)}
+                      placeholder="What does your organization do?"
+                      className="bg-muted/30 border-border/60 focus:border-primary rounded-xl"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCreateDialogOpen(false)}
+                      disabled={isLoading}
+                      className="rounded-xl border-border/60 hover:bg-muted"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !newOrgName.trim()}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Organization'
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Plan Settings Dialog */}
-      <PlanSettingsDialog
-        open={isPlanDialogOpen}
-        onOpenChange={setIsPlanDialogOpen}
-      />
+      <PlanSettingsDialog open={isPlanDialogOpen} onOpenChange={setIsPlanDialogOpen} />
     </div>
   );
 }

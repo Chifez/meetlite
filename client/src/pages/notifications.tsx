@@ -1,14 +1,14 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Bell, CheckCheck, Trash2 } from 'lucide-react';
+import { Bell, CheckCheck, Trash2, AlertCircle, BellOff } from 'lucide-react';
 import { useNotifications } from '@/hooks/use-notifications';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import SEO from '@/components/seo';
 
 export default function Notifications() {
   const {
@@ -18,153 +18,168 @@ export default function Notifications() {
     markAsRead,
     markAllAsRead,
     deleteNotification,
-    refreshNotifications,
   } = useNotifications();
   const navigate = useNavigate();
 
-  const handleNotificationClick = async (
-    notificationId: string,
-    url?: string
-  ) => {
+  const handleNotificationClick = async (notificationId: string, url?: string) => {
     await markAsRead(notificationId);
-    if (url) {
-      navigate(url);
-    }
+    if (url) navigate(url);
   };
 
-  const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
-  };
+  // ── LOADING STATE ──────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <SEO title="Notifications · MeetLite" />
+        <div className="space-y-1">
+          <Skeleton className="h-7 w-36" />
+          <Skeleton className="h-4 w-52" />
+        </div>
+        <div className="border border-border rounded-2xl overflow-hidden divide-y divide-border">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-3 px-5 py-4">
+              <Skeleton className="w-8 h-8 rounded-xl flex-shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-48" />
+                <Skeleton className="h-3 w-full max-w-xs" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <DashboardLayout>
+      <SEO title="Notifications · MeetLite" />
+
+      {/* Page header */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Bell className="h-6 w-6" />
+          <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
             Notifications
           </h1>
-          {unreadCount > 0 && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
-            </p>
-          )}
+          <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+              : 'You\'re all caught up.'}
+          </p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
-            <CheckCheck className="h-4 w-4 mr-2" />
-            Mark all as read
+          <Button
+            id="mark-all-read-btn"
+            variant="outline"
+            size="sm"
+            onClick={markAllAsRead}
+            className="gap-1.5"
+          >
+            <CheckCheck className="w-3.5 h-3.5" />
+            Mark all read
           </Button>
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Notifications</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center p-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12">
-              <Bell className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No notifications yet</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="divide-y">
-                {notifications.map((notification) => {
-                  const isUnread = !notification.read;
-                  const notificationUrl =
-                    notification.data?.joinUrl ||
-                    notification.data?.url ||
-                    '/dashboard';
+      {/* ── EMPTY STATE ── */}
+      {notifications.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
+            <BellOff className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em]">
+              No notifications
+            </p>
+            <p className="text-[0.8125rem] text-muted-foreground mt-1">
+              You'll be notified here when meetings are scheduled, invitations arrive, or recordings are ready.
+            </p>
+          </div>
+        </div>
+      ) : (
+        // ── POPULATED STATE ──
+        <div className="border border-border rounded-2xl overflow-hidden">
+          <ScrollArea className="h-[600px]">
+            <div className="divide-y divide-border">
+              {notifications.map((notification) => {
+                const isUnread = !notification.read;
+                const notificationUrl =
+                  notification.data?.joinUrl ||
+                  notification.data?.url ||
+                  '/dashboard';
 
-                  return (
-                    <div
-                      key={notification.id}
-                      className={cn(
-                        'p-4 hover:bg-muted/50 transition-colors',
-                        isUnread && 'bg-muted/30'
+                return (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      'flex items-start gap-3 px-5 py-4 hover:bg-muted/40 transition-colors duration-100',
+                      isUnread && 'bg-primary/3'
+                    )}
+                  >
+                    {/* Unread dot */}
+                    <div className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0">
+                      {isUnread && (
+                        <span className="block w-2 h-2 rounded-full bg-primary" />
                       )}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3
-                              className={cn(
-                                'text-sm font-medium',
-                                isUnread && 'font-semibold'
-                              )}
-                            >
-                              {notification.title}
-                            </h3>
-                            {isUnread && (
-                              <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {notification.message}
-                          </p>
-                          <div className="flex items-center gap-4">
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(
-                                new Date(notification.createdAt),
-                                {
-                                  addSuffix: true,
-                                }
-                              )}
-                            </p>
-                            {notification.data?.meetingId && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-auto p-0 text-xs"
-                                onClick={() =>
-                                  handleNotificationClick(
-                                    notification.id,
-                                    notificationUrl
-                                  )
-                                }
-                              >
-                                View Meeting
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isUnread && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => markAsRead(notification.id)}
-                            >
-                              <CheckCheck className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            onClick={() => deleteNotification(notification.id)}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        'text-[0.875rem] leading-snug text-foreground',
+                        isUnread ? 'font-semibold' : 'font-medium'
+                      )}>
+                        {notification.title}
+                      </p>
+                      <p className="text-[0.8125rem] text-muted-foreground mt-0.5 leading-relaxed">
+                        {notification.message}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-[0.75rem] text-muted-foreground/70 tabular-nums">
+                          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                        </span>
+                        {notification.data?.meetingId && (
+                          <button
+                            className="text-[0.75rem] font-semibold text-primary hover:underline"
+                            onClick={() =>
+                              handleNotificationClick(notification.id, notificationUrl)
+                            }
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                            View meeting →
+                          </button>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isUnread && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Mark as read"
+                          onClick={() => markAsRead(notification.id)}
+                        >
+                          <CheckCheck className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Delete"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteNotification(notification.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+    </DashboardLayout>
   );
 }
-
-

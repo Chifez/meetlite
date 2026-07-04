@@ -1,40 +1,71 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 
 const CTASection = () => {
+  const navigate = useNavigate();
+
   return (
     <section
       id="contact"
-      className="py-20 bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 dark:from-orange-600 dark:via-amber-600 dark:to-yellow-600 relative overflow-hidden"
+      className="relative py-24 overflow-hidden bg-primary"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/95 via-amber-500/95 to-yellow-500/95 dark:from-orange-600/95 dark:via-amber-600/95 dark:to-yellow-600/95"></div>
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      {/* Subtle grid overlay */}
+      <div
+        className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff06_1px,transparent_1px),linear-gradient(to_bottom,#ffffff06_1px,transparent_1px)] bg-[size:32px_32px]"
+        aria-hidden="true"
+      />
+      {/* Radial glow */}
+      <div
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.65_0.22_255/0.3),transparent_65%)]"
+        aria-hidden="true"
+      />
 
-      <div className="relative max-w-4xl mx-auto text-center px-4 sm:px-6 space-y-6">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-white">
-          Ready to get started?
-        </h2>
-        <p className="text-base sm:text-lg text-white/90 max-w-2xl mx-auto">
-          Join thousands of teams using MeetLite.
-        </p>
+      <div className="relative max-w-3xl mx-auto text-center px-4 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.45 }}
+        >
+          <p className="text-[0.75rem] font-semibold tracking-[0.1em] uppercase text-primary-foreground/60 mb-4">
+            Get started today
+          </p>
+          <h2 className="text-[2rem] sm:text-[2.75rem] font-bold text-primary-foreground tracking-[-0.03em] mb-4">
+            Your team's first meeting
+            <br />is free, forever.
+          </h2>
+          <p className="text-[0.9375rem] text-primary-foreground/75 max-w-lg mx-auto mb-8">
+            No credit card required. Set up in under two minutes, then invite your team and start collaborating.
+          </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-4">
-          <Button
-            size="default"
-            className="w-full sm:w-auto bg-white text-orange-600 hover:bg-white/90 rounded-lg px-6 py-2.5 text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200 group"
-          >
-            Start Your First Meeting
-            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              id="cta-signup"
+              size="lg"
+              className="rounded-xl bg-white text-primary hover:bg-white/92 font-semibold px-8"
+              onClick={() => navigate('/signup')}
+            >
+              Start for free
+              <ArrowRight className="w-4 h-4" />
+            </Button>
 
-          <Button
-            variant="outline"
-            size="default"
-            className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 rounded-lg px-6 py-2.5 text-sm font-medium bg-transparent"
-          >
-            Schedule a Demo
-          </Button>
-        </div>
+            <Button
+              id="cta-demo"
+              variant="outline"
+              size="lg"
+              className="rounded-xl border-white/25 text-primary-foreground bg-white/8 hover:bg-white/15 font-semibold px-8"
+              onClick={() => navigate('/login')}
+            >
+              Book a demo
+            </Button>
+          </div>
+
+          <p className="mt-5 text-[0.75rem] text-primary-foreground/50">
+            Trusted by 10,000+ teams · SOC 2 Type II certified · 99.9% uptime SLA
+          </p>
+        </motion.div>
       </div>
     </section>
   );

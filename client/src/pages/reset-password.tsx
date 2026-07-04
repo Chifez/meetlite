@@ -13,22 +13,23 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import AuthWrapper from '@/components/auth-wrapper';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, KeyRound } from 'lucide-react';
 import api from '@/lib/axios';
+import SEO from '@/components/seo';
 
 const resetPasswordSchema = z
   .object({
     password: z
       .string()
-      .min(6, { message: 'Password must be at least 6 characters' }),
+      .min(6, { message: 'Password must be at least 6 characters.' }),
     confirmPassword: z
       .string()
-      .min(6, { message: 'Password must be at least 6 characters' }),
+      .min(6, { message: 'Password must be at least 6 characters.' }),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
+    message: 'Passwords do not match.',
     path: ['confirmPassword'],
   });
 
@@ -53,21 +54,19 @@ const ResetPassword = () => {
     const validateToken = async () => {
       const token = searchParams.get('token');
       if (!token) {
-        toast.error('Invalid reset link', {
-          description: 'The password reset link is invalid or has expired.',
+        toast.error('Invalid password reset link', {
+          description: 'The link is invalid or has expired.',
         });
         navigate('/forgot-password');
         return;
       }
 
       try {
-        await api.post('/api/auth/validate-reset-token', {
-          token,
-        });
+        await api.post('/api/auth/validate-reset-token', { token });
         setIsValidToken(true);
       } catch (error) {
-        toast.error('Invalid reset link', {
-          description: 'The password reset link is invalid or has expired.',
+        toast.error('Invalid password reset link', {
+          description: 'The link is invalid or has expired.',
         });
         navigate('/forgot-password');
       } finally {
@@ -89,10 +88,7 @@ const ResetPassword = () => {
         newPassword: data.password,
       });
 
-      toast.success('Password reset successfully', {
-        description:
-          'Your password has been updated. You can now sign in with your new password.',
-      });
+      toast.success('Password updated successfully');
       navigate('/login');
     } catch (error: any) {
       toast.error('Failed to reset password', {
@@ -103,117 +99,140 @@ const ResetPassword = () => {
     }
   };
 
+  // ── VALIDATING STATE ───────────────────────────────────────────
   if (isValidating) {
     return (
-      <AuthWrapper
-        title="Validating reset link"
-        description="Please wait while we validate your password reset link."
-      >
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </AuthWrapper>
+      <>
+        <SEO title="Validating reset link · MeetLite" />
+        <AuthWrapper
+          title="Verifying secure link"
+          description="Please wait while we confirm your password reset request."
+        >
+          <div className="flex flex-col items-center gap-4 py-8">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          </div>
+        </AuthWrapper>
+      </>
     );
   }
 
   if (!isValidToken) {
-    return null; // Will redirect to forgot-password
+    return null;
   }
 
+  // ── FORM STATE ─────────────────────────────────────────────────
   return (
-    <AuthWrapper
-      title="Reset your password"
-      description="Enter your new password below."
-      footer={
-        <p className="text-sm text-muted-foreground">
-          Remember your password?{' '}
-          <Link to="/login" className="text-primary font-medium">
-            Sign in
-          </Link>
-        </p>
-      }
-    >
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>New Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      {...field}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Confirm New Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      {...field}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Resetting password...
-              </>
-            ) : (
-              'Reset password'
-            )}
-          </Button>
-        </form>
-      </Form>
-    </AuthWrapper>
+    <>
+      <SEO title="Reset password · MeetLite" />
+      <AuthWrapper
+        title="Set new password"
+        description="Your new password must be at least 6 characters long."
+        footer={
+          <p className="text-[0.8125rem] text-muted-foreground">
+            Remember your password?{' '}
+            <Link to="/login" className="text-primary font-semibold hover:underline">
+              Sign in
+            </Link>
+          </p>
+        }
+      >
+        <div className="flex justify-center mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <KeyRound className="w-6 h-6 text-primary" />
+          </div>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        id="reset-password-input"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        className="pr-10"
+                        {...field}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4.5 w-4.5" />
+                        ) : (
+                          <Eye className="h-4.5 w-4.5" />
+                        )}
+                      </button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm new password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        id="reset-confirm-input"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        className="pr-10"
+                        {...field}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4.5 w-4.5" />
+                        ) : (
+                          <Eye className="h-4.5 w-4.5" />
+                        )}
+                      </button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              id="reset-password-submit"
+              type="submit"
+              className="w-full mt-2"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Resetting…
+                </>
+              ) : (
+                'Reset password'
+              )}
+            </Button>
+          </form>
+        </Form>
+      </AuthWrapper>
+    </>
   );
 };
 

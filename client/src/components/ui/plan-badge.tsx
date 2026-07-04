@@ -26,10 +26,10 @@ export const PlanBadge: React.FC<PlanBadgeProps> = ({
       case 'pro':
         return (
           <Badge
-            variant="default"
-            className={`text-xs bg-blue-500 ${className}`}
+            variant="outline"
+            className={`text-xs bg-primary/10 text-primary border border-primary/20 font-semibold ${className}`}
           >
-            {showIcon && <Zap className="w-3 h-3 mr-1" />}
+            {showIcon && <Zap className="w-3 h-3 mr-1 fill-primary/20" />}
             Pro
           </Badge>
         );
@@ -37,10 +37,10 @@ export const PlanBadge: React.FC<PlanBadgeProps> = ({
       case 'enterprise':
         return (
           <Badge
-            variant="default"
-            className={`text-xs bg-purple-500 ${className}`}
+            variant="outline"
+            className={`text-xs bg-purple-500/10 text-purple-500 border border-purple-500/20 font-semibold ${className}`}
           >
-            {showIcon && <Crown className="w-3 h-3 mr-1" />}
+            {showIcon && <Crown className="w-3 h-3 mr-1 fill-purple-500/20" />}
             Enterprise
           </Badge>
         );

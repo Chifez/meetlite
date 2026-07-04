@@ -47,7 +47,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
       if (item.available) {
         navigate(item.path);
         setMobileMenuOpen(false);
-        setCollapsed(true);
       }
     },
     [navigate, setMobileMenuOpen]

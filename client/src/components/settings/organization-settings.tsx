@@ -50,7 +50,6 @@ export default function OrganizationSettings() {
   const { activeOrganization, refreshOrganizations, currentWorkspaceRole } =
     useWorkspace();
 
-  // Organization settings state
   const [orgLoading, setOrgLoading] = useState(false);
   const [organization, setOrganization] = useState<any>(null);
   const [orgFormData, setOrgFormData] = useState<UpdateOrganizationData>({
@@ -60,7 +59,6 @@ export default function OrganizationSettings() {
     size: '',
   });
 
-  // Load organization details when active organization changes
   useEffect(() => {
     const loadOrganization = async () => {
       if (!activeOrganization?.id) {
@@ -95,7 +93,6 @@ export default function OrganizationSettings() {
     loadOrganization();
   }, [activeOrganization?.id]);
 
-  // Handle organization settings submission
   const onOrgSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeOrganization?.id) return;
@@ -106,10 +103,7 @@ export default function OrganizationSettings() {
         activeOrganization.id,
         orgFormData
       );
-
-      // Refresh organizations to get updated data
       await refreshOrganizations();
-
       toast.success('Organization settings updated successfully');
     } catch (error: any) {
       toast.error('Failed to update organization settings', {
@@ -120,7 +114,6 @@ export default function OrganizationSettings() {
     }
   };
 
-  // Check if user is owner using the workspace context
   const isOrganizationOwner = currentWorkspaceRole === 'owner';
 
   if (!activeOrganization) {
@@ -128,18 +121,18 @@ export default function OrganizationSettings() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
-              Organization Settings
+            <CardTitle className="flex items-center gap-2 text-[1rem] tracking-[-0.01em]">
+              <Building className="h-4 w-4 text-muted-foreground" />
+              Workspace Settings
             </CardTitle>
-            <CardDescription>No organization selected</CardDescription>
+            <CardDescription>No active workspace selected.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No organization selected</p>
-              <p className="text-sm">
-                Switch to an organization to manage its settings
+            <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-2">
+              <Users className="h-10 w-10 text-muted-foreground/60" />
+              <p className="text-[0.875rem] font-semibold text-foreground mt-2">No active workspace</p>
+              <p className="text-xs text-muted-foreground">
+                Switch to an organization workspace to manage its settings.
               </p>
             </div>
           </CardContent>
@@ -152,31 +145,87 @@ export default function OrganizationSettings() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Organization Settings
+          <CardTitle className="flex items-center gap-2 text-[1.125rem] tracking-[-0.02em]">
+            <Building className="h-4.5 w-4.5 text-primary" />
+            Workspace Settings
           </CardTitle>
           <CardDescription>
-            Manage settings for {activeOrganization.name}
+            Manage the information and defaults for {activeOrganization.name}.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onOrgSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name</Label>
-              <Input
-                id="orgName"
-                value={orgFormData.name}
-                onChange={(e) =>
-                  setOrgFormData({ ...orgFormData, name: e.target.value })
-                }
-                placeholder="Enter organization name"
-                required
-                className="max-w-xl"
-              />
+          <form onSubmit={onOrgSubmit} className="space-y-5">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="orgName">Workspace Name</Label>
+                <Input
+                  id="orgName"
+                  value={orgFormData.name}
+                  onChange={(e) =>
+                    setOrgFormData({ ...orgFormData, name: e.target.value })
+                  }
+                  placeholder="Enter workspace name"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="orgIndustry">Industry</Label>
+                <Select
+                  value={orgFormData.industry}
+                  onValueChange={(value) =>
+                    setOrgFormData({ ...orgFormData, industry: value })
+                  }
+                >
+                  <SelectTrigger id="orgIndustry">
+                    <SelectValue placeholder="Select industry" />
+                  </SelectTrigger>
+                  <SelectContent position="item-aligned">
+                    {INDUSTRY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="orgSize">Workspace Size</Label>
+                <Select
+                  value={orgFormData.size}
+                  onValueChange={(value) =>
+                    setOrgFormData({ ...orgFormData, size: value })
+                  }
+                >
+                  <SelectTrigger id="orgSize">
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent position="item-aligned">
+                    {SIZE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Member Count</Label>
+                <div className="flex items-center gap-2 h-10 px-3 py-2 border border-border bg-muted/40 rounded-xl">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-[0.875rem] font-medium text-foreground">
+                    {organization?.memberCount ?? 1} member
+                    {(organization?.memberCount ?? 1) !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="orgDescription">Description</Label>
               <Textarea
                 id="orgDescription"
@@ -187,63 +236,20 @@ export default function OrganizationSettings() {
                     description: e.target.value,
                   })
                 }
-                placeholder="What does your organization do?"
+                placeholder="What does your team do?"
                 rows={3}
-                className="max-w-xl"
               />
             </div>
 
-            <div className="relative space-y-2">
-              <Label htmlFor="orgIndustry">Industry</Label>
-              <Select
-                value={orgFormData.industry}
-                onValueChange={(value) =>
-                  setOrgFormData({ ...orgFormData, industry: value })
-                }
-              >
-                <SelectTrigger className="max-w-xl">
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent position="item-aligned">
-                  {INDUSTRY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="relative space-y-2">
-              <Label htmlFor="orgSize">Organization Size</Label>
-              <Select
-                value={orgFormData.size}
-                onValueChange={(value) =>
-                  setOrgFormData({ ...orgFormData, size: value })
-                }
-              >
-                <SelectTrigger className="max-w-xl">
-                  <SelectValue placeholder="Select size" />
-                </SelectTrigger>
-                <SelectContent position="item-aligned">
-                  {SIZE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-2 w-fit">
-              <Button type="submit" disabled={orgLoading} className="flex-1">
+            <div className="flex justify-end pt-2">
+              <Button id="org-settings-save-btn" type="submit" disabled={orgLoading || !isOrganizationOwner} className="rounded-xl font-semibold px-6">
                 {orgLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Saving...
                   </>
                 ) : (
-                  'Save Organization Changes'
+                  'Save workspace settings'
                 )}
               </Button>
             </div>

@@ -13,26 +13,28 @@ export default function MeetingViewToggle({
   setShowImportModal,
 }: MeetingViewToggleProps) {
   return (
-    <div className="flex justify-end mb-4 gap-2">
+    <div className="flex items-center gap-2">
       <Button
         size="sm"
         variant={view === 'list' ? 'default' : 'outline'}
         onClick={() => setView('list')}
+        className="rounded-xl font-semibold"
       >
-        List View
+        List
       </Button>
       <Button
         size="sm"
         variant={view === 'calendar' ? 'default' : 'outline'}
         onClick={() => setView('calendar')}
+        className="rounded-xl font-semibold"
       >
-        Calendar View
+        Calendar
       </Button>
       <Button
         size="sm"
         variant="outline"
         onClick={() => setShowImportModal(true)}
-        className="flex items-center gap-2"
+        className="flex items-center gap-1.5 rounded-xl font-semibold"
       >
         <PlusCircle className="w-4 h-4" />
         Import

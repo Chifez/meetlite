@@ -20,19 +20,19 @@ import { GoogleSignInButton } from './google-signin-button';
 
 const signupSchema = z
   .object({
-    email: z.string().email({ message: 'Please enter a valid email address' }),
+    email: z.string().email({ message: 'Enter a valid email address.' }),
     password: z
       .string()
-      .min(6, { message: 'Password must be at least 6 characters' }),
+      .min(6, { message: 'Password must be at least 6 characters.' }),
     confirmPassword: z
       .string()
-      .min(6, { message: 'Password must be at least 6 characters' }),
+      .min(6, { message: 'Password must be at least 6 characters.' }),
     agreeToTerms: z.boolean().refine((val) => val === true, {
-      message: 'You must agree to the terms and conditions',
+      message: 'You must accept the terms to continue.',
     }),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
+    message: 'Passwords do not match.',
     path: ['confirmPassword'],
   });
 
@@ -61,18 +61,18 @@ export function SignupForm({
 
   return (
     <AuthWrapper
-      title="Create an account"
+      title="Create your account"
       description={
         invitation
-          ? 'Create an account to accept your organization invitation'
-          : 'Enter your details to get started'
+          ? 'Set up your account to accept the workspace invitation.'
+          : 'Start collaborating with your team in minutes.'
       }
       footer={
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[0.8125rem] text-muted-foreground">
           Already have an account?{' '}
           <Link
             to={`/login${invitation ? `?invitation=${invitation}` : ''}`}
-            className="text-primary font-medium"
+            className="text-primary font-semibold hover:underline"
           >
             Sign in
           </Link>
@@ -86,9 +86,15 @@ export function SignupForm({
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Work email</FormLabel>
                 <FormControl>
-                  <Input placeholder="your@email.com" {...field} />
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -104,32 +110,42 @@ export function SignupForm({
           <PasswordField
             control={form.control}
             name="confirmPassword"
-            label="Confirm Password"
+            label="Confirm password"
           />
 
           <TermsCheckbox control={form.control} />
 
           <Button
+            id="signup-submit"
             type="submit"
-            size="sm"
-            className="w-full"
+            className="w-full mt-2"
             disabled={isLoading}
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating account...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating account…
               </>
             ) : (
-              'Create Account'
+              'Create account'
             )}
           </Button>
         </form>
       </Form>
 
-      <div className="pt-4">
-        <GoogleSignInButton mode="signup" />
+      {/* Divider */}
+      <div className="relative my-5">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-card px-3 text-[0.75rem] text-muted-foreground">
+            or continue with
+          </span>
+        </div>
       </div>
+
+      <GoogleSignInButton mode="signup" />
     </AuthWrapper>
   );
 }

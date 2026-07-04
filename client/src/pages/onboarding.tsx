@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Users, GraduationCap, Briefcase, Home } from 'lucide-react';
+import { Users, GraduationCap, Briefcase, Home, Loader2, ArrowLeft } from 'lucide-react';
 import SEO from '@/components/seo';
 import api from '@/lib/axios';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,7 +28,7 @@ const onboardingSchema = z
     teamSize: z.enum(['1-5', '6-20', '21-50', '50+']).optional(),
     primaryUse: z
       .array(z.string())
-      .min(1, 'Please select at least one feature'),
+      .min(1, 'Select at least one feature'),
     experience: z.enum(['beginner', 'intermediate', 'advanced']),
   })
   .refine(
@@ -68,12 +68,8 @@ const Onboarding = () => {
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
-      // Post onboarding data to backend
       await api.post('/api/auth/onboarding', data);
-
-      // Refresh profile/token-backed state
       await validateToken();
-
       toast.success('Welcome to MeetLite!');
       navigate('/dashboard');
     } catch (err) {
@@ -87,73 +83,73 @@ const Onboarding = () => {
     {
       id: 1,
       title: 'Tell us about yourself',
-      description: 'Let us personalize your experience',
+      description: 'Let us personalize your meeting experience.',
     },
     {
       id: 2,
       title: 'How will you use MeetLite?',
-      description: 'Help us understand your needs',
+      description: 'Help us understand your video collaboration needs.',
     },
     {
       id: 3,
       title: 'Almost done!',
-      description: 'Final details to get you started',
+      description: 'A few final details to get you started.',
     },
   ];
 
   const useCaseOptions = [
     {
       value: 'personal',
-      label: 'Personal Use',
+      label: 'Personal use',
       icon: Home,
-      description: 'Individual meetings and calls',
+      description: 'Individual calls and meetings',
     },
     {
       value: 'education',
       label: 'Education',
       icon: GraduationCap,
-      description: 'Schools, universities, training',
+      description: 'Virtual classrooms and learning',
     },
     {
       value: 'business',
       label: 'Business',
       icon: Briefcase,
-      description: 'Corporate meetings and presentations',
+      description: 'Enterprise calls and presentations',
     },
     {
       value: 'team',
-      label: 'Team Collaboration',
+      label: 'Team collaboration',
       icon: Users,
-      description: 'Project teams and departments',
+      description: 'Project teams and workspaces',
     },
   ];
 
   const primaryUseOptions = [
-    'Video Meetings',
-    'Screen Sharing',
-    'File Sharing',
+    'Video meetings',
+    'Screen sharing',
+    'File sharing',
     'Whiteboarding',
-    'Chat & Messaging',
-    'Recording',
-    'Calendar Integration',
-    'All',
+    'Chat & messaging',
+    'Recordings',
+    'Calendar integrations',
+    'AI transcripts',
   ];
 
   const experienceOptions = [
     {
       value: 'beginner',
       label: 'Beginner',
-      description: 'New to video conferencing',
+      description: 'New to professional video conferencing tools.',
     },
     {
       value: 'intermediate',
       label: 'Intermediate',
-      description: 'Some experience with online meetings',
+      description: 'Comfortable with standard web conferencing apps.',
     },
     {
       value: 'advanced',
       label: 'Advanced',
-      description: 'Experienced user, want advanced features',
+      description: 'Require advanced sharing, control, and sync features.',
     },
   ];
 
@@ -187,9 +183,9 @@ const Onboarding = () => {
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Full Name</FormLabel>
+            <FormLabel>Full name</FormLabel>
             <FormControl>
-              <Input placeholder="Enter your full name" {...field} />
+              <Input placeholder="Enter your name" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -202,15 +198,16 @@ const Onboarding = () => {
         name="useCase"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>What will you primarily use MeetLite for?</FormLabel>
+            <FormLabel>Primary use case</FormLabel>
             <FormControl>
               <RadioGroup
                 onValueChange={field.onChange}
                 value={field.value ?? ''}
-                className="grid grid-cols-2 gap-4 mt-2"
+                className="grid grid-cols-2 gap-3 mt-1.5"
               >
                 {useCaseOptions.map((option) => {
                   const Icon = option.icon;
+                  const isChecked = field.value === option.value;
                   return (
                     <FormItem key={option.value}>
                       <FormControl>
@@ -222,12 +219,16 @@ const Onboarding = () => {
                       </FormControl>
                       <FormLabel
                         htmlFor={option.value}
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                        className={`flex flex-col items-center justify-between rounded-xl border p-4 text-center cursor-pointer transition-colors duration-150 ${
+                          isChecked
+                            ? 'border-primary bg-primary/3'
+                            : 'border-border bg-card hover:border-primary/45 hover:bg-accent/40'
+                        }`}
                       >
-                        <Icon className="mb-3 h-6 w-6" />
-                        <div className="text-center">
-                          <div className="font-semibold">{option.label}</div>
-                          <div className="text-xs text-muted-foreground">
+                        <Icon className={`mb-2.5 h-5 w-5 ${isChecked ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div>
+                          <div className="font-semibold text-sm text-foreground tracking-[-0.01em]">{option.label}</div>
+                          <div className="text-[0.6875rem] text-muted-foreground mt-1 leading-normal">
                             {option.description}
                           </div>
                         </div>
@@ -245,7 +246,7 @@ const Onboarding = () => {
   );
 
   const renderStep2 = () => (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {form.watch('useCase') === 'team' && (
         <FormField
           key="teamSize"
@@ -253,32 +254,37 @@ const Onboarding = () => {
           name="teamSize"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Team Size</FormLabel>
+              <FormLabel>Team size</FormLabel>
               <FormControl>
                 <RadioGroup
                   onValueChange={field.onChange}
                   value={field.value ?? ''}
-                  className="grid grid-cols-2 gap-4"
+                  className="grid grid-cols-2 gap-3 mt-1.5"
                 >
-                  {['1-5', '6-20', '21-50', '50+'].map((size) => (
-                    <FormItem key={size}>
-                      <FormControl>
-                        <RadioGroupItem
-                          value={size}
-                          id={size}
-                          className="peer sr-only"
-                        />
-                      </FormControl>
-                      <FormLabel
-                        htmlFor={size}
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                      >
-                        <div className="text-center">
-                          <div className="font-semibold">{size} people</div>
-                        </div>
-                      </FormLabel>
-                    </FormItem>
-                  ))}
+                  {['1-5', '6-20', '21-50', '50+'].map((size) => {
+                    const isChecked = field.value === size;
+                    return (
+                      <FormItem key={size}>
+                        <FormControl>
+                          <RadioGroupItem
+                            value={size}
+                            id={size}
+                            className="peer sr-only"
+                          />
+                        </FormControl>
+                        <FormLabel
+                          htmlFor={size}
+                          className={`flex flex-col items-center justify-center rounded-xl border p-3.5 text-center cursor-pointer transition-colors duration-150 ${
+                            isChecked
+                              ? 'border-primary bg-primary/3'
+                              : 'border-border bg-card hover:border-primary/45 hover:bg-accent/40'
+                          }`}
+                        >
+                          <div className="font-semibold text-sm text-foreground tracking-[-0.01em]">{size} people</div>
+                        </FormLabel>
+                      </FormItem>
+                    );
+                  })}
                 </RadioGroup>
               </FormControl>
               <FormMessage />
@@ -287,24 +293,24 @@ const Onboarding = () => {
         />
       )}
 
-      {/* Single FormField for primaryUse (do NOT create a FormField per checkbox) */}
       <FormField
         key="primaryUse"
         control={form.control}
         name="primaryUse"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>What features are most important to you?</FormLabel>
+            <FormLabel>Which features are most important?</FormLabel>
             <FormControl>
-              <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="grid grid-cols-2 gap-3 mt-1.5">
                 {primaryUseOptions.map((option) => {
                   const checked = (field.value ?? []).includes(option);
                   return (
                     <div
                       key={option}
-                      className="flex flex-row items-start space-x-3 space-y-0"
+                      className="flex items-center space-x-2.5 rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-colors"
                     >
                       <Checkbox
+                        id={`use-${option}`}
                         checked={checked}
                         onCheckedChange={(checked) => {
                           const isChecked = checked === true;
@@ -318,7 +324,10 @@ const Onboarding = () => {
                           }
                         }}
                       />
-                      <FormLabel className="text-sm font-normal">
+                      <FormLabel
+                        htmlFor={`use-${option}`}
+                        className="text-[0.8125rem] text-foreground font-medium cursor-pointer"
+                      >
                         {option}
                       </FormLabel>
                     </div>
@@ -342,34 +351,41 @@ const Onboarding = () => {
         render={({ field }) => (
           <FormItem>
             <FormLabel>
-              What's your experience level with video conferencing?
+              What is your experience level?
             </FormLabel>
             <FormControl>
               <RadioGroup
                 onValueChange={field.onChange}
                 value={field.value ?? ''}
-                className="space-y-3"
+                className="space-y-2.5 mt-1.5"
               >
-                {experienceOptions.map((option) => (
-                  <FormItem key={option.value}>
-                    <FormControl>
-                      <RadioGroupItem
-                        value={option.value}
-                        id={option.value}
-                        className="peer sr-only"
-                      />
-                    </FormControl>
-                    <FormLabel
-                      htmlFor={option.value}
-                      className="flex flex-col items-start space-y-1 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                    >
-                      <div className="font-semibold">{option.label}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {option.description}
-                      </div>
-                    </FormLabel>
-                  </FormItem>
-                ))}
+                {experienceOptions.map((option) => {
+                  const isChecked = field.value === option.value;
+                  return (
+                    <FormItem key={option.value}>
+                      <FormControl>
+                        <RadioGroupItem
+                          value={option.value}
+                          id={option.value}
+                          className="peer sr-only"
+                        />
+                      </FormControl>
+                      <FormLabel
+                        htmlFor={option.value}
+                        className={`flex flex-col items-start rounded-xl border p-4 cursor-pointer transition-colors duration-150 ${
+                          isChecked
+                            ? 'border-primary bg-primary/3'
+                            : 'border-border bg-card hover:border-primary/45 hover:bg-accent/40'
+                        }`}
+                      >
+                        <div className="font-semibold text-sm text-foreground tracking-[-0.01em]">{option.label}</div>
+                        <div className="text-[0.75rem] text-muted-foreground mt-0.5 leading-normal">
+                          {option.description}
+                        </div>
+                      </FormLabel>
+                    </FormItem>
+                  );
+                })}
               </RadioGroup>
             </FormControl>
             <FormMessage />
@@ -393,35 +409,41 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <SEO
         title="Welcome to MeetLite"
-        description="Complete your profile setup"
+        description="Configure your meeting preferences"
       />
-      <div className="w-full max-w-md">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">
-              Step {currentStep} of {steps.length}
-            </span>
-            <span className="text-xs font-medium">
-              {Math.round((currentStep / steps.length) * 100)}%
-            </span>
+      {/* Ambient background glow */}
+      <div
+        className="absolute inset-0 pointer-events-none overflow-hidden"
+        aria-hidden="true"
+      >
+        <div className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-primary/5 blur-[120px]" />
+      </div>
+
+      <div className="relative w-full max-w-[440px] z-10 space-y-6">
+        {/* Step indicator */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[0.75rem] font-semibold text-muted-foreground tracking-wide uppercase">
+            <span>Step {currentStep} of {steps.length}</span>
+            <span>{Math.round((currentStep / steps.length) * 100)}%</span>
           </div>
-          <div className="w-full bg-muted rounded-full h-2">
+          <div className="w-full bg-muted rounded-full h-1">
             <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
+              className="bg-primary h-1 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / steps.length) * 100}%` }}
             />
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-6 shadow-lg">
-          <div className="text-center mb-4">
-            <h1 className="text-xl font-semibold text-foreground">
+        {/* Card */}
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <div className="text-center mb-5">
+            <h1 className="text-[1.125rem] font-bold text-foreground tracking-[-0.02em]">
               {steps[currentStep - 1].title}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground leading-relaxed mt-1">
               {steps[currentStep - 1].description}
             </p>
           </div>
@@ -430,30 +452,32 @@ const Onboarding = () => {
             <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
               {renderCurrentStep()}
 
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 {currentStep > 1 && (
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
                     onClick={prevStep}
-                    className="flex-1"
+                    className="flex-1 rounded-xl"
                   >
-                    Previous
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
                   </Button>
                 )}
                 <Button
+                  id="onboarding-next-btn"
                   type="button"
-                  size="sm"
                   onClick={nextStep}
                   disabled={isLoading}
-                  className="flex-1"
+                  className="flex-1 rounded-xl font-semibold"
                 >
-                  {isLoading
-                    ? 'Setting up...'
-                    : currentStep === steps.length
-                    ? 'Complete Setup'
-                    : 'Next'}
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : currentStep === steps.length ? (
+                    'Complete setup'
+                  ) : (
+                    'Continue'
+                  )}
                 </Button>
               </div>
             </form>

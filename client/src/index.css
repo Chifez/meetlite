@@ -44,110 +44,268 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ============================================================
+   DESIGN SYSTEM: ELECTRIC COBALT / ULTRAMARINE
+   Brand: MeetLite
+   Primary: oklch(0.56 0.21 255) — deep cobalt blue
+   Surfaces: flat, no ambient shadows, 1px crisp borders
+   Typography: tight tracking, clean hierarchy
+   ============================================================ */
+
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --radius: 0.5rem;
+  /* — Backgrounds — */
+  --background: oklch(0.99 0.002 255);
+  --foreground: oklch(0.13 0.02 255);
+  /* — Cards & Surfaces — */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.13 0.02 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.6 0.25 280);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.9 0.1 280);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.6 0.25 280);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.6 0.25 280);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.13 0.02 255);
+  /* — Brand: Electric Cobalt — */
+  --primary: oklch(0.52 0.22 255);
+  --primary-foreground: oklch(1 0 0);
+  /* — Secondary & Muted — */
+  --secondary: oklch(0.96 0.005 255);
+  --secondary-foreground: oklch(0.20 0.015 255);
+  --muted: oklch(0.95 0.005 255);
+  --muted-foreground: oklch(0.50 0.012 255);
+  /* — Accent — */
+  --accent: oklch(0.93 0.008 255);
+  --accent-foreground: oklch(0.20 0.015 255);
+  /* — Destructive — */
+  --destructive: oklch(0.56 0.22 27);
+  /* — Borders & Inputs — */
+  --border: oklch(0.91 0.006 255);
+  --input: oklch(0.91 0.006 255);
+  --ring: oklch(0.52 0.22 255);
+  /* — Charts — */
+  --chart-1: oklch(0.52 0.22 255);
+  --chart-2: oklch(0.62 0.18 195);
+  --chart-3: oklch(0.70 0.16 155);
+  --chart-4: oklch(0.75 0.15 90);
+  --chart-5: oklch(0.65 0.20 310);
+  /* — Sidebar — */
+  --sidebar: oklch(0.98 0.003 255);
+  --sidebar-foreground: oklch(0.13 0.02 255);
+  --sidebar-primary: oklch(0.52 0.22 255);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.95 0.005 255);
+  --sidebar-accent-foreground: oklch(0.20 0.015 255);
+  --sidebar-border: oklch(0.91 0.006 255);
+  --sidebar-ring: oklch(0.70 0.006 255);
+  /* — Page Background — */
   --page-gradient: linear-gradient(
     to bottom right,
-    oklch(0.98 0.01 250),
-    oklch(1 0 0)
+    oklch(0.97 0.008 255),
+    oklch(0.99 0.002 255)
   );
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.7 0.25 280);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.25 280);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.7 0.25 280);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --page-gradient: oklch(0.145 0 0);
+  /* — Backgrounds — */
+  --background: oklch(0.11 0.018 255);
+  --foreground: oklch(0.95 0.008 255);
+  /* — Cards & Surfaces — */
+  --card: oklch(0.15 0.020 255);
+  --card-foreground: oklch(0.95 0.008 255);
+  --popover: oklch(0.15 0.020 255);
+  --popover-foreground: oklch(0.95 0.008 255);
+  /* — Brand: Electric Cobalt (bright in dark) — */
+  --primary: oklch(0.60 0.22 255);
+  --primary-foreground: oklch(1 0 0);
+  /* — Secondary & Muted — */
+  --secondary: oklch(0.19 0.018 255);
+  --secondary-foreground: oklch(0.94 0.005 255);
+  --muted: oklch(0.17 0.018 255);
+  --muted-foreground: oklch(0.62 0.012 255);
+  /* — Accent — */
+  --accent: oklch(1 0 0 / 7%);
+  --accent-foreground: oklch(0.94 0.005 255);
+  /* — Destructive — */
+  --destructive: oklch(0.68 0.20 22);
+  /* — Borders & Inputs — */
+  --border: oklch(0.26 0.018 255 / 0.65);
+  --input: oklch(0.26 0.018 255 / 0.65);
+  --ring: oklch(0.60 0.22 255);
+  /* — Charts — */
+  --chart-1: oklch(0.60 0.22 255);
+  --chart-2: oklch(0.65 0.18 195);
+  --chart-3: oklch(0.72 0.16 155);
+  --chart-4: oklch(0.78 0.15 90);
+  --chart-5: oklch(0.68 0.20 310);
+  /* — Sidebar — */
+  --sidebar: oklch(0.14 0.018 255);
+  --sidebar-foreground: oklch(0.95 0.008 255);
+  --sidebar-primary: oklch(0.60 0.22 255);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.19 0.018 255);
+  --sidebar-accent-foreground: oklch(0.94 0.005 255);
+  --sidebar-border: oklch(0.26 0.018 255 / 0.65);
+  --sidebar-ring: oklch(0.50 0.008 255);
+  /* — Page Background — */
+  --page-gradient: linear-gradient(
+    135deg,
+    oklch(0.10 0.018 255) 0%,
+    oklch(0.13 0.020 255) 100%
+  );
 }
 
+/* ============================================================
+   BASE LAYER: Global resets & body defaults
+   ============================================================ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-size: 14px;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  /* Smooth focus transitions */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius);
   }
 }
 
-/* Hide scrollbar but keep functionality */
+/* ============================================================
+   UTILITIES LAYER: Reusable design tokens & helpers
+   ============================================================ */
 @layer utilities {
+  /* ---- Scrollbar ---- */
   .scrollbar-hide {
-    /* Firefox */
     scrollbar-width: none;
-    /* Safari and Chrome */
     -ms-overflow-style: none;
   }
-
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
+  /* ---- Page background ---- */
   .bg-page {
     background: var(--page-gradient);
   }
 
+  /* ---- Glass surfaces ---- */
+  /* Light glass card */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.60);
+  }
+  .dark .glass-card {
+    background: rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Heavier blur for modals */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+  }
+  .dark .glass-panel {
+    background: rgba(15, 15, 20, 0.55);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.055);
+  }
+
+  /* ---- Primary glow (active states, speakers) ---- */
+  .glow-primary {
+    box-shadow: 0 0 0 2px var(--primary), 0 0 20px -4px var(--primary);
+  }
+  .glow-primary-soft {
+    box-shadow: 0 0 16px -6px var(--primary);
+  }
+
+  /* ---- Flat card (zero shadow, crisp border) ---- */
+  .flat-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  /* ---- Typography helpers ---- */
+  .text-label {
+    font-size: 0.6875rem; /* 11px */
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* ---- Skeleton shimmer ---- */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      oklch(0.92 0.004 255) 25%,
+      oklch(0.88 0.006 255) 50%,
+      oklch(0.92 0.004 255) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md);
+  }
+  .dark .skeleton {
+    background: linear-gradient(
+      90deg,
+      oklch(0.18 0.015 255) 25%,
+      oklch(0.22 0.018 255) 50%,
+      oklch(0.18 0.015 255) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ---- Cobalt gradient for hero/CTA elements ---- */
+  .bg-cobalt-gradient {
+    background: linear-gradient(135deg, oklch(0.52 0.22 255), oklch(0.45 0.22 270));
+  }
+  .dark .bg-cobalt-gradient {
+    background: linear-gradient(135deg, oklch(0.60 0.22 255), oklch(0.52 0.22 270));
+  }
+
+  /* ---- Status dots ---- */
+  .status-dot-live {
+    background-color: oklch(0.72 0.20 145);
+    box-shadow: 0 0 8px oklch(0.72 0.20 145 / 0.6);
+  }
+  .status-dot-pending {
+    background-color: oklch(0.78 0.16 80);
+  }
+  .status-dot-ended {
+    background-color: oklch(0.55 0.005 255);
+  }
+
+  /* ---- SVG dashes animation ---- */
   @keyframes dash {
-    to {
-      stroke-dashoffset: -6;
-    }
+    to { stroke-dashoffset: -6; }
   }
 }

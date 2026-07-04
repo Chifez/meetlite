@@ -5,13 +5,13 @@ import { useCurrentPlan } from '@/hooks/use-current-plan';
 import { MemberList } from '@/components/organization/member-list';
 import { InviteMemberModal } from '@/components/organization/invite-member-modal';
 import { TeamAssignmentPanel } from '@/components/organization/team-assignment-panel';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Users, AlertCircle, UserPlus, UsersRound } from 'lucide-react';
+import { Users, AlertCircle, UserPlus, UsersRound, RefreshCcw, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import SEO from '@/components/seo';
 
 const MembersPage: React.FC = () => {
   const { activeOrganization, isPersonalMode } = useWorkspace();
@@ -24,14 +24,12 @@ const MembersPage: React.FC = () => {
   const isFreePlan = currentPlan === 'free';
   const showTeamsTab = !isFreePlan;
 
-  // Redirect if not in organization mode
   useEffect(() => {
     if (isPersonalMode || !activeOrganization) {
       navigate('/dashboard');
     }
   }, [isPersonalMode, activeOrganization, navigate]);
 
-  // Fetch members when organization changes
   useEffect(() => {
     if (activeOrganization?.id) {
       setHasAttemptedLoad(true);
@@ -39,142 +37,138 @@ const MembersPage: React.FC = () => {
     }
   }, [activeOrganization?.id, fetchMembers]);
 
-  // Debug: Log members
-  useEffect(() => {
-    if (members) {
-      console.log('[FRONTEND] MembersPage received:', {
-        membersCount: members.members?.length,
-      });
-    }
-  }, [members]);
-
   if (isPersonalMode || !activeOrganization) {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
+  // ── LOADING STATE ──────────────────────────────────────────────
   if (loading || !hasAttemptedLoad) {
     return (
-      <div className="min-h-screen bg-background pt-20 md:pt-24">
-        <div className="container mx-auto px-4 py-6 max-w-4xl">
-          <div className="space-y-6">
-            {/* Header Skeleton */}
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-6 w-6" />
-              <div>
-                <Skeleton className="h-8 w-48 mb-2" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-            </div>
-
-            {/* Content Skeleton */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-32 mb-1" />
-                        <Skeleton className="h-3 w-48" />
-                      </div>
-                      <Skeleton className="h-6 w-16" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Only show error if we've attempted to load and it failed
-  if (!members && hasAttemptedLoad && !loading) {
-    return (
       <DashboardLayout>
-        <div className="container mx-auto px-4 py-6 max-w-4xl">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
-              <h3 className="text-lg font-semibold mb-2">
-                Failed to Load Members
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                We couldn't load the member list for this organization.
-              </p>
-              <Button
-                size="sm"
-                onClick={() => fetchMembers(activeOrganization.id)}
-              >
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+        <SEO title="Members · MeetLite" />
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-60" />
+          </div>
+          <Skeleton className="h-9 w-28" />
+        </div>
+
+        {/* Row skeletons */}
+        <div className="border border-border rounded-2xl overflow-hidden divide-y divide-border">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+              <Skeleton className="w-9 h-9 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-36" />
+                <Skeleton className="h-3 w-52" />
+              </div>
+              <Skeleton className="h-5 w-14 rounded-full" />
+              <Skeleton className="h-7 w-7 rounded-lg" />
+            </div>
+          ))}
         </div>
       </DashboardLayout>
     );
   }
 
-  // Don't render main content until we have members data
-  if (!members) {
-    return null;
+  // ── ERROR STATE ────────────────────────────────────────────────
+  if (!members && hasAttemptedLoad && !loading) {
+    return (
+      <DashboardLayout>
+        <SEO title="Members · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-destructive" />
+          </div>
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em] mb-1">
+              Failed to load members
+            </h2>
+            <p className="text-[0.8125rem] text-muted-foreground max-w-xs">
+              We couldn't retrieve the member list for this workspace. Check your connection and try again.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fetchMembers(activeOrganization.id)}
+            className="gap-1.5"
+          >
+            <RefreshCcw className="w-3.5 h-3.5" />
+            Retry
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
   }
+
+  if (!members) return null;
 
   const userRole = members.userRole;
   const isOwner = userRole === 'owner';
 
+  // ── POPULATED STATE ────────────────────────────────────────────
   return (
     <DashboardLayout>
-      {/* Page Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-          <Users className="h-5 w-5 text-blue-600" />
-        </div>
+      <SEO title={`Members · ${activeOrganization.name} · MeetLite`} />
+
+      {/* Page header */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg md:text-xl font-semibold text-foreground capitalize">
-            {activeOrganization.name} members
+          <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+            Team members
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Manage team members and invitations for your organization
+          <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+            {members.organization.memberCount} of {members.organization.maxMembers} seats used
+            in {activeOrganization.name}
           </p>
         </div>
+        {isOwner && (
+          <Button
+            id="invite-member-btn"
+            size="sm"
+            onClick={() => setInviteModalOpen(true)}
+            className="gap-1.5"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Invite member
+          </Button>
+        )}
       </div>
 
-      {/* Permission Notice for Non-Owners */}
+      {/* Read-only notice for non-owners */}
       {!isOwner && (
-        <Card className="mb-6 border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Users className="h-4 w-4 text-blue-600" />
-              <div>
-                <p className="text-xs font-medium text-blue-900">Member View</p>
-                <p className="text-xs text-blue-700">
-                  You can view team members but only organization owners can
-                  invite or remove members.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
+          <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-[0.8125rem] font-semibold text-foreground">
+              View-only access
+            </p>
+            <p className="text-[0.75rem] text-muted-foreground mt-0.5">
+              Only workspace owners can invite or remove members.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="members" className="gap-2">
-            <UserPlus className="h-4 w-4" />
-            Invite to Organization
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="members" className="gap-1.5">
+            <Users className="w-3.5 h-3.5" />
+            Members
           </TabsTrigger>
           {showTeamsTab && (
-            <TabsTrigger value="teams" className="gap-2">
-              <UsersRound className="h-4 w-4" />
-              Add to Teams
+            <TabsTrigger value="teams" className="gap-1.5">
+              <UsersRound className="w-3.5 h-3.5" />
+              Teams
             </TabsTrigger>
           )}
         </TabsList>
 
-        <TabsContent value="members" className="mt-0">
+        <TabsContent value="members">
           <MemberList
             organizationId={activeOrganization.id}
             organizationName={activeOrganization.name}
@@ -189,7 +183,7 @@ const MembersPage: React.FC = () => {
         </TabsContent>
 
         {showTeamsTab && (
-          <TabsContent value="teams" className="mt-0">
+          <TabsContent value="teams">
             <TeamAssignmentPanel
               organizationId={activeOrganization.id}
               members={members.members}
@@ -199,7 +193,6 @@ const MembersPage: React.FC = () => {
         )}
       </Tabs>
 
-      {/* Invite Member Modal */}
       <InviteMemberModal
         open={inviteModalOpen}
         onOpenChange={setInviteModalOpen}

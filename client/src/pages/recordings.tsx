@@ -179,122 +179,93 @@ export default function Recordings() {
 
   if (!activeOrganization) {
     return (
-      <div className="min-h-screen bg-background pt-20 md:pt-24">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-center h-64">
-            <p className="text-sm text-muted-foreground">
-              Please select an organization to view recordings.
-            </p>
-          </div>
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+          <p className="text-[0.875rem] text-muted-foreground">
+            Select a workspace to view recordings.
+          </p>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <div className="mx-auto px-4 space-y-6 max-w-7xl">
-        {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-1">
-              <h1 className="text-xl font-semibold text-foreground">
-                {showArchived ? 'Archived Recordings' : 'Meeting Recordings'}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {showArchived
-                  ? 'View and manage archived meeting recordings.'
-                  : "Manage and access your organization's meeting recordings, transcripts, and AI summaries."}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant={showArchived ? 'outline' : 'default'}
-                onClick={() => setShowArchived(!showArchived)}
-              >
-                {showArchived ? 'Show Active' : 'Show Archived'}
-              </Button>
-              {canUploadRecordings && (
-                <Button size="sm" onClick={() => setShowUploadModal(true)}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Recording
-                </Button>
-              )}
-            </div>
+      <div className="space-y-6">
+        {/* Page header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+              {showArchived ? 'Archived recordings' : 'Meeting recordings'}
+            </h1>
+            <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+              {showArchived
+                ? 'Browse and restore archived recordings.'
+                : 'Access recordings, AI transcripts, and summaries from your workspace meetings.'}
+            </p>
           </div>
-
-          {/* Search and Filters */}
-          <div className="flex flex-col justify-between sm:flex-row gap-3">
-            <div className="flex-1 max-w-md">
-              <RecordingsSearch onSearchChange={handleSearchChange} />
-            </div>
-            <div className="flex gap-2">
-              <RecordingsFilterModal
-                onFiltersChange={handleFiltersChange}
-                totalCount={stats.totalRecordings}
-              />
-              <RecordingsExport onExport={exportRecordings} />
-            </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={showArchived ? 'default' : 'outline'}
+              onClick={() => setShowArchived(!showArchived)}
+            >
+              {showArchived ? 'Show active' : 'Show archived'}
+            </Button>
+            {canUploadRecordings && (
+              <Button size="sm" onClick={() => setShowUploadModal(true)} className="gap-1.5">
+                <Upload className="w-3.5 h-3.5" />
+                Upload
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 max-w-sm">
+            <RecordingsSearch onSearchChange={handleSearchChange} />
+          </div>
+          <div className="flex gap-2">
+            <RecordingsFilterModal
+              onFiltersChange={handleFiltersChange}
+              totalCount={stats.totalRecordings}
+            />
+            <RecordingsExport onExport={exportRecordings} />
+          </div>
+        </div>
+
+        {/* Stats strip */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-card p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <Video className="w-4 h-4 text-blue-500" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  Total Recordings
-                </span>
+            {[
+              { label: 'Recordings', value: stats.totalRecordings, icon: Video },
+              { label: 'Transcripts', value: stats.completedTranscripts, icon: FileText },
+              { label: 'Storage', value: `${(stats.totalSize / (1024 * 1024 * 1024)).toFixed(1)} GB`, icon: Download },
+              { label: 'AI summaries', value: stats.completedSummaries, icon: FileText },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="border border-border bg-card rounded-xl p-4">
+                <p className="text-label mb-2">{label}</p>
+                <p className="text-[1.25rem] font-bold text-foreground tabular-nums tracking-[-0.02em]">{value}</p>
               </div>
-              <p className="text-xl font-semibold">{stats.totalRecordings}</p>
-            </div>
-            <div className="bg-card p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-4 h-4 text-green-500" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  Transcripts
-                </span>
-              </div>
-              <p className="text-xl font-semibold">
-                {stats.completedTranscripts}
-              </p>
-            </div>
-            <div className="bg-card p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <Download className="w-4 h-4 text-purple-500" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  Total Size
-                </span>
-              </div>
-              <p className="text-xl font-semibold">
-                {(stats.totalSize / (1024 * 1024 * 1024)).toFixed(1)} GB
-              </p>
-            </div>
-            <div className="bg-card p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-4 h-4 text-orange-500" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  AI Summaries
-                </span>
-              </div>
-              <p className="text-xl font-semibold">
-                {stats.completedSummaries}
-              </p>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* Recordings Grid */}
+        {/* Recordings Grid - Loading / Empty / Populated */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card rounded-lg border p-4 space-y-3">
-                <div className="h-4 bg-muted rounded animate-pulse" />
-                <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
-                <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="border border-border rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="skeleton w-8 h-8 rounded-xl" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="skeleton h-3.5 w-3/4" />
+                    <div className="skeleton h-3 w-1/2" />
+                  </div>
+                </div>
+                <div className="skeleton h-24 w-full rounded-xl" />
+                <div className="skeleton h-3 w-full" />
               </div>
             ))}
           </div>
@@ -316,24 +287,30 @@ export default function Recordings() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <Video className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No recordings yet</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {canUploadRecordings
-                ? 'Upload your first meeting recording to get started.'
-                : 'No recordings available. Contact your organization owner or admin to upload recordings.'}
-            </p>
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
+              <Video className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em]">
+                No recordings yet
+              </p>
+              <p className="text-[0.8125rem] text-muted-foreground mt-1 max-w-xs">
+                {canUploadRecordings
+                  ? 'Upload your first recording to get started.'
+                  : 'No recordings available. Contact a workspace admin to upload recordings.'}
+              </p>
+            </div>
             {canUploadRecordings && (
-              <Button size="sm" onClick={() => setShowUploadModal(true)}>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Recording
+              <Button size="sm" onClick={() => setShowUploadModal(true)} className="gap-1.5">
+                <Upload className="w-3.5 h-3.5" />
+                Upload recording
               </Button>
             )}
           </div>
         )}
       </div>
-      {/* Video Player Modal */}
+
       {selectedRecording && (
         <VideoPlayerModal
           recording={selectedRecording}
@@ -344,7 +321,6 @@ export default function Recordings() {
         />
       )}
 
-      {/* Upload Modal */}
       <UploadRecordingModal
         open={showUploadModal}
         onOpenChange={setShowUploadModal}

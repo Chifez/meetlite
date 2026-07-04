@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { LucideIcon } from 'lucide-react';
 
 interface ControlButtonProps {
@@ -28,34 +27,35 @@ export const ControlButton = ({
 
   const getVariantStyles = () => {
     if (isDestructive) {
-      return 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive text-white';
+      return 'bg-rose-600 hover:bg-rose-500 text-white border-transparent';
     }
     if (activeState) {
-      return 'bg-primary text-primary-foreground hover:bg-primary/90 border-primary';
+      return 'bg-primary hover:bg-primary/95 text-white border-transparent';
     }
+    // Muted/disabled media state
     if (!activeState && IconAlt) {
-      return 'bg-muted text-muted-foreground hover:bg-muted/80 border-muted';
+      return 'bg-zinc-800 hover:bg-zinc-700 text-rose-400 border-zinc-700/80';
     }
-    return 'bg-background text-foreground hover:bg-muted border-border';
+    return 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800';
   };
 
   return (
-    <Button
-      variant="outline"
-      size="icon"
+    <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-2 rounded-full h-12 w-12 transition-all duration-200 ${getVariantStyles()} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold tracking-[-0.01em] transition-all duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 rounded-xl h-10 border ${
+        children ? 'px-4' : 'w-10'
+      } ${getVariantStyles()} ${className}`}
       title={title}
     >
       {IconAlt && !activeState ? (
-        <IconAlt className="h-5 w-5" />
+        <IconAlt className="h-4.5 w-4.5" />
       ) : (
         <>
+          <Icon className="h-4.5 w-4.5" />
           {children}
-          <Icon className="h-5 w-5" />
         </>
       )}
-    </Button>
+    </button>
   );
 };

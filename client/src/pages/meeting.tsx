@@ -14,8 +14,9 @@ import ImportModal from '@/components/meeting/import-modal';
 import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import MeetingViewToggle from '@/components/meetings/meeting-view-toggle';
-import MeetingsWelcomeHeader from '@/components/meetings/meetings-welcome-header';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
 
 const Meetings = () => {
   const { user } = useAuth();
@@ -48,7 +49,6 @@ const Meetings = () => {
   const oauthStatus = searchParams.get('oauth');
   const provider = searchParams.get('provider');
 
-  // Handle OAuth callback side effects
   useEffect(() => {
     if (oauthStatus === 'success' && provider === 'google') {
       toast.success('Google Calendar connected successfully!');
@@ -68,7 +68,6 @@ const Meetings = () => {
     }
   };
 
-  // Use the custom hook for form state management
   const {
     formData,
     loading: formLoading,
@@ -142,7 +141,7 @@ const Meetings = () => {
 
   return (
     <>
-      <SEO title="Meetings" />
+      <SEO title="Meetings · MeetLite" />
       <SmartSchedulingModal
         open={showScheduleModal}
         onOpenChange={(open) => !open && closeScheduleModal()}
@@ -159,13 +158,32 @@ const Meetings = () => {
         onScheduleOnCalendar={handleScheduleOnCalendar}
       />
       <DashboardLayout>
-        <MeetingsWelcomeHeader onSchedule={openScheduleModal} />
-
-        <MeetingViewToggle
-          view={view}
-          setView={setView}
-          setShowImportModal={setShowImportModal}
-        />
+        {/* Compact, Left-Aligned Header Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+              Meetings
+            </h1>
+            <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+              View, schedule, and manage all your meetings in one place.
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              id="meetings-schedule-btn"
+              size="sm"
+              onClick={openScheduleModal}
+              className="gap-1.5 rounded-xl font-semibold"
+            >
+              <PlusCircle className="h-4 w-4" /> Schedule Meeting
+            </Button>
+            <MeetingViewToggle
+              view={view}
+              setView={setView}
+              setShowImportModal={setShowImportModal}
+            />
+          </div>
+        </div>
 
         {view === 'list' ? (
           <MeetingListSection

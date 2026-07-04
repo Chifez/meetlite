@@ -3,14 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   Select,
   SelectContent,
   SelectGroup,
@@ -247,86 +239,78 @@ const Lobby = () => {
 
   if (isLoading) {
     return (
-      <div className="container flex flex-col items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
-        <p>Loading...</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+        <p className="text-[0.875rem] text-muted-foreground">Setting up your devices…</p>
       </div>
     );
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Meeting Lobby</CardTitle>
-          <CardDescription>
-            Preview your camera and microphone before joining
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col items-center">
-            <div className="relative w-full max-w-md h-64 md:h-80 bg-muted rounded-lg overflow-hidden mb-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      {/* Ambient glow */}
+      <div className="absolute top-[-20%] left-[20%] w-[700px] h-[700px] rounded-full bg-primary/5 blur-[140px] pointer-events-none" aria-hidden="true" />
+
+      <div className="relative w-full max-w-3xl">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">Ready to join?</h1>
+          <p className="text-[0.8125rem] text-muted-foreground mt-1">
+            Adjust your camera and microphone before entering the room.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-5">
+          {/* Video preview */}
+          <div className="space-y-3">
+            <div className="relative w-full aspect-video bg-muted rounded-2xl overflow-hidden">
               <video
                 ref={videoRef}
                 autoPlay
                 muted
                 playsInline
-                className={`w-full h-full object-cover ${
-                  !mediaState.videoEnabled ? 'hidden' : ''
-                }`}
+                className={`w-full h-full object-cover ${!mediaState.videoEnabled ? 'hidden' : ''}`}
               />
 
               {!mediaState.videoEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                  <VideoOff className="h-12 w-12 text-muted-foreground" />
+                  <VideoOff className="w-10 h-10 text-muted-foreground/50" />
                 </div>
               )}
 
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-background/80 backdrop-blur-sm rounded-full p-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`rounded-full ${
-                    !mediaState.audioEnabled
-                      ? 'bg-destructive text-destructive-foreground'
-                      : ''
-                  }`}
+              {/* Toggle controls overlay */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-xl p-1.5">
+                <button
                   onClick={toggleAudio}
-                >
-                  {mediaState.audioEnabled ? (
-                    <Mic className="h-5 w-5" />
-                  ) : (
-                    <MicOff className="h-5 w-5" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`rounded-full ${
-                    !mediaState.videoEnabled
-                      ? 'bg-destructive text-destructive-foreground'
-                      : ''
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                    !mediaState.audioEnabled
+                      ? 'bg-destructive text-white'
+                      : 'bg-white/15 text-white hover:bg-white/25'
                   }`}
-                  onClick={toggleVideo}
                 >
-                  {mediaState.videoEnabled ? (
-                    <VideoIcon className="h-5 w-5" />
-                  ) : (
-                    <VideoOff className="h-5 w-5" />
-                  )}
-                </Button>
+                  {mediaState.audioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={toggleVideo}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                    !mediaState.videoEnabled
+                      ? 'bg-destructive text-white'
+                      : 'bg-white/15 text-white hover:bg-white/25'
+                  }`}
+                >
+                  {mediaState.videoEnabled ? <VideoIcon className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Camera</label>
-              <Select
-                value={selectedDevices.video}
-                onValueChange={changeVideoDevice}
-              >
-                <SelectTrigger>
+          {/* Settings panel */}
+          <div className="flex flex-col gap-4">
+            {/* Camera select */}
+            <div className="space-y-1.5">
+              <label className="text-[0.8125rem] font-medium text-foreground">Camera</label>
+              <Select value={selectedDevices.video} onValueChange={changeVideoDevice}>
+                <SelectTrigger id="lobby-camera-select">
                   <SelectValue placeholder="Select camera" />
                 </SelectTrigger>
                 <SelectContent>
@@ -341,13 +325,11 @@ const Lobby = () => {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Microphone</label>
-              <Select
-                value={selectedDevices.audio}
-                onValueChange={changeAudioDevice}
-              >
-                <SelectTrigger>
+            {/* Microphone select */}
+            <div className="space-y-1.5">
+              <label className="text-[0.8125rem] font-medium text-foreground">Microphone</label>
+              <Select value={selectedDevices.audio} onValueChange={changeAudioDevice}>
+                <SelectTrigger id="lobby-mic-select">
                   <SelectValue placeholder="Select microphone" />
                 </SelectTrigger>
                 <SelectContent>
@@ -361,26 +343,30 @@ const Lobby = () => {
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Room Code:</span>
-              <code className="px-2 py-1 bg-background rounded text-sm">
-                {roomId}
-              </code>
+            {/* Room code chip */}
+            <div className="flex items-center justify-between border border-border rounded-xl px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[0.75rem] text-muted-foreground font-medium">Room</span>
+                <code className="text-[0.8125rem] font-mono font-semibold text-foreground">{roomId}</code>
+              </div>
+              <Button variant="ghost" size="icon-sm" onClick={copyRoomLink} title="Copy meeting link">
+                <Copy className="w-3.5 h-3.5" />
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={copyRoomLink}>
-              <Copy className="h-4 w-4 mr-2" /> Copy Link
+
+            {/* Join CTA */}
+            <Button
+              id="lobby-join-btn"
+              size="lg"
+              className="w-full rounded-xl font-semibold mt-auto"
+              onClick={joinMeeting}
+            >
+              Join room
             </Button>
           </div>
-        </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button onClick={joinMeeting} size="sm">
-            Join Meeting
-          </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

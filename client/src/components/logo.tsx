@@ -36,7 +36,7 @@ export default function Logo({
   const currentVariant = variantClasses[variant];
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center gap-1.5 justify-start">
       <img src="/logo.svg" alt="Logo" className={currentSize.container} />
       <span className={`${currentSize.text} font-bold ${currentVariant.text}`}>
         MeetLite

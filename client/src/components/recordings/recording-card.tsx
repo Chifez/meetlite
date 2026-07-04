@@ -55,7 +55,7 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({
   return (
     <div>
       <Card
-        className={cn('group hover:shadow-lg transition-shadow', className)}
+        className={cn('group border border-border/80 hover:border-primary/40 transition-colors shadow-none rounded-2xl bg-card overflow-hidden', className)}
       >
         <VideoHeader
           recording={recording}

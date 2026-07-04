@@ -1,9 +1,7 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Users,
   Calendar,
   Clock,
   Video,
@@ -19,6 +17,8 @@ import { useMeetingsStore } from '@/stores/meetings-store';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import { formatRecurrenceFrequency } from '@/lib/recurrence-utils';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 interface MeetingCardProps {
   meeting: Meeting;
@@ -33,7 +33,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   const navigate = useNavigate();
   const { startMeeting, completeMeeting, openDeleteDialog } =
     useMeetingsStore();
-  // Fallbacks for imported events
+
   const scheduledTime = meeting.scheduledTime || '';
   const duration = meeting.duration || 60;
   const privacy = meeting.privacy || 'public';
@@ -42,43 +42,50 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   const participants = meeting.participants || [];
   const userId = user?.id;
 
-  // Compute display status
+  // Compute status info
   const getDisplayStatus = () => {
     const now = new Date();
     const start = new Date(scheduledTime);
     const end = new Date(start.getTime() + duration * 60000);
+    
     if (
       statusValue === 'ongoing' ||
       (statusValue === 'scheduled' && now >= start && now <= end)
     ) {
       return {
-        label: 'Started',
-        color:
-          'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
+        label: 'Ongoing',
+        dotColor: 'bg-green-500 shadow-[0_0_10px_#22c55e]',
+        textColor: 'text-green-600 dark:text-green-400',
+        pulse: true,
       };
     }
     if (statusValue === 'completed' || now > end) {
       return {
         label: 'Ended',
-        color:
-          'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300',
+        dotColor: 'bg-zinc-400 dark:bg-zinc-600',
+        textColor: 'text-muted-foreground',
+        pulse: false,
       };
     }
     if (statusValue === 'cancelled') {
       return {
         label: 'Cancelled',
-        color: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
+        dotColor: 'bg-red-500 shadow-[0_0_10px_#ef4444]',
+        textColor: 'text-red-500',
+        pulse: false,
       };
     }
-    // Default: not started
+    // Default: Scheduled / Not started
     return {
-      label: 'Not Started',
-      color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+      label: 'Scheduled',
+      dotColor: 'bg-blue-500 shadow-[0_0_10px_#3b82f6]',
+      textColor: 'text-blue-500',
+      pulse: false,
     };
   };
 
   const getTypeIcon = (type: string) => {
-    const iconProps = { className: 'w-4 h-4 flex-shrink-0' };
+    const iconProps = { className: 'w-4 h-4 text-muted-foreground' };
     switch (type) {
       case 'private':
         return <Lock {...iconProps} />;
@@ -89,7 +96,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     }
   };
 
-  // Determine button state based on user role and meeting status
   const getButtonState = () => {
     const isCreator = createdBy === userId;
     const isOngoing =
@@ -102,7 +108,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     const isCancelled = statusValue === 'cancelled';
 
     if (isCompleted || isCancelled) {
-      return { type: 'disabled', text: 'Meeting Ended', disabled: true };
+      return { type: 'disabled', text: 'Ended', disabled: true };
     }
 
     if (isCreator) {
@@ -112,21 +118,29 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         return { type: 'start', text: 'Start', disabled: false };
       }
     } else {
-      // Not creator (invited user)
       if (isOngoing) {
         return { type: 'join', text: 'Join', disabled: false };
       } else {
-        return { type: 'disabled', text: 'Waiting for Host', disabled: true };
+        return { type: 'disabled', text: 'Waiting...', disabled: true };
       }
     }
   };
 
   const statusObj = getDisplayStatus();
   const buttonState = getButtonState();
-  const maxParticipantsToShow = 3;
-  const visibleParticipants = participants.slice(0, maxParticipantsToShow);
-  const overflowCount = participants.length - maxParticipantsToShow;
+  const maxAvatars = 4;
+  const visibleParticipants = participants.slice(0, maxAvatars);
+  const overflowCount = participants.length - maxAvatars;
   const recurrenceFrequency = formatRecurrenceFrequency(meeting);
+
+  const getInitials = (email: string) => {
+    const cleanEmail = email.split('@')[0];
+    const parts = cleanEmail.split(/[._-]/);
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return cleanEmail.slice(0, 2).toUpperCase();
+  };
 
   const handleButtonClick = async () => {
     if (buttonState.disabled) return;
@@ -136,12 +150,10 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         const roomId = await startMeeting(meeting.meetingId);
         navigate(`/lobby/${roomId}`);
       } else if (buttonState.type === 'join') {
-        // Try to start the meeting (this will work if you're the host)
         try {
           const roomId = await startMeeting(meeting.meetingId);
           navigate(`/lobby/${roomId}`);
         } catch (error: any) {
-          // If you're not the host or meeting isn't started, navigate to join page
           navigate(`/meeting/${meeting.meetingId}/join`);
         }
       } else if (buttonState.type === 'end') {
@@ -153,152 +165,151 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   };
 
   const handleDeleteMeeting = async () => {
-    // Check if this is a Google Calendar meeting
     if (meeting.source === 'google' && meeting.externalId) {
-      // For Google Calendar meetings, we need to handle the deletion after confirmation
-      // We'll store the meeting info in the store and handle the actual deletion there
       openDeleteDialog(meeting.meetingId, {
         isGoogleCalendar: true,
         externalId: meeting.externalId,
       });
     } else {
-      // Internal meeting - use existing delete dialog
       openDeleteDialog(meeting.meetingId);
     }
   };
 
   return (
-    <Card className="group hover:shadow-md transition-all duration-300 border-l-4 border-l-indigo-500">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
-          <div className="space-y-2 min-w-0 flex-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                {getTypeIcon(privacy)}
-                <h4 className="font-medium text-foreground group-hover:text-primary transition-colors text-sm sm:text-base truncate">
-                  {meeting.title}
-                </h4>
-                {recurrenceFrequency && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-2 px-2 py-0.5 text-xs font-medium bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900"
-                  >
-                    {recurrenceFrequency}
-                  </Badge>
-                )}
-                {meeting.source === 'google' && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900">
-                    Google
-                  </span>
-                )}
-              </div>
-              <span
-                className={`md:hidden px-2 py-1 rounded-full text-xs font-medium ${statusObj.color}`}
-              >
-                {statusObj.label}
-              </span>
-            </div>
-            <div className="flex items-center justify-between md:grid md:grid-cols-4 gap-1 md:gap-2 text-xs sm:text-sm text-muted-foreground">
-              <div className="flex items-center space-x-1">
-                <Calendar className="h-3 w-3 flex-shrink-0" />
-                <span className="text-nowrap">
-                  {format(new Date(scheduledTime), 'MMM,dd yyyy')}
-                </span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Clock className="h-3 w-3 flex-shrink-0" />
-                <span>
-                  {new Date(scheduledTime).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Users className="h-3 w-3 flex-shrink-0" />
-                <span>{participants.length}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Clock className="h-3 w-3 flex-shrink-0" />
-                <span>{duration} min</span>
-              </div>
-            </div>
-            {/* Participants badges */}
-            {participants.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                <span className="text-[14px] font-semibold">participants:</span>{' '}
-                {visibleParticipants.map((p, idx) => (
-                  <Badge
-                    key={p + idx}
-                    variant="secondary"
-                    className="truncate max-w-[300px]"
-                  >
-                    {p}
-                  </Badge>
-                ))}
-                {overflowCount > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-muted text-muted-foreground"
-                  >
-                    +{overflowCount} more
-                  </Badge>
-                )}
-              </div>
+    <div className="glass-card hover:border-primary/50 hover:shadow-md transition-all duration-300 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden group">
+      
+      {/* 1. Left Section: Title & Metadata */}
+      <div className="flex-1 min-w-0 space-y-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Status Pulsing Dot */}
+          <span className="relative flex h-2 w-2">
+            {statusObj.pulse && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             )}
-            {meeting.description && (
-              <div className="text-xs text-muted-foreground line-clamp-2">
-                {meeting.description}
-              </div>
-            )}
+            <span className={cn("relative inline-flex rounded-full h-2 w-2", statusObj.dotColor)}></span>
+          </span>
+
+          <div className="flex items-center space-x-1.5 min-w-0">
+            {getTypeIcon(privacy)}
+            <h4 className="font-bold text-foreground truncate group-hover:text-primary transition-colors text-sm sm:text-base">
+              {meeting.title}
+            </h4>
           </div>
-          {/* Status, Action button, and Delete icon column */}
-          <div className="flex flex-col items-end gap-2">
-            <span
-              className={`hidden md:block px-2 py-1 rounded-full text-xs font-medium ${statusObj.color}`}
+
+          <div className="flex gap-1.5 flex-wrap">
+            {recurrenceFrequency && (
+              <Badge
+                variant="secondary"
+                className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400"
+              >
+                {recurrenceFrequency}
+              </Badge>
+            )}
+            {meeting.source === 'google' && (
+              <Badge
+                variant="secondary"
+                className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/10 border-blue-500/25 text-blue-600 dark:text-blue-400"
+              >
+                Google
+              </Badge>
+            )}
+            <Badge
+              variant="outline"
+              className={cn("px-2 py-0.5 text-[10px] font-bold border-none bg-transparent", statusObj.textColor)}
             >
               {statusObj.label}
-            </span>
-            <span className="flex items-center gap-1">
-              {(createdBy === userId || meeting.source === 'google') && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-destructive hover:bg-destructive/10"
-                  onClick={handleDeleteMeeting}
-                  aria-label="Delete meeting"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
-              {showJoinButton && (
-                <Button
-                  size="sm"
-                  onClick={handleButtonClick}
-                  disabled={buttonState.disabled}
-                  variant={
-                    buttonState.disabled
-                      ? 'secondary'
-                      : buttonState.type === 'end'
-                      ? 'destructive'
-                      : 'default'
-                  }
-                >
-                  {buttonState.type === 'start' ? (
-                    <Play className="h-3 w-3 mr-1" />
-                  ) : buttonState.type === 'end' ? (
-                    <Square className="h-3 w-3 mr-1" />
-                  ) : (
-                    <Video className="h-3 w-3 mr-1" />
-                  )}
-                  {buttonState.text}
-                </Button>
-              )}
-            </span>
+            </Badge>
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Date and Time Row */}
+        <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            <span>
+              {format(new Date(scheduledTime), 'MMM dd, yyyy')} • {new Date(scheduledTime).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+          <span>•</span>
+          <span>{duration} minutes duration</span>
+        </div>
+
+        {meeting.description && (
+          <p className="text-xs text-muted-foreground line-clamp-1 max-w-2xl">
+            {meeting.description}
+          </p>
+        )}
+      </div>
+
+      {/* 2. Middle Section: Stacked Avatars */}
+      {participants.length > 0 && (
+        <div className="flex items-center space-x-2 shrink-0 md:justify-center">
+          <span className="text-xs font-bold text-muted-foreground md:hidden">Attendees:</span>
+          <div className="flex -space-x-2.5 overflow-hidden">
+            {visibleParticipants.map((p, idx) => (
+              <Tooltip key={p + idx}>
+                <TooltipTrigger asChild>
+                  <div className="w-8 h-8 rounded-full bg-primary/10 border-2 border-background text-[10px] font-bold text-primary flex items-center justify-center cursor-pointer transition-transform hover:translate-y-[-2px] hover:z-10">
+                    {getInitials(p)}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-popover border border-border shadow-md rounded-lg font-semibold px-2.5 py-1.5 text-xs text-foreground backdrop-blur-md">
+                  {p}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            {overflowCount > 0 && (
+              <div className="w-8 h-8 rounded-full bg-muted border-2 border-background text-[10px] font-bold text-muted-foreground flex items-center justify-center">
+                +{overflowCount}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Right Section: Action Controls */}
+      <div className="flex items-center justify-end gap-2.5 shrink-0 border-t md:border-t-0 pt-3 md:pt-0">
+        {(createdBy === userId || meeting.source === 'google') && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/10 rounded-xl h-9 w-9"
+            onClick={handleDeleteMeeting}
+            aria-label="Delete meeting"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+        {showJoinButton && (
+          <Button
+            size="sm"
+            onClick={handleButtonClick}
+            disabled={buttonState.disabled}
+            className={cn(
+              "rounded-xl px-4 py-2 font-bold text-xs shadow-sm transition-all h-9 flex items-center gap-1.5",
+              buttonState.disabled
+                ? 'bg-muted text-muted-foreground'
+                : buttonState.type === 'end'
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/95'
+                : 'bg-gradient-to-r from-primary to-violet-600 text-primary-foreground hover:opacity-95 shadow-md hover:shadow-lg'
+            )}
+          >
+            {buttonState.type === 'start' ? (
+              <Play className="h-3.5 w-3.5 fill-current" />
+            ) : buttonState.type === 'end' ? (
+              <Square className="h-3.5 w-3.5 fill-current" />
+            ) : (
+              <Video className="h-3.5 w-3.5" />
+            )}
+            {buttonState.text}
+          </Button>
+        )}
+      </div>
+
+    </div>
   );
 };
 

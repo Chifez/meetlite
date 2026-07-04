@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -35,9 +34,12 @@ export const RadialMenuItem = ({
   };
 
   const buttonClasses = cn(
-    'absolute rounded-full h-8 w-8 pointer-events-auto transition-all duration-300',
+    'absolute rounded-full h-8 w-8 pointer-events-auto transition-all duration-300 border flex items-center justify-center',
     isDisabled && 'opacity-50 cursor-not-allowed',
-    isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
+    isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50',
+    item.isActive
+      ? 'bg-primary border-transparent text-white'
+      : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
   );
 
   // Settings button with popover
@@ -45,18 +47,16 @@ export const RadialMenuItem = ({
     return (
       <Popover>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
+          <button
             title={item.title}
             className={buttonClasses}
             style={buttonStyles}
           >
             <Icon className="h-4 w-4" />
-          </Button>
+          </button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-80 p-0"
+          className="w-80 p-0 border border-border/80 rounded-2xl shadow-xl"
           align="end"
           side="top"
           sideOffset={20}
@@ -69,9 +69,7 @@ export const RadialMenuItem = ({
 
   // Regular button
   return (
-    <Button
-      variant={item.isActive ? 'default' : 'outline'}
-      size="icon"
+    <button
       onClick={item.onClick}
       title={item.title}
       className={buttonClasses}
@@ -79,6 +77,6 @@ export const RadialMenuItem = ({
       disabled={Boolean(isDisabled)}
     >
       <Icon className="h-4 w-4" />
-    </Button>
+    </button>
   );
 };

@@ -20,6 +20,7 @@ interface TeamAssignmentDropdownProps {
   memberName: string;
   currentTeams?: string[]; // Array of team IDs the member is currently in
   onTeamChange?: () => void; // Callback when team assignment changes
+  children?: React.ReactNode;
 }
 
 export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
@@ -27,6 +28,7 @@ export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
   memberName,
   currentTeams = [],
   onTeamChange,
+  children,
 }) => {
   const { activeOrganization } = useWorkspace();
   const { teams, loading, fetchTeams, addMemberToTeam, removeMemberFromTeam } =
@@ -138,16 +140,18 @@ export const TeamAssignmentDropdown: React.FC<TeamAssignmentDropdownProps> = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-2">
-          <Users className="h-3.5 w-3.5" />
-          <span className="text-xs">
-            {currentTeams.length > 0
-              ? `${currentTeams.length} team${
-                  currentTeams.length === 1 ? '' : 's'
-                }`
-              : 'Teams'}
-          </span>
-        </Button>
+        {children ? children : (
+          <Button variant="outline" size="sm" className="h-8 gap-2">
+            <Users className="h-3.5 w-3.5" />
+            <span className="text-xs">
+              {currentTeams.length > 0
+                ? `${currentTeams.length} team${
+                    currentTeams.length === 1 ? '' : 's'
+                  }`
+                : 'Teams'}
+            </span>
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Assign to Teams</DropdownMenuLabel>

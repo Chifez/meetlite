@@ -24,19 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Trash2, Building, Users, Settings } from 'lucide-react';
+import { Trash2, Building, Users, AlertCircle, Loader2 } from 'lucide-react';
+import DashboardLayout from '@/components/dashboard/dashboard-layout';
+import SEO from '@/components/seo';
+import OrganizationDangerZone from '@/components/settings/organization-danger-zone';
 
 const INDUSTRY_OPTIONS = [
   { value: 'technology', label: 'Technology' },
@@ -58,15 +50,12 @@ const SIZE_OPTIONS = [
   { value: '1000+', label: '1000+ employees' },
 ];
 
-export default function OrganizationSettings() {
+export default function OrganizationSettingsPage() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
-  const { handleNewToken } = useAuth();
-  const { refreshOrganizations, isPersonalMode, activeOrganization } =
-    useWorkspace();
+  const { isPersonalMode, activeOrganization, refreshOrganizations } = useWorkspace();
 
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [organization, setOrganization] = useState<any>(null);
   const [formData, setFormData] = useState<UpdateOrganizationData>({
     name: '',
@@ -75,22 +64,18 @@ export default function OrganizationSettings() {
     size: '',
   });
 
-  // Redirect if not in organization mode
   useEffect(() => {
-    if (isPersonalMode || !activeOrganization) {
+    if (isPersonalMode) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isPersonalMode, activeOrganization, navigate]);
+  }, [isPersonalMode, navigate]);
 
-  // Load organization details
   useEffect(() => {
     const loadOrganization = async () => {
-      if (!orgId || isPersonalMode || !activeOrganization) return;
+      if (!orgId) return;
 
       try {
-        const response = await OrganizationService.getOrganizationDetails(
-          orgId
-        );
+        const response = await OrganizationService.getOrganizationDetails(orgId);
         const org = response.organization;
         setOrganization(org);
         setFormData({
@@ -107,146 +92,116 @@ export default function OrganizationSettings() {
     };
 
     loadOrganization();
-  }, [orgId, navigate, isPersonalMode, activeOrganization]);
+  }, [orgId, navigate]);
 
-  // Check if user is owner
-  const isOwner = organization?.role === 'owner';
-
-  const handleInputChange = (
-    field: keyof UpdateOrganizationData,
-    value: string
-  ) => {
+  const handleInputChange = (field: keyof UpdateOrganizationData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    if (!orgId || !isOwner) return;
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orgId) return;
 
     setLoading(true);
     try {
-      const response = await OrganizationService.updateOrganization(
-        orgId,
-        formData
-      );
+      const response = await OrganizationService.updateOrganization(orgId, formData);
       setOrganization(response.organization);
       await refreshOrganizations();
-      toast.success('Organization updated successfully');
+      toast.success('Workspace updated successfully');
     } catch (error: any) {
-      console.error('Failed to update organization:', error);
+      console.error('Failed to update workspace:', error);
       toast.error(
-        error.response?.data?.message || 'Failed to update organization'
+        error.response?.data?.message || 'Failed to update workspace'
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!orgId || !isOwner) return;
-
-    setDeleting(true);
-    try {
-      const response = await OrganizationService.deleteOrganization(orgId);
-
-      // Handle new token (switches to personal account)
-      if (response.token) {
-        handleNewToken(response.token);
-      }
-
-      toast.success('Organization deleted successfully');
-      navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Failed to delete organization:', error);
-      toast.error(
-        error.response?.data?.message || 'Failed to delete organization'
-      );
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   if (!organization) {
     return (
-      <div className="min-h-screen bg-background pt-20 md:pt-24">
-        <div className="container mx-auto px-4 py-6 max-w-4xl">
-          <div className="flex items-center justify-center h-64">
-            <p className="text-sm text-muted-foreground">
-              Loading organization settings...
-            </p>
-          </div>
+      <DashboardLayout>
+        <SEO title="Loading Workspace Settings · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          <p className="text-[0.875rem] text-muted-foreground">Loading workspace settings…</p>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
+  const isOwner = organization.role === 'owner';
+
   if (!isOwner) {
     return (
-      <div className="min-h-screen bg-background pt-20 md:pt-24">
-        <div className="container mx-auto px-4 py-6 max-w-4xl">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Settings className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h2 className="text-lg font-semibold mb-2">Access Denied</h2>
-              <p className="text-sm text-muted-foreground">
-                Only organization owners can access settings.
-              </p>
-              <Button
-                onClick={() => navigate('/dashboard')}
-                className="mt-4"
-                variant="outline"
-              >
-                Back to Dashboard
-              </Button>
-            </div>
+      <DashboardLayout>
+        <SEO title="Access Denied · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-destructive" />
           </div>
+          <div>
+            <p className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em]">
+              Access denied
+            </p>
+            <p className="text-[0.8125rem] text-muted-foreground mt-1 max-w-xs">
+              Only workspace owners can access these settings.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/dashboard')} variant="outline" size="sm">
+            Back to dashboard
+          </Button>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pt-20 md:pt-24">
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Building className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold">Organization Settings</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Manage your organization's information and settings.
-          </p>
-        </div>
+    <DashboardLayout>
+      <SEO title={`Workspace Settings · ${organization.name} · MeetLite`} />
 
-        <div className="space-y-6">
-          {/* General Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>General Information</CardTitle>
-              <CardDescription>
-                Update your organization's basic details and information.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Organization Name</Label>
+      {/* Page Header */}
+      <div>
+        <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+          Workspace Settings
+        </h1>
+        <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+          Manage workspace settings, details, and defaults for {organization.name}.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-[1.125rem] tracking-[-0.02em]">
+              <Building className="h-4.5 w-4.5 text-primary" />
+              Workspace Profile
+            </CardTitle>
+            <CardDescription>
+              Update your workspace profile and industry categorization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSave} className="space-y-5">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Workspace Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="Enter organization name"
+                    placeholder="Enter workspace name"
+                    required
                   />
                 </div>
-                <div className="space-y-2">
+
+                <div className="space-y-1.5">
                   <Label htmlFor="industry">Industry</Label>
                   <Select
                     value={formData.industry}
-                    onValueChange={(value) =>
-                      handleInputChange('industry', value)
-                    }
+                    onValueChange={(value) => handleInputChange('industry', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="industry">
                       <SelectValue placeholder="Select industry" />
                     </SelectTrigger>
                     <SelectContent>
@@ -260,14 +215,14 @@ export default function OrganizationSettings() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="size">Organization Size</Label>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="size">Workspace Size</Label>
                   <Select
                     value={formData.size}
                     onValueChange={(value) => handleInputChange('size', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="size">
                       <SelectValue placeholder="Select size" />
                     </SelectTrigger>
                     <SelectContent>
@@ -279,96 +234,50 @@ export default function OrganizationSettings() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Member Count</Label>
-                  <div className="flex items-center gap-2 h-10 px-3 py-2 border border-input bg-muted rounded-md">
+
+                <div className="space-y-1.5">
+                  <Label>Members</Label>
+                  <div className="flex items-center gap-2 h-10 px-3 py-2 border border-border bg-muted/40 rounded-xl">
                     <Users className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {organization.memberCount} member
-                      {organization.memberCount !== 1 ? 's' : ''}
+                    <span className="text-[0.875rem] font-medium text-foreground">
+                      {organization.memberCount} member{organization.memberCount !== 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) =>
-                    handleInputChange('description', e.target.value)
-                  }
-                  placeholder="Enter organization description"
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="What does your team do?"
                   rows={3}
                 />
               </div>
 
-              <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={loading}>
-                  {loading ? 'Saving...' : 'Save Changes'}
+              <div className="flex justify-end pt-2">
+                <Button id="org-settings-page-save" type="submit" disabled={loading} className="rounded-xl font-semibold px-6">
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save changes'
+                  )}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </form>
+          </CardContent>
+        </Card>
 
-          {/* Danger Zone */}
-          <Card className="border-destructive/20">
-            <CardHeader>
-              <CardTitle className="text-destructive">Danger Zone</CardTitle>
-              <CardDescription>
-                Irreversible actions that will permanently affect your
-                organization.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="p-4 border border-destructive/20 rounded-lg bg-destructive/5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-medium text-destructive mb-1">
-                      Delete Organization
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      This will permanently delete your organization and all
-                      associated data. All members will be switched to their
-                      personal accounts.
-                    </p>
-                  </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" className="ml-4">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Organization</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{organization.name}"?
-                          This action cannot be undone. All organization data
-                          will be permanently deleted, and all members will be
-                          switched to their personal accounts.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          disabled={deleting}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          {deleting ? 'Deleting...' : 'Delete Organization'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <OrganizationDangerZone
+          organization={organization}
+          activeOrganization={activeOrganization}
+        />
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

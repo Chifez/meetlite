@@ -11,7 +11,7 @@ interface UseLayoutManagerReturn {
   setIsLayoutMenuOpen: (open: boolean) => void;
 }
 
-const LAYOUT_STORAGE_KEY = 'minimeet-layout-preference';
+const LAYOUT_STORAGE_KEY = 'meetlite-layout-preference';
 
 export const useLayoutManager = (): UseLayoutManagerReturn => {
   const [layoutMode, setLayoutModeState] = useState<LayoutMode>('grid');

@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useCanInviteMembers, useIsOwner } from '@/hooks/use-permissions';
 import {
   DropdownMenu,
@@ -34,6 +34,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Users,
   MoreVertical,
   Crown,
@@ -43,7 +51,7 @@ import {
   X,
   Clock,
   Loader2,
-  UserPlus,
+  Plus,
 } from 'lucide-react';
 import { useMembers } from '@/hooks/use-members';
 import { TeamAssignmentDropdown } from './team-assignment-dropdown';
@@ -62,7 +70,7 @@ interface MemberListProps {
   memberCount: number;
   maxMembers: number;
   onInviteClick: () => void;
-  onRefresh?: () => void; // Callback to refresh members in parent
+  onRefresh?: () => void;
 }
 
 export const MemberList: React.FC<MemberListProps> = ({
@@ -76,14 +84,6 @@ export const MemberList: React.FC<MemberListProps> = ({
   onInviteClick,
   onRefresh,
 }) => {
-  // Debug: Log member data
-  React.useEffect(() => {
-    console.log('[FRONTEND] MemberList received members:', {
-      count: members.length,
-      sampleMember: members[0],
-    });
-  }, [members]);
-
   const {
     removeMember,
     cancelInvitation,
@@ -95,17 +95,16 @@ export const MemberList: React.FC<MemberListProps> = ({
   } = useMembers();
   const { currentPlan } = useCurrentPlan();
   const isFreePlan = currentPlan === 'free';
-  const showTeams = !isFreePlan; // Only show teams for paid plans
+  const showTeams = !isFreePlan;
   const [memberToRemove, setMemberToRemove] =
     useState<OrganizationMember | null>(null);
   const [invitationToCancel, setInvitationToCancel] =
     useState<PendingInvitation | null>(null);
 
-  const canInvite = useCanInviteMembers(maxMembers, memberCount);
   const isOwner = useIsOwner();
+
   const handleRemoveMember = async () => {
     if (!memberToRemove) return;
-
     const success = await removeMember(
       organizationId,
       memberToRemove.id,
@@ -113,12 +112,12 @@ export const MemberList: React.FC<MemberListProps> = ({
     );
     if (success) {
       setMemberToRemove(null);
+      onRefresh?.();
     }
   };
 
   const handleCancelInvitation = async () => {
     if (!invitationToCancel) return;
-
     const success = await cancelInvitation(
       organizationId,
       invitationToCancel.id,
@@ -126,6 +125,7 @@ export const MemberList: React.FC<MemberListProps> = ({
     );
     if (success) {
       setInvitationToCancel(null);
+      onRefresh?.();
     }
   };
 
@@ -134,6 +134,7 @@ export const MemberList: React.FC<MemberListProps> = ({
     newRole: 'owner' | 'admin' | 'member'
   ) => {
     await updateMemberRole(organizationId, memberId, newRole);
+    onRefresh?.();
   };
 
   const getInitials = (name: string): string => {
@@ -147,249 +148,228 @@ export const MemberList: React.FC<MemberListProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-6 w-6 text-blue-600" />
-          <div>
-            <h1 className="text-lg md:text-xl font-semibold">Team Members</h1>
-            <p className="text-sm text-gray-600">
-              {memberCount} {memberCount === 1 ? 'member' : 'members'}
-              {maxMembers !== -1 && ` of ${maxMembers} maximum`}
-            </p>
-          </div>
-        </div>
-
-        {canInvite && (
-          <Button onClick={onInviteClick} className="gap-2" size="sm">
-            <UserPlus className="h-4 w-4" />
-            <p className="text-sm">Invite Member</p>
-          </Button>
-        )}
-      </div>
-
-      {/* Members List */}
+      {/* Active Members Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            Active Members ({members.length})
-          </CardTitle>
-        </CardHeader>
         <CardContent className="p-0">
           {members.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p>No members yet</p>
+            <div className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
+              <Users className="h-10 w-10 text-muted-foreground/50" />
+              <p className="font-semibold text-foreground">No active members</p>
+              <p className="text-xs text-muted-foreground">Invite members to collaborate in this workspace.</p>
             </div>
           ) : (
-            <div className="divide-y">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="p-4 flex items-center justify-between hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 z-0">
-                      <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
-                        {getInitials(member.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium truncate">
-                          {member.name}
-                        </span>
-                        {member.isOwner && (
-                          <Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                        )}
-                        {showTeams &&
-                          member.teams &&
-                          member.teams.length > 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-1">
+            <div className="border border-border rounded-2xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="pl-4.5">Member</TableHead>
+                    <TableHead>Teams</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Joined</TableHead>
+                    {(isOwner || userRole === 'admin') && <TableHead className="w-[50px] pr-4.5"></TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((member) => (
+                    <TableRow key={member.id}>
+                      {/* Member Info column */}
+                      <TableCell className="pl-4.5 py-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
+                              {getInitials(member.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-foreground truncate text-[0.875rem]">
+                                {member.name}
+                              </span>
+                              {member.isOwner && (
+                                <Crown className="h-3.5 w-3.5 text-amber-500" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {member.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Teams column */}
+                      <TableCell className="py-3">
+                        {showTeams ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {member.teams && member.teams.length > 0 ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {member.teams.map((team) => (
                                   <Badge
-                                    variant="outline"
-                                    className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300 flex items-center gap-1"
+                                    key={team.teamId}
+                                    variant="secondary"
+                                    className="text-[0.6875rem] px-2 py-0 h-5"
                                   >
-                                    <Users className="h-3 w-3" />
-                                    {member.teams.length}
-                                    {member.teams.length === 1
-                                      ? ' team'
-                                      : ' teams'}
+                                    @{team.teamName}
                                   </Badge>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="bottom"
-                                className="max-w-xs"
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No teams</span>
+                            )}
+                            {(isOwner || userRole === 'admin') && (
+                              <TeamAssignmentDropdown
+                                memberId={member.id}
+                                memberName={member.name}
+                                currentTeams={member.teams?.map((t) => t.teamId) || []}
+                                onTeamChange={async () => {
+                                  await fetchMembers(organizationId);
+                                  onRefresh?.();
+                                }}
                               >
-                                <div className="space-y-1">
-                                  <p className="font-medium text-xs mb-1">
-                                    Teams:
-                                  </p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {member.teams.map((team) => (
-                                      <Badge
-                                        key={team.teamId}
-                                        variant="secondary"
-                                        className="text-[10px] px-1.5 py-0"
-                                      >
-                                        @{team.teamName}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 rounded-lg text-muted-foreground hover:text-foreground shrink-0"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </Button>
+                              </TeamAssignmentDropdown>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Role column */}
+                      <TableCell className="py-3">
+                        {(isOwner || userRole === 'admin') && !member.isOwner ? (
+                          <Select
+                            value={member.role}
+                            onValueChange={(newRole: 'owner' | 'admin' | 'member') =>
+                              handleUpdateRole(member.id, newRole)
+                            }
+                            disabled={updatingRole === member.id}
+                          >
+                            <SelectTrigger className="w-24 h-8 text-xs rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="owner">Owner</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge variant="solid" className="bg-muted text-foreground hover:bg-muted font-medium text-xs py-0.5 px-2">
+                            {member.role === 'owner' ? 'Owner' : member.role === 'admin' ? 'Admin' : 'Member'}
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      {/* Joined Date column */}
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground/75" />
+                          {format(new Date(member.joinedAt), 'MMM d, yyyy')}
+                        </div>
+                      </TableCell>
+
+                      {/* Actions column */}
+                      {(isOwner || userRole === 'admin') && (
+                        <TableCell className="text-right pr-4.5 py-3">
+                          {isOwner && !member.isOwner && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg">
+                                  <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="rounded-xl">
+                                <DropdownMenuItem
+                                  onClick={() => setMemberToRemove(member)}
+                                  className="text-destructive focus:text-destructive cursor-pointer gap-2 font-medium"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Remove from workspace
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {member.email}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3 inline mr-1" />
-                        Joined{' '}
-                        {format(new Date(member.joinedAt), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {(isOwner || userRole === 'admin') && !member.isOwner ? (
-                      <Select
-                        value={member.role}
-                        onValueChange={(
-                          newRole: 'owner' | 'admin' | 'member'
-                        ) => handleUpdateRole(member.id, newRole)}
-                        disabled={updatingRole === member.id}
-                      >
-                        <SelectTrigger className="w-24 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="owner">Owner</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge
-                        variant={
-                          member.role === 'owner'
-                            ? 'default'
-                            : member.role === 'admin'
-                            ? 'default'
-                            : 'secondary'
-                        }
-                      >
-                        {member.role === 'admin' ? 'Admin' : member.role}
-                      </Badge>
-                    )}
-
-                    {showTeams && (isOwner || userRole === 'admin') && (
-                      <TeamAssignmentDropdown
-                        memberId={member.id}
-                        memberName={member.name}
-                        currentTeams={member.teams?.map((t) => t.teamId) || []}
-                        onTeamChange={async () => {
-                          // Refresh members list to get updated team assignments
-                          // This is needed because team assignments affect the member's teams array
-                          await fetchMembers(organizationId);
-                          // Also trigger a refresh in the parent component
-                          // The parent will re-fetch and pass updated members as props
-                          onRefresh?.();
-                        }}
-                      />
-                    )}
-
-                    {isOwner && !member.isOwner && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => setMemberToRemove(member)}
-                            className="text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove from organization
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </div>
-              ))}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Pending Invitations */}
+      {/* Pending Invitations Table */}
       {isOwner && pendingInvitations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="h-5 w-5 text-orange-500" />
+        <Card className="border border-border">
+          <div className="p-4 border-b border-border bg-muted/10">
+            <h3 className="text-[0.875rem] font-bold text-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
               Pending Invitations ({pendingInvitations.length})
-            </CardTitle>
-          </CardHeader>
+            </h3>
+          </div>
           <CardContent className="p-0">
-            <div className="divide-y">
-              {pendingInvitations.map((invitation) => (
-                <div
-                  key={invitation.id}
-                  className="p-4 flex items-center justify-between hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-                      <Mail className="h-5 w-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{invitation.email}</div>
-                      <p className="text-sm text-gray-600">
-                        Invited by {invitation.invitedBy.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        <Clock className="h-3 w-3 inline mr-1" />
-                        Expires{' '}
+            <div className="overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="pl-4.5">Invited Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Inviter</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead className="w-[50px] pr-4.5 text-right">Cancel</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingInvitations.map((invitation) => (
+                    <TableRow key={invitation.id}>
+                      <TableCell className="pl-4.5 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <Mail className="h-3.5 w-3.5 text-amber-600" />
+                          </div>
+                          <span className="font-semibold text-foreground text-[0.875rem]">
+                            {invitation.email}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <Badge variant="outline" className="text-[0.6875rem] font-semibold text-amber-600 border-amber-200 bg-amber-50/50 capitalize px-2 h-5">
+                          {invitation.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {invitation.invitedBy.name}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
                         {format(new Date(invitation.expiresAt), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant="outline"
-                      className="text-orange-600 border-orange-200"
-                    >
-                      {invitation.role}
-                    </Badge>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setInvitationToCancel(invitation)}
-                      disabled={canceling === invitation.id}
-                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                    >
-                      {canceling === invitation.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                      </TableCell>
+                      <TableCell className="text-right pr-4.5 py-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setInvitationToCancel(invitation)}
+                          disabled={canceling === invitation.id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive rounded-lg"
+                        >
+                          {canceling === invitation.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
@@ -399,38 +379,29 @@ export const MemberList: React.FC<MemberListProps> = ({
       <AlertDialog
         open={!!memberToRemove}
         onOpenChange={(open) => {
-          // Prevent closing during operation
           if (!open && removing !== memberToRemove?.id) {
             setMemberToRemove(null);
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Member</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove{' '}
-              <strong>{memberToRemove?.name}</strong> from {organizationName}?
+              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from {organizationName}?
               They will lose access to all organization meetings and content.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing === memberToRemove?.id}>
+            <AlertDialogCancel disabled={removing === memberToRemove?.id} className="rounded-xl">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveMember}
               disabled={removing === memberToRemove?.id}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
             >
-              {removing === memberToRemove?.id ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Removing...
-                </>
-              ) : (
-                'Remove Member'
-              )}
+              {removing === memberToRemove?.id ? 'Removing...' : 'Remove Member'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -440,38 +411,28 @@ export const MemberList: React.FC<MemberListProps> = ({
       <AlertDialog
         open={!!invitationToCancel}
         onOpenChange={(open) => {
-          // Prevent closing during operation
           if (!open && canceling !== invitationToCancel?.id) {
             setInvitationToCancel(null);
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Invitation</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel the invitation to{' '}
-              <strong>{invitationToCancel?.email}</strong>? They will no longer
-              be able to join using this invitation.
+              Are you sure you want to cancel the invitation sent to <strong>{invitationToCancel?.email}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={canceling === invitationToCancel?.id}>
+            <AlertDialogCancel disabled={canceling === invitationToCancel?.id} className="rounded-xl">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancelInvitation}
               disabled={canceling === invitationToCancel?.id}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
             >
-              {canceling === invitationToCancel?.id ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Canceling...
-                </>
-              ) : (
-                'Cancel Invitation'
-              )}
+              {canceling === invitationToCancel?.id ? 'Canceling...' : 'Cancel Invitation'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

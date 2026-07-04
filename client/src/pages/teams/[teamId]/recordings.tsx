@@ -12,7 +12,6 @@ import { RecordingsExport } from '@/components/recordings/recordings-export';
 import { VideoPlayerModal } from '@/components/recordings/video-player/video-player-modal';
 import { UploadRecordingModal } from '@/components/recordings/upload-recording-modal';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Loader2, Upload, Video } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SEO from '@/components/seo';
@@ -22,6 +21,7 @@ import type {
 } from '@/types/meetingAssets';
 import { meetingAssetsService } from '@/services/meeting-assets-service';
 import { useCanUploadRecordings } from '@/hooks/use-permissions';
+import { TeamService } from '@/services/team-service';
 
 export default function TeamRecordings() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -46,7 +46,6 @@ export default function TeamRecordings() {
     unarchiveRecording,
   } = useMeetingAssets(activeOrganization?.id);
 
-  // Memoize the query change handler to prevent infinite loops
   const handleQueryChange = useCallback(
     (query: MeetingAssetsQuery) => {
       if (teamId) {
@@ -61,14 +60,12 @@ export default function TeamRecordings() {
       onQueryChange: handleQueryChange,
     });
 
-  // Redirect if not in organization mode
   useEffect(() => {
     if (isPersonalMode || !activeOrganization) {
       navigate('/dashboard', { replace: true });
     }
   }, [isPersonalMode, activeOrganization, navigate]);
 
-  // Fetch team data and verify access
   useEffect(() => {
     const loadTeamData = async () => {
       if (!teamId || !activeOrganization?.id || isPersonalMode) {
@@ -80,11 +77,8 @@ export default function TeamRecordings() {
       setAccessDenied(false);
 
       try {
-        // Fetch teams if not already loaded
         await fetchTeams(activeOrganization.id);
-
-        // Find the current team from store
-        const teamData = teams.find((t: any) => t.id === teamId);
+        const teamData = await TeamService.getTeamById(activeOrganization.id, teamId);
         if (teamData) {
           setTeam(teamData);
         } else {
@@ -103,35 +97,22 @@ export default function TeamRecordings() {
     };
 
     loadTeamData();
-  }, [teamId, activeOrganization?.id, fetchTeams, teams, isPersonalMode]);
+  }, [teamId, activeOrganization?.id, isPersonalMode, fetchTeams]);
 
-  // Fetch team recordings
-  useEffect(() => {
-    if (
-      activeOrganization?.id &&
-      teamId &&
-      !accessDenied &&
-      !loading &&
-      !isPersonalMode
-    ) {
-      refreshQuery();
-    }
-  }, [
-    activeOrganization?.id,
-    teamId,
-    accessDenied,
-    loading,
-    refreshQuery,
-    isPersonalMode,
-  ]);
+  const handleUploadSuccess = () => {
+    refreshQuery();
+    setShowUploadModal(false);
+  };
+
+  const handleEditRecording = async (recording: MeetingRecording) => {
+    console.log('Edit recording:', recording);
+    toast.info('Editing option coming soon.');
+  };
 
   const handleDeleteRecording = async (recording: MeetingRecording) => {
     try {
       const recordingId = recording.id || recording._id;
-      if (!recordingId) {
-        throw new Error('Recording ID not found');
-      }
-
+      if (!recordingId) throw new Error('Recording ID not found');
       await deleteRecording(recordingId);
       refreshQuery();
     } catch (error: any) {
@@ -143,10 +124,7 @@ export default function TeamRecordings() {
   const handleArchiveRecording = async (recording: MeetingRecording) => {
     try {
       const recordingId = recording.id || recording._id;
-      if (!recordingId) {
-        throw new Error('Recording ID not found');
-      }
-
+      if (!recordingId) throw new Error('Recording ID not found');
       await archiveRecording(recordingId);
       refreshQuery();
     } catch (error: any) {
@@ -158,10 +136,7 @@ export default function TeamRecordings() {
   const handleUnarchiveRecording = async (recording: MeetingRecording) => {
     try {
       const recordingId = recording.id || recording._id;
-      if (!recordingId) {
-        throw new Error('Recording ID not found');
-      }
-
+      if (!recordingId) throw new Error('Recording ID not found');
       await unarchiveRecording(recordingId);
       refreshQuery();
     } catch (error: any) {
@@ -170,34 +145,16 @@ export default function TeamRecordings() {
     }
   };
 
-  const handleUploadSuccess = () => {
-    refreshQuery();
-    setShowUploadModal(false);
-  };
-
-  const handleEditRecording = async (recording: MeetingRecording) => {
-    // TODO: Implement edit recording modal
-    console.log('Edit recording:', recording);
-    toast.info('Edit functionality coming soon');
-  };
-
   const handleShareRecording = async (recording: MeetingRecording) => {
     try {
       const recordingId = recording.id || recording._id;
-      if (!recordingId) {
-        throw new Error('Recording ID not found');
-      }
-
-      const shareData = await meetingAssetsService.generateShareLink(
-        recordingId
-      );
-
-      // Copy to clipboard
+      if (!recordingId) throw new Error('Recording ID not found');
+      const shareData = await meetingAssetsService.generateShareLink(recordingId);
       await navigator.clipboard.writeText(shareData.shareableUrl);
-      toast.success('Share link copied to clipboard!');
+      toast.success('Share link copied to clipboard.');
     } catch (error: any) {
       console.error('Failed to generate share link:', error);
-      toast.error(error.message || 'Failed to generate share link');
+      toast.error('Failed to copy share link');
     }
   };
 
@@ -207,10 +164,7 @@ export default function TeamRecordings() {
         toast.error('Transcript not available');
         return;
       }
-
-      // Create and download transcript file
-      const transcriptText =
-        recording.transcript.text || 'No transcript available';
+      const transcriptText = recording.transcript.text || 'No transcript available';
       const blob = new Blob([transcriptText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -220,8 +174,7 @@ export default function TeamRecordings() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      toast.success('Transcript downloaded successfully');
+      toast.success('Transcript downloaded.');
     } catch (error: any) {
       console.error('Failed to download transcript:', error);
       toast.error('Failed to download transcript');
@@ -234,54 +187,49 @@ export default function TeamRecordings() {
   ) => {
     try {
       const recordingId = recording.id || recording._id;
-      if (!recordingId) {
-        throw new Error('Recording ID not found');
-      }
-
+      if (!recordingId) throw new Error('Recording ID not found');
       await meetingAssetsService.startProcessing(recordingId, type);
-      toast.success(`${type} processing started`);
-
-      // Refresh recordings to show updated status
+      toast.success(`${type} processing started.`);
       refreshQuery();
     } catch (error: any) {
       console.error('Failed to start processing:', error);
-      toast.error(error.message || 'Failed to start processing');
+      toast.error('Failed to initiate processing');
     }
   };
 
-  if (isPersonalMode || !activeOrganization) {
-    return null; // Will redirect via useEffect
-  }
-
+  // ── LOADING STATE ──────────────────────────────────────────────
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <SEO title="Loading Team Recordings · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          <p className="text-[0.875rem] text-muted-foreground">Loading team recordings…</p>
         </div>
       </DashboardLayout>
     );
   }
 
-  if (accessDenied) {
+  // ── ACCESS DENIED STATE ────────────────────────────────────────
+  if (accessDenied || !team) {
     return (
       <DashboardLayout>
-        <SEO title="Access Denied" />
-        <div className="container mx-auto py-8 px-4">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-              You don't have permission to access this team's recordings. You
-              must be a team member or organization owner to view team
-              recordings.
-            </AlertDescription>
-          </Alert>
-          <div className="mt-4">
-            <Button variant="outline" onClick={() => navigate('/recordings')}>
-              Go to All Recordings
-            </Button>
+        <SEO title="Access Denied · MeetLite" />
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-destructive" />
           </div>
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em] mb-1">
+              Access denied
+            </h2>
+            <p className="text-[0.8125rem] text-muted-foreground max-w-xs">
+              You don't have permission to access recordings for this team, or it does not exist.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/recordings')} variant="outline" size="sm">
+            Go to all recordings
+          </Button>
         </div>
       </DashboardLayout>
     );
@@ -289,91 +237,118 @@ export default function TeamRecordings() {
 
   return (
     <DashboardLayout>
-      <SEO title={`${team?.name || 'Team'} Recordings`} />
-      <div className="container mx-auto py-6 px-4">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold">
-                @{team?.name || 'Team'} Recordings
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                View and manage recordings for this team
-              </p>
-            </div>
-            {canUploadRecordings && (
-              <Button onClick={() => setShowUploadModal(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Recording
-              </Button>
-            )}
-          </div>
+      <SEO title={`${team.name} Recordings · MeetLite`} />
 
-          <div className="flex items-center gap-4 mb-4">
-            <RecordingsSearch onSearchChange={handleSearchChange} />
-            <RecordingsFilterModal onFiltersChange={handleFiltersChange} />
-            <RecordingsExport onExport={exportRecordings} />
-          </div>
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+            Team Recordings
+          </h1>
+          <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+            Access meeting recordings, AI summaries, and transcripts for @{team.name}.
+          </p>
         </div>
-
-        {recordingsLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : recordings.length === 0 ? (
-          <div className="text-center py-12">
-            <Video className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No recordings yet</h3>
-            <p className="text-muted-foreground mb-4">
-              {canUploadRecordings
-                ? 'Upload your first recording to get started'
-                : 'No recordings available. Contact your team owner or admin to upload recordings.'}
-            </p>
-            {canUploadRecordings && (
-              <Button onClick={() => setShowUploadModal(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Recording
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recordings.map((recording) => (
-              <RecordingCard
-                key={recording.id || recording._id}
-                recording={recording}
-                onPlay={() => setSelectedRecording(recording)}
-                onEdit={handleEditRecording}
-                onDelete={handleDeleteRecording}
-                onArchive={handleArchiveRecording}
-                onUnarchive={handleUnarchiveRecording}
-                onDownloadTranscript={handleDownloadTranscript}
-                onStartProcessing={handleStartProcessing}
-                onShare={handleShareRecording}
-              />
-            ))}
-          </div>
-        )}
-
-        {selectedRecording && (
-          <VideoPlayerModal
-            recording={selectedRecording}
-            open={!!selectedRecording}
-            onOpenChange={(open) => !open && setSelectedRecording(null)}
-            onDownloadTranscript={handleDownloadTranscript}
-            onStartProcessing={handleStartProcessing}
-          />
-        )}
-
-        {showUploadModal && (
-          <UploadRecordingModal
-            open={showUploadModal}
-            onOpenChange={setShowUploadModal}
-            onUploadSuccess={handleUploadSuccess}
-            teamId={teamId}
-          />
+        {canUploadRecordings && (
+          <Button
+            id="team-recordings-upload-btn"
+            size="sm"
+            onClick={() => setShowUploadModal(true)}
+            className="gap-1.5 rounded-xl font-semibold"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload recording
+          </Button>
         )}
       </div>
+
+      {/* Filter strip */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 max-w-sm">
+          <RecordingsSearch onSearchChange={handleSearchChange} />
+        </div>
+        <div className="flex gap-2">
+          <RecordingsFilterModal onFiltersChange={handleFiltersChange} />
+          <RecordingsExport onExport={exportRecordings} />
+        </div>
+      </div>
+
+      {/* Populated / Empty / Loading Grid */}
+      {recordingsLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="border border-border rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="skeleton w-8 h-8 rounded-xl" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="skeleton h-3.5 w-3/4" />
+                  <div className="skeleton h-3 w-1/2" />
+                </div>
+              </div>
+              <div className="skeleton h-24 w-full rounded-xl" />
+              <div className="skeleton h-3 w-full" />
+            </div>
+          ))}
+        </div>
+      ) : recordings.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
+            <Video className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em]">
+              No team recordings
+            </p>
+            <p className="text-[0.8125rem] text-muted-foreground mt-1 max-w-xs">
+              {canUploadRecordings
+                ? 'Upload your first team recording to get started.'
+                : 'No recordings available. Contact a team admin to upload recordings.'}
+            </p>
+          </div>
+          {canUploadRecordings && (
+            <Button size="sm" onClick={() => setShowUploadModal(true)} className="gap-1.5 rounded-xl">
+              <Upload className="w-3.5 h-3.5" />
+              Upload recording
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {recordings.map((recording) => (
+            <RecordingCard
+              key={recording.id || recording._id}
+              recording={recording}
+              onPlay={() => setSelectedRecording(recording)}
+              onEdit={handleEditRecording}
+              onDelete={handleDeleteRecording}
+              onArchive={handleArchiveRecording}
+              onUnarchive={handleUnarchiveRecording}
+              onDownloadTranscript={handleDownloadTranscript}
+              onStartProcessing={handleStartProcessing}
+              onShare={handleShareRecording}
+            />
+          ))}
+        </div>
+      )}
+
+      {selectedRecording && (
+        <VideoPlayerModal
+          recording={selectedRecording}
+          open={!!selectedRecording}
+          onOpenChange={(open) => !open && setSelectedRecording(null)}
+          onDownloadTranscript={handleDownloadTranscript}
+          onStartProcessing={handleStartProcessing}
+        />
+      )}
+
+      {showUploadModal && (
+        <UploadRecordingModal
+          open={showUploadModal}
+          onOpenChange={setShowUploadModal}
+          onUploadSuccess={handleUploadSuccess}
+          teamId={teamId}
+        />
+      )}
     </DashboardLayout>
   );
 }

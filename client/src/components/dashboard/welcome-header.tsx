@@ -1,4 +1,5 @@
 import { useWorkspace } from '@/contexts/workspace-context';
+import { Building2 } from 'lucide-react';
 
 interface WelcomeHeaderProps {
   user?: {
@@ -8,30 +9,33 @@ interface WelcomeHeaderProps {
   };
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function WelcomeHeader({ user }: WelcomeHeaderProps) {
   const { currentWorkspaceName, isPersonalMode } = useWorkspace();
-  const displayName = user?.name || user?.email?.split('@')[0] || 'User';
+  const displayName = user?.name || user?.email?.split('@')[0] || 'there';
 
   return (
-    <div className="text-center space-y-4">
-      <h1 className="text-3xl font-bold text-foreground mb-2">
-        <span className="text-foreground">Welcome,</span>{' '}
-        <span className="bg-primary bg-clip-text text-transparent">
-          {displayName}
-        </span>
+    <div className="space-y-1">
+      <h1 className="text-[1.5rem] font-bold text-foreground tracking-[-0.025em]">
+        {getGreeting()}, {displayName}.
       </h1>
-      <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-        Ready to connect and collaborate? Start a meeting, join your team, or
-        schedule for later.
-      </p>
-      {!isPersonalMode && (
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <span>Working in</span>
-          <span className="font-medium text-foreground">
+      <p className="text-[0.875rem] text-muted-foreground">
+        {isPersonalMode
+          ? 'Start a new meeting, join a room, or schedule for later.'
+          : `You're working in `}
+        {!isPersonalMode && (
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            <Building2 className="w-3.5 h-3.5" />
             {currentWorkspaceName}
           </span>
-        </div>
-      )}
+        )}
+      </p>
     </div>
   );
 }

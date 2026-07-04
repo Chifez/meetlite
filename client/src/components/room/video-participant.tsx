@@ -14,6 +14,15 @@ interface VideoParticipantProps {
   userName?: string;
 }
 
+const getInitials = (name?: string, email?: string) => {
+  const source = name || email || '?';
+  if (source === '?') return '?';
+  const parts = source.split('@')[0].split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
+
 export const VideoParticipant = ({
   stream,
   mediaState,
@@ -31,10 +40,7 @@ export const VideoParticipant = ({
       return;
     }
 
-    // Reset states
     setVideoError(false);
-
-    // Set the stream
     videoElement.srcObject = stream;
 
     const handleLoadedMetadata = () => {
@@ -63,7 +69,6 @@ export const VideoParticipant = ({
       setVideoError(true);
     };
 
-    // Add event listeners
     videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
     videoElement.addEventListener('canplay', handleCanPlay);
     videoElement.addEventListener('error', handleError);
@@ -79,19 +84,14 @@ export const VideoParticipant = ({
   const showError = videoError && !isLocal;
   const showLoading = isLoading && !isLocal && !stream;
 
-  // Determine display name with fallback
   const getDisplayName = () => {
     if (isLocal) return 'You';
-
-    // CRITICAL FIX: Use userName if available (respects useNameInMeetings setting)
     if (userName) {
       return userName.length > 20
         ? `${userName.substring(0, 20)}...`
         : userName;
     }
-
     if (userEmail) {
-      // Truncate email if too long, show up to 20 characters
       return userEmail.length > 20
         ? `${userEmail.substring(0, 20)}...`
         : userEmail;
@@ -99,8 +99,29 @@ export const VideoParticipant = ({
     return 'Participant';
   };
 
+  const getDynamicAvatarColor = () => {
+    const name = userName || userEmail || 'Participant';
+    const colors = [
+      'bg-primary/20 text-primary border-primary/30',
+      'bg-emerald-500/20 text-emerald-500 border-emerald-500/30',
+      'bg-amber-500/20 text-amber-500 border-amber-500/30',
+      'bg-indigo-500/20 text-indigo-500 border-indigo-500/30',
+      'bg-rose-500/20 text-rose-500 border-rose-500/30',
+      'bg-sky-500/20 text-sky-500 border-sky-500/30',
+      'bg-violet-500/20 text-violet-500 border-violet-500/30',
+      'bg-teal-500/20 text-teal-500 border-teal-500/30',
+    ];
+
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   return (
-    <div className="relative bg-muted rounded-lg overflow-hidden w-full h-full min-w-0 min-h-0">
+    <div className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl overflow-hidden w-full h-full min-w-0 min-h-0">
       <video
         ref={videoRef}
         autoPlay
@@ -117,31 +138,34 @@ export const VideoParticipant = ({
       />
 
       {(showVideoOff || showError || showLoading) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#26262b]">
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
           {showLoading ? (
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
-              <span className="text-sm text-muted-foreground">
-                Connecting...
-              </span>
+              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+              <span className="text-xs text-zinc-400">Connecting...</span>
             </div>
           ) : showVideoOff ? (
-            <VideoOff className="h-12 w-12 text-muted-foreground" />
+            <div
+              className={`w-16 h-16 rounded-full border flex items-center justify-center font-bold tracking-tight text-lg ${getDynamicAvatarColor()}`}
+            >
+              {getInitials(userName, userEmail)}
+            </div>
           ) : null}
           {showError && (
-            <div className="absolute bottom-2 left-2 text-xs text-red-500">
-              Video Error
+            <div className="absolute bottom-2.5 left-2.5 text-[0.75rem] text-rose-400 font-medium">
+              Video error
             </div>
           )}
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 flex items-center gap-2 text-sm text-white bg-black/50 px-2 py-1 rounded max-w-[calc(100%-1rem)]">
-        <span className="truncate" title={userName || userEmail}>
+      {/* Participant Info Overlay */}
+      <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 text-[0.8125rem] text-white bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-xl max-w-[calc(100%-1.25rem)] border border-white/5">
+        <span className="truncate font-medium" title={userName || userEmail}>
           {getDisplayName()}
         </span>
         {!mediaState.audioEnabled && (
-          <MicOff className="h-4 w-4 text-white/75 flex-shrink-0" />
+          <MicOff className="h-3.5 w-3.5 text-rose-400 flex-shrink-0" />
         )}
       </div>
     </div>

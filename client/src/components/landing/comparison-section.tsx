@@ -1,99 +1,83 @@
-import { Card, CardContent } from '@/components/ui/card';
 import { Check, X } from 'lucide-react';
+import { motion } from 'motion/react';
 
 const comparisonData = [
-  {
-    feature: 'Video Quality',
-    meetlite: true,
-    competitor: true,
-  },
-  {
-    feature: 'Smart Scheduling',
-    meetlite: true,
-    competitor: false,
-  },
-  {
-    feature: 'End-to-End Encryption',
-    meetlite: true,
-    competitor: true,
-  },
-  {
-    feature: 'Custom Branding',
-    meetlite: true,
-    competitor: false,
-  },
-  {
-    feature: 'AI-Powered Features',
-    meetlite: true,
-    competitor: false,
-  },
-  {
-    feature: 'Unlimited Meetings',
-    meetlite: true,
-    competitor: false,
-  },
+  { feature: 'HD & 4K video quality', meetlite: true, others: true },
+  { feature: 'AI meeting transcription', meetlite: true, others: false },
+  { feature: 'Smart scheduling assistant', meetlite: true, others: false },
+  { feature: 'End-to-end encryption', meetlite: true, others: true },
+  { feature: 'Workspace branding', meetlite: true, others: false },
+  { feature: 'Unlimited meeting duration', meetlite: true, others: false },
+  { feature: 'Guest access without sign-up', meetlite: true, others: false },
+  { feature: 'Compliance audit logs', meetlite: true, others: false },
 ];
 
 const ComparisonSection = () => {
   return (
-    <section id="comparison" className="py-20 bg-background">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-3 mb-12">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground">
-            Why choose us?
+    <section id="comparison" className="py-24 bg-background">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+
+        {/* Header */}
+        <div className="text-center mb-12">
+          <p className="text-label mb-3">How we compare</p>
+          <h2 className="text-[1.875rem] sm:text-[2.5rem] font-bold text-foreground tracking-[-0.03em]">
+            Built for work, not workarounds.
           </h2>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            See how we compare to other solutions.
+          <p className="mt-3 text-[0.9375rem] text-muted-foreground max-w-xl mx-auto">
+            MeetLite ships the features your team actually needs — without the enterprise price tag.
           </p>
         </div>
 
-        <Card className="border-border">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-6 font-semibold text-foreground">
-                      Feature
-                    </th>
-                    <th className="text-center p-6 font-semibold text-primary">
-                      MeetLite
-                    </th>
-                    <th className="text-center p-6 font-semibold text-muted-foreground">
-                      Others
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparisonData.map((row, index) => (
-                    <tr
-                      key={index}
-                      className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
-                    >
-                      <td className="p-6 text-foreground font-medium">
-                        {row.feature}
-                      </td>
-                      <td className="p-6 text-center">
-                        {row.meetlite ? (
-                          <Check className="w-6 h-6 text-green-500 mx-auto" />
-                        ) : (
-                          <X className="w-6 h-6 text-muted-foreground mx-auto" />
-                        )}
-                      </td>
-                      <td className="p-6 text-center">
-                        {row.competitor ? (
-                          <Check className="w-6 h-6 text-green-500 mx-auto" />
-                        ) : (
-                          <X className="w-6 h-6 text-muted-foreground mx-auto" />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Comparison table */}
+        <motion.div
+          className="border border-border rounded-2xl overflow-hidden"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.4 }}
+        >
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                <th className="text-left px-5 py-3.5 text-[0.8125rem] font-semibold text-muted-foreground w-full">
+                  Feature
+                </th>
+                <th className="px-5 py-3.5 text-[0.8125rem] font-semibold text-primary text-center whitespace-nowrap">
+                  MeetLite
+                </th>
+                <th className="px-5 py-3.5 text-[0.8125rem] font-semibold text-muted-foreground text-center whitespace-nowrap">
+                  Others
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-card">
+              {comparisonData.map((row, i) => (
+                <tr
+                  key={i}
+                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors duration-100"
+                >
+                  <td className="px-5 py-3.5 text-[0.875rem] text-foreground font-medium">
+                    {row.feature}
+                  </td>
+                  <td className="px-5 py-3.5 text-center">
+                    {row.meetlite ? (
+                      <Check className="w-4 h-4 text-primary mx-auto" strokeWidth={2.5} />
+                    ) : (
+                      <X className="w-4 h-4 text-muted-foreground/40 mx-auto" strokeWidth={2} />
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 text-center">
+                    {row.others ? (
+                      <Check className="w-4 h-4 text-emerald-500 mx-auto" strokeWidth={2.5} />
+                    ) : (
+                      <X className="w-4 h-4 text-muted-foreground/40 mx-auto" strokeWidth={2} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </motion.div>
       </div>
     </section>
   );
