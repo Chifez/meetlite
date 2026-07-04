@@ -15,10 +15,19 @@ export function ProtectedRoute({
   children,
   requireOnboarding = true,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const redirect = searchParams.get('redirect');
+
+  // If auth state is still loading, show a centered spinner
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // If not authenticated, redirect to login with redirect parameter
   if (!isAuthenticated) {

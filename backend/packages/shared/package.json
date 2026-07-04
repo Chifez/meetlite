@@ -2,19 +2,25 @@
   "name": "@minimeet/shared",
   "version": "1.0.0",
   "description": "Shared database models, utilities, and queue infrastructure for MeetLite backend services",
-  "main": "src/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "echo 'No build step needed for ES modules'",
+    "build": "tsc",
     "test": "echo 'No tests configured yet'"
   },
   "dependencies": {
-    "mongoose": "^8.2.1",
-    "redis": "^5.8.0",
     "bullmq": "^5.66.2",
-    "ioredis": "^5.8.2"
+    "ioredis": "^5.8.2",
+    "mongoose": "^8.2.1",
+    "redis": "^5.8.0"
   },
   "peerDependencies": {
     "mongoose": "^8.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/nodemailer": "^8.0.1",
+    "typescript": "^5.4.0"
   }
 }

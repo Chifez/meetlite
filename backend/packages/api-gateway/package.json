@@ -5,9 +5,10 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "test": "echo \"No tests specified\" && exit 0"
+    "dev": "nodemon --watch src -e ts --exec \"tsc && node dist/index.js\"",
+    "dev:no-watch": "tsc && node dist/index.js",
+    "start": "node dist/index.js",
+    "build": "tsc"
   },
   "keywords": [
     "api-gateway",
@@ -18,16 +19,24 @@
   "author": "MeetLite Team",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "http-proxy-middleware": "^2.0.6",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5",
     "compression": "^1.7.4",
-    "morgan": "^1.10.0",
-    "dotenv": "^16.3.1"
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "http-proxy-middleware": "^2.0.6",
+    "morgan": "^1.10.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3"
   }
 }

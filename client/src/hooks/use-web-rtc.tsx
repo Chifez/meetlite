@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import { PeerConnection, MediaState } from '@/components/room/types';
+import api from '@/lib/axios';
 
 // Configuration for production-ready WebRTC
 const ICE_SERVERS = [
@@ -9,26 +10,11 @@ const ICE_SERVERS = [
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:stun4.l.google.com:19302' },
-  // Free TURN servers for testing - replace with your own for production
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
 ];
 
 const CONNECTION_TIMEOUT = 30000;
 const RECONNECTION_DELAY = 5000;
+const USE_P2P_FALLBACK = import.meta.env.VITE_USE_P2P_FALLBACK === 'true';
 
 // Helper to create a unique connection ID for each peer-to-peer connection
 const createConnectionId = (localId: string, remoteId: string) => {
@@ -57,6 +43,7 @@ interface ExtendedPeerConnection extends PeerConnection {
 export const useWebRTC = (
   socket: Socket | null,
   localStream: MediaStream | null,
+  roomId: string | undefined,
   onParticipantInfoUpdate?: (
     info: Record<string, { email: string; userId: string }>
   ) => void
@@ -72,6 +59,29 @@ export const useWebRTC = (
     new Map()
   );
   const isProcessingRef = useRef<Set<string>>(new Set());
+  const iceServersRef = useRef<RTCIceServer[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchIceConfig = async () => {
+      try {
+        const response = await api.get(`/rooms/${roomId}/ice-config`);
+        if (active && response.data?.success && response.data?.iceServers) {
+          iceServersRef.current = response.data.iceServers;
+        }
+      } catch (err) {
+        console.error('Failed to fetch ICE config:', err);
+      }
+    };
+
+    if (roomId) {
+      fetchIceConfig();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [roomId]);
 
   // Utility function to safely update peers state
   const updatePeersState = useCallback(() => {
@@ -166,7 +176,7 @@ export const useWebRTC = (
 
       // Create new RTCPeerConnection
       const connection = new RTCPeerConnection({
-        iceServers: ICE_SERVERS,
+        iceServers: iceServersRef.current.length > 0 ? iceServersRef.current : ICE_SERVERS,
         iceTransportPolicy: 'all',
       });
 
@@ -200,7 +210,7 @@ export const useWebRTC = (
       // Handle ICE candidates
       connection.onicecandidate = (event) => {
         if (event.candidate && socket) {
-          socket.emit('ice-candidate', {
+          socket.emit('p2p:ice-candidate', {
             to: userId,
             candidate: event.candidate,
           });
@@ -299,7 +309,7 @@ export const useWebRTC = (
             );
             currentPeer.signalState = ConnectionState.OFFER_SENT;
             console.log(`📞 [WebRTC] Sending offer to ${userId}`);
-            socket.emit('call-user', {
+            socket.emit('p2p:call-user', {
               to: userId,
               offer: connection.localDescription,
             });
@@ -328,6 +338,9 @@ export const useWebRTC = (
 
   // Effect to handle socket events
   useEffect(() => {
+    if (!USE_P2P_FALLBACK) {
+      return;
+    }
     if (!socket || !socket.id) {
       console.log(
         '⚠️ [WebRTC] Socket not ready, skipping event listener setup'
@@ -361,7 +374,7 @@ export const useWebRTC = (
 
         peer.signalState = ConnectionState.ANSWER_SENT;
 
-        socket.emit('make-answer', {
+        socket.emit('p2p:make-answer', {
           to: data.from,
           answer: peer.connection.localDescription,
         });
@@ -499,9 +512,9 @@ export const useWebRTC = (
 
     // REMOVED: socket.onAny() was causing excessive logging - 50+ logs per room join
 
-    socket.on('call-user', handleCallUser);
-    socket.on('answer-made', handleAnswerMade);
-    socket.on('ice-candidate', handleIceCandidate);
+    socket.on('p2p:call-user', handleCallUser);
+    socket.on('p2p:answer-made', handleAnswerMade);
+    socket.on('p2p:ice-candidate', handleIceCandidate);
     socket.on('user-left', handleUserLeft);
     socket.on('media-state-update', handleMediaStateUpdate);
     socket.on('room-data', handleRoomData);
@@ -515,9 +528,9 @@ export const useWebRTC = (
         );
       }
       // REMOVED: socket.offAny() - was causing excessive logging
-      socket.off('call-user', handleCallUser);
-      socket.off('answer-made', handleAnswerMade);
-      socket.off('ice-candidate', handleIceCandidate);
+      socket.off('p2p:call-user', handleCallUser);
+      socket.off('p2p:answer-made', handleAnswerMade);
+      socket.off('p2p:ice-candidate', handleIceCandidate);
       socket.off('user-left', handleUserLeft);
       socket.off('media-state-update', handleMediaStateUpdate);
       socket.off('room-data', handleRoomData);

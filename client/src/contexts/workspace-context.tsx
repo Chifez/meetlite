@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   ReactNode,
 } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -72,48 +73,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     ? (user?.organizationId === activeOrganization.id && user?.role) || null
     : null;
 
-  // Load organizations when user authenticates (skip for system admins)
-  useEffect(() => {
-    if (isAuthenticated && user && !user.isSystemAdmin) {
-      refreshOrganizations();
-    } else {
-      // Clear state when user logs out or is system admin
-      setOrganizations([]);
-      setActiveOrganization(null);
-    }
-  }, [isAuthenticated, user?.id, user?.isSystemAdmin]);
-
-  // Set active organization based on user's current organizationId
-  useEffect(() => {
-    if (user?.organizationId && organizations.length > 0) {
-      const userOrg = organizations.find(
-        (org) => org.id === user.organizationId
-      );
-      setActiveOrganization(userOrg || null);
-    } else {
-      setActiveOrganization(null);
-    }
-  }, [user?.organizationId, organizations]);
-
-  // Redirect from organization-only pages when switching to personal mode
-  useEffect(() => {
-    // Only redirect if we're in personal mode and on an organization-only route
-    if (!isPersonalMode || !isAuthenticated) return;
-
-    const organizationOnlyRoutes = ['/members', '/teams/', '/organization/'];
-
-    const currentPath = location.pathname;
-    const isOnOrgOnlyRoute = organizationOnlyRoutes.some((route) =>
-      currentPath.startsWith(route)
-    );
-
-    if (isOnOrgOnlyRoute) {
-      // Redirect to dashboard when switching to personal mode from org-only pages
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isPersonalMode, location.pathname, navigate, isAuthenticated]);
-
-  const refreshOrganizations = async (): Promise<void> => {
+  const refreshOrganizations = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) return;
 
     setLoading(true);
@@ -148,7 +108,48 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
+
+  // Load organizations when user authenticates (skip for system admins)
+  useEffect(() => {
+    if (isAuthenticated && user && !user.isSystemAdmin) {
+      refreshOrganizations();
+    } else {
+      // Clear state when user logs out or is system admin
+      setOrganizations([]);
+      setActiveOrganization(null);
+    }
+  }, [isAuthenticated, user?.id, user?.isSystemAdmin, refreshOrganizations]);
+
+  // Set active organization based on user's current organizationId
+  useEffect(() => {
+    if (user?.organizationId && organizations.length > 0) {
+      const userOrg = organizations.find(
+        (org) => org.id === user.organizationId
+      );
+      setActiveOrganization(userOrg || null);
+    } else {
+      setActiveOrganization(null);
+    }
+  }, [user?.organizationId, organizations]);
+
+  // Redirect from organization-only pages when switching to personal mode
+  useEffect(() => {
+    // Only redirect if we're in personal mode and on an organization-only route
+    if (!isPersonalMode || !isAuthenticated) return;
+
+    const organizationOnlyRoutes = ['/members', '/teams/', '/organization/'];
+
+    const currentPath = location.pathname;
+    const isOnOrgOnlyRoute = organizationOnlyRoutes.some((route) =>
+      currentPath.startsWith(route)
+    );
+
+    if (isOnOrgOnlyRoute) {
+      // Redirect to dashboard when switching to personal mode from org-only pages
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isPersonalMode, location.pathname, navigate, isAuthenticated]);
 
   const switchToOrganization = async (orgId: string): Promise<void> => {
     if (switchingOrg) return;

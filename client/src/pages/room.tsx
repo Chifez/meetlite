@@ -104,6 +104,7 @@ const Room = () => {
   const { peers: p2pPeers, peerMediaState: p2pMediaState } = useWebRTC(
     socket,
     localStream,
+    roomId,
     updateParticipantInfo
   );
 

@@ -50,8 +50,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If error is 401 and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // If error is 401 and we haven't tried to refresh yet, and it is not a refresh request itself
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/api/auth/refresh')
+    ) {
       if (isRefreshing) {
         // If already refreshing, queue this request
         return new Promise((resolve, reject) => {
@@ -79,7 +83,7 @@ api.interceptors.response.use(
 
       try {
         // Try to refresh the token
-        const response = await axios.post('/api/auth/refresh', {
+        const response = await api.post('/api/auth/refresh', {
           token,
         });
 

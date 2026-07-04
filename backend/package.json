@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces",
+    "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:mediasoup\"",
     "dev:auth": "npm run dev --workspace=@minimeet/auth-service",
     "dev:room": "npm run dev --workspace=@minimeet/room-service",
     "dev:mediasoup": "npm run dev --workspace=@minimeet/mediasoup-service",
