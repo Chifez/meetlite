@@ -34,6 +34,7 @@ const SERVICE_ROUTES: Record<string, ServiceConfig> = {
       '/api/teams',
       '/api/admin',
       '/api/contact',
+      '/api/activities',
     ],
     target: config.services.auth,
     pathRewrite: {
@@ -50,6 +51,7 @@ const SERVICE_ROUTES: Record<string, ServiceConfig> = {
       '^/api/teams': '/api/v1/teams',
       '^/api/admin': '/api/v1/admin',
       '^/api/contact': '/api/v1/contact',
+      '^/api/activities': '/api/v1/activities',
     },
   },
 

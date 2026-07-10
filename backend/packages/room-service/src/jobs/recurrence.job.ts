@@ -1,6 +1,6 @@
 // @ts-ignore
 import cron from 'node-cron';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { createRecurrenceInstances, getNextOccurrences } from '../services/recurrence.service.js';
 
 /**
@@ -16,9 +16,11 @@ cron.schedule('0 2 * * *', async () => {
     endDate.setDate(endDate.getDate() + 30); // 30 days ahead
 
     // Find all active recurring meetings
-    const recurringMeetings = await models.Meeting.find({
-      isRecurring: true,
-      status: { $in: ['scheduled', 'ongoing'] },
+    const recurringMeetings = await prisma.meeting.findMany({
+      where: {
+        isRecurring: true,
+        status: { in: ['scheduled', 'ongoing'] },
+      }
     });
 
     console.log(`📅 Found ${recurringMeetings.length} recurring meetings to process`);
@@ -28,31 +30,10 @@ cron.schedule('0 2 * * *', async () => {
 
     for (const parentMeeting of recurringMeetings) {
       try {
-        // Check if recurrence has ended (for 'after' endType)
-        if (parentMeeting.recurrence.endType === 'after') {
-          const allOccurrences = getNextOccurrences(
-            parentMeeting.recurrence,
-            parentMeeting.scheduledTime,
-            parentMeeting.scheduledTime,
-            1000
-          );
-
-          if (
-            allOccurrences.length >=
-            (parentMeeting.recurrence.occurrences || 0)
-          ) {
-            console.log(
-              `⏭️  Skipping ${parentMeeting.meetingId} - all occurrences generated`
-            );
-            continue;
-          }
-        }
-
         // Check if recurrence has end date and it's passed
         if (
-          parentMeeting.recurrence.endType === 'on' &&
-          parentMeeting.recurrence.endDate &&
-          new Date(parentMeeting.recurrence.endDate) < now
+          parentMeeting.recurrenceEndDate &&
+          new Date(parentMeeting.recurrenceEndDate) < now
         ) {
           console.log(
             `⏭️  Skipping ${parentMeeting.meetingId} - recurrence ended`
@@ -63,7 +44,7 @@ cron.schedule('0 2 * * *', async () => {
         // Create instances
         const instances = await createRecurrenceInstances(
           parentMeeting,
-          models,
+          prisma,
           now,
           endDate
         );

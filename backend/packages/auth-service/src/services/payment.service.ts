@@ -1,9 +1,6 @@
 import Stripe from 'stripe';
 import { stripeConfig } from '../config/stripe.js';
-import { models } from '../index.js';
-// @ts-ignore
-import { OrganizationPlanSyncService } from './organization-plan-sync.service.js';
-import { EmailQueue } from '@minimeet/shared';
+import { EmailQueue, prisma } from '@minimeet/shared';
 
 let _stripe: Stripe | null = null;
 const getStripe = (): Stripe => {
@@ -20,8 +17,8 @@ const getStripe = (): Stripe => {
 
 const findUserByCustomerId = async (customerId: string) => {
   try {
-    const user = await models.User.findOne({
-      stripeCustomerId: customerId,
+    const user = await prisma.user.findFirst({
+      where: { stripeCustomerId: customerId }
     });
     return user;
   } catch (error) {
@@ -248,7 +245,7 @@ export class PaymentService {
     try {
       const eventAge = Date.now() - event.created * 1000;
       const maxEventAge = 24 * 60 * 60 * 1000; // 24 hours
-      if (eventAge > maxEventAge) {
+      if (process.env.ALLOW_WEBHOOK_REPLAY !== 'true' && eventAge > maxEventAge) {
         return {
           handled: false,
           message: 'Event too old, possible replay attack',
@@ -305,7 +302,7 @@ export class PaymentService {
         return { handled: false, message: 'Missing required metadata' };
       }
 
-      if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+      if (!/^[0-9a-fA-F]{24}$|^[0-9a-fA-F-]{36}$/.test(userId)) {
         console.error('Invalid userId format in session metadata:', userId);
         return { handled: false, message: 'Invalid userId format' };
       }
@@ -316,14 +313,7 @@ export class PaymentService {
         return { handled: false, message: 'Invalid planType' };
       }
 
-      const existingUser = await models.User.findById(userId);
-      if (existingUser && existingUser.plan.stripeSessionId === session.id) {
-        return {
-          handled: true,
-          message: 'Already processed',
-          idempotent: true,
-        };
-      }
+      const existingUser = await prisma.user.findUnique({ where: { id: userId } });
 
       let subscriptionId: any = null;
       let endDate: Date | null = null;
@@ -348,28 +338,65 @@ export class PaymentService {
         }
       }
 
-      const updatedUser = await models.User.findByIdAndUpdate(
-        userId,
-        {
-          'plan.type': planType,
-          'plan.status': 'active',
-          'plan.startDate': startDate,
-          'plan.endDate': endDate,
-          'plan.stripeSessionId': session.id,
-          ...(subscriptionId && {
-            'plan.stripeSubscriptionId': subscriptionId,
-          }),
-          $inc: { tokenVersion: 1 },
-        },
-        { new: true }
-      );
+      await prisma.$transaction(async (tx) => {
+        // Idempotency check using AuditLog
+        const existingLog = await tx.auditLog.findFirst({
+          where: {
+            action: 'CHECKOUT_SESSION_COMPLETED',
+            resourceId: session.id,
+          },
+        });
 
-      if (updatedUser) {
-        await OrganizationPlanSyncService.syncUserOrganizations(userId);
-        return { handled: true, userId, planType };
-      }
+        if (existingLog || (existingUser && existingUser.stripeSessionId === session.id)) {
+          console.log(`[Stripe Webhook] Idempotent trigger for session ${session.id}, skipping`);
+          return;
+        }
 
-      return { handled: false };
+        // Record idempotency
+        await tx.auditLog.create({
+          data: {
+            category: 'BILLING',
+            action: 'CHECKOUT_SESSION_COMPLETED',
+            resourceType: 'CheckoutSession',
+            resourceId: session.id,
+            userId: userId,
+            status: 'success',
+            details: JSON.stringify({ planType, subscriptionId }),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          },
+        });
+
+        const updateData: any = {
+          planType: planType,
+          planStatus: 'active',
+          planStartDate: startDate,
+          planEndDate: endDate,
+          stripeSessionId: session.id,
+          tokenVersion: { increment: 1 },
+        };
+        if (subscriptionId) {
+          updateData.stripeSubscriptionId = subscriptionId;
+        }
+
+        // Update User
+        await tx.user.update({
+          where: { id: userId },
+          data: updateData,
+        });
+
+        // Update Organizations
+        await tx.organization.updateMany({
+          where: { ownerId: userId },
+          data: {
+            planType: planType,
+            planStatus: 'active',
+            planStartDate: startDate,
+            planEndDate: endDate,
+          },
+        });
+      });
+
+      return { handled: true, userId, planType };
     } catch (error) {
       console.error('Error handling checkout session completed:', error);
       throw error;
@@ -395,29 +422,28 @@ export class PaymentService {
         endDate.setFullYear(endDate.getFullYear() + 1);
       }
 
-      const user = await models.User.findByIdAndUpdate(
-        userId,
-        {
-          'plan.type': planType,
-          'plan.status': 'active',
-          'plan.startDate': new Date(),
-          'plan.endDate': endDate,
-          'plan.stripePaymentIntentId': paymentIntent.id,
-          $inc: { tokenVersion: 1 },
-        },
-        { new: true }
-      );
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          planType: planType as any,
+          planStatus: 'active',
+          planStartDate: new Date(),
+          planEndDate: endDate,
+          stripePaymentIntentId: paymentIntent.id,
+          tokenVersion: { increment: 1 },
+        }
+      });
 
       if (user) {
-        await models.Organization.updateMany(
-          { ownerId: userId },
-          {
-            'plan.type': planType,
-            'plan.status': 'active',
-            'plan.startDate': new Date(),
-            'plan.endDate': endDate,
+        await prisma.organization.updateMany({
+          where: { ownerId: userId },
+          data: {
+            planType: planType as any,
+            planStatus: 'active',
+            planStartDate: new Date(),
+            planEndDate: endDate,
           }
-        );
+        });
 
         return { handled: true, userId, planType };
       }
@@ -437,7 +463,7 @@ export class PaymentService {
       const { userId, planType } = paymentIntent.metadata;
 
       if (userId) {
-        const user = await models.User.findById(userId);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (user) {
           try {
             const emailQueue = new EmailQueue();
@@ -478,7 +504,7 @@ export class PaymentService {
       let user = null;
 
       if (userId) {
-        user = await models.User.findById(userId);
+        user = await prisma.user.findUnique({ where: { id: userId } });
       }
 
       if (!user && subscription.customer) {
@@ -495,19 +521,25 @@ export class PaymentService {
 
         let planTypeToSet = planType;
         if (!planTypeToSet && subscription.items?.data?.[0]?.price) {
-          planTypeToSet = user.plan.type;
+          planTypeToSet = user.planType;
         }
 
-        await models.User.findByIdAndUpdate(user._id, {
-          'plan.stripeSubscriptionId': subscription.id,
-          'plan.status': 'active',
-          ...(planTypeToSet && { 'plan.type': planTypeToSet }),
-          'plan.startDate': startDate,
-          'plan.endDate': endDate,
-          $inc: { tokenVersion: 1 },
+        const updateData: any = {
+          stripeSubscriptionId: subscription.id,
+          planStatus: 'active',
+          planStartDate: startDate,
+          planEndDate: endDate,
+          tokenVersion: { increment: 1 },
+        };
+        if (planTypeToSet) updateData.planType = planTypeToSet as any;
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: updateData
         });
 
-        await OrganizationPlanSyncService.syncUserOrganizations(user._id);
+        const OrganizationPlanSyncService = (await import('./organization-plan-sync.service.js')).OrganizationPlanSyncService;
+        await OrganizationPlanSyncService.syncUserOrganizations(user.id);
       }
 
       return { handled: true };
@@ -527,7 +559,7 @@ export class PaymentService {
       let user = null;
 
       if (userId) {
-        user = await models.User.findById(userId);
+        user = await prisma.user.findUnique({ where: { id: userId } });
       }
 
       if (!user) {
@@ -540,8 +572,8 @@ export class PaymentService {
         }
 
         if (!user) {
-          user = await models.User.findOne({
-            'plan.stripeSubscriptionId': subscription.id,
+          user = await prisma.user.findFirst({
+            where: { stripeSubscriptionId: subscription.id }
           });
         }
       }
@@ -556,24 +588,27 @@ export class PaymentService {
             : 'cancelled';
 
         const updateData: any = {
-          'plan.status': status,
-          $inc: { tokenVersion: 1 },
+          planStatus: status,
+          tokenVersion: { increment: 1 },
         };
 
         if (
           subscription.status === 'active' &&
           subscription.current_period_end
         ) {
-          updateData['plan.endDate'] = new Date(
+          updateData.planEndDate = new Date(
             subscription.current_period_end * 1000
           );
         }
 
         if (subscription.cancel_at_period_end) {
-          updateData['plan.status'] = 'active';
+          updateData.planStatus = 'active';
         }
 
-        await models.User.findByIdAndUpdate(user._id, updateData);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: updateData
+        });
       }
 
       return { handled: true };
@@ -593,12 +628,12 @@ export class PaymentService {
       let user = null;
 
       if (userId) {
-        user = await models.User.findById(userId);
+        user = await prisma.user.findUnique({ where: { id: userId } });
       }
 
       if (!user) {
-        user = await models.User.findOne({
-          'plan.stripeSubscriptionId': subscription.id,
+        user = await prisma.user.findFirst({
+          where: { stripeSubscriptionId: subscription.id }
         });
       }
 
@@ -611,35 +646,39 @@ export class PaymentService {
       }
 
       if (user) {
-        const previousPlanType = user.plan?.type || 'pro';
+        const previousPlanType = user.planType || 'pro';
 
-        await models.User.findByIdAndUpdate(user._id, {
-          'plan.type': 'free',
-          'plan.status': 'active',
-          'plan.stripeSubscriptionId': null,
-          'plan.endDate': null,
-          'plan.startDate': new Date(),
-          $inc: { tokenVersion: 1 },
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            planType: 'free',
+            planStatus: 'active',
+            stripeSubscriptionId: null,
+            planEndDate: null,
+            planStartDate: new Date(),
+            tokenVersion: { increment: 1 },
+          }
         });
 
-        await models.Organization.updateMany(
-          { ownerId: user._id },
-          {
-            'plan.type': 'free',
-            'plan.status': 'active',
-            'plan.startDate': new Date(),
-            'plan.endDate': null,
+        await prisma.organization.updateMany({
+          where: { ownerId: user.id },
+          data: {
+            planType: 'free',
+            planStatus: 'active',
+            planStartDate: new Date(),
+            planEndDate: null,
           }
-        );
+        });
 
-        await OrganizationPlanSyncService.syncUserOrganizations(user._id);
+        const OrganizationPlanSyncService = (await import('./organization-plan-sync.service.js')).OrganizationPlanSyncService;
+        await OrganizationPlanSyncService.syncUserOrganizations(user.id);
 
         try {
           const emailQueue = new EmailQueue();
           await emailQueue.addEmailJob(
             'plan_downgrade',
             {
-              userId: user._id.toString(),
+              userId: user.id,
               userEmail: user.email,
               userName: user.name || '',
               previousPlanType: previousPlanType,
@@ -647,7 +686,7 @@ export class PaymentService {
             },
             {
               priority: 1,
-              jobId: `plan-downgrade-${user._id}-${Date.now()}`,
+              jobId: `plan-downgrade-${user.id}-${Date.now()}`,
             }
           );
         } catch (emailError) {
@@ -668,12 +707,12 @@ export class PaymentService {
   static async handleInvoicePaymentSucceeded(invoice: any) {
     try {
       const stripe = getStripe();
-      const { userId } = invoice.metadata;
+      const { userId } = invoice.metadata || {};
 
       let user = null;
 
       if (userId) {
-        user = await models.User.findById(userId);
+        user = await prisma.user.findUnique({ where: { id: userId } });
       }
 
       if (!user && invoice.customer) {
@@ -685,6 +724,19 @@ export class PaymentService {
       }
 
       if (user && invoice.subscription) {
+        // Explicit price mapping
+        const priceId = invoice.lines?.data?.[0]?.price?.id;
+        let planType = 'free';
+        
+        if (priceId && (priceId === stripeConfig.priceIds.pro.monthly || priceId === stripeConfig.priceIds.pro.yearly)) {
+          planType = 'pro';
+        }
+
+        if (user.planType === 'enterprise' && planType !== 'enterprise') {
+          console.warn(`[Stripe Webhook] Downgrade guard: ignoring transition to ${planType} for enterprise user ${user.id}`);
+          return { handled: true };
+        }
+
         const subscriptionId =
           typeof invoice.subscription === 'string'
             ? invoice.subscription
@@ -697,16 +749,58 @@ export class PaymentService {
         const endDate = new Date(subscription.current_period_end * 1000);
         const startDate = new Date(subscription.current_period_start * 1000);
 
-        await models.User.findByIdAndUpdate(user._id, {
-          'plan.status': 'active',
-          'plan.lastPaymentDate': new Date(),
-          'plan.endDate': endDate,
-          'plan.startDate': startDate,
-          'plan.stripeSubscriptionId': subscriptionId,
-          $inc: { tokenVersion: 1 },
-        });
+        await prisma.$transaction(async (tx) => {
+          // Idempotency check
+          const existingLog = await tx.auditLog.findFirst({
+            where: {
+              action: 'INVOICE_PAYMENT_SUCCEEDED',
+              resourceId: invoice.id,
+            },
+          });
 
-        await OrganizationPlanSyncService.syncUserOrganizations(user._id);
+          if (existingLog) {
+            console.log(`[Stripe Webhook] Idempotent trigger for invoice ${invoice.id}, skipping`);
+            return;
+          }
+
+          // Record idempotency
+          await tx.auditLog.create({
+            data: {
+              category: 'BILLING',
+              action: 'INVOICE_PAYMENT_SUCCEEDED',
+              resourceType: 'Invoice',
+              resourceId: invoice.id,
+              userId: user.id.toString(),
+              status: 'success',
+              details: JSON.stringify({ planType, subscriptionId }),
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            },
+          });
+
+          // Update user
+          await tx.user.update({
+            where: { id: user.id.toString() },
+            data: {
+              planType: planType,
+              planStatus: 'active',
+              planEndDate: endDate,
+              planStartDate: startDate,
+              stripeSubscriptionId: subscriptionId,
+              tokenVersion: { increment: 1 },
+            },
+          });
+
+          // Update organizations owned by user directly in tx
+          await tx.organization.updateMany({
+            where: { ownerId: user.id.toString() },
+            data: {
+              planType: planType,
+              planStatus: 'active',
+              planEndDate: endDate,
+              planStartDate: startDate,
+            },
+          });
+        });
       }
 
       return { handled: true };
@@ -726,7 +820,7 @@ export class PaymentService {
       let user = null;
 
       if (userId) {
-        user = await models.User.findById(userId);
+        user = await prisma.user.findUnique({ where: { id: userId } });
       }
 
       if (!user && invoice.customer) {
@@ -738,9 +832,12 @@ export class PaymentService {
       }
 
       if (user) {
-        await models.User.findByIdAndUpdate(user._id, {
-          'plan.status': 'past_due',
-          $inc: { tokenVersion: 1 },
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            planStatus: 'past_due',
+            tokenVersion: { increment: 1 },
+          }
         });
       }
 

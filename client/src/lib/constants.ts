@@ -33,14 +33,25 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Bell,
     available: true,
   },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3, available: false },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3, available: true },
   {
     path: '/organization',
     label: 'Organization',
     icon: Building2,
-    available: false,
+    available: true,
   },
-  { path: '/settings', label: 'Settings', icon: Settings, available: true },
+  {
+    path: '/settings',
+    label: 'Settings',
+    icon: Settings,
+    available: true,
+    children: [
+      { path: '/settings/profile', label: 'Profile', available: true },
+      { path: '/settings/organization', label: 'Workspace', available: true, organizationOnly: true },
+      { path: '/settings/plan', label: 'Plan & Billing', available: true },
+      { path: '/settings/notifications', label: 'Notifications', available: true },
+    ]
+  },
 ];
 
 export const NAV_LINKS = [

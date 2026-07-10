@@ -79,7 +79,7 @@ export abstract class BaseWorker {
         return await this.processJob(job);
       },
       {
-        connection: this.connection,
+        connection: this.connection as any,
         prefix,
         concurrency,
         limiter,

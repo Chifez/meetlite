@@ -1,9 +1,7 @@
 import bcrypt from 'bcryptjs';
-// @ts-ignore
 import { google } from 'googleapis';
-import { models } from '../index.js';
 import { generateResetToken } from './email-service.js';
-import { EmailQueue } from '@minimeet/shared';
+import { EmailQueue, prisma } from '@minimeet/shared';
 import { generateJWTToken } from '../utils/generate-token.js';
 
 export class AuthService {
@@ -36,14 +34,18 @@ export class AuthService {
       const googleId = payload.sub;
       const email = payload.email!;
 
-      let user = await models.User.findOne({ googleId });
+      let user = await prisma.user.findFirst({ where: { googleId } });
       if (!user) {
-        user = await models.User.findOne({ email });
+        user = await prisma.user.findUnique({ where: { email } });
         if (user) {
-          user.googleId = googleId;
-          await user.save();
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { googleId }
+          });
         } else {
-          user = await models.User.create({ email, googleId });
+          user = await prisma.user.create({
+            data: { email, googleId }
+          });
         }
       }
 
@@ -58,7 +60,7 @@ export class AuthService {
 
   async handleForgotPassword(email: string) {
     try {
-      const user = await models.User.findOne({ email });
+      const user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
         return {
           message:
@@ -69,9 +71,13 @@ export class AuthService {
       const resetToken = generateResetToken();
       const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-      user.resetToken = resetToken;
-      user.resetTokenExpiry = resetTokenExpiry;
-      await user.save();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken,
+          resetTokenExpiry
+        }
+      });
 
       try {
         const emailQueue = new EmailQueue();
@@ -84,7 +90,7 @@ export class AuthService {
           },
           {
             priority: 1,
-            jobId: `password-reset-${user._id}-${Date.now()}`,
+            jobId: `password-reset-${user.id}-${Date.now()}`,
           }
         );
       } catch (emailError) {
@@ -108,9 +114,11 @@ export class AuthService {
 
   async handlePasswordReset(token: string, newPassword: string) {
     try {
-      const user = await models.User.findOne({
-        resetToken: token,
-        resetTokenExpiry: { $gt: new Date() },
+      const user = await prisma.user.findFirst({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: { gt: new Date() },
+        }
       });
 
       if (!user) {
@@ -120,10 +128,14 @@ export class AuthService {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-      user.password = hashedPassword;
-      user.resetToken = null;
-      user.resetTokenExpiry = null;
-      await user.save();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: hashedPassword,
+          resetToken: null,
+          resetTokenExpiry: null,
+        }
+      });
 
       return { message: 'Password reset successfully' };
     } catch (error) {
@@ -132,70 +144,74 @@ export class AuthService {
     }
   }
 
-  async updateUserProfile(userId: any, updates: any) {
+  async updateUserProfile(userId: string, updates: any) {
     try {
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw new Error('User not found');
       }
 
+      const data: any = {};
       if (updates.name !== undefined) {
-        user.name = updates.name.trim();
+        data.name = updates.name.trim();
       }
       if (updates.useNameInMeetings !== undefined) {
-        user.useNameInMeetings = updates.useNameInMeetings;
+        data.useNameInMeetings = updates.useNameInMeetings;
       }
 
       if (updates.notificationPreferences !== undefined) {
         const prefs = updates.notificationPreferences;
 
         if (prefs.enabled !== undefined) {
-          user.notificationPreferences.enabled = prefs.enabled;
+          data.notificationPreferencesEnabled = prefs.enabled;
         }
 
         if (prefs.channels !== undefined) {
           if (prefs.channels.inApp !== undefined) {
-            user.notificationPreferences.channels.inApp = prefs.channels.inApp;
+            data.notificationPreferencesChannelsInApp = prefs.channels.inApp;
           }
           if (prefs.channels.email !== undefined) {
-            user.notificationPreferences.channels.email = prefs.channels.email;
+            data.notificationPreferencesChannelsEmail = prefs.channels.email;
           }
           if (prefs.channels.push !== undefined) {
-            user.notificationPreferences.channels.push = prefs.channels.push;
+            data.notificationPreferencesChannelsPush = prefs.channels.push;
           }
         }
 
         if (prefs.types !== undefined) {
           if (prefs.types.meetingReminders !== undefined) {
-            user.notificationPreferences.types.meetingReminders =
+            data.notificationPreferencesTypesMeetingReminders =
               prefs.types.meetingReminders;
           }
           if (prefs.types.meetingInvitations !== undefined) {
-            user.notificationPreferences.types.meetingInvitations =
+            data.notificationPreferencesTypesMeetingInvitations =
               prefs.types.meetingInvitations;
           }
           if (prefs.types.meetingUpdates !== undefined) {
-            user.notificationPreferences.types.meetingUpdates =
+            data.notificationPreferencesTypesMeetingUpdates =
               prefs.types.meetingUpdates;
           }
           if (prefs.types.recordingReady !== undefined) {
-            user.notificationPreferences.types.recordingReady =
+            data.notificationPreferencesTypesRecordingReady =
               prefs.types.recordingReady;
           }
         }
       }
 
-      await user.save();
-      return user;
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data
+      });
+      return updatedUser;
     } catch (error) {
       console.error('Update profile error:', error);
       throw error;
     }
   }
 
-  async completeUserOnboarding(userId: any, onboardingData: any) {
+  async completeUserOnboarding(userId: string, onboardingData: any) {
     try {
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw new Error('User not found');
       }
@@ -227,45 +243,46 @@ export class AuthService {
         throw new Error('Invalid experience level');
       }
 
-      user.onboarding = {
-        name: name.trim(),
-        useCase,
-        teamSize,
-        primaryUse,
-        experience,
+      const data: any = {
+        onboardingName: name.trim(),
+        onboardingUseCase: useCase,
+        onboardingTeamSize: teamSize,
+        onboardingPrimaryUse: primaryUse,
+        onboardingExperience: experience,
+        name: user.name || name.trim(),
+        onboardingCompleted: true,
       };
-      user.name = user.name || name.trim();
-      user.onboardingCompleted = true;
 
-      if (!user.plan || typeof user.plan === 'string') {
-        user.plan = {
-          type: 'free',
-          startDate: new Date(),
-          status: 'active',
-        };
+      if (!user.planType) {
+        data.planType = 'free';
+        data.planStartDate = new Date();
+        data.planStatus = 'active';
       }
 
-      await user.save();
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data
+      });
 
       try {
         const emailQueue = new EmailQueue();
         await emailQueue.addEmailJob(
           'welcome',
           {
-            userId: user._id.toString(),
-            userEmail: user.email,
-            userName: user.name || '',
+            userId: updatedUser.id.toString(),
+            userEmail: updatedUser.email,
+            userName: updatedUser.name || '',
           },
           {
             priority: 1,
-            jobId: `welcome-email-${user._id}`,
+            jobId: `welcome-email-${updatedUser.id}`,
           }
         );
       } catch (emailError) {
         console.error('Failed to queue welcome email:', emailError);
       }
 
-      return user;
+      return updatedUser;
     } catch (error) {
       console.error('Onboarding completion error:', error);
       throw error;

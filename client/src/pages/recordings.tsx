@@ -287,9 +287,9 @@ export default function Recordings() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
-              <Video className="w-6 h-6 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-4 border border-border rounded-2xl bg-surface">
+            <div className="w-12 h-12 rounded-full bg-surface-sunken flex items-center justify-center border border-border/50">
+              <Video className="w-5 h-5 text-ink-muted" />
             </div>
             <div>
               <p className="text-[0.9375rem] font-semibold text-foreground tracking-[-0.01em]">

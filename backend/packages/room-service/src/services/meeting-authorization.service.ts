@@ -1,4 +1,4 @@
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 export class MeetingAuthorizationService {
   /**
@@ -9,7 +9,13 @@ export class MeetingAuthorizationService {
       return true;
     }
 
-    const userDoc = await models.User.findById(userId);
+    const userDoc = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: true,
+        teamMemberships: true,
+      }
+    });
     if (!userDoc) {
       return false;
     }
@@ -29,10 +35,12 @@ export class MeetingAuthorizationService {
     }
 
     if (meeting.teamId && organizationId) {
-      const team = await models.Team.findOne({
-        _id: meeting.teamId,
-        organizationId: organizationId,
-        status: { $ne: 'deleted' },
+      const team = await prisma.team.findFirst({
+        where: {
+          id: meeting.teamId,
+          organizationId: organizationId,
+          status: { not: 'deleted' },
+        }
       });
 
       if (team) {
@@ -65,7 +73,13 @@ export class MeetingAuthorizationService {
       return true;
     }
 
-    const userDoc = await models.User.findById(userId);
+    const userDoc = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: true,
+        teamMemberships: true,
+      }
+    });
     if (!userDoc) {
       return false;
     }

@@ -151,7 +151,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     }
   }, [isPersonalMode, location.pathname, navigate, isAuthenticated]);
 
-  const switchToOrganization = async (orgId: string): Promise<void> => {
+  const switchToOrganization = useCallback(async (orgId: string): Promise<void> => {
     if (switchingOrg) return;
 
     setSwitchingOrg(true);
@@ -184,9 +184,9 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     } finally {
       setSwitchingOrg(false);
     }
-  };
+  }, [switchingOrg, handleNewToken, updateUser, organizations]);
 
-  const switchToPersonal = async (): Promise<void> => {
+  const switchToPersonal = useCallback(async (): Promise<void> => {
     if (switchingOrg || isPersonalMode) return;
 
     setSwitchingOrg(true);
@@ -220,9 +220,9 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     } finally {
       setSwitchingOrg(false);
     }
-  };
+  }, [switchingOrg, isPersonalMode, handleNewToken, updateUser]);
 
-  const createOrganization = async (data: {
+  const createOrganization = useCallback(async (data: {
     name: string;
     description?: string;
     industry?: string;
@@ -272,7 +272,7 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
       );
       return null;
     }
-  };
+  }, [handleNewToken, updateUser]);
 
   const contextValue: WorkspaceContextType = {
     // State

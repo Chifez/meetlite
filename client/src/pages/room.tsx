@@ -243,10 +243,11 @@ const Room = () => {
     <>
       <SEO {...seoProps} />
       <RoomProvider value={roomContextValue}>
-        <div className="flex h-screen bg-[#121212]">
+        {/* Wrap the entire room in `.dark` so everything automatically uses the official dark tokens */}
+        <div className="dark flex h-screen bg-background text-foreground">
           {/* Main content area */}
           <div className="flex flex-col flex-1 overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-[#121212] p-4">
+            <div className="flex-1 overflow-hidden bg-background p-4">
               {collaborationState?.mode === 'workflow' ? (
                 <SharedPresentation mode="workflow" />
               ) : collaborationState?.mode === 'whiteboard' ? (

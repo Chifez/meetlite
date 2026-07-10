@@ -1,7 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { getPlanConstraints } from '@minimeet/shared';
-import { models } from '../index.js';
-import { EmailQueue } from '@minimeet/shared';
+import { prisma, EmailQueue } from '@minimeet/shared';
 import { AuthenticatedRequest } from './authenticate-token.js';
 
 /**
@@ -16,31 +15,32 @@ export const validatePlanStatus = (req: AuthenticatedRequest, res: Response, nex
     }
 
     // Check if plan is expired
-    if (user.plan.status === 'expired') {
+    if (user.planStatus === 'expired' || user.plan?.status === 'expired') {
       return res.status(403).json({
         message:
           'Your plan has expired. Please renew to continue using premium features.',
         planStatus: 'expired',
-        currentPlan: user.plan.type,
+        currentPlan: user.planType || user.plan?.type,
         upgradeRequired: true,
       });
     }
 
     // Check if plan is cancelled
-    if (user.plan.status === 'cancelled') {
+    if (user.planStatus === 'cancelled' || user.plan?.status === 'cancelled') {
       return res.status(403).json({
         message:
           'Your plan has been cancelled. Please reactivate to continue using premium features.',
         planStatus: 'cancelled',
-        currentPlan: user.plan.type,
+        currentPlan: user.planType || user.plan?.type,
         upgradeRequired: true,
       });
     }
 
     // Check if plan has an end date and is approaching expiration
-    if (user.plan.endDate) {
+    const userEndDate = user.planEndDate || user.plan?.endDate;
+    if (userEndDate) {
       const now = new Date();
-      const endDate = new Date(user.plan.endDate);
+      const endDate = new Date(userEndDate);
       const daysUntilExpiry = Math.ceil(
         (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -54,7 +54,7 @@ export const validatePlanStatus = (req: AuthenticatedRequest, res: Response, nex
           message:
             'Your plan has expired. Please renew to continue using premium features.',
           planStatus: 'expired',
-          currentPlan: user.plan.type,
+          currentPlan: user.planType || user.plan?.type,
           upgradeRequired: true,
         });
       }
@@ -79,14 +79,15 @@ export const requirePlanFeature = (requiredFeature: string) => {
         return res.status(401).json({ message: 'Authentication required' });
       }
 
-      const planConstraints = getPlanConstraints(user.plan.type);
+      const currentPlanType = user.planType || user.plan?.type;
+      const planConstraints = getPlanConstraints(currentPlanType);
 
       if (!planConstraints.features.includes(requiredFeature)) {
         return res.status(403).json({
           message: `This feature requires a ${getUpgradePlan(
-            user.plan.type
+            currentPlanType
           )} plan or higher.`,
-          currentPlan: user.plan.type,
+          currentPlan: currentPlanType,
           requiredFeature,
           upgradeRequired: true,
         });
@@ -124,10 +125,12 @@ export class PlanExpirationService {
       const now = new Date();
 
       // Find users with expired plans
-      const expiredUsers = await models.User.find({
-        'plan.endDate': { $lt: now },
-        'plan.status': 'active',
-        'plan.type': { $ne: 'free' },
+      const expiredUsers = await prisma.user.findMany({
+        where: {
+          planEndDate: { lt: now },
+          planStatus: 'active',
+          planType: { not: 'free' },
+        }
       });
 
       for (const user of expiredUsers) {
@@ -147,21 +150,24 @@ export class PlanExpirationService {
   static async handleExpiredPlan(user: any) {
     try {
       // Update plan status to expired
-      await models.User.findByIdAndUpdate(user._id, {
-        'plan.status': 'expired',
-        $inc: { tokenVersion: 1 },
+      await prisma.user.update({
+        where: { id: user.id || user._id },
+        data: {
+          planStatus: 'expired',
+          tokenVersion: { increment: 1 }
+        }
       });
 
       // Also downgrade all organizations owned by this user
-      await models.Organization.updateMany(
-        { ownerId: user._id },
-        {
-          'plan.type': 'free',
-          'plan.status': 'active',
-          'plan.startDate': new Date(),
-          'plan.endDate': null,
+      await prisma.organization.updateMany({
+        where: { ownerId: user.id || user._id },
+        data: {
+          planType: 'free',
+          planStatus: 'active',
+          planStartDate: new Date(),
+          planEndDate: null,
         }
-      );
+      });
 
       // Send email notification about plan expiration
       try {
@@ -171,18 +177,18 @@ export class PlanExpirationService {
           {
             userEmail: user.email,
             userName: user.name || user.email,
-            planType: user.plan.type,
+            planType: user.planType || user.plan?.type,
           },
           {
             priority: 1,
-            jobId: `plan-expiration-${user._id}`,
+            jobId: `plan-expiration-${user.id || user._id}`,
           }
         );
       } catch (emailError) {
         console.error('Failed to queue plan expiration email:', emailError);
       }
     } catch (error) {
-      console.error(`Error handling expired plan for user ${user._id}:`, error);
+      console.error(`Error handling expired plan for user ${user.id || user._id}:`, error);
     }
   }
 
@@ -191,33 +197,32 @@ export class PlanExpirationService {
    */
   static async extendPlan(userId: string, newEndDate: Date, planType: string | null = null) {
     try {
-      const updateData: Record<string, any> = {
-        'plan.endDate': newEndDate,
-        'plan.status': 'active',
-        $inc: { tokenVersion: 1 },
+      const updateData: any = {
+        planEndDate: newEndDate,
+        planStatus: 'active',
+        tokenVersion: { increment: 1 },
       };
 
       if (planType) {
-        updateData['plan.type'] = planType;
+        updateData.planType = planType as any;
       }
 
-      const updatedUser = await models.User.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true }
-      );
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: updateData
+      });
 
       // Also update all organizations owned by this user
       if (planType) {
-        await models.Organization.updateMany(
-          { ownerId: userId },
-          {
-            'plan.type': planType,
-            'plan.status': 'active',
-            'plan.startDate': new Date(),
-            'plan.endDate': newEndDate,
+        await prisma.organization.updateMany({
+          where: { ownerId: userId },
+          data: {
+            planType: planType as any,
+            planStatus: 'active',
+            planStartDate: new Date(),
+            planEndDate: newEndDate,
           }
-        );
+        });
       }
 
       return updatedUser;
@@ -232,25 +237,24 @@ export class PlanExpirationService {
    */
   static async cancelPlan(userId: string) {
     try {
-      const updatedUser = await models.User.findByIdAndUpdate(
-        userId,
-        {
-          'plan.status': 'cancelled',
-          $inc: { tokenVersion: 1 },
-        },
-        { new: true }
-      );
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          planStatus: 'cancelled',
+          tokenVersion: { increment: 1 },
+        }
+      });
 
       // Also downgrade all organizations owned by this user
-      await models.Organization.updateMany(
-        { ownerId: userId },
-        {
-          'plan.type': 'free',
-          'plan.status': 'active',
-          'plan.startDate': new Date(),
-          'plan.endDate': null,
+      await prisma.organization.updateMany({
+        where: { ownerId: userId },
+        data: {
+          planType: 'free',
+          planStatus: 'active',
+          planStartDate: new Date(),
+          planEndDate: null,
         }
-      );
+      });
 
       return updatedUser;
     } catch (error) {

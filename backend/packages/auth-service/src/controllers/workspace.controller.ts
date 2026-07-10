@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { generateJWTToken } from '../utils/generate-token.js';
 
 export class WorkspaceController {
@@ -7,7 +7,7 @@ export class WorkspaceController {
   async switchWorkspace(req: any, res: Response) {
     try {
       const { type, organizationId } = req.body;
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
       if (!type || !['personal', 'organization'].includes(type)) {
         return res.status(400).json({
@@ -28,24 +28,25 @@ export class WorkspaceController {
       let newWorkspace: any = null;
 
       if (type === 'personal') {
-        updatedUser = await models.User.findByIdAndUpdate(
-          userId,
-          {
-            $unset: { organizationId: 1 },
+        updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: {
+            organizationId: null,
             role: 'owner',
-            $inc: { tokenVersion: 1 },
-          },
-          { new: true }
-        );
+            tokenVersion: { increment: 1 },
+          }
+        });
 
         newWorkspace = {
           type: 'personal',
           role: 'owner',
         };
       } else {
-        const organization = await models.Organization.findOne({
-          _id: organizationId,
-          status: 'active',
+        const organization = await prisma.organization.findFirst({
+          where: {
+            id: organizationId,
+            status: 'active',
+          }
         });
 
         if (!organization) {
@@ -55,36 +56,47 @@ export class WorkspaceController {
           });
         }
 
-        const isOwner = organization.ownerId.toString() === userId.toString();
-        const isMember = req.user.organizationId?.toString() === organizationId;
+        const isOwner = organization.ownerId === userId;
+        const isMember = req.user.organizationId === organizationId;
 
         if (!isOwner && !isMember) {
           return res.status(403).json({
             success: false,
             message: 'Access denied to organization',
+            debug: { orgId: organizationId, isOwner, isMember }
           });
         }
 
         const userRole = isOwner ? 'owner' : 'member';
-        updatedUser = await models.User.findByIdAndUpdate(
-          userId,
-          {
+        updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: {
             organizationId,
             role: userRole,
-            $inc: { tokenVersion: 1 },
-          },
-          { new: true }
-        );
+            tokenVersion: { increment: 1 },
+          }
+        });
 
         newWorkspace = {
-          id: organization._id,
+          id: organization.id,
           name: organization.name,
           slug: organization.slug,
           type: 'organization',
           role: userRole,
-          plan: organization.plan,
-          memberCount: organization.stats.totalMembers,
-          settings: organization.settings,
+          plan: {
+            type: organization.planType,
+            status: organization.planStatus,
+            startDate: organization.planStartDate,
+            endDate: organization.planEndDate,
+          },
+          memberCount: organization.statsTotalMembers,
+          settings: {
+            allowPublicMeetings: organization.allowPublicMeetings,
+            requireMeetingApproval: organization.requireMeetingApproval,
+            maxMeetingDuration: organization.maxMeetingDuration,
+            allowExternalParticipants: organization.allowExternalParticipants,
+            defaultMeetingPrivacy: organization.defaultMeetingPrivacy,
+          },
         };
       }
 
@@ -101,8 +113,7 @@ export class WorkspaceController {
       res.status(500).json({
         success: false,
         message: 'Server error',
-        error:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+        error: error.message || error.toString(),
       });
     }
   }
@@ -122,16 +133,21 @@ export class WorkspaceController {
         });
       }
 
-      const organization = await models.Organization.findOne({
-        _id: user.organizationId,
-        status: 'active',
+      const organization = await prisma.organization.findFirst({
+        where: {
+          id: user.organizationId,
+          status: 'active',
+        }
       });
 
       if (!organization) {
-        await models.User.findByIdAndUpdate(user._id, {
-          $unset: { organizationId: 1 },
-          role: 'owner',
-          $inc: { tokenVersion: 1 },
+        await prisma.user.update({
+          where: { id: user.id || user._id },
+          data: {
+            organizationId: null,
+            role: 'owner',
+            tokenVersion: { increment: 1 },
+          }
         });
 
         return res.json({
@@ -145,19 +161,30 @@ export class WorkspaceController {
         });
       }
 
-      const isOwner = organization.ownerId.toString() === user._id.toString();
+      const isOwner = organization.ownerId === (user.id || user._id);
 
       res.json({
         success: true,
         workspace: {
-          id: organization._id,
+          id: organization.id,
           name: organization.name,
           slug: organization.slug,
           type: 'organization',
           role: isOwner ? 'owner' : 'member',
-          plan: organization.plan,
-          memberCount: organization.stats.totalMembers,
-          settings: organization.settings,
+          plan: {
+            type: organization.planType,
+            status: organization.planStatus,
+            startDate: organization.planStartDate,
+            endDate: organization.planEndDate,
+          },
+          memberCount: organization.statsTotalMembers,
+          settings: {
+            allowPublicMeetings: organization.allowPublicMeetings,
+            requireMeetingApproval: organization.requireMeetingApproval,
+            maxMeetingDuration: organization.maxMeetingDuration,
+            allowExternalParticipants: organization.allowExternalParticipants,
+            defaultMeetingPrivacy: organization.defaultMeetingPrivacy,
+          },
         },
       });
     } catch (error) {

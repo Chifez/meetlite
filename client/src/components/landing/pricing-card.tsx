@@ -76,50 +76,38 @@ const PricingCard = ({
   return (
     <div
       className={cn(
-        'relative flex flex-col rounded-2xl border p-6 transition-colors duration-200',
+        'relative flex flex-col rounded-3xl p-8 transition-all duration-200 bg-card',
         isPopular
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-card hover:border-primary/40'
+          ? 'border-2 border-primary shadow-xl scale-100 lg:scale-105 z-10'
+          : 'border border-border shadow-sm hover:border-primary/40'
       )}
     >
       {isPopular && (
         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-          <Badge variant="solid" className="bg-white text-primary text-[0.6875rem]">
+          <Badge variant="solid" className="bg-primary text-white border-none px-3 py-1 font-bold tracking-wide uppercase text-[10px]">
             Most popular
           </Badge>
         </div>
       )}
 
       {/* Plan header */}
-      <div className="mb-5">
-        <h3 className={cn(
-          'text-[0.9375rem] font-bold tracking-[-0.01em] mb-1',
-          isPopular ? 'text-primary-foreground' : 'text-foreground'
-        )}>
+      <div className="mb-6">
+        <h3 className="text-xl font-bold tracking-tight text-foreground mb-2">
           {title}
         </h3>
-        <p className={cn(
-          'text-[0.8125rem] leading-relaxed',
-          isPopular ? 'text-primary-foreground/80' : 'text-muted-foreground'
-        )}>
+        <p className="text-sm text-muted-foreground leading-relaxed">
           {description}
         </p>
       </div>
 
       {/* Price */}
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="flex items-baseline gap-1">
-          <span className={cn(
-            'text-[2.5rem] font-bold tracking-[-0.04em]',
-            isPopular ? 'text-primary-foreground' : 'text-foreground'
-          )}>
+          <span className="text-5xl font-bold tracking-tighter text-foreground">
             {price}
           </span>
           {period && (
-            <span className={cn(
-              'text-[0.8125rem]',
-              isPopular ? 'text-primary-foreground/70' : 'text-muted-foreground'
-            )}>
+            <span className="text-sm font-semibold text-muted-foreground">
               {period}
             </span>
           )}
@@ -127,20 +115,14 @@ const PricingCard = ({
       </div>
 
       {/* Features */}
-      <ul className="space-y-2.5 flex-1 mb-7">
+      <ul className="space-y-4 flex-1 mb-8">
         {features.map((feature, i) => (
-          <li key={i} className="flex items-start gap-2.5">
+          <li key={i} className="flex items-start gap-3">
             <Check
-              className={cn(
-                'w-4 h-4 mt-0.5 flex-shrink-0',
-                isPopular ? 'text-primary-foreground/90' : 'text-primary'
-              )}
-              strokeWidth={2.5}
+              className="w-5 h-5 mt-0.5 flex-shrink-0 text-primary"
+              strokeWidth={3}
             />
-            <span className={cn(
-              'text-[0.8125rem] leading-snug',
-              isPopular ? 'text-primary-foreground/90' : 'text-foreground'
-            )}>
+            <span className="text-sm font-medium leading-snug text-foreground/90">
               {feature}
             </span>
           </li>
@@ -150,10 +132,10 @@ const PricingCard = ({
       <Button
         id={`pricing-cta-${planType ?? 'free'}`}
         className={cn(
-          'w-full rounded-xl font-semibold',
+          'w-full rounded-xl py-6 text-sm font-bold shadow-sm',
           isPopular
-            ? 'bg-white text-primary hover:bg-white/90'
-            : ''
+            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+            : 'bg-background text-foreground border border-border hover:bg-border/30'
         )}
         variant={isPopular ? 'default' : buttonVariant}
         onClick={handleButtonClick}

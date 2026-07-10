@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
@@ -79,22 +79,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
 
-  // Helper function to handle new tokens from API responses
-  const handleNewToken = (newToken: string) => {
-    Cookies.set('token', newToken, { secure: true, sameSite: 'lax' });
-    // Fetch updated profile with new token
-    fetchUserProfile(newToken);
-  };
-
-  // Update user function
-  const updateUser = (userData: Partial<User>) => {
-    if (user) {
-      setUser({ ...user, ...userData });
-    }
-  };
-
   // Helper to fetch latest user profile
-  const fetchUserProfile = async (token: string) => {
+  const fetchUserProfile = useCallback(async (token: string) => {
     try {
       const response = await api.get('/api/auth/profile', {
         headers: { Authorization: `Bearer ${token}` },
@@ -122,10 +108,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // fallback: clear user if profile fetch fails
       setUser(null);
     }
-  };
+  }, []);
 
+  // Helper function to handle new tokens from API responses
+  const handleNewToken = useCallback((newToken: string) => {
+    Cookies.set('token', newToken, { secure: true, sameSite: 'lax' });
+    // Fetch updated profile with new token
+    fetchUserProfile(newToken);
+  }, [fetchUserProfile]);
+
+  // Update user function
+  const updateUser = useCallback((userData: Partial<User>) => {
+    setUser((prev) => {
+      if (prev) {
+        return { ...prev, ...userData };
+      }
+      return prev;
+    });
+  }, []);
   // Validate token with server
-  const validateToken = async (): Promise<boolean> => {
+  const validateToken = useCallback(async (): Promise<boolean> => {
     const token = Cookies.get('token');
     if (!token) return false;
 
@@ -143,7 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return false;
-  };
+  }, [fetchUserProfile]);
 
   // Check for token on mount
   useEffect(() => {
@@ -182,7 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Login user
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const response = await api.post('/api/auth/login', {
         email,
@@ -203,10 +205,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       throw error;
     }
-  };
+  }, [fetchUserProfile]);
 
   // Register user
-  const signup = async (email: string, password: string) => {
+  const signup = useCallback(async (email: string, password: string) => {
     try {
       const response = await api.post('/api/auth/signup', {
         email,
@@ -229,17 +231,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('error', error);
       throw error;
     }
-  };
+  }, [fetchUserProfile]);
 
   // Logout user
-  const logout = () => {
+  const logout = useCallback(() => {
     Cookies.remove('token');
     setUser(null);
     setRedirectTo(null); // Clear redirect URL on logout
     toast.success('Logged out', {
       description: 'You have been logged out successfully',
     });
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

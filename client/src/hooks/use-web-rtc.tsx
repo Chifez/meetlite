@@ -65,7 +65,7 @@ export const useWebRTC = (
     let active = true;
     const fetchIceConfig = async () => {
       try {
-        const response = await api.get(`/rooms/${roomId}/ice-config`);
+        const response = await api.get(`/api/rooms/${roomId}/ice-config`);
         if (active && response.data?.success && response.data?.iceServers) {
           iceServersRef.current = response.data.iceServers;
         }

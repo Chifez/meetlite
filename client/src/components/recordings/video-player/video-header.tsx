@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { MeetingRecording } from '@/services/meeting-assets-service';
 import { Progress } from '@/components/ui/progress';
-import { Video } from 'lucide-react';
+import { Play } from 'lucide-react';
 
 const VideoHeader = ({
   recording,
@@ -32,19 +32,21 @@ const VideoHeader = ({
       {/* Thumbnail */}
       <div className="relative aspect-video bg-muted rounded-t-lg overflow-hidden">
         {isLoadingThumbnail ? (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white/50"></div>
           </div>
         ) : !thumbnailError && freshThumbnailUrl ? (
           <img
             src={freshThumbnailUrl}
             alt={recording.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setThumbnailError(true)}
           />
         ) : (
-          <div className="static -z-10 w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-            <Video className="w-12 h-12 text-muted-foreground" />
+          <div className="static -z-10 w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 group-hover:from-zinc-700 group-hover:to-zinc-800 transition-colors duration-300">
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm shadow-sm group-hover:scale-110 group-hover:bg-white/20 transition-all duration-300">
+              <Play className="w-4 h-4 text-white ml-0.5" />
+            </div>
           </div>
         )}
 

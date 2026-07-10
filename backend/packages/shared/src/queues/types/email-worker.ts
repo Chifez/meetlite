@@ -60,7 +60,7 @@ export class EmailWorker extends BaseWorker {
     try {
       // Get user for personalization
       const user =
-        userId && this.User ? await this.User.findById(userId).lean() : null;
+        userId && this.User ? await this.User.findUnique({ where: { id: userId } }) : null;
 
       // Get email template based on type
       const template = this.getEmailTemplate(type, {
@@ -89,7 +89,7 @@ export class EmailWorker extends BaseWorker {
       // Audit log success
       if (this.auditEmailSent) {
         await this.auditEmailSent({
-          userId: user?._id?.toString(),
+          userId: user?.id,
           emailType: type,
           recipientEmail,
           messageId: result.messageId,

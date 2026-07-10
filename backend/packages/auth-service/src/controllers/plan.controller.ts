@@ -6,7 +6,7 @@ import {
   getPlanConstraints,
   getUpgradeSuggestions,
 } from '@minimeet/shared';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 export class PlanController {
   /**
@@ -16,32 +16,46 @@ export class PlanController {
     const user = req.user;
 
     if (user.organizationId) {
-      const organization = await models.Organization.findById(
-        user.organizationId
-      );
+      const organization = await prisma.organization.findUnique({
+        where: { id: user.organizationId }
+      });
 
       if (organization) {
         await OrganizationPlanSyncService.syncOrganizationWithOwner(
-          organization._id
+          organization.id
         );
 
-        const syncedOrg = await models.Organization.findById(
-          user.organizationId
-        );
+        const syncedOrg: any = await prisma.organization.findUnique({
+          where: { id: user.organizationId }
+        });
 
         return {
-          planType: syncedOrg.plan.type,
-          planStatus: syncedOrg.plan.status,
-          plan: syncedOrg.plan,
+          planType: syncedOrg.planType,
+          planStatus: syncedOrg.planStatus,
+          plan: {
+            type: syncedOrg.planType,
+            status: syncedOrg.planStatus,
+            startDate: syncedOrg.planStartDate,
+            endDate: syncedOrg.planEndDate,
+            stripeSubscriptionId: syncedOrg.planStripeSubscriptionId,
+            stripeSessionId: syncedOrg.planStripeSessionId,
+          },
           isOrganizationPlan: true,
         };
       }
     }
 
     return {
-      planType: user.plan.type,
-      planStatus: user.plan.status,
-      plan: user.plan,
+      planType: user.planType || user.plan?.type,
+      planStatus: user.planStatus || user.plan?.status,
+      plan: {
+        type: user.planType || user.plan?.type,
+        status: user.planStatus || user.plan?.status,
+        startDate: user.planStartDate || user.plan?.startDate,
+        endDate: user.planEndDate || user.plan?.endDate,
+        stripeSubscriptionId: user.stripeSubscriptionId || user.plan?.stripeSubscriptionId,
+        stripeSessionId: user.stripeSessionId || user.plan?.stripeSessionId,
+      },
       isOrganizationPlan: false,
     };
   }
@@ -51,11 +65,11 @@ export class PlanController {
    */
   async getPlanUsage(req: any, res: Response) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
       const effectivePlan = await this.getEffectivePlan(req);
 
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId }, include: { usage: true } });
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -66,14 +80,14 @@ export class PlanController {
         plan: effectivePlan.planType,
         limits: planConstraints,
         usage: {
-          organizationsOwned: user.usage.organizationsOwned,
-          organizationsMember: user.usage.organizationsMember,
-          invitationsSentToday: user.usage.invitationsSentToday,
-          invitationsSentThisMonth: user.usage.invitationsSentThisMonth,
-          meetingsCreatedToday: user.usage.meetingsCreatedToday,
-          meetingsCreatedThisMonth: user.usage.meetingsCreatedThisMonth,
-          storageUsedGB: user.usage.storageUsedGB,
-          apiCallsToday: user.usage.apiCallsToday,
+          organizationsOwned: user.usage?.organizationsOwned || 0,
+          organizationsMember: user.usage?.organizationsMember || 0,
+          invitationsSentToday: user.usage?.invitationsSentToday || 0,
+          invitationsSentThisMonth: user.usage?.invitationsSentThisMonth || 0,
+          meetingsCreatedToday: user.usage?.meetingsCreatedToday || 0,
+          meetingsCreatedThisMonth: user.usage?.meetingsCreatedThisMonth || 0,
+          storageUsedGB: Number(user.usage?.storageUsedGb) || 0,
+          apiCallsToday: user.usage?.apiCallsToday || 0,
         },
         canUpgrade: effectivePlan.planType !== 'enterprise',
       };
@@ -124,7 +138,7 @@ export class PlanController {
   async validateAction(req: any, res: Response) {
     try {
       const { action, data } = req.body;
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
       let validation: any;
 
@@ -132,7 +146,7 @@ export class PlanController {
         case 'send_invitation':
           validation = await PlanValidationService.validateInvitationSending(
             userId,
-            models
+            prisma
           );
           break;
 
@@ -147,7 +161,7 @@ export class PlanController {
             userId,
             data.organizationId,
             data.role,
-            models
+            prisma
           );
           break;
 
@@ -159,7 +173,7 @@ export class PlanController {
           }
           validation = await PlanValidationService.validateOrganizationCapacity(
             data.organizationId,
-            models
+            prisma
           );
           break;
 

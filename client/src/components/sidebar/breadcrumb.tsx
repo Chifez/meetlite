@@ -63,9 +63,23 @@ const Breadcrumb = ({
   };
 
   // Simple derived values
-  const currentItem = NAVIGATION_ITEMS.find(
-    (item) => item.path === currentPath
-  );
+  let currentItem = NAVIGATION_ITEMS.find((item) => item.path === currentPath);
+  let childItem: any = null;
+
+  if (!currentItem) {
+    // Check if currentPath is a child of any NAVIGATION_ITEM
+    for (const item of NAVIGATION_ITEMS) {
+      if (item.children) {
+        const foundChild = item.children.find((child) => child.path === currentPath);
+        if (foundChild) {
+          currentItem = item;
+          childItem = foundChild;
+          break;
+        }
+      }
+    }
+  }
+
   const isDashboard = currentPath === '/dashboard';
   const isTeamRoute = !!teamId;
 
@@ -122,6 +136,12 @@ const Breadcrumb = ({
               <>
                 <span>/</span>
                 <span>{currentItem.label}</span>
+                {childItem && (
+                  <>
+                    <span>/</span>
+                    <span>{childItem.label}</span>
+                  </>
+                )}
               </>
             )}
           </Button>

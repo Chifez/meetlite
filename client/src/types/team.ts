@@ -38,6 +38,7 @@ export type Team = {
   status?: 'active' | 'archived' | 'deleted';
   createdAt?: string;
   updatedAt?: string;
+  role?: 'owner' | 'admin' | 'member';
 };
 
 export type CreateTeamRequest = {

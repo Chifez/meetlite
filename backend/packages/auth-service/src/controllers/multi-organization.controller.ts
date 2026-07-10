@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { MultiOrganizationService } from '../services/multi-organization.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
@@ -10,7 +10,7 @@ export class MultiOrganizationController {
    */
   async getUserOrganizations(req: any, res: Response) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
       const organizations = await MultiOrganizationService.getUserOrganizations(
         userId
       );
@@ -31,7 +31,7 @@ export class MultiOrganizationController {
   async switchActiveOrganization(req: any, res: Response) {
     try {
       const { organizationId } = req.body;
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
       if (!organizationId) {
         return res.status(400).json({
@@ -72,7 +72,7 @@ export class MultiOrganizationController {
   async transferOwnership(req: any, res: Response) {
     try {
       const { organizationId, newOwnerId } = req.body;
-      const currentOwnerId = req.user._id;
+      const currentOwnerId = req.user.id || req.user._id;
 
       if (!organizationId || !newOwnerId) {
         return res.status(400).json({
@@ -122,7 +122,7 @@ export class MultiOrganizationController {
   async updateUserRole(req: any, res: Response) {
     try {
       const { userId, organizationId, newRole } = req.body;
-      const currentUserId = req.user._id;
+      const currentUserId = req.user.id || req.user._id;
 
       if (!userId || !organizationId || !newRole) {
         return res.status(400).json({
@@ -136,7 +136,7 @@ export class MultiOrganizationController {
         });
       }
 
-      const organization = await models.Organization.findById(organizationId);
+      const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
       if (!organization) {
         return res.status(404).json({ message: 'Organization not found' });
       }
@@ -189,7 +189,7 @@ export class MultiOrganizationController {
   async leaveOrganization(req: any, res: Response) {
     try {
       const { organizationId } = req.body;
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
       if (!organizationId) {
         return res.status(400).json({
@@ -197,7 +197,7 @@ export class MultiOrganizationController {
         });
       }
 
-      const organization = await models.Organization.findById(organizationId);
+      const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
       if (!organization) {
         return res.status(404).json({ message: 'Organization not found' });
       }

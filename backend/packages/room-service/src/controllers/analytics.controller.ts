@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { AppError } from '@minimeet/shared';
 
 export class AnalyticsController {
@@ -13,29 +13,30 @@ export class AnalyticsController {
       throw AppError.validation('Organization ID is required');
     }
 
-    // Get basic recording stats (exclude archived recordings)
-    const recordings = await (models as any).MeetingRecording.find({
-      organizationId: organizationId,
-      isArchived: { $ne: true }, // Exclude archived recordings
+    const recordings = await prisma.meetingRecording.findMany({
+      where: {
+        organizationId: organizationId as string,
+        isArchived: false,
+      }
     });
 
     const totalRecordings = recordings.length;
     const totalSize = recordings.reduce(
-      (sum: number, recording: any) => sum + (recording.recording?.fileSize || 0),
+      (sum: number, recording: any) => sum + Number(recording.fileSize || 0),
       0
     );
     const totalDuration = recordings.reduce(
-      (sum: number, recording: any) => sum + (recording.recording?.duration || 0),
+      (sum: number, recording: any) => sum + Number(recording.duration || 0),
       0
     );
 
     // Count completed transcripts and summaries
     const completedTranscripts = recordings.filter(
-      (r: any) => r.transcript?.status === 'completed'
+      (r: any) => r.transcriptStatus === 'completed'
     ).length;
 
     const completedSummaries = recordings.filter(
-      (r: any) => r.aiSummary?.status === 'completed'
+      (r: any) => r.summaryStatus === 'completed'
     ).length;
 
     // Get recordings from this month
@@ -85,16 +86,28 @@ export class AnalyticsController {
       throw AppError.validation('Organization ID is required');
     }
 
-    const stats = await (models as any).MeetingRecording.getStorageStats(organizationId);
+    const aggregates = await prisma.meetingRecording.aggregate({
+      where: { organizationId: organizationId as string },
+      _sum: { fileSize: true, duration: true },
+      _count: { id: true }
+    });
+
+    const transcriptsCount = await prisma.meetingRecording.count({
+      where: { organizationId: organizationId as string, transcriptStatus: 'completed' }
+    });
+
+    const summariesCount = await prisma.meetingRecording.count({
+      where: { organizationId: organizationId as string, summaryStatus: 'completed' }
+    });
 
     return res.json({
       success: true,
-      stats: stats[0] || {
-        totalRecordings: 0,
-        totalSize: 0,
-        totalDuration: 0,
-        completedTranscripts: 0,
-        completedSummaries: 0,
+      stats: {
+        totalRecordings: aggregates._count.id,
+        totalSize: Number(aggregates._sum.fileSize || 0),
+        totalDuration: Number(aggregates._sum.duration || 0),
+        completedTranscripts: transcriptsCount,
+        completedSummaries: summariesCount,
       },
     });
   }

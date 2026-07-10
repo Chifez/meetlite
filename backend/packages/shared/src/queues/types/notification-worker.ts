@@ -2,10 +2,11 @@ import { Job } from 'bullmq';
 import { BaseWorker } from '../base/base-worker.js';
 import { decryptJobData } from '../utils/encryption.js';
 import { EmailQueue } from './email-queue.js';
+import { prisma } from '../../prisma.js';
 
 export interface NotificationWorkerDependencies {
-  Notification: any;
-  User: any;
+  Notification?: any; // Deprecated
+  User?: any; // Deprecated
   notificationEmitter?: any;
   sendEmail?: any;
   sendPushNotificationToUser?: any;
@@ -40,8 +41,8 @@ export class NotificationWorker extends BaseWorker {
       emailTemplates,
     } = dependencies;
 
-    if (!Notification || !User) {
-      throw new Error('Notification and User models are required');
+    if (!prisma) {
+      throw new Error('Prisma client is required');
     }
 
     // Process job handler
@@ -60,6 +61,7 @@ export class NotificationWorker extends BaseWorker {
       ...options,
     });
 
+    // Deprecated fields
     this.Notification = Notification;
     this.User = User;
     this.notificationEmitter = notificationEmitter;
@@ -91,7 +93,7 @@ export class NotificationWorker extends BaseWorker {
       this.notificationEmitter.emit('notification', {
         userId: userId.toString(),
         notification: {
-          id: notification._id.toString(),
+          id: notification.id.toString(),
           type: notification.type,
           title: notification.title,
           message: notification.message,
@@ -230,9 +232,9 @@ export class NotificationWorker extends BaseWorker {
         throw new Error('Notification processed too early');
       }
 
-      const notification = await this.Notification.findById(
-        jobData.notificationId
-      );
+      const notification = await prisma.notification.findUnique({
+        where: { id: jobData.notificationId }
+      });
       if (!notification) {
         console.warn(`⚠️  Notification ${jobData.notificationId} not found`);
         return { skipped: true, reason: 'Notification not found' };
@@ -248,15 +250,19 @@ export class NotificationWorker extends BaseWorker {
         return { skipped: true, reason: 'Cancelled' };
       }
 
-      const user = await this.User.findById(jobData.userId);
+      const user = await prisma.user.findUnique({ where: { id: jobData.userId } });
       if (!user) {
         console.warn(`⚠️  User ${jobData.userId} not found`);
-        notification.status = 'failed';
-        notification.metadata = {
-          ...notification.metadata,
-          error: 'User not found',
-        };
-        await notification.save();
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            status: 'failed',
+            data: {
+              ...(notification.data as any),
+              error: 'User not found',
+            }
+          }
+        });
         return { failed: true, reason: 'User not found' };
       }
 
@@ -299,15 +305,19 @@ export class NotificationWorker extends BaseWorker {
         }
       }
 
-      notification.status = sentChannels.length > 0 ? 'sent' : 'failed';
-      notification.sentAt = new Date();
-      notification.sentChannels = sentChannels;
-      notification.metadata = {
-        ...notification.metadata,
-        failedChannels,
-        processingDuration: Date.now() - startTime,
-      };
-      await notification.save();
+      await prisma.notification.update({
+        where: { id: notification.id },
+        data: {
+          status: sentChannels.length > 0 ? 'sent' : 'failed',
+          sentAt: new Date(),
+          sentChannels: sentChannels,
+          data: {
+            ...(notification.data as any),
+            failedChannels,
+            processingDuration: Date.now() - startTime,
+          }
+        }
+      });
 
       if (sentChannels.length > 0 && this.auditNotificationSent) {
         await this.auditNotificationSent(
@@ -342,17 +352,21 @@ export class NotificationWorker extends BaseWorker {
 
       try {
         const jobData = decryptJobData(job.data);
-        const notification = await this.Notification.findById(
-          jobData.notificationId
-        );
+        const notification = await prisma.notification.findUnique({
+          where: { id: jobData.notificationId }
+        });
         if (notification) {
-          notification.status = 'failed';
-          notification.metadata = {
-            ...notification.metadata,
-            error: error.message,
-            processingDuration: duration,
-          };
-          await notification.save();
+          await prisma.notification.update({
+            where: { id: notification.id },
+            data: {
+              status: 'failed',
+              data: {
+                ...(notification.data as any),
+                error: error.message,
+                processingDuration: duration,
+              }
+            }
+          });
 
           if (this.auditNotificationFailed) {
             await this.auditNotificationFailed(

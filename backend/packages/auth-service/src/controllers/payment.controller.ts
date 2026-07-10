@@ -1,5 +1,6 @@
 import { Response } from 'express';
-import { models } from '../index.js';
+import fs from 'fs';
+import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { PaymentService } from '../services/payment.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
@@ -41,11 +42,10 @@ export class PaymentController {
         user.name
       );
 
-      await models.User.findByIdAndUpdate(
-        user._id,
-        { stripeCustomerId: customer.id },
-        { new: true }
-      );
+      await prisma.user.update({
+        where: { id: user.id || user._id },
+        data: { stripeCustomerId: customer.id }
+      });
 
       res.json({
         success: true,
@@ -110,8 +110,9 @@ export class PaymentController {
         );
         customerId = customer.id;
 
-        await models.User.findByIdAndUpdate(user._id, {
-          stripeCustomerId: customerId,
+        await prisma.user.update({
+          where: { id: user.id || user._id },
+          data: { stripeCustomerId: customerId }
         });
       }
 
@@ -133,7 +134,7 @@ export class PaymentController {
         successUrl,
         cancelUrl,
         {
-          userId: user._id.toString(),
+          userId: (user.id || user._id).toString(),
           planType,
           duration,
           userEmail: user.email,
@@ -195,11 +196,27 @@ export class PaymentController {
 
       let event;
 
+      const debugInfo = {
+        timestamp: new Date().toISOString(),
+        sig: sig,
+        endpointSecret: endpointSecret,
+        rawBodyLength: req.rawBody ? req.rawBody.length : 'undefined',
+        rawBodyType: req.rawBody ? typeof req.rawBody : 'undefined',
+        rawBodyIsBuffer: req.rawBody ? Buffer.isBuffer(req.rawBody) : false,
+        rawBodyString: req.rawBody ? req.rawBody.toString('utf8') : 'undefined',
+        body: req.body,
+        originalUrl: req.originalUrl,
+        headers: req.headers,
+      };
+      fs.writeFileSync('c:\\Users\\c\\Desktop\\minimeet\\webhook_debug.txt', JSON.stringify(debugInfo, null, 2));
+
+      console.log('[Stripe Webhook] Received webhook. sig:', sig ? 'present' : 'missing', 'endpointSecret:', endpointSecret ? 'present' : 'missing', 'rawBody:', req.rawBody ? `${req.rawBody.length} bytes` : 'undefined', 'body:', req.body ? 'present' : 'undefined');
       try {
         const stripe = getStripe();
-        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+        event = stripe.webhooks.constructEvent(req.rawBody || req.body, sig, endpointSecret);
       } catch (err: any) {
-        console.error('Webhook signature verification failed:', err.message);
+        fs.appendFileSync('c:\\Users\\c\\Desktop\\minimeet\\webhook_debug.txt', `\n\nVerification Error: ${err.message}\n${err.stack}`);
+        console.error('[Stripe Webhook] Signature verification failed:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
@@ -243,23 +260,30 @@ export class PaymentController {
       }
 
       if (req.user) {
-        if (userId !== req.user._id.toString()) {
+        if (userId !== (req.user.id || req.user._id).toString()) {
           return res.status(403).json({
             message: 'Session does not belong to authenticated user',
           });
         }
       }
 
-      const existingUser = await models.User.findById(userId);
-      if (existingUser && existingUser.plan.stripeSessionId === session_id) {
+      const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (existingUser && existingUser.stripeSessionId === session_id) {
         const newToken = generateJWTToken(existingUser);
         return res.json({
           success: true,
           message: 'Payment already processed',
           user: {
-            id: existingUser._id,
+            id: existingUser.id,
             email: existingUser.email,
-            plan: sanitizePlan(existingUser.plan),
+            plan: {
+              type: existingUser.planType,
+              status: existingUser.planStatus,
+              startDate: existingUser.planStartDate,
+              endDate: existingUser.planEndDate,
+              stripeSubscriptionId: existingUser.stripeSubscriptionId,
+              stripeSessionId: existingUser.stripeSessionId
+            },
           },
           token: newToken,
         });
@@ -304,21 +328,20 @@ export class PaymentController {
         });
       }
 
-      const updatedUser = await models.User.findByIdAndUpdate(
-        userId,
-        {
-          'plan.type': planType,
-          'plan.status': 'active',
-          'plan.startDate': startDate,
-          'plan.endDate': endDate,
-          'plan.stripeSessionId': session_id,
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          planType: planType as any,
+          planStatus: 'active',
+          planStartDate: startDate,
+          planEndDate: endDate,
+          stripeSessionId: session_id,
           ...(subscriptionId && {
-            'plan.stripeSubscriptionId': subscriptionId,
+            stripeSubscriptionId: subscriptionId,
           }),
-          $inc: { tokenVersion: 1 },
-        },
-        { new: true }
-      );
+          tokenVersion: { increment: 1 },
+        }
+      });
 
       if (updatedUser) {
         await OrganizationPlanSyncService.syncUserOrganizations(userId);
@@ -329,9 +352,16 @@ export class PaymentController {
           success: true,
           message: 'Payment successful! Plan upgraded.',
           user: {
-            id: updatedUser._id,
+            id: updatedUser.id,
             email: updatedUser.email,
-            plan: sanitizePlan(updatedUser.plan),
+            plan: {
+              type: updatedUser.planType,
+              status: updatedUser.planStatus,
+              startDate: updatedUser.planStartDate,
+              endDate: updatedUser.planEndDate,
+              stripeSubscriptionId: updatedUser.stripeSubscriptionId,
+              stripeSessionId: updatedUser.stripeSessionId
+            },
           },
           token: newToken,
         });

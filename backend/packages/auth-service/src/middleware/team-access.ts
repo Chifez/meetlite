@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { AuthenticatedRequest } from './authenticate-token.js';
 
 /**
@@ -19,10 +19,6 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
       return next();
     }
 
-    if (!teamId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ message: 'Invalid team ID format' });
-    }
-
     const organizationId =
       req.params.organizationId ||
       req.query.organizationId ||
@@ -35,11 +31,23 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    const orgMembership = user.memberships?.find(
-      (m: any) =>
-        m.organizationId.toString() === organizationId.toString() &&
-        m.status === 'active'
-    );
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        memberships: {
+          where: { organizationId, status: 'active' }
+        },
+        teamMemberships: {
+          where: { teamId, status: 'active' }
+        }
+      }
+    });
+
+    if (!fullUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const orgMembership = fullUser.memberships[0];
 
     if (
       orgMembership &&
@@ -48,21 +56,18 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
       return next();
     }
 
-    const isTeamMember = user.teamMemberships?.some(
-      (m: any) =>
-        m.teamId.toString() === teamId.toString() &&
-        m.organizationId.toString() === organizationId.toString() &&
-        m.status === 'active'
-    );
+    const isTeamMember = fullUser.teamMemberships.length > 0;
 
     if (isTeamMember) {
       return next();
     }
 
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId: organizationId,
-      status: { $ne: 'deleted' },
+    const team = await prisma.team.findFirst({
+      where: {
+        id: teamId,
+        organizationId: organizationId,
+        NOT: { status: 'deleted' },
+      }
     });
 
     if (!team) {
@@ -107,11 +112,20 @@ export const requireTeamManagement = async (req: AuthenticatedRequest, res: Resp
       });
     }
 
-    const orgMembership = user.memberships?.find(
-      (m: any) =>
-        m.organizationId.toString() === organizationId.toString() &&
-        m.status === 'active'
-    );
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        memberships: {
+          where: { organizationId, status: 'active' }
+        }
+      }
+    });
+
+    if (!fullUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const orgMembership = fullUser.memberships[0];
 
     if (
       orgMembership &&
@@ -121,10 +135,17 @@ export const requireTeamManagement = async (req: AuthenticatedRequest, res: Resp
     }
 
     if (teamId) {
-      const team = await models.Team.findOne({
-        _id: teamId,
-        organizationId: organizationId,
-        status: { $ne: 'deleted' },
+      const team = await prisma.team.findFirst({
+        where: {
+          id: teamId,
+          organizationId: organizationId,
+          NOT: { status: 'deleted' },
+        },
+        include: {
+          members: {
+            where: { userId: user.id, status: 'active' }
+          }
+        }
       });
 
       if (!team) {
@@ -132,13 +153,8 @@ export const requireTeamManagement = async (req: AuthenticatedRequest, res: Resp
       }
 
       const isTeamOwnerOrAdmin =
-        team.ownerId.toString() === user._id.toString() ||
-        team.members.some(
-          (m: any) =>
-            m.userId.toString() === user._id.toString() &&
-            (m.role === 'owner' || m.role === 'admin') &&
-            m.status === 'active'
-        );
+        team.ownerId === user.id ||
+        (team.members.length > 0 && (team.members[0].role === 'owner' || team.members[0].role === 'admin'));
 
       if (isTeamOwnerOrAdmin) {
         return next();

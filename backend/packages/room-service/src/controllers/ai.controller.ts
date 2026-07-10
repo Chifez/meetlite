@@ -9,7 +9,7 @@ import {
 } from '../services/ai.service.js';
 import { request as undiciRequest } from 'undici';
 import { AppError } from '@minimeet/shared';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 // Summarize meeting
 export const summarizeMeeting = async (req: Request, res: Response) => {
@@ -182,30 +182,30 @@ export const parseMeeting = async (req: Request, res: Response) => {
   let teamsContext: any[] = [];
   if (organizationId) {
     try {
-      const teams = await (models.Team as any).find({
-        organizationId,
-        status: { $ne: 'deleted' },
-      })
-        .select('_id name')
-        .lean();
+      const teams = await prisma.team.findMany({
+        where: {
+          organizationId,
+          status: { not: 'deleted' }
+        },
+        include: {
+          members: {
+            include: { user: { select: { email: true, name: true } } }
+          }
+        }
+      });
 
       if (teams.length > 0) {
-        // Get team members for each team
         for (const team of teams) {
-          const teamDoc = await (models.Team as any).findById(team._id)
-            .populate('members.userId', 'email name')
-            .lean();
-
-          if (teamDoc && teamDoc.members) {
-            const members = teamDoc.members
-              .filter((m: any) => m.status === 'active' && m.userId)
+          if (team.members && team.members.length > 0) {
+            const members = team.members
+              .filter((m: any) => m.status === 'active' && m.user)
               .map((m: any) => ({
-                email: m.userId.email,
-                name: m.userId.name,
+                email: m.user.email,
+                name: m.user.name,
               }));
 
             teamsContext.push({
-              id: team._id.toString(),
+              id: team.id,
               name: team.name,
               members,
             });

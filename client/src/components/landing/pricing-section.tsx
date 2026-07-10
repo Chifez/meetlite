@@ -24,7 +24,7 @@ const pricingPlans = [
       'Basic scheduling',
       'Standard support',
     ],
-    buttonText: 'Get Started',
+    buttonText: 'Get started',
     buttonVariant: 'default' as const,
     planType: 'free' as const,
   },
@@ -38,7 +38,7 @@ const pricingPlans = [
       'Priority support',
       'Recording & transcripts',
     ],
-    buttonText: 'Subscribe Now',
+    buttonText: 'Get started',
     buttonVariant: 'default' as const,
     isPopular: true,
     planType: 'pro' as const,
@@ -55,7 +55,7 @@ const pricingPlans = [
       '24/7 support',
       'SSO integration',
     ],
-    buttonText: 'Contact Sales',
+    buttonText: 'Get started',
     buttonVariant: 'outline' as const,
     planType: 'enterprise' as const,
   },
@@ -73,9 +73,9 @@ const PricingSection = () => {
   return (
     <section
       id="pricing"
-      className="py-20 bg-muted/30 relative overflow-hidden transition-colors duration-300"
+      className="py-24 bg-background relative overflow-hidden border-b border-border"
     >
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:24px_24px] opacity-30"></div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-3 mb-8">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground">
@@ -139,14 +139,13 @@ const PricingSection = () => {
 
         {/* CTA Card */}
         <div className="mt-12 max-w-4xl mx-auto">
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-primary/80 p-8 sm:p-12 shadow-xl border border-primary/20">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+          <div className="relative rounded-3xl overflow-hidden bg-card p-8 sm:p-12 shadow-sm border border-border">
 
             <div className="relative text-center space-y-6">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
                 Ready to get started?
               </h2>
-              <p className="text-base sm:text-lg text-white/90 max-w-2xl mx-auto">
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
                 Join thousands of teams using MeetLite.
               </p>
 
@@ -154,7 +153,7 @@ const PricingSection = () => {
                 <Button
                   size="default"
                   onClick={() => navigate('/signup')}
-                  className="w-full sm:w-auto bg-white text-primary hover:bg-white/92 rounded-lg px-6 py-2.5 text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200 group"
+                  className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-8 py-6 text-base font-bold shadow-sm transition-all duration-200 group"
                 >
                   Start Your First Meeting
                   <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
@@ -164,7 +163,7 @@ const PricingSection = () => {
                   variant="outline"
                   size="default"
                   onClick={() => setIsScheduleModalOpen(true)}
-                  className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 rounded-lg px-6 py-2.5 text-sm font-medium bg-transparent"
+                  className="w-full sm:w-auto border border-border text-foreground hover:bg-background rounded-xl px-8 py-6 text-base font-bold bg-transparent"
                 >
                   Schedule a Demo
                 </Button>

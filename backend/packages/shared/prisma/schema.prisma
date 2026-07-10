@@ -1,0 +1,588 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String                       @unique
+  passwordHash         String?                      @map("password_hash")
+  googleId             String?                      @unique @map("google_id")
+  name                 String                       @default("")
+  useNameInMeetings    Boolean                      @default(false) @map("use_name_in_meetings")
+  onboardingCompleted  Boolean                      @default(false) @map("onboarding_completed")
+  onboardingUseCase    String?                      @map("onboarding_use_case")
+  onboardingTeamSize   String?                      @map("onboarding_team_size")
+  onboardingExperience String?                      @map("onboarding_experience")
+  organizationId       String?                      @map("organization_id") @db.Uuid
+  role                 String                       @default("owner")
+  planType             String                       @default("free") @map("plan_type")
+  planStartDate        DateTime                     @default(now()) @map("plan_start_date")
+  planEndDate          DateTime?                    @map("plan_end_date")
+  planStatus           String                       @default("active") @map("plan_status")
+  stripeCustomerId     String?                      @map("stripe_customer_id")
+  stripeSubscriptionId String?                      @map("stripe_subscription_id")
+  stripeSessionId      String?                      @map("stripe_session_id")
+  stripePaymentIntentId String?                     @map("stripe_payment_intent_id")
+  lastPaymentDate      DateTime?                    @map("last_payment_date")
+  isSystemAdmin        Boolean                      @default(false) @map("is_system_admin")
+  tokenVersion         Int                          @default(1) @map("token_version")
+  resetToken           String?                      @map("reset_token")
+  resetTokenExpiry     DateTime?                    @map("reset_token_expiry")
+  notifyEnabled        Boolean                      @default(true) @map("notify_enabled")
+  notifyInApp          Boolean                      @default(true) @map("notify_in_app")
+  notifyEmail          Boolean                      @default(true) @map("notify_email")
+  notifyPush           Boolean                      @default(false) @map("notify_push")
+  notifyMeetingReminders   Boolean                  @default(true) @map("notify_meeting_reminders")
+  notifyMeetingInvitations Boolean                  @default(true) @map("notify_meeting_invitations")
+  notifyRecordingReady     Boolean                  @default(true) @map("notify_recording_ready")
+  planLastWarningSent      DateTime?                @map("plan_last_warning_sent")
+  lastLogin                DateTime?                @map("last_login")
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @default(now()) @map("updated_at")
+
+  usage                UserUsage?
+  memberships          UserOrganizationMembership[]
+  ownedOrganizations   Organization[]               @relation("OrgOwner")
+  teamMemberships      TeamMember[]
+  ownedTeams           Team[]                       @relation("TeamOwner")
+  createdMeetings      Meeting[]                    @relation("MeetingCreator")
+  participants         MeetingParticipant[]
+  recordingParticipants MeetingRecordingParticipant[]
+  sentOrgInvitations   OrganizationInvitation[]     @relation("OrgInviter")
+  acceptedOrgInvitations OrganizationInvitation[]   @relation("OrgAcceptor")
+  sentTeamInvitations  TeamInvitation[]             @relation("TeamInviter")
+  acceptedTeamInvitations TeamInvitation[]          @relation("TeamAcceptor")
+  notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
+  activities           Activity[]
+
+  @@map("users")
+}
+
+model UserUsage {
+  userId                    String    @id @map("user_id") @db.Uuid
+  organizationsOwned        Int       @default(0) @map("organizations_owned")
+  organizationsMember       Int       @default(0) @map("organizations_member")
+  invitationsSentToday      Int       @default(0) @map("invitations_sent_today")
+  invitationsSentThisMonth  Int       @default(0) @map("invitations_sent_this_month")
+  lastInvitationDate        DateTime? @map("last_invitation_date")
+  lastMonthlyReset          DateTime  @default(now()) @map("last_monthly_reset")
+  meetingsCreatedToday      Int       @default(0) @map("meetings_created_today")
+  meetingsCreatedThisMonth  Int       @default(0) @map("meetings_created_this_month")
+  lastMeetingDate           DateTime? @map("last_meeting_date")
+  storageUsedGb             Decimal   @default(0.0) @map("storage_used_gb") @db.Decimal(10, 3)
+  apiCallsToday             Int       @default(0) @map("api_calls_today")
+  lastApiCallDate           DateTime? @map("last_api_call_date")
+
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_usage")
+}
+
+model Organization {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                       String
+  slug                       String                       @unique
+  description                String?
+  logo                       String?
+  industry                   String?
+  size                       String?
+  planType                   String                       @default("free") @map("plan_type")
+  planStartDate              DateTime                     @default(now()) @map("plan_start_date")
+  planEndDate                DateTime?                    @map("plan_end_date")
+  planStatus                 String                       @default("active") @map("plan_status")
+  allowPublicMeetings        Boolean                      @default(true) @map("allow_public_meetings")
+  requireMeetingApproval      Boolean                      @default(false) @map("require_meeting_approval")
+  maxMeetingDuration         Int                          @default(480) @map("max_meeting_duration")
+  allowExternalParticipants  Boolean                      @default(true) @map("allow_external_participants")
+  defaultMeetingPrivacy      String                       @default("public") @map("default_meeting_privacy")
+  billingCustomerId          String?                      @map("billing_customer_id")
+  billingSubscriptionId      String?                      @map("billing_subscription_id")
+  billingStatus              String?                      @map("billing_status")
+  billingPeriodEnd           DateTime?                    @map("billing_period_end")
+  limitMaxMembers            Int                          @default(10) @map("limit_max_members")
+  limitMaxMeetingsMonth      Int                          @default(100) @map("limit_max_meetings_month")
+  limitMaxStorageGb          Int                          @default(1) @map("limit_max_storage_gb")
+  statsTotalMembers          Int                          @default(0) @map("stats_total_members")
+  statsTotalMeetings         Int                          @default(0) @map("stats_total_meetings")
+  statsTotalHours            Decimal                      @default(0.0) @map("stats_total_hours") @db.Decimal(10, 2)
+  ownerId                    String                       @map("owner_id") @db.Uuid
+  status                     String                       @default("active")
+  createdAt                  DateTime                     @default(now()) @map("created_at")
+  updatedAt                  DateTime                     @default(now()) @map("updated_at")
+
+  owner                      User                         @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships                UserOrganizationMembership[]
+  teams                      Team[]
+  meetings                   Meeting[]
+  recordings                 MeetingRecording[]
+  invitations                OrganizationInvitation[]
+  activities                 Activity[]
+
+  @@map("organizations")
+}
+
+model UserOrganizationMembership {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  role           String    @default("member")
+  status         String    @default("active")
+  invitedBy      String?   @map("invited_by") @db.Uuid
+  joinedAt       DateTime  @default(now()) @map("joined_at")
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("user_organization_memberships")
+}
+
+model Team {
+  id                        String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId            String                       @map("organization_id") @db.Uuid
+  name                      String
+  slug                      String
+  description               String?
+  logo                      String?
+  ownerId                   String                       @map("owner_id") @db.Uuid
+  allowPublicMeetings       Boolean                      @default(true) @map("allow_public_meetings")
+  requireMeetingApproval     Boolean                      @default(false) @map("require_meeting_approval")
+  maxMeetingDuration        Int                          @default(480) @map("max_meeting_duration")
+  allowExternalParticipants Boolean                      @default(true) @map("allow_external_participants")
+  defaultMeetingPrivacy     String                       @default("public") @map("default_meeting_privacy")
+  statsTotalMembers         Int                          @default(0) @map("stats_total_members")
+  statsTotalMeetings        Int                          @default(0) @map("stats_total_meetings")
+  statsTotalHours           Decimal                      @default(0.0) @map("stats_total_hours") @db.Decimal(10, 2)
+  status                    String                       @default("active")
+  createdAt                 DateTime                     @default(now()) @map("created_at")
+  updatedAt                 DateTime                     @default(now()) @map("updated_at")
+
+  organization              Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner                     User                         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members                   TeamMember[]
+  meetings                  Meeting[]
+  recordings                MeetingRecording[]
+  invitations               TeamInvitation[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([ownerId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId   String   @map("team_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     String   @default("member")
+  status   String   @default("active")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model Meeting {
+  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId          String                       @unique @map("meeting_id")
+  title              String
+  description        String?
+  scheduledTime      DateTime                     @map("scheduled_time")
+  duration           Int
+  createdBy          String                       @map("created_by") @db.Uuid
+  organizationId     String?                      @map("organization_id") @db.Uuid
+  teamId             String?                      @map("team_id") @db.Uuid
+  privacy            String                       @default("public")
+  status             String                       @default("scheduled")
+  roomId             String?                      @map("room_id")
+  isRecurring        Boolean                      @default(false) @map("is_recurring")
+  recurrenceEndDate  DateTime?                    @map("recurrence_end_date")
+  recurrenceRrule    String?                      @map("recurrence_rrule")
+  parentRecurrenceId String?                      @map("parent_recurrence_id") @db.Uuid
+  createdAt          DateTime                     @default(now()) @map("created_at")
+
+  creator            User                         @relation("MeetingCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  organization       Organization?                @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  team               Team?                        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  parentRecurrence   Meeting?                     @relation("RecurrenceSeries", fields: [parentRecurrenceId], references: [id], onDelete: SetNull)
+  recurrences        Meeting[]                    @relation("RecurrenceSeries")
+  participants       MeetingParticipant[]
+  invites            MeetingInvite[]
+  exceptions         MeetingRecurrenceException[]
+  recordings         MeetingRecording[]
+
+  @@index([organizationId])
+  @@index([teamId])
+  @@index([createdBy])
+  @@index([scheduledTime])
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  meetingId String   @map("meeting_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("participant")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, userId])
+  @@map("meeting_participants")
+}
+
+model MeetingInvite {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId    String   @map("meeting_id") @db.Uuid
+  email        String
+  status       String   @default("pending")
+  inviteToken  String   @unique @map("invite_token")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  meeting      Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_invites")
+}
+
+model MeetingRecurrenceException {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentMeetingId    String   @map("parent_meeting_id") @db.Uuid
+  exceptionDate      DateTime @map("exception_date")
+  action             String
+  modifiedMeetingId  String?  @map("modified_meeting_id") @db.Uuid
+
+  parentMeeting      Meeting  @relation(fields: [parentMeetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_recurrence_exceptions")
+}
+
+model MeetingRecording {
+  id                     String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId              String?                      @map("meeting_id") @db.Uuid
+  organizationId         String?                      @map("organization_id") @db.Uuid
+  teamId                 String?                      @map("team_id") @db.Uuid
+  title                  String
+  description            String?
+  fileName               String?                      @map("file_name")
+  fileSize               BigInt?                      @map("file_size")
+  duration               Decimal?                     @db.Decimal(10, 2)
+  format                 String?                      @default("mp4")
+  quality                String?                      @default("720p")
+  storageProvider        String                       @default("r2") @map("storage_provider")
+  storagePath            String?                      @map("storage_path")
+  downloadUrl            String?                      @map("download_url")
+  streamingUrl           String?                      @map("streaming_url")
+  thumbnailUrl           String?                      @map("thumbnail_url")
+  transcriptStatus       String                       @default("pending") @map("transcript_status")
+  transcriptText         String?                      @map("transcript_text")
+  transcriptLanguage     String                       @default("en") @map("transcript_language")
+  transcriptProvider     String?                      @map("transcript_provider")
+  summaryStatus          String                       @default("pending") @map("summary_status")
+  summaryText            String?                      @map("summary_text")
+  summaryKeyPoints       Json?                        @map("summary_key_points")
+  summaryTopics          Json?                        @map("summary_topics")
+  summarySentiment       String?                      @map("summary_sentiment")
+  summarySentimentScore  Decimal?                     @map("summary_sentiment_score") @db.Decimal(4, 3)
+  summaryProvider        String?                      @map("summary_provider")
+  visibility             String                       @default("participants")
+  processingStatus       String                       @default("uploading") @map("processing_status")
+  processingProgress     Int                          @default(0) @map("processing_progress")
+  tags                   Json?
+  isArchived             Boolean                      @default(false) @map("is_archived")
+  archiveDate            DateTime?                    @map("archive_date")
+  retentionDeleteDays    Int?                         @map("retention_delete_days")
+  retentionLastAccess    DateTime?                    @map("retention_last_access")
+  viewCount              Int                          @default(0) @map("view_count")
+  downloadCount          Int                          @default(0) @map("download_count")
+  createdAt              DateTime                     @default(now()) @map("created_at")
+  updatedAt              DateTime                     @default(now()) @map("updated_at")
+
+  meeting                Meeting?                     @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  organization           Organization?                @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  team                   Team?                        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  transcriptSegments     MeetingRecordingTranscriptSegment[]
+  actionItems            MeetingRecordingActionItem[]
+  participants           MeetingRecordingParticipant[]
+
+  @@index([meetingId])
+  @@index([organizationId])
+  @@index([teamId])
+  @@map("meeting_recordings")
+}
+
+model MeetingRecordingTranscriptSegment {
+  id          BigInt   @id @default(autoincrement())
+  recordingId String   @map("recording_id") @db.Uuid
+  startTime   Decimal  @map("start_time") @db.Decimal(8, 2)
+  endTime     Decimal  @map("end_time") @db.Decimal(8, 2)
+  speaker     String
+  text        String
+  confidence  Decimal  @db.Decimal(4, 3)
+
+  recording   MeetingRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  @@index([recordingId], map: "idx_recording_segments_recording_id")
+  @@map("meeting_recording_transcript_segments")
+}
+
+model MeetingRecordingActionItem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordingId String   @map("recording_id") @db.Uuid
+  task        String
+  assignee    String
+  dueDate     DateTime? @map("due_date")
+  priority    String   @default("medium")
+
+  recording   MeetingRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_recording_action_items")
+}
+
+model MeetingRecordingParticipant {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordingId  String   @map("recording_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  role         String
+  joinTime     DateTime? @map("join_time")
+  leaveTime    DateTime? @map("leave_time")
+  speakingTime Decimal  @default(0.0) @map("speaking_time") @db.Decimal(10, 2)
+
+  recording    MeetingRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_recording_participants")
+}
+
+model OrganizationInvitation {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  invitedBy      String    @map("invited_by") @db.Uuid
+  email          String
+  role           String    @default("member")
+  status         String    @default("pending")
+  inviteToken    String    @unique @map("invite_token")
+  message        String?
+  expiresAt      DateTime  @map("expires_at")
+  acceptedAt     DateTime? @map("accepted_at")
+  acceptedBy     String?   @map("accepted_by") @db.Uuid
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User         @relation("OrgInviter", fields: [invitedBy], references: [id], onDelete: Restrict)
+  acceptor       User?        @relation("OrgAcceptor", fields: [acceptedBy], references: [id], onDelete: SetNull)
+
+  @@map("organization_invitations")
+}
+
+model TeamInvitation {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId         String    @map("team_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  invitedUserId  String?   @map("invited_user_id") @db.Uuid
+  email          String?
+  invitedBy      String    @map("invited_by") @db.Uuid
+  role           String    @default("member")
+  status         String    @default("pending")
+  inviteToken    String    @unique @map("invite_token")
+  message        String?
+  expiresAt      DateTime  @map("expires_at")
+  acceptedAt     DateTime? @map("accepted_at")
+  acceptedBy     String?   @map("accepted_by") @db.Uuid
+
+  team           Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter        User      @relation("TeamInviter", fields: [invitedBy], references: [id], onDelete: Restrict)
+  acceptor       User?     @relation("TeamAcceptor", fields: [acceptedBy], references: [id], onDelete: SetNull)
+
+  @@map("team_invitations")
+}
+
+model Notification {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  meetingId     String?   @map("meeting_id")
+  type          String
+  title         String
+  message       String
+  data          Json      @default("{}")
+  status        String    @default("pending")
+  scheduledAt   DateTime? @map("scheduled_at")
+  sentAt        DateTime? @map("sent_at")
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelReason  String?   @map("cancel_reason")
+  channels      String[]
+  sentChannels  String[]  @default([]) @map("sent_channels")
+  jobId         String?   @map("job_id")
+  read          Boolean   @default(false)
+  readAt        DateTime? @map("read_at")
+  expiresAt     DateTime  @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  keysP256dh String   @map("keys_p256dh")
+  keysAuth  String   @map("keys_auth")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+model AuditLog {
+  id           String    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  category     String
+  action       String
+  resourceType String?   @map("resource_type")
+  resourceId   String?   @map("resource_id")
+  status       String
+  details      String?
+  metadata     Json      @default("{}")
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  errorMessage String?   @map("error_message")
+  errorCode    String?   @map("error_code")
+  errorStack   String?   @map("error_stack")
+  duration     Int?
+  expiresAt    DateTime  @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@id([id, createdAt])
+  @@map("audit_logs")
+}
+
+model MongodbPostgresKeyMap {
+  collectionName String   @map("collection_name")
+  mongodbId      String   @map("mongodb_id")
+  postgresqlId   String   @map("postgresql_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@id([collectionName, mongodbId])
+  @@map("mongodb_postgres_key_map")
+}
+
+model CalendarIntegration {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id")
+  calendarType String   @map("calendar_type")
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  tokenExpiry  DateTime @map("token_expiry")
+  isConnected  Boolean  @default(true) @map("is_connected")
+  lastSync     DateTime @default(now()) @map("last_sync")
+  calendarId   String   @default("primary") @map("calendar_id")
+  email        String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  @@unique([userId, calendarType])
+  @@map("calendar_integrations")
+}
+
+model Room {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roomId            String   @unique @map("room_id")
+  createdBy         String   @map("created_by")
+  organizationId    String?  @map("organization_id") @db.Uuid
+  teamId            String?  @map("team_id") @db.Uuid
+  collaborationMode String   @default("none") @map("collaboration_mode")
+  activeTool        String   @default("none") @map("active_tool")
+  participants      Json     @default("[]")
+  workflowData      Json     @default("{}") @map("workflow_data")
+  whiteboardData    Json     @default("{}") @map("whiteboard_data")
+  codeData          Json     @default("{}") @map("code_data")
+  settings          Json     @default("{}")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  @@map("rooms")
+}
+
+model MeetingSummary {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId     String   @unique @map("meeting_id")
+  summary       String
+  actionItems   String[] @map("action_items")
+  keyPoints     String[] @map("key_points")
+  participants  String[]
+  duration      Int
+  sentiment     String   @default("neutral")
+  transcription Json     @default("[]")
+  insights      Json     @default("{}")
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+
+  @@map("meeting_summaries")
+}
+
+model EnterpriseInquiry {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  email           String
+  phone           String?
+  jobTitle        String?  @map("job_title")
+  linkedIn        String?  @map("linkedin")
+  companyName     String   @map("company_name")
+  companySize     String?  @map("company_size")
+  industry        String?
+  website         String?
+  country         String?
+  primaryUseCase  String?  @map("primary_use_case")
+  expectedUsers   String?  @map("expected_users")
+  currentSolution String?  @map("current_solution")
+  timeline        String?
+  budgetRange     String?  @map("budget_range")
+  requirements    String?
+  message         String?
+  isStartup       Boolean  @default(false) @map("is_startup")
+  fundingStage    String?  @map("funding_stage")
+  source          String   @default("landing_page")
+  isAuthenticated Boolean  @default(false) @map("is_authenticated")
+  userId          String?  @map("user_id") @db.Uuid
+  status          String   @default("new")
+  assignedTo      String?  @map("assigned_to")
+  priority        String   @default("medium")
+  notes           Json     @default("[]")
+  followUpDate    DateTime? @map("follow_up_date")
+  lastContactedAt DateTime? @map("last_contacted_at")
+  closedAt        DateTime? @map("closed_at")
+  closedReason    String?  @map("closed_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @map("updated_at")
+
+  @@map("enterprise_inquiries")
+}
+
+model Activity {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action         String
+  userId         String?      @map("user_id") @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([action])
+  @@map("activities")
+}

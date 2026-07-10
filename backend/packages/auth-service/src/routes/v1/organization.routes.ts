@@ -38,6 +38,15 @@ router.get(
   )
 );
 
+router.get(
+  '/:orgId/upload-url',
+  validateObjectId('orgId'),
+  asyncHandler(
+    organizationController.getUploadUrl.bind(organizationController)
+  )
+);
+
+
 router.put(
   '/:orgId',
   validateObjectId('orgId'),

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 // @ts-ignore
 import jwt from 'jsonwebtoken';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { AuthService } from '../services/auth.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import { sanitizePlan } from '../utils/sanitize-plan.js';
@@ -23,7 +23,7 @@ export class AuthController {
       throw AppError.validation('Email and password are required');
     }
 
-    const existingUser = await models.User.findOne({ email });
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       throw new AppError(
         'USER_2002',
@@ -34,12 +34,12 @@ export class AuthController {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = new models.User({
-      email,
-      password: hashedPassword,
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: hashedPassword,
+      }
     });
-
-    await user.save();
 
     const token = generateJWTToken(user);
 
@@ -50,12 +50,12 @@ export class AuthController {
   async login(req: Request, res: Response) {
     const { email, password } = req.body;
 
-    const user = await models.User.findOne({ email });
-    if (!user) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !user.passwordHash) {
       throw AppError.unauthorized('Invalid credentials');
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       throw AppError.unauthorized('Invalid credentials');
     }
@@ -82,7 +82,7 @@ export class AuthController {
       throw AppError.unauthorized('Invalid token');
     }
 
-    const user = await models.User.findById(decoded.userId);
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) {
       throw AppError.unauthorized('User not found');
     }
@@ -106,7 +106,7 @@ export class AuthController {
 
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
 
-    const user = await models.User.findById(decoded.userId);
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) {
       throw AppError.unauthorized('User not found');
     }
@@ -118,15 +118,24 @@ export class AuthController {
     res.json({
       valid: true,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         useNameInMeetings: user.useNameInMeetings,
         onboardingCompleted: user.onboardingCompleted,
-        onboarding: user.onboarding,
+        onboarding: {
+          useCase: user.onboardingUseCase,
+          teamSize: user.onboardingTeamSize,
+          experience: user.onboardingExperience,
+        },
         organizationId: user.organizationId,
         role: user.role,
-        plan: sanitizePlan(user.plan),
+        plan: sanitizePlan({
+          type: user.planType,
+          status: user.planStatus,
+          startDate: user.planStartDate,
+          endDate: user.planEndDate,
+        }),
         createdAt: user.createdAt,
       },
       expiresAt: decoded.exp,
@@ -139,9 +148,11 @@ export class AuthController {
     if (!token) {
       throw AppError.validation('Token is required');
     }
-    const user = await models.User.findOne({
-      resetToken: token,
-      resetTokenExpiry: { $gt: new Date() },
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() },
+      }
     });
     if (!user) {
       throw AppError.validation('Invalid or expired reset token');
@@ -223,13 +234,13 @@ export class AuthController {
       }
 
       const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-      user = await models.User.findById(decoded.userId);
+      user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
         throw AppError.notFound('User');
       }
     }
 
-    const updatedUser = await this.authService.updateUserProfile(user._id, {
+    const updatedUser = await this.authService.updateUserProfile(user.id || user._id, {
       name,
       useNameInMeetings,
       notificationPreferences,
@@ -238,11 +249,23 @@ export class AuthController {
     res.json({
       message: 'Profile updated successfully',
       user: {
-        id: updatedUser._id,
+        id: updatedUser.id,
         email: updatedUser.email,
         name: updatedUser.name,
         useNameInMeetings: updatedUser.useNameInMeetings,
-        notificationPreferences: updatedUser.notificationPreferences,
+        notificationPreferences: {
+          enabled: updatedUser.notifyEnabled,
+          channels: {
+            inApp: updatedUser.notifyInApp,
+            email: updatedUser.notifyEmail,
+            push: updatedUser.notifyPush,
+          },
+          types: {
+            meetingReminders: updatedUser.notifyMeetingReminders,
+            meetingInvitations: updatedUser.notifyMeetingInvitations,
+            recordingReady: updatedUser.notifyRecordingReady,
+          }
+        },
       },
     });
   }
@@ -259,7 +282,7 @@ export class AuthController {
       }
 
       const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-      user = await models.User.findById(decoded.userId);
+      user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
         throw AppError.notFound('User');
       }
@@ -267,28 +290,36 @@ export class AuthController {
 
     res.json({
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         useNameInMeetings: user.useNameInMeetings,
         onboardingCompleted: user.onboardingCompleted,
-        onboarding: user.onboarding,
+        onboarding: {
+          useCase: user.onboardingUseCase,
+          teamSize: user.onboardingTeamSize,
+          experience: user.onboardingExperience,
+        },
         organizationId: user.organizationId,
         role: user.role,
-        plan: sanitizePlan(user.plan),
+        plan: {
+          type: user.planType,
+          status: user.planStatus,
+          startDate: user.planStartDate,
+          endDate: user.planEndDate,
+        },
         isSystemAdmin: user.isSystemAdmin || false,
-        notificationPreferences: user.notificationPreferences || {
-          enabled: true,
+        notificationPreferences: {
+          enabled: user.notifyEnabled ?? true,
           channels: {
-            inApp: true,
-            email: true,
-            push: false,
+            inApp: user.notifyInApp ?? true,
+            email: user.notifyEmail ?? true,
+            push: user.notifyPush ?? false,
           },
           types: {
-            meetingReminders: true,
-            meetingInvitations: true,
-            meetingUpdates: true,
-            recordingReady: true,
+            meetingReminders: user.notifyMeetingReminders ?? true,
+            meetingInvitations: user.notifyMeetingInvitations ?? true,
+            recordingReady: user.notifyRecordingReady ?? true,
           },
         },
         createdAt: user.createdAt,
@@ -298,6 +329,7 @@ export class AuthController {
 
   // Complete onboarding
   async completeOnboarding(req: any, res: Response) {
+    // Trigger nodemon reload
     let user;
     if (req.user) {
       user = req.user;
@@ -308,7 +340,7 @@ export class AuthController {
       }
 
       const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-      user = await models.User.findById(decoded.userId);
+      user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
         throw AppError.notFound('User');
       }
@@ -317,22 +349,31 @@ export class AuthController {
     const { name, useCase, teamSize, primaryUse, experience } = req.body || {};
 
     const updatedUser = await this.authService.completeUserOnboarding(
-      user._id,
+      user.id || user._id,
       { name, useCase, teamSize, primaryUse, experience }
     );
 
     return res.json({
       message: 'Onboarding completed',
       user: {
-        id: updatedUser._id,
+        id: updatedUser.id,
         email: updatedUser.email,
         name: updatedUser.name,
         useNameInMeetings: updatedUser.useNameInMeetings,
         onboardingCompleted: updatedUser.onboardingCompleted,
-        onboarding: updatedUser.onboarding,
+        onboarding: {
+          useCase: updatedUser.onboardingUseCase,
+          teamSize: updatedUser.onboardingTeamSize,
+          experience: updatedUser.onboardingExperience,
+        },
         organizationId: updatedUser.organizationId,
         role: updatedUser.role,
-        plan: sanitizePlan(updatedUser.plan),
+        plan: {
+          type: updatedUser.planType,
+          status: updatedUser.planStatus,
+          startDate: updatedUser.planStartDate,
+          endDate: updatedUser.planEndDate,
+        },
         createdAt: updatedUser.createdAt,
       },
     });

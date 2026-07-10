@@ -34,7 +34,8 @@ self.addEventListener('fetch', (event) => {
     url.includes('onrender.com') ||
     url.includes('/api/') ||
     url.includes('/uploads/') ||
-    event.request.method !== 'GET';
+    event.request.method !== 'GET' ||
+    event.request.mode === 'navigate';
 
   if (shouldSkip) {
     // Don't call event.respondWith() - let browser handle request normally

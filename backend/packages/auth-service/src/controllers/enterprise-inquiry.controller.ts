@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-// @ts-ignore
-import { AppError, ResponseHelpers, EnterpriseInquiry } from '@minimeet/shared';
+import { AppError, ResponseHelpers, prisma } from '@minimeet/shared';
 
 /**
  * Enterprise Inquiry Controller
@@ -24,41 +23,42 @@ export class EnterpriseInquiryController {
       sortOrder = 'desc',
     } = req.query;
 
-    const query: any = {};
+    const where: any = {};
 
     // Apply filters
     if (status) {
-      query.status = status;
+      where.status = status;
     }
     if (industry) {
-      query.industry = industry;
+      where.industry = industry;
     }
     if (isStartup === 'true') {
-      query.isStartup = true;
+      where.isStartup = true;
     }
     if (priority) {
-      query.priority = priority;
+      where.priority = priority;
     }
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { companyName: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { companyName: { contains: search, mode: 'insensitive' } },
       ];
     }
 
     const sortOptions: any = {};
-    sortOptions[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
+    sortOptions[sortBy as string] = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
     const [inquiries, total] = await Promise.all([
-      EnterpriseInquiry.find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(parseInt(limit as string))
-        .lean(),
-      EnterpriseInquiry.countDocuments(query),
+      prisma.enterpriseInquiry.findMany({
+        where,
+        orderBy: sortOptions,
+        skip,
+        take: parseInt(limit as string),
+      }),
+      prisma.enterpriseInquiry.count({ where }),
     ]);
 
     return ResponseHelpers.ok(res, {
@@ -78,7 +78,7 @@ export class EnterpriseInquiryController {
   async getInquiry(req: Request, res: Response) {
     const { id } = req.params;
 
-    const inquiry = await EnterpriseInquiry.findById(id).lean();
+    const inquiry = await prisma.enterpriseInquiry.findUnique({ where: { id } });
 
     if (!inquiry) {
       throw AppError.notFound('Inquiry not found');
@@ -100,40 +100,45 @@ export class EnterpriseInquiryController {
       closedReason,
     } = req.body;
 
-    const inquiry = await EnterpriseInquiry.findById(id);
+    const inquiry = await prisma.enterpriseInquiry.findUnique({ where: { id } });
 
     if (!inquiry) {
       throw AppError.notFound('Inquiry not found');
     }
 
+    const dataToUpdate: any = {};
+
     // Update fields if provided
     if (status) {
-      inquiry.status = status;
+      dataToUpdate.status = status;
       if (status === 'closed' || status === 'lost') {
-        inquiry.closedAt = new Date();
+        dataToUpdate.closedAt = new Date();
         if (closedReason) {
-          inquiry.closedReason = closedReason;
+          dataToUpdate.closedReason = closedReason;
         }
       }
       if (status === 'contacted') {
-        inquiry.lastContactedAt = new Date();
+        dataToUpdate.lastContactedAt = new Date();
       }
     }
     if (assignedTo !== undefined) {
-      inquiry.assignedTo = assignedTo;
+      dataToUpdate.assignedTo = assignedTo;
     }
     if (priority) {
-      inquiry.priority = priority;
+      dataToUpdate.priority = priority;
     }
     if (followUpDate) {
-      inquiry.followUpDate = new Date(followUpDate);
+      dataToUpdate.followUpDate = new Date(followUpDate);
     }
 
-    await inquiry.save();
+    const updatedInquiry = await prisma.enterpriseInquiry.update({
+      where: { id },
+      data: dataToUpdate,
+    });
 
     return ResponseHelpers.ok(res, {
       message: 'Inquiry updated successfully',
-      inquiry,
+      inquiry: updatedInquiry,
     });
   }
 
@@ -148,24 +153,28 @@ export class EnterpriseInquiryController {
       throw AppError.validation('Note content is required');
     }
 
-    const inquiry = await EnterpriseInquiry.findById(id);
+    const inquiry = await prisma.enterpriseInquiry.findUnique({ where: { id } });
 
     if (!inquiry) {
       throw AppError.notFound('Inquiry not found');
     }
 
-    // Add note with author info
-    inquiry.notes.push({
+    // Prisma JSON arrays
+    const currentNotes = (inquiry.notes as any[]) || [];
+    currentNotes.push({
       content: content.trim(),
       author: req.user?.email || 'Admin',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     });
 
-    await inquiry.save();
+    const updatedInquiry = await prisma.enterpriseInquiry.update({
+      where: { id },
+      data: { notes: currentNotes },
+    });
 
     return ResponseHelpers.ok(res, {
       message: 'Note added successfully',
-      inquiry,
+      inquiry: updatedInquiry,
     });
   }
 
@@ -183,21 +192,23 @@ export class EnterpriseInquiryController {
       byIndustry,
       byStatus,
     ] = await Promise.all([
-      EnterpriseInquiry.countDocuments(),
-      EnterpriseInquiry.countDocuments({ status: 'new' }),
-      EnterpriseInquiry.countDocuments({ status: 'contacted' }),
-      EnterpriseInquiry.countDocuments({ status: 'qualified' }),
-      EnterpriseInquiry.countDocuments({ status: 'closed' }),
-      EnterpriseInquiry.countDocuments({ isStartup: true }),
-      EnterpriseInquiry.aggregate([
-        { $match: { industry: { $exists: true, $ne: '' } } },
-        { $group: { _id: '$industry', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 10 },
-      ]),
-      EnterpriseInquiry.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
+      prisma.enterpriseInquiry.count(),
+      prisma.enterpriseInquiry.count({ where: { status: 'new' } }),
+      prisma.enterpriseInquiry.count({ where: { status: 'contacted' } }),
+      prisma.enterpriseInquiry.count({ where: { status: 'qualified' } }),
+      prisma.enterpriseInquiry.count({ where: { status: 'closed' } }),
+      prisma.enterpriseInquiry.count({ where: { isStartup: true } }),
+      prisma.enterpriseInquiry.groupBy({
+        by: ['industry'],
+        _count: true,
+        where: { industry: { not: '' } },
+        orderBy: { _count: { industry: 'desc' } },
+        take: 10,
+      }),
+      prisma.enterpriseInquiry.groupBy({
+        by: ['status'],
+        _count: true,
+      }),
     ]);
 
     return ResponseHelpers.ok(res, {
@@ -208,13 +219,13 @@ export class EnterpriseInquiryController {
         qualified: qualifiedCount,
         closed: closedCount,
         startups: startupCount,
-        byIndustry: byIndustry.map((item) => ({
-          industry: item._id,
-          count: item.count,
+        byIndustry: byIndustry.map((item: any) => ({
+          industry: item.industry,
+          count: item._count,
         })),
-        byStatus: byStatus.map((item) => ({
-          status: item._id,
-          count: item.count,
+        byStatus: byStatus.map((item: any) => ({
+          status: item.status,
+          count: item._count,
         })),
       },
     });

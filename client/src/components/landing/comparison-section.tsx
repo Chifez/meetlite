@@ -1,52 +1,41 @@
 import { Check, X } from 'lucide-react';
-import { motion } from 'motion/react';
 
 const comparisonData = [
-  { feature: 'HD & 4K video quality', meetlite: true, others: true },
-  { feature: 'AI meeting transcription', meetlite: true, others: false },
-  { feature: 'Smart scheduling assistant', meetlite: true, others: false },
+  { feature: 'Native multiplayer canvas', meetlite: true, others: false },
+  { feature: 'Component architecture diagrams', meetlite: true, others: false },
+  { feature: 'Speaker-labeled AI transcripts', meetlite: true, others: false },
   { feature: 'End-to-end encryption', meetlite: true, others: true },
-  { feature: 'Workspace branding', meetlite: true, others: false },
-  { feature: 'Unlimited meeting duration', meetlite: true, others: false },
-  { feature: 'Guest access without sign-up', meetlite: true, others: false },
-  { feature: 'Compliance audit logs', meetlite: true, others: false },
+  { feature: 'HD video conferencing', meetlite: true, others: true },
 ];
 
 const ComparisonSection = () => {
   return (
-    <section id="comparison" className="py-24 bg-background">
+    <section id="comparison" className="py-24 bg-background border-b border-border">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
 
         {/* Header */}
         <div className="text-center mb-12">
-          <p className="text-label mb-3">How we compare</p>
-          <h2 className="text-[1.875rem] sm:text-[2.5rem] font-bold text-foreground tracking-[-0.03em]">
-            Built for work, not workarounds.
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
+            A workspace first. <br/> A video call second.
           </h2>
-          <p className="mt-3 text-[0.9375rem] text-muted-foreground max-w-xl mx-auto">
-            MeetLite ships the features your team actually needs — without the enterprise price tag.
+          <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
+            See how MeetLite stacks up against traditional conferencing tools.
           </p>
         </div>
 
         {/* Comparison table */}
-        <motion.div
-          className="border border-border rounded-2xl overflow-hidden"
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.4 }}
-        >
+        <div className="border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="text-left px-5 py-3.5 text-[0.8125rem] font-semibold text-muted-foreground w-full">
+              <tr className="border-b border-border bg-muted/30">
+                <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground w-full">
                   Feature
                 </th>
-                <th className="px-5 py-3.5 text-[0.8125rem] font-semibold text-primary text-center whitespace-nowrap">
+                <th className="px-6 py-4 text-sm font-bold text-primary text-center whitespace-nowrap bg-primary/5">
                   MeetLite
                 </th>
-                <th className="px-5 py-3.5 text-[0.8125rem] font-semibold text-muted-foreground text-center whitespace-nowrap">
-                  Others
+                <th className="px-6 py-4 text-sm font-semibold text-muted-foreground text-center whitespace-nowrap">
+                  Traditional Tools
                 </th>
               </tr>
             </thead>
@@ -54,30 +43,30 @@ const ComparisonSection = () => {
               {comparisonData.map((row, i) => (
                 <tr
                   key={i}
-                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors duration-100"
+                  className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
                 >
-                  <td className="px-5 py-3.5 text-[0.875rem] text-foreground font-medium">
+                  <td className="px-6 py-4 text-sm text-foreground font-semibold">
                     {row.feature}
                   </td>
-                  <td className="px-5 py-3.5 text-center">
+                  <td className="px-6 py-4 text-center bg-primary/5">
                     {row.meetlite ? (
-                      <Check className="w-4 h-4 text-primary mx-auto" strokeWidth={2.5} />
+                      <Check className="w-5 h-5 text-primary mx-auto" strokeWidth={3} />
                     ) : (
-                      <X className="w-4 h-4 text-muted-foreground/40 mx-auto" strokeWidth={2} />
+                      <X className="w-5 h-5 text-muted-foreground/30 mx-auto" strokeWidth={2} />
                     )}
                   </td>
-                  <td className="px-5 py-3.5 text-center">
+                  <td className="px-6 py-4 text-center">
                     {row.others ? (
-                      <Check className="w-4 h-4 text-emerald-500 mx-auto" strokeWidth={2.5} />
+                      <Check className="w-5 h-5 text-muted-foreground mx-auto" strokeWidth={2} />
                     ) : (
-                      <X className="w-4 h-4 text-muted-foreground/40 mx-auto" strokeWidth={2} />
+                      <X className="w-5 h-5 text-muted-foreground/30 mx-auto" strokeWidth={2} />
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

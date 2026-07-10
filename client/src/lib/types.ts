@@ -113,6 +113,7 @@ export interface NavigationItem {
   icon: React.ComponentType<{ className?: string }>;
   available: boolean;
   organizationOnly?: boolean;
+  children?: { path: string; label: string; available: boolean; organizationOnly?: boolean; }[];
 }
 
 // Sidebar state types

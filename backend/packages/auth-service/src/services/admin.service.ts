@@ -1,4 +1,4 @@
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 /**
  * Admin Service - Handles all admin-related data aggregation and operations
@@ -21,9 +21,9 @@ export class AdminService {
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
       // Get user counts
-      const totalUsers = await models.User.countDocuments({});
-      const totalUsers30DaysAgo = await models.User.countDocuments({
-        createdAt: { $lt: thirtyDaysAgo },
+      const totalUsers = await prisma.user.count();
+      const totalUsers30DaysAgo = await prisma.user.count({
+        where: { createdAt: { lt: thirtyDaysAgo } },
       });
       const totalUsersGrowth =
         totalUsers30DaysAgo > 0
@@ -31,14 +31,18 @@ export class AdminService {
           : 0;
 
       // Paid users
-      const paidUsers = await models.User.countDocuments({
-        'plan.type': { $in: ['pro', 'enterprise'] },
-        'plan.status': 'active',
+      const paidUsers = await prisma.user.count({
+        where: {
+          planType: { in: ['pro', 'enterprise'] },
+          planStatus: 'active',
+        }
       });
-      const paidUsers30DaysAgo = await models.User.countDocuments({
-        'plan.type': { $in: ['pro', 'enterprise'] },
-        'plan.status': 'active',
-        createdAt: { $lt: thirtyDaysAgo },
+      const paidUsers30DaysAgo = await prisma.user.count({
+        where: {
+          planType: { in: ['pro', 'enterprise'] },
+          planStatus: 'active',
+          createdAt: { lt: thirtyDaysAgo },
+        }
       });
       const paidUsersGrowth =
         paidUsers30DaysAgo > 0
@@ -48,23 +52,27 @@ export class AdminService {
         totalUsers > 0 ? (paidUsers / totalUsers) * 100 : 0;
 
       // Active users (last 30 days)
-      const activeUsers = await models.User.countDocuments({
-        $or: [
-          { 'usage.lastApiCallDate': { $gte: thirtyDaysAgo } },
-          { 'usage.lastMeetingDate': { $gte: thirtyDaysAgo } },
-          { lastLogin: { $gte: thirtyDaysAgo } },
-        ],
+      const activeUsers = await prisma.user.count({
+        where: {
+          OR: [
+            { usage: { lastApiCallDate: { gte: thirtyDaysAgo } } },
+            { usage: { lastMeetingDate: { gte: thirtyDaysAgo } } },
+            { lastLogin: { gte: thirtyDaysAgo } },
+          ],
+        }
       });
-      const activeUsers60DaysAgo = await models.User.countDocuments({
-        $or: [
-          {
-            'usage.lastApiCallDate': { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo },
-          },
-          {
-            'usage.lastMeetingDate': { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo },
-          },
-          { lastLogin: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } },
-        ],
+      const activeUsers60DaysAgo = await prisma.user.count({
+        where: {
+          OR: [
+            {
+              usage: { lastApiCallDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+            },
+            {
+              usage: { lastMeetingDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+            },
+            { lastLogin: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+          ],
+        }
       });
       const activeUsersGrowth =
         activeUsers60DaysAgo > 0
@@ -74,13 +82,17 @@ export class AdminService {
         totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
 
       // MRR calculation
-      const proUsers = await models.User.countDocuments({
-        'plan.type': 'pro',
-        'plan.status': 'active',
+      const proUsers = await prisma.user.count({
+        where: {
+          planType: 'pro',
+          planStatus: 'active',
+        }
       });
-      const enterpriseUsers = await models.User.countDocuments({
-        'plan.type': 'enterprise',
-        'plan.status': 'active',
+      const enterpriseUsers = await prisma.user.count({
+        where: {
+          planType: 'enterprise',
+          planStatus: 'active',
+        }
       });
       const mrr = proUsers * 12 + enterpriseUsers * 49;
       const mrrLastMonth = await this.getMRRForPeriod(
@@ -91,12 +103,15 @@ export class AdminService {
         mrrLastMonth > 0 ? ((mrr - mrrLastMonth) / mrrLastMonth) * 100 : 0;
 
       // Meetings this month
-      const Meeting = models.Meeting;
-      const meetingsThisMonth = await Meeting.countDocuments({
-        createdAt: { $gte: startOfMonth },
+      const meetingsThisMonth = await prisma.meeting.count({
+        where: {
+          createdAt: { gte: startOfMonth },
+        }
       });
-      const meetingsLastMonth = await Meeting.countDocuments({
-        createdAt: { $gte: startOfLastMonth, $lt: startOfMonth },
+      const meetingsLastMonth = await prisma.meeting.count({
+        where: {
+          createdAt: { gte: startOfLastMonth, lt: startOfMonth },
+        }
       });
       const meetingsGrowth =
         meetingsLastMonth > 0
@@ -105,9 +120,9 @@ export class AdminService {
       const meetingsPerDay = meetingsThisMonth / now.getDate();
 
       // Organizations count
-      const organizationsCount = await models.Organization.countDocuments({});
-      const organizations30DaysAgo = await models.Organization.countDocuments({
-        createdAt: { $lt: thirtyDaysAgo },
+      const organizationsCount = await prisma.organization.count();
+      const organizations30DaysAgo = await prisma.organization.count({
+        where: { createdAt: { lt: thirtyDaysAgo } },
       });
       const organizationsGrowth =
         organizations30DaysAgo > 0
@@ -117,32 +132,33 @@ export class AdminService {
           : 0;
 
       // Teams count
-      const teamsCount = await models.Team.countDocuments({});
+      const teamsCount = await prisma.team.count();
       const avgTeamsPerOrg =
         organizationsCount > 0 ? teamsCount / organizationsCount : 0;
 
       // Storage used
-      const storageResult = await models.User.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalStorage: { $sum: '$usage.storageUsedGB' },
-          },
-        },
-      ]);
-      const storageUsed = storageResult[0]?.totalStorage || 0;
+      const storageResult = await prisma.userUsage.aggregate({
+        _sum: {
+          storageUsedGb: true
+        }
+      });
+      const storageUsed = Number(storageResult._sum.storageUsedGb || 0);
       const storageCapacity = 10000;
 
       // Meetings completed today
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-      const meetingsCompletedToday = await Meeting.countDocuments({
-        status: 'completed',
-        createdAt: { $gte: today },
+      const meetingsCompletedToday = await prisma.meeting.count({
+        where: {
+          status: 'completed',
+          createdAt: { gte: today },
+        }
       });
-      const meetingsCompletedYesterday = await Meeting.countDocuments({
-        status: 'completed',
-        createdAt: { $gte: yesterday, $lt: today },
+      const meetingsCompletedYesterday = await prisma.meeting.count({
+        where: {
+          status: 'completed',
+          createdAt: { gte: yesterday, lt: today },
+        }
       });
 
       return {
@@ -178,15 +194,19 @@ export class AdminService {
    * Get MRR for a specific period
    */
   static async getMRRForPeriod(startDate: Date, endDate: Date) {
-    const proUsers = await models.User.countDocuments({
-      'plan.type': 'pro',
-      'plan.status': 'active',
-      'plan.startDate': { $gte: startDate, $lte: endDate },
+    const proUsers = await prisma.user.count({
+      where: {
+        planType: 'pro',
+        planStatus: 'active',
+        planStartDate: { gte: startDate, lte: endDate },
+      }
     });
-    const enterpriseUsers = await models.User.countDocuments({
-      'plan.type': 'enterprise',
-      'plan.status': 'active',
-      'plan.startDate': { $gte: startDate, $lte: endDate },
+    const enterpriseUsers = await prisma.user.count({
+      where: {
+        planType: 'enterprise',
+        planStatus: 'active',
+        planStartDate: { gte: startDate, lte: endDate },
+      }
     });
     return proUsers * 12 + enterpriseUsers * 49;
   }
@@ -222,8 +242,10 @@ export class AdminService {
           );
           const endOfHour = new Date(startOfHour.getTime() + 60 * 60 * 1000);
 
-          const count = await models.User.countDocuments({
-            createdAt: { $gte: startOfHour, $lt: endOfHour },
+          const count = await prisma.user.count({
+            where: {
+              createdAt: { gte: startOfHour, lt: endOfHour },
+            }
           });
 
           data.push({
@@ -241,8 +263,10 @@ export class AdminService {
           );
           const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-          const count = await models.User.countDocuments({
-            createdAt: { $gte: startOfDay, $lt: endOfDay },
+          const count = await prisma.user.count({
+            where: {
+              createdAt: { gte: startOfDay, lt: endOfDay },
+            }
           });
 
           data.push({
@@ -264,14 +288,18 @@ export class AdminService {
    */
   static async getPlanDistribution() {
     try {
-      const free = await models.User.countDocuments({ 'plan.type': 'free' });
-      const pro = await models.User.countDocuments({
-        'plan.type': 'pro',
-        'plan.status': 'active',
+      const free = await prisma.user.count({ where: { planType: 'free' } });
+      const pro = await prisma.user.count({
+        where: {
+          planType: 'pro',
+          planStatus: 'active',
+        }
       });
-      const enterprise = await models.User.countDocuments({
-        'plan.type': 'enterprise',
-        'plan.status': 'active',
+      const enterprise = await prisma.user.count({
+        where: {
+          planType: 'enterprise',
+          planStatus: 'active',
+        }
       });
 
       return { free, pro, enterprise };
@@ -295,42 +323,58 @@ export class AdminService {
   }) {
     try {
       const skip = (page - 1) * limit;
-      const query: any = {};
+      const whereClause: any = {};
 
       if (search) {
-        query.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
+        whereClause.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
         ];
       }
 
       if (plan) {
-        query['plan.type'] = plan;
+        whereClause.planType = plan;
       }
 
       if (status) {
         if (status === 'active') {
-          query['plan.status'] = { $in: ['active', 'past_due'] };
+          whereClause.planStatus = { in: ['active', 'past_due'] };
         }
       }
 
       const sortObj: any = {};
-      sortObj[sort] = order === 'desc' ? -1 : 1;
+      sortObj[sort] = order === 'desc' ? 'desc' : 'asc';
 
-      const users = await models.User.find(query)
-        .select('name email plan createdAt usage')
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limit)
-        .lean();
+      const users = await prisma.user.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          planType: true,
+          planStatus: true,
+          createdAt: true,
+          usage: {
+            select: {
+              lastApiCallDate: true,
+              lastMeetingDate: true
+            }
+          }
+        },
+        orderBy: sortObj,
+        skip,
+        take: limit,
+      });
 
       const usersWithOrgs = await Promise.all(
         users.map(async (user: any) => {
-          const orgsCount = await models.Organization.countDocuments({
-            $or: [
-              { ownerId: user._id },
-              { 'members.userId': user._id.toString() },
-            ],
+          const orgsCount = await prisma.organization.count({
+            where: {
+              OR: [
+                { ownerId: user.id },
+                { memberships: { some: { userId: user.id } } },
+              ],
+            }
           });
 
           const lastActive =
@@ -339,11 +383,11 @@ export class AdminService {
             user.createdAt;
 
           return {
-            id: user._id.toString(),
+            id: user.id,
             name: user.name || 'N/A',
             email: user.email,
-            plan: user.plan?.type || 'free',
-            status: user.plan?.status || 'active',
+            plan: user.planType || 'free',
+            status: user.planStatus || 'active',
             createdAt: user.createdAt,
             lastActive,
             orgsCount,
@@ -351,7 +395,7 @@ export class AdminService {
         })
       );
 
-      const total = await models.User.countDocuments(query);
+      const total = await prisma.user.count({ where: whereClause });
 
       return {
         users: usersWithOrgs,
@@ -379,41 +423,45 @@ export class AdminService {
   }) {
     try {
       const skip = (page - 1) * limit;
-      const query: any = {};
+      const whereClause: any = {};
 
       if (search) {
-        query.name = { $regex: search, $options: 'i' };
+        whereClause.name = { contains: search, mode: 'insensitive' };
       }
 
       const sortObj: any = {};
-      sortObj[sort] = order === 'desc' ? -1 : 1;
+      sortObj[sort] = order === 'desc' ? 'desc' : 'asc';
 
-      const organizations = await models.Organization.find(query)
-        .populate('ownerId', 'email')
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limit)
-        .lean();
+      const organizations = await prisma.organization.findMany({
+        where: whereClause,
+        include: {
+          owner: { select: { email: true, planType: true } }
+        },
+        orderBy: sortObj,
+        skip,
+        take: limit,
+      });
 
       const orgsWithStats = await Promise.all(
         organizations.map(async (org: any) => {
-          const membersCount = await models.OrganizationMember.countDocuments({
-            organizationId: org._id,
-            status: 'active',
+          const membersCount = await prisma.userOrganizationMembership.count({
+            where: {
+              organizationId: org.id,
+              status: 'active',
+            }
           });
-          const teamsCount = await models.Team.countDocuments({
-            organizationId: org._id,
+          const teamsCount = await prisma.team.count({
+            where: {
+              organizationId: org.id,
+            }
           });
 
-          const owner = await models.User.findById(
-            org.ownerId?._id || org.ownerId
-          );
-          const planType = owner?.plan?.type || 'free';
+          const planType = org.owner?.planType || 'free';
 
           return {
-            id: org._id.toString(),
+            id: org.id,
             name: org.name,
-            ownerEmail: owner?.email || 'N/A',
+            ownerEmail: org.owner?.email || 'N/A',
             membersCount,
             teamsCount,
             plan: planType,
@@ -423,7 +471,7 @@ export class AdminService {
         })
       );
 
-      const total = await models.Organization.countDocuments(query);
+      const total = await prisma.organization.count({ where: whereClause });
 
       return {
         organizations: orgsWithStats,
@@ -452,46 +500,45 @@ export class AdminService {
     order = 'desc',
   }) {
     try {
-      const Meeting = models.Meeting;
-
       const skip = (page - 1) * limit;
-      const query: any = {};
+      const whereClause: any = {};
 
       if (search) {
-        query.$or = [
-          { title: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
+        whereClause.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
         ];
       }
 
       if (status) {
-        query.status = status;
+        whereClause.status = status;
       }
 
       if (dateFrom || dateTo) {
-        query.scheduledTime = {};
+        whereClause.scheduledTime = {};
         if (dateFrom) {
-          query.scheduledTime.$gte = new Date(dateFrom);
+          whereClause.scheduledTime.gte = new Date(dateFrom);
         }
         if (dateTo) {
-          query.scheduledTime.$lte = new Date(dateTo);
+          whereClause.scheduledTime.lte = new Date(dateTo);
         }
       }
 
       const sortObj: any = {};
-      sortObj[sort] = order === 'desc' ? -1 : 1;
+      sortObj[sort] = order === 'desc' ? 'desc' : 'asc';
 
-      const meetings = await Meeting.find(query)
-        .populate('createdBy', 'email name')
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limit)
-        .lean();
+      const meetings = await prisma.meeting.findMany({
+        where: whereClause,
+        include: { creator: { select: { email: true, name: true } }, participants: true },
+        orderBy: sortObj,
+        skip,
+        take: limit,
+      });
 
       const meetingsWithDetails = meetings.map((meeting: any) => {
         const creator = meeting.createdBy;
         return {
-          id: meeting._id.toString(),
+          id: meeting.id,
           title: meeting.title,
           hostEmail: creator?.email || 'N/A',
           scheduledTime: meeting.scheduledTime,
@@ -503,7 +550,7 @@ export class AdminService {
         };
       });
 
-      const total = await Meeting.countDocuments(query);
+      const total = await prisma.meeting.count({ where: whereClause });
 
       return {
         meetings: meetingsWithDetails,
@@ -531,13 +578,17 @@ export class AdminService {
       );
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-      const proUsers = await models.User.countDocuments({
-        'plan.type': 'pro',
-        'plan.status': 'active',
+      const proUsers = await prisma.user.count({
+        where: {
+          planType: 'pro',
+          planStatus: 'active',
+        }
       });
-      const enterpriseUsers = await models.User.countDocuments({
-        'plan.type': 'enterprise',
-        'plan.status': 'active',
+      const enterpriseUsers = await prisma.user.count({
+        where: {
+          planType: 'enterprise',
+          planStatus: 'active',
+        }
       });
 
       const mrr = proUsers * 12 + enterpriseUsers * 49;
@@ -549,11 +600,13 @@ export class AdminService {
       const revenueGrowth =
         mrrLastMonth > 0 ? ((mrr - mrrLastMonth) / mrrLastMonth) * 100 : 0;
 
-      const totalUsers = await models.User.countDocuments({});
+      const totalUsers = await prisma.user.count();
       const arpu = totalUsers > 0 ? mrr / totalUsers : 0;
 
-      const failedPaymentsCount = await models.User.countDocuments({
-        'plan.status': 'past_due',
+      const failedPaymentsCount = await prisma.user.count({
+        where: {
+          planStatus: 'past_due',
+        }
       });
 
       return {
@@ -587,17 +640,21 @@ export class AdminService {
             0
           );
 
-          const proUsers = await models.User.countDocuments({
-            'plan.type': 'pro',
-            'plan.status': 'active',
-            'plan.startDate': { $lte: endDate },
-            $or: [{ 'plan.endDate': { $gte: date } }, { 'plan.endDate': null }],
+          const proUsers = await prisma.user.count({
+            where: {
+              planType: 'pro',
+              planStatus: 'active',
+              planStartDate: { lte: endDate },
+              OR: [{ planEndDate: { gte: date } }, { planEndDate: null }],
+            }
           });
-          const enterpriseUsers = await models.User.countDocuments({
-            'plan.type': 'enterprise',
-            'plan.status': 'active',
-            'plan.startDate': { $lte: endDate },
-            $or: [{ 'plan.endDate': { $gte: date } }, { 'plan.endDate': null }],
+          const enterpriseUsers = await prisma.user.count({
+            where: {
+              planType: 'enterprise',
+              planStatus: 'active',
+              planStartDate: { lte: endDate },
+              OR: [{ planEndDate: { gte: date } }, { planEndDate: null }],
+            }
           });
 
           const revenue = proUsers * 12 + enterpriseUsers * 49;
@@ -610,13 +667,17 @@ export class AdminService {
 
         return data;
       } else if (type === 'byPlan') {
-        const proUsers = await models.User.countDocuments({
-          'plan.type': 'pro',
-          'plan.status': 'active',
+        const proUsers = await prisma.user.count({
+          where: {
+            planType: 'pro',
+            planStatus: 'active',
+          }
         });
-        const enterpriseUsers = await models.User.countDocuments({
-          'plan.type': 'enterprise',
-          'plan.status': 'active',
+        const enterpriseUsers = await prisma.user.count({
+          where: {
+            planType: 'enterprise',
+            planStatus: 'active',
+          }
         });
 
         return [

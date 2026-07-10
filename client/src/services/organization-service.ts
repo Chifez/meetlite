@@ -3,6 +3,7 @@ import api from '@/lib/axios';
 export interface UpdateOrganizationData {
   name?: string;
   description?: string;
+  logo?: string;
   industry?: string;
   size?: string;
   settings?: Record<string, any>;

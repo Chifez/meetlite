@@ -1,6 +1,6 @@
 // @ts-ignore
 import webpush from 'web-push';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 let vapidConfigured = false;
 
@@ -27,9 +27,10 @@ const ensureVapidConfigured = () => {
 export const sendNotificationToUser = async (userId: any, payload: any) => {
   ensureVapidConfigured();
   try {
-    const subscriptions = await models.PushSubscription.find({
-      userId,
-      isActive: true,
+    const subscriptions = await prisma.pushSubscription.findMany({
+      where: {
+        userId,
+      }
     });
 
     if (subscriptions.length === 0) {
@@ -43,29 +44,29 @@ export const sendNotificationToUser = async (userId: any, payload: any) => {
             {
               endpoint: subscription.endpoint,
               keys: {
-                p256dh: subscription.keys.p256dh,
-                auth: subscription.keys.auth,
+                p256dh: subscription.p256dh,
+                auth: subscription.auth,
               },
             },
             JSON.stringify(payload)
           );
 
-          subscription.lastUsed = new Date();
-          await subscription.save();
+          // lastUsed was removed in Prisma
 
-          return { success: true, subscriptionId: subscription._id };
+          return { success: true, subscriptionId: subscription.id };
         } catch (error: any) {
           if (error.statusCode === 410 || error.statusCode === 404) {
-            subscription.isActive = false;
-            await subscription.save();
+            await prisma.pushSubscription.delete({
+              where: { id: subscription.id }
+            });
           }
           throw error;
         }
       })
     );
 
-    const successful = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
+    const successful = results.filter((r: any) => r.status === 'fulfilled').length;
+    const failed = results.filter((r: any) => r.status === 'rejected').length;
 
     return {
       success: true,
@@ -88,35 +89,33 @@ export const saveSubscription = async (
   deviceInfo: any = {}
 ) => {
   try {
-    let existingSub = await models.PushSubscription.findOne({
-      endpoint: subscription.endpoint,
+    let existingSub = await prisma.pushSubscription.findUnique({
+      where: { endpoint: subscription.endpoint }
     });
 
     if (existingSub) {
-      existingSub.userId = userId;
-      existingSub.keys = {
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      };
-      existingSub.deviceInfo = deviceInfo;
-      existingSub.isActive = true;
-      existingSub.lastUsed = new Date();
-      await existingSub.save();
+      existingSub = await prisma.pushSubscription.update({
+        where: { id: existingSub.id },
+        data: {
+          userId,
+          keysP256dh: subscription.keys.p256dh,
+          keysAuth: subscription.keys.auth,
+          userAgent: deviceInfo?.userAgent || null,
+        }
+      });
       return existingSub;
     }
 
-    const newSubscription = new models.PushSubscription({
-      userId,
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      },
-      deviceInfo,
-      isActive: true,
+    const newSubscription = await prisma.pushSubscription.create({
+      data: {
+        userId,
+        endpoint: subscription.endpoint,
+        keysP256dh: subscription.keys.p256dh,
+        keysAuth: subscription.keys.auth,
+        userAgent: deviceInfo?.userAgent || null,
+      }
     });
 
-    await newSubscription.save();
     return newSubscription;
   } catch (error) {
     console.error('Error saving subscription:', error);
@@ -129,11 +128,14 @@ export const saveSubscription = async (
  */
 export const removeSubscription = async (endpoint: string) => {
   try {
-    const subscription = await models.PushSubscription.findOne({ endpoint });
+    const subscription = await prisma.pushSubscription.findUnique({
+      where: { endpoint }
+    });
 
     if (subscription) {
-      subscription.isActive = false;
-      await subscription.save();
+      await prisma.pushSubscription.delete({
+        where: { id: subscription.id }
+      });
       return { success: true, message: 'Subscription removed' };
     }
 
@@ -148,5 +150,7 @@ export const removeSubscription = async (endpoint: string) => {
  * Get user's active subscriptions
  */
 export const getUserSubscriptions = async (userId: any) => {
-  return models.PushSubscription.find({ userId, isActive: true });
+  return prisma.pushSubscription.findMany({
+    where: { userId }
+  });
 };

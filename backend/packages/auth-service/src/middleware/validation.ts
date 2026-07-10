@@ -208,7 +208,7 @@ export const validateObjectId = (paramName: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const id = req.params[paramName];
 
-    if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+    if (!id || !/^[0-9a-fA-F]{24}$|^[0-9a-fA-F-]{36}$/.test(id)) {
       return res.status(400).json({
         success: false,
         message: `Invalid ${paramName} format`,

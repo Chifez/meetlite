@@ -41,26 +41,24 @@ export interface PlanValidationResult {
  *
  * Validates user actions against plan limits and constraints.
  * This service is shared across all backend services.
- *
- * Note: This service requires models to be passed in to avoid circular dependencies.
  */
 export class PlanValidationService {
   /**
    * Validate if user can send invitations based on their plan
    * @param userId - User ID
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    * @returns Validation result
    */
-  static async validateInvitationSending(userId: string, models: any, redis?: any): Promise<PlanValidationResult> {
+  static async validateInvitationSending(userId: string, prisma: any, redis?: any): Promise<PlanValidationResult> {
     try {
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return { isValid: false, message: 'User not found' };
       }
 
-      const planConstraints = getPlanConstraints(user.plan.type);
+      const planConstraints = getPlanConstraints(user.planType as PlanType || 'free');
       const limit = planConstraints.maxInvitationsPerDay;
-      let invitationsToday = user.usage.invitationsSentToday;
+      let invitationsToday = user.usageInvitationsSentToday || 0;
 
       if (redis) {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -82,7 +80,7 @@ export class PlanValidationService {
             isValid: false,
             message: `Daily invitation limit of ${limit} reached.`,
             upgradeRequired: true,
-            currentPlan: user.plan.type,
+            currentPlan: user.planType || 'free',
             currentUsage: count,
             limit: limit,
           };
@@ -90,18 +88,21 @@ export class PlanValidationService {
         invitationsToday = count;
       } else {
         const today = new Date().toDateString();
-        const lastInvitationDate = user.usage.lastInvitationDate?.toDateString();
+        const lastInvitationDate = user.usageLastInvitationDate?.toDateString();
 
         if (lastInvitationDate !== today) {
-          await models.User.findByIdAndUpdate(userId, {
-            'usage.invitationsSentToday': 0,
-            'usage.lastInvitationDate': new Date(),
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              usageInvitationsSentToday: 0,
+              usageLastInvitationDate: new Date(),
+            }
           });
           invitationsToday = 0;
         }
 
         const dailyValidation = validateUsage(
-          user.plan.type,
+          user.planType as PlanType || 'free',
           'maxInvitationsPerDay',
           invitationsToday
         );
@@ -111,7 +112,7 @@ export class PlanValidationService {
             isValid: false,
             message: dailyValidation.message,
             upgradeRequired: true,
-            currentPlan: user.plan.type,
+            currentPlan: user.planType || 'free',
             currentUsage: invitationsToday,
             limit: limit,
           };
@@ -119,9 +120,9 @@ export class PlanValidationService {
       }
 
       const monthlyValidation = validateUsage(
-        user.plan.type,
+        user.planType as PlanType || 'free',
         'maxInvitationsPerMonth',
-        user.usage.invitationsSentThisMonth
+        user.usageInvitationsSentThisMonth || 0
       );
 
       if (!monthlyValidation.isValid) {
@@ -129,8 +130,8 @@ export class PlanValidationService {
           isValid: false,
           message: monthlyValidation.message,
           upgradeRequired: true,
-          currentPlan: user.plan.type,
-          currentUsage: user.usage.invitationsSentThisMonth,
+          currentPlan: user.planType || 'free',
+          currentUsage: user.usageInvitationsSentThisMonth || 0,
           limit: planConstraints.maxInvitationsPerMonth,
         };
       }
@@ -147,22 +148,25 @@ export class PlanValidationService {
    * @param userId - User ID
    * @param organizationId - Organization ID
    * @param role - Role being assigned
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    * @returns Validation result
    */
   static async validateInvitationAcceptance(
     userId: string,
     organizationId: string,
     role: string,
-    models: any
+    prisma: any
   ): Promise<PlanValidationResult> {
     try {
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { memberships: true }
+      });
       if (!user) {
         return { isValid: false, message: 'User not found' };
       }
 
-      const planConstraints = getPlanConstraints(user.plan.type);
+      const planConstraints = getPlanConstraints(user.planType as PlanType || 'free');
 
       // Count current memberships
       const currentMemberships =
@@ -171,7 +175,7 @@ export class PlanValidationService {
 
       // Check if user is already a member of this organization
       const existingMembership = currentMemberships.find(
-        (m: any) => m.organizationId.toString() === organizationId
+        (m: any) => m.organizationId === organizationId
       );
 
       if (existingMembership) {
@@ -183,7 +187,7 @@ export class PlanValidationService {
 
       // Check organization membership limit
       const membershipValidation = validateUsage(
-        user.plan.type,
+        user.planType as PlanType || 'free',
         'maxOrganizationsMember',
         currentMembershipCount
       );
@@ -193,7 +197,7 @@ export class PlanValidationService {
           isValid: false,
           message: membershipValidation.message,
           upgradeRequired: true,
-          currentPlan: user.plan.type,
+          currentPlan: user.planType || 'free',
           currentUsage: currentMembershipCount,
           limit: planConstraints.maxOrganizationsMember,
         };
@@ -205,7 +209,7 @@ export class PlanValidationService {
           (m: any) => m.role === 'owner'
         ).length;
         const ownershipValidation = validateUsage(
-          user.plan.type,
+          user.planType as PlanType || 'free',
           'maxOrganizationsOwned',
           currentOwnedCount
         );
@@ -215,7 +219,7 @@ export class PlanValidationService {
             isValid: false,
             message: ownershipValidation.message,
             upgradeRequired: true,
-            currentPlan: user.plan.type,
+            currentPlan: user.planType || 'free',
             currentUsage: currentOwnedCount,
             limit: planConstraints.maxOrganizationsOwned,
           };
@@ -232,26 +236,26 @@ export class PlanValidationService {
   /**
    * Validate if organization can accept new members based on owner's plan
    * @param organizationId - Organization ID
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    * @returns Validation result
    */
-  static async validateOrganizationCapacity(organizationId: string, models: any): Promise<PlanValidationResult> {
+  static async validateOrganizationCapacity(organizationId: string, prisma: any): Promise<PlanValidationResult> {
     try {
-      const organization = await models.Organization.findById(organizationId);
+      const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
       if (!organization) {
         return { isValid: false, message: 'Organization not found' };
       }
 
-      const owner = await models.User.findById(organization.ownerId);
+      const owner = await prisma.user.findUnique({ where: { id: organization.ownerId } });
       if (!owner) {
         return { isValid: false, message: 'Organization owner not found' };
       }
 
-      const planConstraints = getPlanConstraints(owner.plan.type);
-      const currentMemberCount = organization.stats?.totalMembers || 0;
+      const planConstraints = getPlanConstraints(owner.planType as PlanType || 'free');
+      const currentMemberCount = organization.statsTotalMembers || 0;
 
       const teamSizeValidation = validateUsage(
-        owner.plan.type,
+        owner.planType as PlanType || 'free',
         'maxTeamSize',
         currentMemberCount
       );
@@ -261,7 +265,7 @@ export class PlanValidationService {
           isValid: false,
           message: teamSizeValidation.message,
           upgradeRequired: true,
-          organizationPlan: owner.plan.type,
+          organizationPlan: owner.planType || 'free',
           currentMembers: currentMemberCount,
           maxMembers: planConstraints.maxTeamSize,
         };
@@ -277,21 +281,20 @@ export class PlanValidationService {
   /**
    * Update user's invitation usage after sending invitation
    * @param userId - User ID
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    * @param redis - Redis client instance
    */
-  static async updateInvitationUsage(userId: string, models: any, redis?: any): Promise<void> {
+  static async updateInvitationUsage(userId: string, prisma: any, redis?: any): Promise<void> {
     try {
       const today = new Date();
 
-      await models.User.findByIdAndUpdate(userId, {
-        $inc: {
-          'usage.invitationsSentToday': 1,
-          'usage.invitationsSentThisMonth': 1,
-        },
-        $set: {
-          'usage.lastInvitationDate': today,
-        },
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          usageInvitationsSentToday: { increment: 1 },
+          usageInvitationsSentThisMonth: { increment: 1 },
+          usageLastInvitationDate: today,
+        }
       });
 
       if (redis) {
@@ -299,8 +302,8 @@ export class PlanValidationService {
         const key = `usage:invitations:daily:${userId}:${todayStr}`;
         const exists = await redis.exists(key);
         if (!exists) {
-          const user = await models.User.findById(userId);
-          const invitationsToday = user?.usage?.invitationsSentToday || 1;
+          const user = await prisma.user.findUnique({ where: { id: userId } });
+          const invitationsToday = user?.usageInvitationsSentToday || 1;
           await redis.set(key, invitationsToday.toString(), 'EX', 86400, 'NX');
         } else {
           await redis.incr(key);
@@ -316,19 +319,22 @@ export class PlanValidationService {
    * Update user's membership usage after accepting invitation
    * @param userId - User ID
    * @param role - Role assigned
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    */
-  static async updateMembershipUsage(userId: string, role: string, models: any): Promise<void> {
+  static async updateMembershipUsage(userId: string, role: string, prisma: any): Promise<void> {
     try {
-      const updateFields: Record<string, any> = {
-        $inc: { 'usage.organizationsMember': 1 },
+      const data: any = {
+        usageOrganizationsMember: { increment: 1 }
       };
 
       if (role === 'owner') {
-        updateFields.$inc['usage.organizationsOwned'] = 1;
+        data.usageOrganizationsOwned = { increment: 1 };
       }
 
-      await models.User.findByIdAndUpdate(userId, updateFields);
+      await prisma.user.update({
+        where: { id: userId },
+        data
+      });
     } catch (error) {
       console.error('Error updating membership usage:', error);
     }
@@ -336,42 +342,36 @@ export class PlanValidationService {
 
   /**
    * Reset daily usage counters (to be called by cron job)
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    */
-  static async resetDailyUsage(models: any): Promise<void> {
+  static async resetDailyUsage(prisma: any): Promise<void> {
     try {
       const today = new Date();
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
-      await models.User.updateMany(
-        { 'usage.lastInvitationDate': { $lt: yesterday } },
-        {
-          $set: {
-            'usage.invitationsSentToday': 0,
-            'usage.lastInvitationDate': today,
-          },
+      await prisma.user.updateMany({
+        where: { usageLastInvitationDate: { lt: yesterday } },
+        data: {
+          usageInvitationsSentToday: 0,
+          usageLastInvitationDate: today,
         }
-      );
+      });
 
-      await models.User.updateMany(
-        { 'usage.lastMeetingDate': { $lt: yesterday } },
-        {
-          $set: {
-            'usage.meetingsCreatedToday': 0,
-            'usage.lastMeetingDate': today,
-          },
+      await prisma.user.updateMany({
+        where: { usageLastMeetingDate: { lt: yesterday } },
+        data: {
+          usageMeetingsCreatedToday: 0,
+          usageLastMeetingDate: today,
         }
-      );
+      });
 
-      await models.User.updateMany(
-        { 'usage.lastApiCallDate': { $lt: yesterday } },
-        {
-          $set: {
-            'usage.apiCallsToday': 0,
-            'usage.lastApiCallDate': today,
-          },
+      await prisma.user.updateMany({
+        where: { usageLastApiCallDate: { lt: yesterday } },
+        data: {
+          usageApiCallsToday: 0,
+          usageLastApiCallDate: today,
         }
-      );
+      });
     } catch (error) {
       console.error('Error resetting daily usage:', error);
     }
@@ -379,23 +379,21 @@ export class PlanValidationService {
 
   /**
    * Reset monthly usage counters (to be called by cron job)
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    */
-  static async resetMonthlyUsage(models: any): Promise<void> {
+  static async resetMonthlyUsage(prisma: any): Promise<void> {
     try {
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      await models.User.updateMany(
-        { 'usage.lastMonthlyReset': { $lt: startOfMonth } },
-        {
-          $set: {
-            'usage.invitationsSentThisMonth': 0,
-            'usage.meetingsCreatedThisMonth': 0,
-            'usage.lastMonthlyReset': today,
-          },
+      await prisma.user.updateMany({
+        where: { usageLastMonthlyReset: { lt: startOfMonth } },
+        data: {
+          usageInvitationsSentThisMonth: 0,
+          usageMeetingsCreatedThisMonth: 0,
+          usageLastMonthlyReset: today,
         }
-      );
+      });
     } catch (error) {
       console.error('Error resetting monthly usage:', error);
     }
@@ -404,32 +402,32 @@ export class PlanValidationService {
   /**
    * Get user's current usage summary
    * @param userId - User ID
-   * @param models - Database models
+   * @param prisma - Prisma client instance
    * @returns Usage summary
    */
-  static async getUserUsageSummary(userId: string, models: any): Promise<UserUsageSummary | null> {
+  static async getUserUsageSummary(userId: string, prisma: any): Promise<UserUsageSummary | null> {
     try {
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return null;
       }
 
-      const planConstraints = getPlanConstraints(user.plan.type);
+      const planConstraints = getPlanConstraints(user.planType as PlanType || 'free');
 
       return {
-        plan: user.plan.type,
+        plan: user.planType as PlanType || 'free',
         limits: planConstraints,
         usage: {
-          organizationsOwned: user.usage.organizationsOwned,
-          organizationsMember: user.usage.organizationsMember,
-          invitationsSentToday: user.usage.invitationsSentToday,
-          invitationsSentThisMonth: user.usage.invitationsSentThisMonth,
-          meetingsCreatedToday: user.usage.meetingsCreatedToday,
-          meetingsCreatedThisMonth: user.usage.meetingsCreatedThisMonth,
-          storageUsedGB: user.usage.storageUsedGB,
-          apiCallsToday: user.usage.apiCallsToday,
+          organizationsOwned: user.usageOrganizationsOwned || 0,
+          organizationsMember: user.usageOrganizationsMember || 0,
+          invitationsSentToday: user.usageInvitationsSentToday || 0,
+          invitationsSentThisMonth: user.usageInvitationsSentThisMonth || 0,
+          meetingsCreatedToday: user.usageMeetingsCreatedToday || 0,
+          meetingsCreatedThisMonth: user.usageMeetingsCreatedThisMonth || 0,
+          storageUsedGB: user.usageStorageUsedGB ? Number(user.usageStorageUsedGB) : 0,
+          apiCallsToday: user.usageApiCallsToday || 0,
         },
-        canUpgrade: user.plan.type !== 'enterprise',
+        canUpgrade: user.planType !== 'enterprise',
       };
     } catch (error) {
       console.error('Error getting usage summary:', error);

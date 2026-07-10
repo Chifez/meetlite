@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { models } from '../index.js';
+
 // @ts-ignore
 import { TeamInvitationService } from '../services/team-invitation.service.js';
 import { ResponseHelpers, AppError } from '@minimeet/shared';
@@ -14,7 +14,7 @@ export class TeamInvitationController {
   // POST /organizations/:organizationId/teams/:teamId/invite - Invite member to team
   async inviteToTeam(req: any, res: Response) {
     const { organizationId, teamId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { invitedUserId, email, role = 'member', message = '' } = req.body;
 
     if (!organizationId || !teamId) {
@@ -45,7 +45,7 @@ export class TeamInvitationController {
 
     return ResponseHelpers.created(res, {
       invitation: {
-        id: invitation._id,
+        id: invitation.id,
         teamId: invitation.teamId,
         organizationId: invitation.organizationId,
         invitedUserId: invitation.invitedUserId,
@@ -53,7 +53,6 @@ export class TeamInvitationController {
         role: invitation.role,
         status: invitation.status,
         expiresAt: invitation.expiresAt,
-        createdAt: invitation.createdAt,
       },
       message: 'Team invitation sent successfully',
     });
@@ -75,26 +74,25 @@ export class TeamInvitationController {
 
     return ResponseHelpers.ok(res, {
       invitations: invitations.map((inv: any) => ({
-        id: inv._id,
+        id: inv.id,
         teamId: inv.teamId,
         organizationId: inv.organizationId,
-        invitedUserId: inv.invitedUserId._id || inv.invitedUserId,
-        invitedUserName: inv.invitedUserId.name || inv.invitedUserId.email,
-        invitedUserEmail: inv.invitedUserId.email,
-        invitedBy: inv.invitedBy._id || inv.invitedBy,
-        invitedByName: inv.invitedBy.name || inv.invitedBy.email,
+        invitedUserId: inv.invitedUserId?.id || inv.invitedUserId,
+        invitedUserName: inv.invitedUserId?.name || inv.invitedUserId?.email,
+        invitedUserEmail: inv.invitedUserId?.email,
+        invitedBy: inv.inviter?.id || inv.invitedBy?.id || inv.invitedBy,
+        invitedByName: inv.inviter?.name || inv.inviter?.email || inv.invitedBy?.name || inv.invitedBy?.email,
         role: inv.role,
         message: inv.message,
         status: inv.status,
         expiresAt: inv.expiresAt,
-        createdAt: inv.createdAt,
       })),
     });
   }
 
   // GET /teams/invitations - Get pending invitations for current user
   async getMyInvitations(req: any, res: Response) {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     const invitations = await this.invitationService.getPendingInvitations(
       userId
@@ -102,14 +100,14 @@ export class TeamInvitationController {
 
     return ResponseHelpers.ok(res, {
       invitations: invitations.map((inv: any) => ({
-        id: inv._id,
-        teamId: inv.teamId._id || inv.teamId,
-        teamName: inv.teamId.name,
-        teamSlug: inv.teamId.slug,
-        organizationId: inv.organizationId._id || inv.organizationId,
-        organizationName: inv.organizationId.name,
-        invitedBy: inv.invitedBy._id || inv.invitedBy,
-        invitedByName: inv.invitedBy.name || inv.invitedBy.email,
+        id: inv.id,
+        teamId: inv.team?.id || inv.teamId,
+        teamName: inv.team?.name,
+        teamSlug: inv.team?.slug,
+        organizationId: inv.organization?.id || inv.organizationId,
+        organizationName: inv.organization?.name,
+        invitedBy: inv.inviter?.id || inv.invitedBy?.id || inv.invitedBy,
+        invitedByName: inv.inviter?.name || inv.inviter?.email || inv.invitedBy?.name || inv.invitedBy?.email,
         role: inv.role,
         message: inv.message,
         status: inv.status,
@@ -123,7 +121,7 @@ export class TeamInvitationController {
   // POST /teams/invitations/:token/accept - Accept team invitation
   async acceptInvitation(req: any, res: Response) {
     const { token } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     if (!token) {
       throw AppError.validation('Invitation token is required');
@@ -136,11 +134,10 @@ export class TeamInvitationController {
 
     return ResponseHelpers.ok(res, {
       invitation: {
-        id: invitation._id,
-        teamId: invitation.teamId._id || invitation.teamId,
-        teamName: invitation.teamId.name,
-        organizationId:
-          invitation.organizationId._id || invitation.organizationId,
+        id: invitation.id,
+        teamId: invitation.teamId,
+        teamName: (invitation as any).team?.name,
+        organizationId: invitation.organizationId,
         status: invitation.status,
         acceptedAt: invitation.acceptedAt,
       },
@@ -151,7 +148,7 @@ export class TeamInvitationController {
   // POST /teams/invitations/:token/decline - Decline team invitation
   async declineInvitation(req: any, res: Response) {
     const { token } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     if (!token) {
       throw AppError.validation('Invitation token is required');
@@ -164,8 +161,8 @@ export class TeamInvitationController {
 
     return ResponseHelpers.ok(res, {
       invitation: {
-        id: invitation._id,
-        teamId: invitation.teamId._id || invitation.teamId,
+        id: invitation.id,
+        teamId: invitation.teamId,
         status: invitation.status,
       },
       message: 'Team invitation declined',
@@ -175,7 +172,7 @@ export class TeamInvitationController {
   // DELETE /organizations/:organizationId/teams/:teamId/invitations/:invitationId - Cancel invitation
   async cancelInvitation(req: any, res: Response) {
     const { organizationId, teamId, invitationId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     if (!organizationId || !teamId || !invitationId) {
       throw AppError.validation(

@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { useCanInviteMembers, useIsOwner } from '@/hooks/use-permissions';
+import { useIsOwner } from '@/hooks/use-permissions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,11 +28,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -79,9 +74,6 @@ export const MemberList: React.FC<MemberListProps> = ({
   members,
   pendingInvitations,
   userRole,
-  memberCount,
-  maxMembers,
-  onInviteClick,
   onRefresh,
 }) => {
   const {
@@ -152,10 +144,22 @@ export const MemberList: React.FC<MemberListProps> = ({
       <Card>
         <CardContent className="p-0">
           {members.length === 0 ? (
-            <div className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
-              <Users className="h-10 w-10 text-muted-foreground/50" />
-              <p className="font-semibold text-foreground">No active members</p>
-              <p className="text-xs text-muted-foreground">Invite members to collaborate in this workspace.</p>
+            <div className="p-16 text-center text-muted-foreground flex flex-col items-center gap-4">
+              <div className="w-12 h-12 bg-surface-sunken rounded-full flex items-center justify-center border border-border/50">
+                <Users className="h-5 w-5 text-ink-muted" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-ink">Invite your first teammate</p>
+                <p className="text-xs text-ink-muted mt-1 max-w-[250px]">
+                  Collaboration is better together. Invite your team to share meetings and recordings.
+                </p>
+              </div>
+              {userRole === 'owner' && (
+                <Button onClick={onInviteClick} size="sm" className="mt-2 shadow-sm rounded-xl font-semibold gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  Invite teammate
+                </Button>
+              )}
             </div>
           ) : (
             <div className="border border-border rounded-2xl overflow-hidden">
@@ -176,7 +180,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                       <TableCell className="pl-4.5 py-3">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
-                            <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
+                            <AvatarFallback className="bg-surface-sunken text-ink font-medium text-xs border border-border/50">
                               {getInitials(member.name)}
                             </AvatarFallback>
                           </Avatar>
@@ -260,7 +264,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="solid" className="bg-muted text-foreground hover:bg-muted font-medium text-xs py-0.5 px-2">
+                          <Badge variant="outline" className="bg-surface-sunken border-border/50 text-ink-muted hover:bg-surface-sunken font-medium text-[0.6875rem] py-0.5 px-2">
                             {member.role === 'owner' ? 'Owner' : member.role === 'admin' ? 'Admin' : 'Member'}
                           </Badge>
                         )}
@@ -311,7 +315,7 @@ export const MemberList: React.FC<MemberListProps> = ({
         <Card className="border border-border">
           <div className="p-4 border-b border-border bg-muted/10">
             <h3 className="text-[0.875rem] font-bold text-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-500" />
+              <Clock className="h-4 w-4 text-ink-muted" />
               Pending Invitations ({pendingInvitations.length})
             </h3>
           </div>
@@ -332,8 +336,8 @@ export const MemberList: React.FC<MemberListProps> = ({
                     <TableRow key={invitation.id}>
                       <TableCell className="pl-4.5 py-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                            <Mail className="h-3.5 w-3.5 text-amber-600" />
+                          <div className="h-7 w-7 rounded-full bg-surface-sunken border border-border/50 flex items-center justify-center shrink-0">
+                            <Mail className="h-3.5 w-3.5 text-ink-muted" />
                           </div>
                           <span className="font-semibold text-foreground text-[0.875rem]">
                             {invitation.email}
@@ -341,7 +345,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="py-3">
-                        <Badge variant="outline" className="text-[0.6875rem] font-semibold text-amber-600 border-amber-200 bg-amber-50/50 capitalize px-2 h-5">
+                        <Badge variant="outline" className="text-[0.6875rem] font-semibold text-ink-muted border-border/50 bg-surface-sunken capitalize px-2 h-5">
                           {invitation.role}
                         </Badge>
                       </TableCell>

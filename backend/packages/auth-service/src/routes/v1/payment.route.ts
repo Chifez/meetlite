@@ -22,7 +22,6 @@ const paymentController = new PaymentController();
 router.post(
   '/webhook',
   webhookRateLimiter,
-  express.raw({ type: 'application/json' }),
   asyncHandler(paymentController.handleWebhook.bind(paymentController))
 );
 

@@ -6,6 +6,8 @@ import App from './App.tsx';
 import './index.css';
 import { AuthProvider } from './contexts/auth-context.tsx';
 import { WorkspaceProvider } from './contexts/workspace-context.tsx';
+import { NotificationsProvider } from './contexts/notifications-context.tsx';
+import { CalendarProvider } from './contexts/calendar-context.tsx';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from 'next-themes';
 import { HelmetProvider } from 'react-helmet-async';
@@ -63,8 +65,12 @@ createRoot(document.getElementById('root')!).render(
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <AuthProvider>
               <WorkspaceProvider>
-                <App />
-                <Toaster richColors />
+                <NotificationsProvider>
+                  <CalendarProvider>
+                    <App />
+                    <Toaster richColors />
+                  </CalendarProvider>
+                </NotificationsProvider>
               </WorkspaceProvider>
             </AuthProvider>
           </ThemeProvider>

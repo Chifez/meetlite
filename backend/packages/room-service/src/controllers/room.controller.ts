@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { createHmac } from 'crypto';
 import { nanoid } from 'nanoid';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { ResponseHelpers, AppError } from '@minimeet/shared';
 import {
   updateCollaborationMode,
@@ -42,7 +42,24 @@ export class RoomController {
         createdAt: now,
       };
 
-      await models.Room.create(roomData);
+      await prisma.room.create({ data: roomData });
+
+      if (orgId) {
+        try {
+          await (prisma as any).activity.create({
+            data: {
+              action: 'QUICK_MEETING_STARTED',
+              userId: userId,
+              organizationId: orgId,
+              metadata: {
+                roomId
+              }
+            }
+          });
+        } catch (err) {
+          console.error('[Activity] Failed to log QUICK_MEETING_STARTED', err);
+        }
+      }
 
       return ResponseHelpers.created(
         res,
@@ -70,7 +87,7 @@ export class RoomController {
           ],
           createdAt: new Date(),
         };
-        await models.Room.create(roomData);
+        await prisma.room.create({ data: roomData });
         return ResponseHelpers.created(
           res,
           { roomId },
@@ -90,41 +107,16 @@ export class RoomController {
     const userId = req.user.userId;
     const userOrgId = req.user.organizationId || null;
 
-    const result = await models.Room.aggregate([
-      { $match: { roomId } },
-      {
-        $lookup: {
-          from: 'meetings',
-          localField: 'roomId',
-          foreignField: 'roomId',
-          as: 'meeting',
-          pipeline: [
-            { $limit: 1 },
-            {
-              $project: {
-                roomId: 1,
-                createdBy: 1,
-                privacy: 1,
-                invites: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $addFields: {
-          meeting: { $arrayElemAt: ['$meeting', 0] },
-        },
-      },
-      { $limit: 1 },
-    ]);
-
-    if (!result || result.length === 0) {
+    const room = await prisma.room.findUnique({ where: { roomId: roomId as string } }) as any;
+    if (!room) {
       throw AppError.notFound('Room');
     }
 
-    const room = result[0];
-    const meeting = room.meeting || null;
+    const meeting = await prisma.meeting.findFirst({
+      where: { roomId: roomId as string },
+      select: { roomId: true, createdBy: true, privacy: true, invites: true }
+    });
+    room.meeting = meeting || null;
 
     const roomOrgId = room.organizationId || null;
 

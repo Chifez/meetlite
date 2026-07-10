@@ -28,13 +28,13 @@ export default function QuickActions({
   const showSchedule = isPersonalMode || canCreateMeetings;
 
   return (
-    <div className={cn("grid gap-6 items-stretch", showSchedule ? "md:grid-cols-3" : "md:grid-cols-2")}>
+    <div className={cn("grid gap-2 items-stretch", showSchedule ? "md:grid-cols-3" : "md:grid-cols-2")}>
       {/* 1. Schedule Meeting */}
       {showSchedule && (
-        <div className="glass-card hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden group">
+        <div className="glass-card border border-border flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20 flex items-center justify-center transition-colors group-hover:bg-purple-500/20">
+              <div className="w-10 h-10 rounded-full bg-surface-sunken text-ink flex items-center justify-center border border-border/50">
                 <Plus className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-foreground">Schedule Meeting</h3>
@@ -46,8 +46,9 @@ export default function QuickActions({
           <div className="pt-4 mt-auto">
             <Button
               size="sm"
+              variant="outline"
               onClick={onSchedule}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all"
+              className="w-full bg-surface text-ink border-border hover:bg-surface-sunken rounded-xl text-xs font-semibold transition-all"
             >
               Schedule Meeting
             </Button>
@@ -56,11 +57,11 @@ export default function QuickActions({
       )}
 
       {/* 2. Join Meeting */}
-      <div className="glass-card hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden group">
+      <div className="glass-card border border-border flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden">
         <div className="space-y-4 flex-1 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center justify-center transition-colors group-hover:bg-blue-500/20">
+              <div className="w-10 h-10 rounded-full bg-surface-sunken text-ink flex items-center justify-center border border-border/50">
                 <Keyboard className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-foreground">Join Meeting</h3>
@@ -69,7 +70,7 @@ export default function QuickActions({
               Instantly enter an ongoing video call workspace by inputting its unique code.
             </p>
           </div>
-          
+
           {/* Nested Button Input widget */}
           <div className="relative flex items-center mt-3 pt-1">
             <Input
@@ -98,10 +99,10 @@ export default function QuickActions({
       </div>
 
       {/* 3. Start Instant Meeting */}
-      <div className="glass-card hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden group">
+      <div className="glass-card border border-border flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center transition-colors group-hover:bg-emerald-500/20">
+            <div className="w-10 h-10 rounded-full bg-surface-sunken text-ink flex items-center justify-center border border-border/50">
               <Play className="h-5 w-5" />
             </div>
             <h3 className="text-base font-bold text-foreground">Instant Meeting</h3>
@@ -114,10 +115,10 @@ export default function QuickActions({
           <Button
             size="sm"
             onClick={onQuickMeeting}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all"
             disabled={globalLoading}
           >
-            {globalLoading ? 'Creating Room...' : 'Start Quick Meeting'}
+            {globalLoading ? 'Creating Room...' : 'Instant Meeting'}
           </Button>
         </div>
       </div>

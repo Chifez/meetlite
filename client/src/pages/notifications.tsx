@@ -1,10 +1,9 @@
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, CheckCheck, Trash2, AlertCircle, BellOff } from 'lucide-react';
+import { CheckCheck, Trash2, BellOff } from 'lucide-react';
 import { useNotifications } from '@/hooks/use-notifications';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
@@ -101,81 +100,113 @@ export default function Notifications() {
         <div className="border border-border rounded-2xl overflow-hidden">
           <ScrollArea className="h-[600px]">
             <div className="divide-y divide-border">
-              {notifications.map((notification) => {
-                const isUnread = !notification.read;
-                const notificationUrl =
-                  notification.data?.joinUrl ||
-                  notification.data?.url ||
-                  '/dashboard';
+              {(() => {
+                const today: any[] = [];
+                const yesterday: any[] = [];
+                const earlier: any[] = [];
 
-                return (
-                  <div
-                    key={notification.id}
-                    className={cn(
-                      'flex items-start gap-3 px-5 py-4 hover:bg-muted/40 transition-colors duration-100',
-                      isUnread && 'bg-primary/3'
-                    )}
-                  >
-                    {/* Unread dot */}
-                    <div className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0">
-                      {isUnread && (
-                        <span className="block w-2 h-2 rounded-full bg-primary" />
-                      )}
-                    </div>
+                notifications.forEach(n => {
+                  const date = new Date(n.createdAt);
+                  if (isToday(date)) today.push(n);
+                  else if (isYesterday(date)) yesterday.push(n);
+                  else earlier.push(n);
+                });
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        'text-[0.875rem] leading-snug text-foreground',
-                        isUnread ? 'font-semibold' : 'font-medium'
-                      )}>
-                        {notification.title}
-                      </p>
-                      <p className="text-[0.8125rem] text-muted-foreground mt-0.5 leading-relaxed">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-[0.75rem] text-muted-foreground/70 tabular-nums">
-                          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                        </span>
-                        {notification.data?.meetingId && (
-                          <button
-                            className="text-[0.75rem] font-semibold text-primary hover:underline"
-                            onClick={() =>
-                              handleNotificationClick(notification.id, notificationUrl)
-                            }
-                          >
-                            View meeting →
-                          </button>
-                        )}
+                const renderGroup = (title: string, group: any[]) => {
+                  if (group.length === 0) return null;
+                  return (
+                    <div className="pb-4">
+                      <div className="px-5 py-3 bg-surface-sunken/50 border-b border-border/50">
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{title}</h3>
+                      </div>
+                      <div className="divide-y divide-border/50">
+                        {group.map((notification) => {
+                          const isUnread = !notification.read;
+                          const notificationUrl =
+                            notification.data?.joinUrl ||
+                            notification.data?.url ||
+                            '/dashboard';
+
+                          return (
+                            <div
+                              key={notification.id}
+                              className={cn(
+                                'flex items-start gap-3 px-5 py-4 hover:bg-muted/40 transition-colors duration-100'
+                              )}
+                            >
+                              {/* Unread dot */}
+                              <div className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0">
+                                {isUnread && (
+                                  <span className="block w-2 h-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <p className={cn(
+                                  'text-[0.875rem] leading-snug text-foreground',
+                                  isUnread ? 'font-semibold' : 'font-medium'
+                                )}>
+                                  {notification.title}
+                                </p>
+                                <p className="text-[0.8125rem] text-muted-foreground mt-0.5 leading-relaxed">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <span className="text-[0.75rem] text-muted-foreground/70 tabular-nums">
+                                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                                  </span>
+                                  {notification.data?.meetingId && (
+                                    <button
+                                      className="text-[0.75rem] font-semibold text-primary hover:underline"
+                                      onClick={() =>
+                                        handleNotificationClick(notification.id, notificationUrl)
+                                      }
+                                    >
+                                      View meeting →
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {isUnread && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    title="Mark as read"
+                                    onClick={() => markAsRead(notification.id)}
+                                  >
+                                    <CheckCheck className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  title="Delete"
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteNotification(notification.id)}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
+                  );
+                };
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {isUnread && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title="Mark as read"
-                          onClick={() => markAsRead(notification.id)}
-                        >
-                          <CheckCheck className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        title="Delete"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteNotification(notification.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
+                return (
+                  <>
+                    {renderGroup('Today', today)}
+                    {renderGroup('Yesterday', yesterday)}
+                    {renderGroup('Earlier', earlier)}
+                  </>
                 );
-              })}
+              })()}
             </div>
           </ScrollArea>
         </div>

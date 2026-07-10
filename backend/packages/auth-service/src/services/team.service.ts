@@ -1,31 +1,37 @@
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 export class TeamService {
   /**
    * Create a new team
    */
-  async createTeam(organizationId: any, ownerId: any, teamData: any) {
+  async createTeam(organizationId: string, ownerId: string, teamData: any) {
     const { name, description, logo, settings } = teamData;
 
-    const organization = await models.Organization.findOne({
-      _id: organizationId,
-      status: 'active',
+    const organization = await prisma.organization.findFirst({
+      where: {
+        id: organizationId,
+        status: 'active',
+      }
     });
 
     if (!organization) {
       throw new Error('Organization not found');
     }
 
-    const user = await models.User.findById(ownerId);
+    const user = await prisma.user.findUnique({
+      where: { id: ownerId },
+      include: { memberships: true }
+    });
+    
     if (!user) {
       throw new Error('User not found');
     }
 
-    const isOwner = organization.ownerId.toString() === ownerId.toString();
+    const isOwner = organization.ownerId === ownerId;
 
     const membership = user.memberships?.find(
       (m: any) =>
-        m.organizationId.toString() === organizationId.toString() &&
+        m.organizationId === organizationId &&
         m.status === 'active'
     );
 
@@ -37,54 +43,74 @@ export class TeamService {
       throw new Error('Only organization owners and admins can create teams');
     }
 
-    const team = new models.Team({
-      organizationId,
-      ownerId,
-      name: name.trim(),
-      description: description?.trim(),
-      logo,
-      settings: settings || {},
-      members: [
-        {
-          userId: ownerId,
-          role: 'owner',
-          joinedAt: new Date(),
-          status: 'active',
-        },
-      ],
+    let slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const existingTeam = await prisma.team.findUnique({
+      where: {
+        organizationId_slug: {
+          organizationId,
+          slug
+        }
+      }
     });
+    if (existingTeam) {
+      slug = `${slug}-${Date.now().toString().slice(-4)}`;
+    }
 
-    await team.save();
-
-    await models.User.findByIdAndUpdate(ownerId, {
-      $push: {
-        teamMemberships: {
-          teamId: team._id,
-          organizationId: organizationId,
-          role: 'owner',
-          joinedAt: new Date(),
-          status: 'active',
-        },
+    const team = await prisma.team.create({
+      data: {
+        organizationId,
+        ownerId,
+        name: name.trim(),
+        slug,
+        description: description?.trim(),
+        logo,
+        allowPublicMeetings: settings?.allowPublicMeetings ?? true,
+        requireMeetingApproval: settings?.requireMeetingApproval ?? false,
+        maxMeetingDuration: settings?.maxMeetingDuration ?? 480,
+        allowExternalParticipants: settings?.allowExternalParticipants ?? true,
+        defaultMeetingPrivacy: settings?.defaultMeetingPrivacy ?? 'public',
+        members: {
+          create: {
+            userId: ownerId,
+            role: 'owner',
+            status: 'active',
+          }
+        }
       },
+      include: {
+        members: true
+      }
     });
 
-    return team;
+    return {
+      ...team,
+      settings: {
+        allowPublicMeetings: team.allowPublicMeetings,
+        requireMeetingApproval: team.requireMeetingApproval,
+        maxMeetingDuration: team.maxMeetingDuration,
+        allowExternalParticipants: team.allowExternalParticipants,
+        defaultMeetingPrivacy: team.defaultMeetingPrivacy
+      }
+    };
   }
 
   /**
    * Get all teams for an organization
    */
-  async getTeamsByOrganization(organizationId: any, userId: any = null) {
-    const query: any = {
+  async getTeamsByOrganization(organizationId: string, userId: string | null = null) {
+    const whereClause: any = {
       organizationId,
-      status: { $ne: 'deleted' },
+      status: { not: 'deleted' },
     };
 
     if (userId) {
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { memberships: true, teamMemberships: true }
+      });
       const orgMembership = user?.memberships?.find(
         (m: any) =>
-          m.organizationId.toString() === organizationId.toString() &&
+          m.organizationId === organizationId &&
           m.status === 'active'
       );
 
@@ -92,101 +118,155 @@ export class TeamService {
         const userTeamIds =
           user?.teamMemberships
             ?.filter(
-              (m: any) =>
-                m.organizationId.toString() === organizationId.toString() &&
-                m.status === 'active'
+              (m: any) => m.status === 'active'
             )
             .map((m: any) => m.teamId) || [];
 
-        query._id = { $in: userTeamIds };
+        whereClause.id = { in: userTeamIds };
       }
     }
 
-    const teams = await models.Team.find(query)
-      .populate('ownerId', 'name email')
-      .sort({ createdAt: -1 });
+    const teams = await prisma.team.findMany({
+      where: whereClause,
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true }
+        },
+        members: {
+          where: { status: 'active' }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
-    return teams;
+    return teams.map(team => ({
+      ...team,
+      ownerId: team.owner,
+      settings: {
+        allowPublicMeetings: team.allowPublicMeetings,
+        requireMeetingApproval: team.requireMeetingApproval,
+        maxMeetingDuration: team.maxMeetingDuration,
+        allowExternalParticipants: team.allowExternalParticipants,
+        defaultMeetingPrivacy: team.defaultMeetingPrivacy
+      }
+    }));
   }
 
   /**
    * Get team by ID
    */
-  async getTeamById(teamId: any, organizationId: any) {
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId,
-      status: { $ne: 'deleted' },
-    })
-      .populate('ownerId', 'name email')
-      .populate('members.userId', 'name email');
+  async getTeamById(teamId: string, organizationId: string) {
+    const team = await prisma.team.findFirst({
+      where: {
+        id: teamId,
+        organizationId,
+        status: { not: 'deleted' },
+      },
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true }
+        },
+        members: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        }
+      }
+    });
 
     if (!team) {
       throw new Error('Team not found');
     }
 
-    return team;
+    return {
+      ...team,
+      ownerId: team.owner,
+      settings: {
+        allowPublicMeetings: team.allowPublicMeetings,
+        requireMeetingApproval: team.requireMeetingApproval,
+        maxMeetingDuration: team.maxMeetingDuration,
+        allowExternalParticipants: team.allowExternalParticipants,
+        defaultMeetingPrivacy: team.defaultMeetingPrivacy
+      }
+    };
   }
 
   /**
    * Update team
    */
-  async updateTeam(teamId: any, organizationId: any, updateData: any) {
+  async updateTeam(teamId: string, organizationId: string, updateData: any) {
     const { name, description, logo, settings } = updateData;
 
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId,
-      status: { $ne: 'deleted' },
+    const team = await prisma.team.findFirst({
+      where: {
+        id: teamId,
+        organizationId,
+        status: { not: 'deleted' },
+      }
     });
 
     if (!team) {
       throw new Error('Team not found');
     }
 
-    if (name !== undefined) team.name = name.trim();
-    if (description !== undefined) team.description = description?.trim();
-    if (logo !== undefined) team.logo = logo;
+    const data: any = {};
+    if (name !== undefined) data.name = name.trim();
+    if (description !== undefined) data.description = description?.trim();
+    if (logo !== undefined) data.logo = logo;
     if (settings !== undefined) {
-      team.settings = { ...team.settings, ...settings };
+      if (settings.allowPublicMeetings !== undefined) data.allowPublicMeetings = settings.allowPublicMeetings;
+      if (settings.requireMeetingApproval !== undefined) data.requireMeetingApproval = settings.requireMeetingApproval;
+      if (settings.maxMeetingDuration !== undefined) data.maxMeetingDuration = settings.maxMeetingDuration;
+      if (settings.allowExternalParticipants !== undefined) data.allowExternalParticipants = settings.allowExternalParticipants;
+      if (settings.defaultMeetingPrivacy !== undefined) data.defaultMeetingPrivacy = settings.defaultMeetingPrivacy;
     }
 
-    await team.save();
-    return team;
+    const updatedTeam = await prisma.team.update({
+      where: { id: teamId },
+      data
+    });
+
+    return {
+      ...updatedTeam,
+      settings: {
+        allowPublicMeetings: updatedTeam.allowPublicMeetings,
+        requireMeetingApproval: updatedTeam.requireMeetingApproval,
+        maxMeetingDuration: updatedTeam.maxMeetingDuration,
+        allowExternalParticipants: updatedTeam.allowExternalParticipants,
+        defaultMeetingPrivacy: updatedTeam.defaultMeetingPrivacy
+      }
+    };
   }
 
   /**
    * Delete team (soft delete)
    */
-  async deleteTeam(teamId: any, organizationId: any) {
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId,
-      status: { $ne: 'deleted' },
+  async deleteTeam(teamId: string, organizationId: string) {
+    const team = await prisma.team.findFirst({
+      where: {
+        id: teamId,
+        organizationId,
+        status: { not: 'deleted' },
+      }
     });
 
     if (!team) {
       throw new Error('Team not found');
     }
 
-    team.status = 'deleted';
-    await team.save();
+    await prisma.$transaction(async (tx) => {
+      await tx.team.update({
+        where: { id: teamId },
+        data: { status: 'deleted' }
+      });
 
-    const memberUserIds = team.members
-      .filter((m: any) => m.status === 'active')
-      .map((m: any) => m.userId);
-
-    await models.User.updateMany(
-      { _id: { $in: memberUserIds } },
-      {
-        $pull: {
-          teamMemberships: {
-            teamId: teamId,
-            organizationId: organizationId,
-          },
-        },
-      }
-    );
+      await tx.teamMember.updateMany({
+        where: { teamId },
+        data: { status: 'deleted' }
+      });
+    });
 
     return team;
   }
@@ -194,129 +274,117 @@ export class TeamService {
   /**
    * Add member to team
    */
-  async addMemberToTeam(teamId: any, organizationId: any, userId: any, role = 'member') {
-    const user = await models.User.findById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const orgMembership = user.memberships?.find(
-      (m: any) =>
-        m.organizationId.toString() === organizationId.toString() &&
-        m.status === 'active'
-    );
-
-    if (!orgMembership) {
-      throw new Error('User is not a member of this organization');
-    }
-
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId,
-      status: { $ne: 'deleted' },
-    });
-
-    if (!team) {
-      throw new Error('Team not found');
-    }
-
-    const existingMember = team.members.find(
-      (m: any) => m.userId.toString() === userId.toString() && m.status === 'active'
-    );
-
-    if (existingMember) {
-      throw new Error('User is already a member of this team');
-    }
-
-    team.members.push({
-      userId,
-      role,
-      joinedAt: new Date(),
-      status: 'active',
-    });
-
-    await team.save();
-
-    const existingMembership = user.teamMemberships?.find(
-      (m: any) =>
-        m.teamId.toString() === teamId.toString() &&
-        m.organizationId.toString() === organizationId.toString()
-    );
-
-    if (!existingMembership) {
-      await models.User.findByIdAndUpdate(userId, {
-        $push: {
-          teamMemberships: {
-            teamId: teamId,
-            organizationId: organizationId,
-            role,
-            joinedAt: new Date(),
-            status: 'active',
-          },
-        },
+  async addMemberToTeam(teamId: string, organizationId: string, userId: string, role = 'member') {
+    return await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        include: { memberships: true }
       });
-    } else if (existingMembership.status === 'inactive') {
-      await models.User.updateOne(
-        {
-          _id: userId,
-          'teamMemberships.teamId': teamId,
-          'teamMemberships.organizationId': organizationId,
-        },
-        {
-          $set: {
-            'teamMemberships.$.status': 'active',
-            'teamMemberships.$.role': role,
-            'teamMemberships.$.joinedAt': new Date(),
-          },
-        }
-      );
-    }
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    return team;
+      const orgMembership = user.memberships?.find(
+        (m: any) =>
+          m.organizationId === organizationId &&
+          m.status === 'active'
+      );
+
+      if (!orgMembership) {
+        throw new Error('User is not a member of this organization');
+      }
+
+      const team = await tx.team.findFirst({
+        where: {
+          id: teamId,
+          organizationId,
+          status: { not: 'deleted' },
+        },
+        include: { members: true }
+      });
+
+      if (!team) {
+        throw new Error('Team not found');
+      }
+
+      const existingMember = team.members.find(
+        (m: any) => m.userId === userId
+      );
+
+      if (existingMember && existingMember.status === 'active') {
+        throw new Error('User is already a member of this team');
+      }
+
+      if (existingMember) {
+        await tx.teamMember.update({
+          where: { id: existingMember.id },
+          data: {
+            role,
+            status: 'active',
+            joinedAt: new Date(),
+          }
+        });
+      } else {
+        await tx.teamMember.create({
+          data: {
+            teamId,
+            userId,
+            role,
+            status: 'active',
+          }
+        });
+      }
+
+      const updatedTeam = await tx.team.findUnique({
+        where: { id: teamId },
+        include: { members: { where: { status: 'active' } } }
+      });
+
+      return updatedTeam;
+    });
   }
 
   /**
    * Remove member from team
    */
-  async removeMemberFromTeam(teamId: any, organizationId: any, userId: any) {
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId,
-      status: { $ne: 'deleted' },
-    });
-
-    if (!team) {
-      throw new Error('Team not found');
-    }
-
-    if (team.ownerId.toString() === userId.toString()) {
-      throw new Error('Cannot remove team owner from team');
-    }
-
-    const memberIndex = team.members.findIndex(
-      (m: any) => m.userId.toString() === userId.toString() && m.status === 'active'
-    );
-
-    if (memberIndex === -1) {
-      throw new Error('User is not a member of this team');
-    }
-
-    team.members[memberIndex].status = 'inactive';
-    await team.save();
-
-    await models.User.updateOne(
-      {
-        _id: userId,
-        'teamMemberships.teamId': teamId,
-        'teamMemberships.organizationId': organizationId,
-      },
-      {
-        $set: {
-          'teamMemberships.$.status': 'inactive',
+  async removeMemberFromTeam(teamId: string, organizationId: string, userId: string) {
+    return await prisma.$transaction(async (tx) => {
+      const team = await tx.team.findFirst({
+        where: {
+          id: teamId,
+          organizationId,
+          status: { not: 'deleted' },
         },
-      }
-    );
+        include: { members: true }
+      });
 
-    return team;
+      if (!team) {
+        throw new Error('Team not found');
+      }
+
+      if (team.ownerId === userId) {
+        throw new Error('Cannot remove team owner from team');
+      }
+
+      const member = team.members.find(
+        (m: any) => m.userId === userId && m.status === 'active'
+      );
+
+      if (!member) {
+        throw new Error('User is not a member of this team');
+      }
+
+      await tx.teamMember.update({
+        where: { id: member.id },
+        data: { status: 'inactive' }
+      });
+
+      const updatedTeam = await tx.team.findUnique({
+        where: { id: teamId },
+        include: { members: { where: { status: 'active' } } }
+      });
+
+      return updatedTeam;
+    });
   }
 }

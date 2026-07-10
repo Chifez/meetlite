@@ -65,7 +65,7 @@ export abstract class BaseQueue {
       this.options.defaultJobOptions || createJobOptions();
 
     this.queue = new Queue(this.queueName, {
-      connection: this.connection,
+      connection: this.connection as any,
       prefix,
       defaultJobOptions,
     });

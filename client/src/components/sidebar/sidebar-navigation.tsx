@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,9 @@ import { useWorkspace } from '@/contexts/workspace-context';
 import type { NavigationItem } from '@/lib/types';
 import { motion } from 'motion/react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { StatusPill } from '@/components/ui/status-pill';
+import { Plus } from 'lucide-react';
+import { useTeamsStore } from '@/stores/teams-store';
 
 interface SidebarNavigationProps {
   isContentVisible: boolean;
@@ -22,10 +25,13 @@ export function SidebarNavigation({
   onNavigationClick,
 }: SidebarNavigationProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentPlan } = useCurrentPlan();
   const { isPersonalMode } = useWorkspace();
   const isFreePlan = currentPlan === 'free';
   const showTeams = !isPersonalMode && !isFreePlan;
+  const { teams } = useTeamsStore();
+  const hasTeams = teams && teams.length > 0;
 
   return (
     <div className="flex flex-col space-y-4 py-4">
@@ -46,9 +52,20 @@ export function SidebarNavigation({
       {/* Teams Switcher Section */}
       {showTeams && !isContentVisible && (
         <div className="px-3 space-y-1">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold px-2">
-            Teams
-          </p>
+          <div className="flex items-center justify-between px-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+              Teams
+            </p>
+            {hasTeams && (
+              <button 
+                onClick={() => navigate('/settings/organization')} 
+                className="text-muted-foreground hover:text-primary transition-colors"
+                aria-label="Create team"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <TeamsSwitcher />
         </div>
       )}
@@ -57,7 +74,7 @@ export function SidebarNavigation({
       <nav className="flex-1 px-2">
         <ul className="space-y-1.5">
           {visibleNavigationItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path || (item.children && location.pathname.startsWith(item.path));
             const Icon = item.icon;
 
             const buttonContent = (
@@ -76,7 +93,7 @@ export function SidebarNavigation({
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active-pill"
-                    className="absolute inset-0 bg-primary/10 rounded-xl -z-10 border border-primary/20"
+                    className="absolute inset-0 bg-primary/[0.08] rounded-xl -z-10"
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                   />
                 )}
@@ -95,12 +112,9 @@ export function SidebarNavigation({
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold">{item.label}</span>
                     {!item.available && (
-                      <Badge
-                        variant="outline"
-                        className="text-[8px] bg-primary/10 border-primary/25 text-primary px-1 py-0.5 font-bold"
-                      >
+                      <StatusPill variant="neutral">
                         Soon
-                      </Badge>
+                      </StatusPill>
                     )}
                   </div>
                 )}
@@ -108,7 +122,7 @@ export function SidebarNavigation({
             );
 
             return (
-              <li key={item.path} className="flex justify-center">
+              <li key={item.path} className="flex flex-col justify-center">
                 {isContentVisible ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -120,6 +134,30 @@ export function SidebarNavigation({
                   </Tooltip>
                 ) : (
                   buttonContent
+                )}
+                {item.children && !isContentVisible && location.pathname.startsWith(item.path) && (
+                  <ul className="pl-10 space-y-1 mt-1">
+                    {item.children.map(child => {
+                      if (child.organizationOnly && isPersonalMode) return null;
+                      const isChildActive = location.pathname === child.path || (child.path === '/settings/profile' && location.pathname === '/settings');
+                      return (
+                        <li key={child.path}>
+                           <Button
+                            variant="ghost"
+                            className={cn(
+                              'w-full justify-start py-1.5 h-8 px-3 rounded-lg text-xs transition-colors',
+                              isChildActive ? 'text-primary font-bold bg-primary/5' : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30',
+                              !child.available && 'opacity-50 cursor-not-allowed'
+                            )}
+                            onClick={() => onNavigationClick({ ...child, icon: item.icon } as NavigationItem)}
+                            disabled={!child.available}
+                          >
+                            {child.label}
+                          </Button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </li>
             );

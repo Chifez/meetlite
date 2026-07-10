@@ -263,3 +263,4 @@ const startServer = async () => {
 };
 
 startServer();
+// Trigger nodemon reload for shared updates

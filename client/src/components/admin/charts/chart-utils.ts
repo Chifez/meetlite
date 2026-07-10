@@ -61,7 +61,7 @@ export function getDataRange(
   }
 
   const values = data.map((d) => Number(d[dataKey]) || 0);
-  const min = Math.min(...values);
+  const _min = Math.min(...values);
   let max = Math.max(...values);
   
   // If max is 0, use max of 1
@@ -125,7 +125,7 @@ export function generateLinePath(
   let path = `M ${points[0].x} ${points[0].y}`;
 
   for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
+    const _prev = points[i - 1];
     const curr = points[i];
     const next = points[i + 1];
 
@@ -155,8 +155,8 @@ export function generateAreaPath(
   const linePath = generateLinePath(data, dataKey, plotArea, range);
   if (!linePath) return '';
 
-  const firstPoint = data[0];
-  const lastPoint = data[data.length - 1];
+  const _firstPoint = data[0];
+  const _lastPoint = data[data.length - 1];
   const firstX = scale(
     0,
     0,

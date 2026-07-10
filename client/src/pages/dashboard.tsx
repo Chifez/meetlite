@@ -11,6 +11,7 @@ import { extractData } from '@/lib/api-response';
 import WelcomeHeader from '@/components/dashboard/welcome-header';
 import QuickActions from '@/components/dashboard/quick-action';
 import UpcomingMeetingsSection from '@/components/dashboard/upcoming-meetings-section';
+import RecentActivity from '@/components/dashboard/recent-activity';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
@@ -150,11 +151,18 @@ const Dashboard = () => {
           onJoin={joinRoom}
           onQuickMeeting={handleQuickMeeting}
         />
-        <UpcomingMeetingsSection
-          meetings={upcomingMeetings}
-          loading={loading}
-          onSchedule={openScheduleModal}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-10">
+          <div className="lg:col-span-8">
+            <UpcomingMeetingsSection
+              meetings={upcomingMeetings}
+              loading={loading}
+              onSchedule={openScheduleModal}
+            />
+          </div>
+          <div className="lg:col-span-4">
+            <RecentActivity />
+          </div>
+        </div>
       </DashboardLayout>
 
       <DeleteMeetingDialog />

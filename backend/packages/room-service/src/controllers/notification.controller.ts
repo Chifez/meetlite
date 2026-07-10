@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { AppError, ResponseHelpers } from '@minimeet/shared';
 import { auditLog } from '../services/audit.service.js';
 import {
@@ -31,18 +31,18 @@ export class NotificationController {
 
     // Get notifications with pagination
     const [notifications, total] = await Promise.all([
-      (models.Notification as any).find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select('-__v')
-        .lean(),
-      models.Notification.countDocuments(query),
+      prisma.notification.findMany({
+        where: query,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.notification.count({ where: query }),
     ]);
 
     // Filter sensitive data
     const sanitizedNotifications = notifications.map((notification: any) => ({
-      id: notification._id,
+      id: notification.id,
       type: notification.type,
       title: notification.title,
       message: notification.message,
@@ -194,9 +194,11 @@ export class NotificationController {
   async getUnreadCount(req: any, res: Response) {
     const userId = req.user.userId;
 
-    const count = await models.Notification.countDocuments({
-      userId,
-      read: false,
+    const count = await prisma.notification.count({
+      where: {
+        userId,
+        read: false,
+      }
     });
 
     return ResponseHelpers.ok(res, { count });
@@ -210,9 +212,11 @@ export class NotificationController {
     const notificationId = req.params.id;
 
     // Find notification and verify ownership
-    const notification = await models.Notification.findOne({
-      _id: notificationId,
-      userId,
+    let notification = await prisma.notification.findFirst({
+      where: {
+        id: notificationId,
+        userId,
+      }
     });
 
     if (!notification) {
@@ -221,9 +225,10 @@ export class NotificationController {
 
     // Update if not already read
     if (!notification.read) {
-      notification.read = true;
-      notification.readAt = new Date();
-      await notification.save();
+      notification = await prisma.notification.update({
+        where: { id: notification.id },
+        data: { read: true, readAt: new Date() }
+      });
 
       // Audit log
       auditLog({
@@ -240,7 +245,7 @@ export class NotificationController {
     }
 
     return ResponseHelpers.ok(res, {
-      id: notification._id,
+      id: notification.id,
       read: notification.read,
       readAt: notification.readAt,
     });
@@ -252,15 +257,13 @@ export class NotificationController {
   async markAllAsRead(req: any, res: Response) {
     const userId = req.user.userId;
 
-    const result = await models.Notification.updateMany(
-      { userId, read: false },
-      {
-        $set: {
-          read: true,
-          readAt: new Date(),
-        },
+    const result = await prisma.notification.updateMany({
+      where: { userId, read: false },
+      data: {
+        read: true,
+        readAt: new Date(),
       }
-    );
+    });
 
     // Audit log
     auditLog({
@@ -268,14 +271,14 @@ export class NotificationController {
       category: 'notification',
       action: 'mark_all_read',
       status: 'success',
-      details: `Marked ${result.modifiedCount} notifications as read`,
-      metadata: { count: result.modifiedCount },
+      details: `Marked ${result.count} notifications as read`,
+      metadata: { count: result.count },
     }).catch((err) => {
       console.error('Failed to audit mark all read:', err);
     });
 
     return ResponseHelpers.ok(res, {
-      count: result.modifiedCount,
+      count: result.count,
     });
   }
 
@@ -287,9 +290,8 @@ export class NotificationController {
     const notificationId = req.params.id;
 
     // Find notification and verify ownership
-    const notification = await models.Notification.findOne({
-      _id: notificationId,
-      userId,
+    const notification = await prisma.notification.findFirst({
+      where: { id: notificationId, userId }
     });
 
     if (!notification) {
@@ -297,10 +299,14 @@ export class NotificationController {
     }
 
     // Soft delete by marking as cancelled
-    notification.status = 'cancelled';
-    notification.cancelledAt = new Date();
-    notification.cancelReason = 'Deleted by user';
-    await notification.save();
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: {
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancelReason: 'Deleted by user'
+      }
+    });
 
     // Audit log
     auditLog({

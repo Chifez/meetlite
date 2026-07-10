@@ -31,7 +31,7 @@ router.post('/subscribe', async (req: any, res: Response) => {
     }
 
     const savedSubscription = await saveSubscription(
-      req.user._id,
+      req.user.id,
       subscription,
       deviceInfo
     );
@@ -40,7 +40,7 @@ router.post('/subscribe', async (req: any, res: Response) => {
       success: true,
       message: 'Subscription saved successfully',
       subscription: {
-        id: savedSubscription._id,
+        id: savedSubscription.id,
         endpoint: savedSubscription.endpoint,
       },
     });
@@ -80,13 +80,13 @@ router.post('/unsubscribe', async (req: Request, res: Response) => {
 
 router.get('/subscriptions', async (req: any, res: Response) => {
   try {
-    const subscriptions = await getUserSubscriptions(req.user._id);
+    const subscriptions = await getUserSubscriptions(req.user.id);
 
     res.json({
       success: true,
       count: subscriptions.length,
       subscriptions: subscriptions.map((sub: any) => ({
-        id: sub._id,
+        id: sub.id,
         endpoint: sub.endpoint,
         deviceInfo: sub.deviceInfo,
         createdAt: sub.createdAt,

@@ -104,7 +104,7 @@ export function generateRRULE(recurrence: any, startDate: Date): string {
  */
 export function generateOccurrences(recurrence: any, startDate: Date, limit = 100): Date[] {
   try {
-    const rruleString = generateRRULE(recurrence, startDate);
+    const rruleString = typeof recurrence === 'string' ? recurrence : generateRRULE(recurrence, startDate);
     const rule = rrulestr(rruleString);
 
     // Generate occurrences up to limit
@@ -131,7 +131,7 @@ export function getNextOccurrences(
   count = 10
 ): Date[] {
   try {
-    const rruleString = generateRRULE(recurrence, startDate);
+    const rruleString = typeof recurrence === 'string' ? recurrence : generateRRULE(recurrence, startDate);
     const rule = rrulestr(rruleString);
 
     // Get occurrences between afterDate and a reasonable future date
@@ -350,12 +350,12 @@ export function validateRecurrence(recurrence: any): any {
  */
 export async function createRecurrenceInstances(
   parentMeeting: any,
-  models: any,
+  prisma: any,
   startAfter = new Date(),
   endBefore: any = null
 ): Promise<any[]> {
   try {
-    if (!parentMeeting.isRecurring || !parentMeeting.recurrence) {
+    if (!parentMeeting.isRecurring || !parentMeeting.recurrenceRrule) {
       return [];
     }
 
@@ -366,11 +366,10 @@ export async function createRecurrenceInstances(
     }
 
     // Get existing instances to avoid duplicates
-    const existingInstances = await models.Meeting.find({
-      recurrenceId: parentMeeting._id,
-    })
-      .select('scheduledTime')
-      .lean();
+    const existingInstances = await prisma.meeting.findMany({
+      where: { recurrenceId: parentMeeting.id },
+      select: { scheduledTime: true }
+    });
 
     const existingDates = new Set(
       existingInstances.map(
@@ -380,7 +379,7 @@ export async function createRecurrenceInstances(
 
     // Get next occurrences
     const occurrences = getNextOccurrences(
-      parentMeeting.recurrence,
+      parentMeeting.recurrenceRrule,
       parentMeeting.scheduledTime,
       startAfter,
       100 // Get up to 100 occurrences
@@ -414,27 +413,28 @@ export async function createRecurrenceInstances(
         scheduledTime.setMilliseconds(0);
 
         // Create instance
-        const instance = new models.Meeting({
-          meetingId,
-          title: parentMeeting.title,
-          description: parentMeeting.description,
-          scheduledTime,
-          duration: parentMeeting.duration,
-          createdBy: parentMeeting.createdBy,
-          organizationId: parentMeeting.organizationId,
-          teamId: parentMeeting.teamId,
-          participants: parentMeeting.participants || [],
-          privacy: parentMeeting.privacy || 'public',
-          invites: (parentMeeting.invites || []).map((invite: any) => ({
-            ...invite,
-            status: 'pending', // Reset status for new instances
-          })),
-          status: 'scheduled',
-          isRecurring: false, // Instances are not recurring themselves
-          recurrenceId: parentMeeting._id,
+        const instance = await prisma.meeting.create({
+          data: {
+            meetingId,
+            title: parentMeeting.title,
+            description: parentMeeting.description,
+            scheduledTime,
+            duration: parentMeeting.duration,
+            createdBy: parentMeeting.createdBy,
+            organizationId: parentMeeting.organizationId,
+            teamId: parentMeeting.teamId,
+            participants: parentMeeting.participants || [],
+            privacy: parentMeeting.privacy || 'public',
+            invites: (parentMeeting.invites || []).map((invite: any) => ({
+              ...invite,
+              status: 'pending', // Reset status for new instances
+            })),
+            status: 'scheduled',
+            isRecurring: false, // Instances are not recurring themselves
+            recurrenceId: parentMeeting.id,
+          }
         });
 
-        await instance.save();
         return instance;
       })
     );
@@ -455,17 +455,19 @@ export async function createRecurrenceInstances(
  */
 export async function cancelRecurrenceSeries(
   parentMeeting: any,
-  models: any,
+  prisma: any,
   cancelReason = 'Series cancelled'
 ): Promise<number> {
   try {
     const now = new Date();
 
     // Find all future instances
-    const futureInstances = await models.Meeting.find({
-      recurrenceId: parentMeeting._id,
-      scheduledTime: { $gte: now },
-      status: { $ne: 'cancelled' },
+    const futureInstances = await prisma.meeting.findMany({
+      where: {
+        recurrenceId: parentMeeting.id,
+        scheduledTime: { gte: now },
+        status: { not: 'cancelled' },
+      }
     });
 
     let cancelledCount = 0;
@@ -474,8 +476,10 @@ export async function cancelRecurrenceSeries(
     await Promise.all(
       futureInstances.map(async (instance: any) => {
         try {
-          instance.status = 'cancelled';
-          await instance.save();
+          await prisma.meeting.update({
+            where: { id: instance.id },
+            data: { status: 'cancelled' }
+          });
 
           // Cancel reminders for this instance
           await cancelMeetingReminders(
@@ -495,8 +499,10 @@ export async function cancelRecurrenceSeries(
     );
 
     // Also mark parent as cancelled
-    parentMeeting.status = 'cancelled';
-    await parentMeeting.save();
+    await prisma.meeting.update({
+      where: { id: parentMeeting.id },
+      data: { status: 'cancelled' }
+    });
 
     return cancelledCount;
   } catch (error) {

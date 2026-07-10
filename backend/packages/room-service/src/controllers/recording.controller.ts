@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { AppError, ResponseHelpers } from '@minimeet/shared';
 import {
   uploadVideoFile,
@@ -20,21 +20,14 @@ import { Request, Response } from 'express';
 async function processRecordingAI(recording: any, type: string, processingId: string) {
   try {
     let transcriptData: any = null;
+    const updateData: any = {};
 
-    // Step 1: Generate transcript if needed
     if (type === 'transcript' || type === 'both') {
       try {
-        let audioUrl = recording.recording.streamingUrl;
+        let audioUrl = recording.streamingUrl;
 
-        // If it's a video, we might need to extract audio
-        if (
-          recording.recording.format !== 'mp3' &&
-          recording.recording.format !== 'wav'
-        ) {
-          const audioResult = await extractAudioFromVideo(
-            recording.recording.storagePath
-          );
-
+        if (recording.format !== 'mp3' && recording.format !== 'wav') {
+          const audioResult = await extractAudioFromVideo(recording.storagePath);
           if (audioResult.success && audioResult.audioUrl) {
             audioUrl = audioResult.audioUrl;
           }
@@ -42,22 +35,30 @@ async function processRecordingAI(recording: any, type: string, processingId: st
 
         transcriptData = await transcribeRecording(audioUrl);
 
-        recording.transcript.text = transcriptData.text;
-        recording.transcript.segments = transcriptData.segments;
-        recording.transcript.language = transcriptData.language;
-        recording.transcript.status = 'completed';
-        recording.transcript.processingProvider = 'openai';
+        updateData.transcriptText = transcriptData.text;
+        updateData.transcriptLanguage = transcriptData.language;
+        updateData.transcriptStatus = 'completed';
+        updateData.transcriptProvider = 'openai';
+
+        if (transcriptData.segments && transcriptData.segments.length > 0) {
+          updateData.transcriptSegments = {
+            create: transcriptData.segments.map((seg: any) => ({
+              start: seg.start,
+              end: seg.end,
+              text: seg.text,
+              speakerId: seg.speaker || null,
+            }))
+          };
+        }
       } catch (transcriptError) {
         console.error('Transcript processing failed:', transcriptError);
-        recording.transcript.status = 'failed';
+        updateData.transcriptStatus = 'failed';
       }
     }
 
-    // Step 2: Generate summary if needed
     if (type === 'summary' || type === 'both') {
       try {
-        const transcriptText =
-          transcriptData?.text || recording.transcript.text;
+        const transcriptText = transcriptData?.text || recording.transcriptText;
 
         if (!transcriptText) {
           throw new Error('No transcript available for summary generation');
@@ -65,51 +66,61 @@ async function processRecordingAI(recording: any, type: string, processingId: st
 
         const summaryData = await generateRecordingSummary(transcriptText, {
           meetingContext: recording.description || recording.title,
-          participantCount: recording.participants.length,
-          duration: recording.recording.duration,
+          participantCount: recording.participants ? recording.participants.length : 0,
+          duration: recording.duration,
         });
 
-        recording.aiSummary.summary = summaryData.summary;
-        recording.aiSummary.keyPoints = summaryData.keyPoints;
-        recording.aiSummary.actionItems = summaryData.actionItems;
-        recording.aiSummary.topics = summaryData.topics;
-        recording.aiSummary.sentiment = summaryData.sentiment;
-        recording.aiSummary.status = 'completed';
-        recording.aiSummary.processingProvider = 'openai';
+        updateData.summaryText = summaryData.summary;
+        updateData.summaryKeyPoints = summaryData.keyPoints;
+        updateData.summaryTopics = summaryData.topics;
+        updateData.summarySentiment = summaryData.sentiment;
+        updateData.summaryStatus = 'completed';
+        updateData.summaryProvider = 'openai';
+
+        if (summaryData.actionItems && summaryData.actionItems.length > 0) {
+          updateData.actionItems = {
+            create: summaryData.actionItems.map((item: any) => ({
+              description: item.description,
+              assigneeId: item.assignee || null,
+              dueDate: item.dueDate ? new Date(item.dueDate) : null,
+              status: 'pending'
+            }))
+          };
+        }
       } catch (summaryError) {
         console.error('Summary processing failed:', summaryError);
-        recording.aiSummary.status = 'failed';
+        updateData.summaryStatus = 'failed';
       }
     }
 
-    // Step 3: Update overall processing status
-    const transcriptDone =
-      recording.transcript.status === 'completed' || type === 'summary';
-    const summaryDone =
-      recording.aiSummary.status === 'completed' || type === 'transcript';
+    const transcriptDone = updateData.transcriptStatus === 'completed' || recording.transcriptStatus === 'completed' || type === 'summary';
+    const summaryDone = updateData.summaryStatus === 'completed' || recording.summaryStatus === 'completed' || type === 'transcript';
 
     if (transcriptDone && summaryDone) {
-      recording.processingStatus = 'completed';
-    } else if (
-      recording.transcript.status === 'failed' ||
-      recording.aiSummary.status === 'failed'
-    ) {
-      recording.processingStatus = 'failed';
+      updateData.processingStatus = 'completed';
+    } else if (updateData.transcriptStatus === 'failed' || updateData.summaryStatus === 'failed') {
+      updateData.processingStatus = 'failed';
     }
 
-    await recording.save();
+    await prisma.meetingRecording.update({
+      where: { id: recording.id },
+      data: updateData
+    });
   } catch (error) {
     console.error('AI processing failed:', error);
 
     try {
-      recording.processingStatus = 'failed';
+      const failedUpdate: any = { processingStatus: 'failed' };
       if (type === 'transcript' || type === 'both') {
-        recording.transcript.status = 'failed';
+        failedUpdate.transcriptStatus = 'failed';
       }
       if (type === 'summary' || type === 'both') {
-        recording.aiSummary.status = 'failed';
+        failedUpdate.summaryStatus = 'failed';
       }
-      await recording.save();
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: failedUpdate
+      });
     } catch (saveError) {
       console.error('Failed to update recording status:', saveError);
     }
@@ -152,14 +163,17 @@ export class RecordingController {
     }
 
     if (meetingId) {
-      const meeting = await models.Meeting.findById(meetingId);
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: meetingId },
+        include: { participants: true }
+      });
       if (!meeting) {
         throw AppError.notFound('Meeting');
       }
 
       const hasAccess =
-        meeting.host.userId.toString() === req.user.userId ||
-        meeting.participants.some((p: any) => p.email === req.user.email);
+        meeting.createdBy === req.user.userId ||
+        meeting.participants.some((p: any) => p.userId === req.user.userId);
 
       if (!hasAccess) {
         throw AppError.forbidden('Access denied to this meeting');
@@ -170,40 +184,36 @@ export class RecordingController {
       throw AppError.internal('File storage service not configured properly');
     }
 
-    const recording = new (models as any).MeetingRecording({
-      meetingId: meetingId || null,
-      organizationId: req.user.organizationId || null,
-      teamId: req.body.teamId || null,
-      title: title.trim(),
-      description: description?.trim(),
-      recording: {
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        format: req.file.mimetype.split('/')[1],
-        storageProvider: 'r2',
-        storagePath: null,
-        downloadUrl: null,
-        streamingUrl: null,
-        thumbnailUrl: null,
-      },
-      visibility,
-      tags: Array.isArray(tags)
-        ? tags
-        : typeof tags === 'string'
-        ? tags.split(',').map((t: string) => t.trim())
-        : [],
-      processingStatus: 'uploading',
-      participants: [
-        {
-          userId: req.user.userId,
-          role: 'host',
-          joinTime: new Date(),
-        },
-      ],
-    });
+    let recording: any;
 
     try {
-      await recording.save();
+      recording = await prisma.meetingRecording.create({
+        data: {
+          meetingId: meetingId || null,
+          organizationId: req.user.organizationId || null,
+          teamId: req.body.teamId || null,
+          title: title.trim(),
+          description: description?.trim(),
+          fileName: req.file.originalname,
+          fileSize: req.file.size,
+          format: req.file.mimetype.split('/')[1],
+          storageProvider: 'r2',
+          visibility,
+          tags: Array.isArray(tags)
+            ? tags
+            : typeof tags === 'string'
+            ? tags.split(',').map((t: string) => t.trim())
+            : [],
+          processingStatus: 'uploading',
+          participants: {
+            create: [{
+              userId: req.user.userId,
+              role: 'host',
+              joinTime: new Date()
+            }]
+          }
+        }
+      });
     } catch (saveError: any) {
       console.error('Database save error:', saveError);
       throw AppError.internal(`Failed to save recording: ${saveError.message}`);
@@ -217,19 +227,9 @@ export class RecordingController {
       const uploadResult = await uploadVideoFile(fileBuffer, {
         fileName: req.file.originalname,
         organizationId: req.user.organizationId,
-        recordingId: recording._id.toString(),
+        recordingId: recording.id,
         fileFormat: req.file.mimetype.split('/')[1],
       });
-
-      recording.recording.storagePath = uploadResult.key;
-      recording.recording.downloadUrl = uploadResult.downloadUrl;
-      recording.recording.streamingUrl = uploadResult.streamingUrl;
-      recording.recording.thumbnailUrl = uploadResult.thumbnailUrl;
-      recording.recording.duration = uploadResult.duration || 0;
-      recording.recording.quality = uploadResult.quality || 'unknown';
-      recording.processingStatus = 'completed';
-
-      await recording.save();
 
       const signedStreamingUrl = await generateSignedUrl(uploadResult.key, {
         expiresIn: 3600,
@@ -238,9 +238,18 @@ export class RecordingController {
         expiresIn: 3600,
       });
 
-      recording.recording.streamingUrl = signedStreamingUrl;
-      recording.recording.downloadUrl = signedDownloadUrl;
-      await recording.save();
+      recording = await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: {
+          storagePath: uploadResult.key,
+          downloadUrl: signedDownloadUrl,
+          streamingUrl: signedStreamingUrl,
+          thumbnailUrl: uploadResult.thumbnailUrl,
+          duration: uploadResult.duration || 0,
+          quality: uploadResult.quality || 'unknown',
+          processingStatus: 'completed'
+        }
+      });
 
       try {
         await fs.unlink(tempFilePath);
@@ -249,15 +258,15 @@ export class RecordingController {
       return res.status(201).json({
         success: true,
         recording: {
-          id: recording._id,
+          id: recording.id,
           title: recording.title,
           description: recording.description,
           processingStatus: recording.processingStatus,
           recording: {
-            thumbnailUrl: recording.recording.thumbnailUrl,
-            duration: recording.recording.duration || 0,
-            quality: recording.recording.quality || 'unknown',
-            format: recording.recording.format,
+            thumbnailUrl: recording.thumbnailUrl,
+            duration: recording.duration || 0,
+            quality: recording.quality || 'unknown',
+            format: recording.format,
           },
           createdAt: recording.createdAt,
         },
@@ -272,8 +281,10 @@ export class RecordingController {
         } catch (cleanupError) {}
       }
 
-      recording.processingStatus = 'failed';
-      await recording.save();
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: { processingStatus: 'failed' }
+      });
 
       throw AppError.internal(
         `Failed to upload recording to storage: ${uploadError.message}`
@@ -320,22 +331,56 @@ export class RecordingController {
       teamId: teamId || undefined,
     };
 
-    const recordings = await (models as any).MeetingRecording.findByOrganization(
-      req.user.organizationId,
-      options
-    );
-
-    const countQuery: any = { organizationId: req.user.organizationId };
+    const query: any = { organizationId: req.user.organizationId };
     if (teamId) {
-      countQuery.teamId = teamId;
+      query.teamId = teamId;
     }
     if (isArchived !== undefined) {
-      countQuery.isArchived = isArchived === 'true';
+      query.isArchived = isArchived === 'true';
     } else {
-      countQuery.isArchived = false;
+      query.isArchived = false;
+    }
+    if (status) query.processingStatus = status;
+
+    if (tags && tags.length > 0) {
+      // Tags is a Json field, simple filtering might require raw query or string contains in Prisma.
+      // We'll skip complex array filtering for Json in this demo, or just use string_contains.
+      query.tags = { string_contains: tags.split(',')[0] };
     }
 
-    const total = await models.MeetingRecording.countDocuments(countQuery);
+    if (search) {
+      query.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const nativeRecordings = await prisma.meetingRecording.findMany({
+      where: query,
+      include: {
+        meeting: { select: { title: true, scheduledTime: true } },
+        participants: { include: { user: { select: { name: true, email: true } } } }
+      },
+      orderBy: { [sortBy as string]: sortOrder === 'desc' ? 'desc' : 'asc' },
+      skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+      take: parseInt(limit as string),
+    });
+
+    const recordings = nativeRecordings.map((recording: any) => {
+      if (recording.participants) {
+        recording.participants = recording.participants.map((participant: any) => {
+          return {
+            ...participant,
+            name: participant.user?.name || '',
+            email: participant.user?.email || '',
+            userId: participant.userId,
+          };
+        });
+      }
+      return recording;
+    });
+
+    const total = await prisma.meetingRecording.count({ where: query });
 
     return res.json({
       success: true,
@@ -353,10 +398,15 @@ export class RecordingController {
    * GET /recordings/:id - Get recording details
    */
   async getRecording(req: any, res: Response) {
-    const recording: any = await (models as any).MeetingRecording.findById(req.params.id)
-      .populate('meetingId', 'title scheduledTime')
-      .populate('participants.userId', 'name email')
-      .lean();
+    let recording: any = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: {
+        meeting: { select: { title: true, scheduledTime: true } },
+        participants: { include: { user: { select: { name: true, email: true } } } },
+        actionItems: true,
+        transcriptSegments: true,
+      }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
@@ -364,33 +414,33 @@ export class RecordingController {
 
     if (recording.participants) {
       recording.participants = recording.participants.map((participant: any) => {
-        if (participant.userId && typeof participant.userId === 'object') {
-          return {
-            ...participant,
-            name: participant.userId.name || '',
-            email: participant.userId.email || '',
-            userId: participant.userId._id,
-          };
-        }
-        return participant;
+        return {
+          ...participant,
+          name: participant.user?.name || '',
+          email: participant.user?.email || '',
+          userId: participant.userId,
+        };
       });
     }
 
-    const recordingDoc = await (models as any).MeetingRecording.findById(req.params.id);
-    const canAccess = await recordingDoc.canAccess(
-      req.user.userId,
-      req.user.role
-    );
+    // Access check
+    let canAccess = false;
+    if (req.user.role === 'admin' || req.user.role === 'owner') {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
     if (!canAccess) {
       throw AppError.forbidden('Access denied to this recording');
     }
 
-    await (models as any).MeetingRecording.findByIdAndUpdate(req.params.id, {
-      $inc: { 'analytics.viewCount': 1 },
-      $set: {
-        'analytics.lastViewed': new Date(),
-        'retentionPolicy.lastAccessDate': new Date(),
-      },
+    await prisma.meetingRecording.update({
+      where: { id: req.params.id },
+      data: {
+        viewCount: { increment: 1 },
+        retentionLastAccess: new Date(),
+      }
     });
 
     return res.json({
@@ -399,28 +449,34 @@ export class RecordingController {
     });
   }
 
-  /**
-   * GET /recordings/:id/stream - Get fresh signed URL for video streaming
-   */
   async getStreamingUrl(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
     }
 
-    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
+    let canAccess = false;
+    if (req.user.role === 'admin' || req.user.role === 'owner') {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
     if (!canAccess) {
       throw AppError.forbidden('Access denied to this recording');
     }
 
     const streamingUrl = await generateSignedUrl(
-      recording.recording.storagePath,
+      recording.storagePath as string,
       { expiresIn: 3600 }
     );
 
-    const thumbnailUrl = recording.recording.thumbnailPath
-      ? await generateSignedUrl(recording.recording.thumbnailPath, { expiresIn: 3600 })
+    const thumbnailUrl = recording.thumbnailUrl
+      ? await generateSignedUrl(recording.thumbnailUrl, { expiresIn: 3600 })
       : null;
 
     return res.json({
@@ -434,7 +490,10 @@ export class RecordingController {
    * PUT /recordings/:id - Update recording metadata
    */
   async updateRecording(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
@@ -442,7 +501,7 @@ export class RecordingController {
 
     const canEdit =
       recording.participants.some(
-        (p: any) => p.userId.toString() === req.user.userId && p.role === 'host'
+        (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
       req.user.role === 'owner' ||
       req.user.role === 'admin';
@@ -452,25 +511,33 @@ export class RecordingController {
     }
 
     const { title, description, tags, visibility } = req.body;
+    const updateData: any = {};
 
-    if (title) recording.title = title.trim();
-    if (description !== undefined) recording.description = description?.trim();
-    if (tags)
-      recording.tags = Array.isArray(tags)
+    if (title) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description?.trim();
+    if (tags) {
+      updateData.tags = Array.isArray(tags)
         ? tags
         : tags.split(',').map((t: string) => t.trim());
-    if (visibility) recording.visibility = visibility;
+    }
+    if (visibility) updateData.visibility = visibility;
 
-    await recording.save();
+    const updated = await prisma.meetingRecording.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
 
-    return ResponseHelpers.ok(res, recording, 'Recording updated successfully');
+    return ResponseHelpers.ok(res, updated, 'Recording updated successfully');
   }
 
   /**
    * DELETE /recordings/:id - Delete recording
    */
   async deleteRecording(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
@@ -478,7 +545,7 @@ export class RecordingController {
 
     const canDelete =
       recording.participants.some(
-        (p: any) => p.userId.toString() === req.user.userId && p.role === 'host'
+        (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
       req.user.role === 'owner' ||
       req.user.role === 'admin';
@@ -487,17 +554,17 @@ export class RecordingController {
       throw AppError.forbidden('Permission denied to delete this recording');
     }
 
-    if (recording.recording.storagePath) {
+    if (recording.storagePath) {
       try {
-        await deleteFile(recording.recording.storagePath);
+        await deleteFile(recording.storagePath);
       } catch (error) {
         console.error('Failed to delete file from R2:', error);
       }
     }
 
-    if (recording.recording.thumbnailUrl) {
+    if (recording.thumbnailUrl) {
       try {
-        const thumbnailPath = recording.recording.thumbnailUrl
+        const thumbnailPath = recording.thumbnailUrl
           .split('/')
           .slice(-2)
           .join('/');
@@ -507,7 +574,7 @@ export class RecordingController {
       }
     }
 
-    await (models as any).MeetingRecording.findByIdAndDelete(req.params.id);
+    await prisma.meetingRecording.delete({ where: { id: req.params.id } });
 
     return ResponseHelpers.ok(res, null, 'Recording deleted successfully');
   }
@@ -518,13 +585,22 @@ export class RecordingController {
   async processRecording(req: any, res: Response) {
     const { type = 'both' } = req.body;
 
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
     }
 
-    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
+    let canAccess = false;
+    if (req.user.role === 'admin' || req.user.role === 'owner') {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
     if (!canAccess) {
       throw AppError.forbidden('Access denied to this recording');
     }
@@ -536,20 +612,24 @@ export class RecordingController {
       );
     }
 
-    if (!recording.recording.streamingUrl) {
+    if (!recording.streamingUrl) {
       throw AppError.validation('Recording file not available for processing');
     }
 
-    const processingId = `${recording._id}_${type}_${Date.now()}`;
+    const processingId = `${recording.id}_${type}_${Date.now()}`;
 
+    const updateData: any = {};
     if (type === 'transcript' || type === 'both') {
-      recording.transcript.status = 'processing';
+      updateData.transcriptStatus = 'processing';
     }
     if (type === 'summary' || type === 'both') {
-      recording.aiSummary.status = 'processing';
+      updateData.summaryStatus = 'processing';
     }
 
-    await recording.save();
+    await prisma.meetingRecording.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
 
     processRecordingAI(recording, type, processingId).catch((error) => {
       console.error('Background AI processing failed:', error);
@@ -566,23 +646,32 @@ export class RecordingController {
    * POST /recordings/:id/share - Generate shareable link for recording
    */
   async shareRecording(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
     }
 
-    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
+    let canAccess = false;
+    if (req.user.role === 'admin' || req.user.role === 'owner') {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
     if (!canAccess) {
       throw AppError.forbidden('Access denied to this recording');
     }
 
-    const shareToken = Buffer.from(`${recording._id}:${Date.now()}`).toString(
+    const shareToken = Buffer.from(`${recording.id}:${Date.now()}`).toString(
       'base64'
     );
 
     const shareableUrl = await generateSignedUrl(
-      recording.recording.storagePath,
+      recording.storagePath as string,
       { expiresIn: 86400 }
     );
 
@@ -598,7 +687,10 @@ export class RecordingController {
    * POST /recordings/:id/archive - Archive recording
    */
   async archiveRecording(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
@@ -606,7 +698,7 @@ export class RecordingController {
 
     const canArchive =
       recording.participants.some(
-        (p: any) => p.userId.toString() === req.user.userId && p.role === 'host'
+        (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
       req.user.role === 'owner' ||
       req.user.role === 'admin';
@@ -615,9 +707,10 @@ export class RecordingController {
       throw AppError.forbidden('Permission denied to archive this recording');
     }
 
-    recording.isArchived = true;
-    recording.archiveDate = new Date();
-    await recording.save();
+    await prisma.meetingRecording.update({
+      where: { id: req.params.id },
+      data: { isArchived: true, archiveDate: new Date() }
+    });
 
     return ResponseHelpers.ok(res, null, 'Recording archived successfully');
   }
@@ -626,7 +719,10 @@ export class RecordingController {
    * POST /recordings/:id/unarchive - Unarchive recording
    */
   async unarchiveRecording(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
@@ -634,20 +730,19 @@ export class RecordingController {
 
     const canUnarchive =
       recording.participants.some(
-        (p: any) => p.userId.toString() === req.user.userId && p.role === 'host'
+        (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
       req.user.role === 'owner' ||
       req.user.role === 'admin';
 
     if (!canUnarchive) {
-      throw AppError.forbidden(
-        'Permission denied to unarchive this recording'
-      );
+      throw AppError.forbidden('Permission denied to unarchive this recording');
     }
 
-    recording.isArchived = false;
-    recording.archiveDate = undefined;
-    await recording.save();
+    await prisma.meetingRecording.update({
+      where: { id: req.params.id },
+      data: { isArchived: false, archiveDate: null }
+    });
 
     return ResponseHelpers.ok(res, null, 'Recording unarchived successfully');
   }
@@ -656,10 +751,15 @@ export class RecordingController {
    * GET /recordings/:id/status - Get processing status
    */
   async getRecordingStatus(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id)
-      .select(
-        'processingStatus processingProgress transcript.status aiSummary.status'
-      );
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      select: {
+        processingStatus: true,
+        processingProgress: true,
+        transcriptStatus: true,
+        summaryStatus: true
+      }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
@@ -670,9 +770,9 @@ export class RecordingController {
       status: {
         overall: recording.processingStatus,
         progress: recording.processingProgress,
-        transcript: recording.transcript.status,
-        summary: recording.aiSummary.status,
-        isProcessing: recording.isProcessing,
+        transcript: recording.transcriptStatus,
+        summary: recording.summaryStatus,
+        isProcessing: recording.processingStatus === 'processing',
       },
     });
   }
@@ -687,18 +787,28 @@ export class RecordingController {
       );
     }
 
-    const stats = await (models as any).MeetingRecording.getStorageStats(
-      req.user.organizationId
-    );
+    const aggregates = await prisma.meetingRecording.aggregate({
+      where: { organizationId: req.user.organizationId },
+      _sum: { fileSize: true, duration: true },
+      _count: { id: true }
+    });
+
+    const transcriptsCount = await prisma.meetingRecording.count({
+      where: { organizationId: req.user.organizationId, transcriptStatus: 'completed' }
+    });
+
+    const summariesCount = await prisma.meetingRecording.count({
+      where: { organizationId: req.user.organizationId, summaryStatus: 'completed' }
+    });
 
     return res.json({
       success: true,
-      stats: stats[0] || {
-        totalRecordings: 0,
-        totalSize: 0,
-        totalDuration: 0,
-        completedTranscripts: 0,
-        completedSummaries: 0,
+      stats: {
+        totalRecordings: aggregates._count.id,
+        totalSize: Number(aggregates._sum.fileSize || 0),
+        totalDuration: Number(aggregates._sum.duration || 0),
+        completedTranscripts: transcriptsCount,
+        completedSummaries: summariesCount,
       },
     });
   }
@@ -707,25 +817,37 @@ export class RecordingController {
    * GET /recordings/:id/download - Download recording file
    */
   async downloadRecording(req: any, res: Response) {
-    const recording = await (models as any).MeetingRecording.findById(req.params.id);
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true }
+    });
 
     if (!recording) {
       throw AppError.notFound('Recording');
     }
 
-    const canAccess = await recording.canAccess(req.user.userId, req.user.role);
+    let canAccess = false;
+    if (req.user.role === 'admin' || req.user.role === 'owner') {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
     if (!canAccess) {
       throw AppError.forbidden('Access denied to this recording');
     }
 
-    recording.analytics.downloadCount += 1;
-    await recording.save();
+    await prisma.meetingRecording.update({
+      where: { id: req.params.id },
+      data: { downloadCount: { increment: 1 } }
+    });
 
-    const signedDownloadUrl = await generateSignedUrl(
-      recording.recording.storagePath,
-      { expiresIn: 3600 }
-    );
+    if (!recording.downloadUrl) {
+      throw AppError.notFound('Download URL not found');
+    }
 
-    return res.redirect(signedDownloadUrl);
+    return res.redirect(recording.downloadUrl);
   }
 }
+
+export default RecordingController;

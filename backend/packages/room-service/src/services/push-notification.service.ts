@@ -1,6 +1,6 @@
 // @ts-ignore
 import webpush from 'web-push';
-import { PushSubscription } from '@minimeet/shared';
+import { prisma } from '@minimeet/shared';
 
 /**
  * Push Notification Service for Room Service
@@ -45,9 +45,8 @@ export const sendPushNotificationToUser = async (userId: string, payload: any): 
     }
 
     // Get all active subscriptions for the user
-    const subscriptions = await PushSubscription.find({
-      userId,
-      isActive: true,
+    const subscriptions = await prisma.pushSubscription.findMany({
+      where: { userId }
     });
 
     if (subscriptions.length === 0) {
@@ -62,31 +61,28 @@ export const sendPushNotificationToUser = async (userId: string, payload: any): 
             {
               endpoint: subscription.endpoint,
               keys: {
-                p256dh: subscription.keys.p256dh,
-                auth: subscription.keys.auth,
+                p256dh: subscription.keysP256dh,
+                auth: subscription.keysAuth,
               },
             },
             JSON.stringify(payload)
           );
 
-          // Update last used timestamp
-          subscription.lastUsed = new Date();
-          await subscription.save();
-
-          return { success: true, subscriptionId: subscription._id };
+          return { success: true, subscriptionId: subscription.id };
         } catch (error: any) {
           // If subscription is invalid (410 Gone or 404 Not Found), mark as inactive
-          if (error.statusCode === 410 || error.statusCode === 404) {
-            subscription.isActive = false;
-            await subscription.save();
+          if (error.statusCode === 404 || error.statusCode === 410) {
+            await prisma.pushSubscription.delete({
+              where: { id: subscription.id }
+            });
           }
           throw error;
         }
       })
     );
 
-    const successful = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
+    const successful = results.filter((r: any) => r.status === 'fulfilled').length;
+    const failed = results.filter((r: any) => r.status === 'rejected').length;
 
     return {
       success: successful > 0,

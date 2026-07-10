@@ -159,7 +159,7 @@ export default function TeamSettings() {
 
     setRemovingMember(memberId);
     try {
-      await TeamService.removeMember(activeOrganization.id, teamId, memberId);
+      await TeamService.removeMemberFromTeam(activeOrganization.id, teamId, memberId);
       toast.success('Member removed from team');
       
       const teamData = await TeamService.getTeamById(

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 // @ts-ignore
-import { AppError, ResponseHelpers, EnterpriseInquiry } from '@minimeet/shared';
+import { AppError, ResponseHelpers, prisma } from '@minimeet/shared';
 // @ts-ignore
 import nodemailer from 'nodemailer';
 
@@ -59,7 +59,8 @@ export class ContactController {
 
     let inquiry: any;
     try {
-      inquiry = await EnterpriseInquiry.create({
+      inquiry = await prisma.enterpriseInquiry.create({
+        data: {
         name: name.trim(),
         email: email.trim(),
         phone: phone?.trim() || '',
@@ -81,13 +82,14 @@ export class ContactController {
         userId: userId,
         status: 'new',
         priority: isStartup ? 'high' : 'medium',
+        }
       });
     } catch (dbError) {
       console.error('Failed to save enterprise inquiry:', dbError);
     }
 
     const salesEmailHtml = this._generateSalesEmailHtml({
-      inquiryId: inquiry?._id?.toString(),
+      inquiryId: inquiry?.id?.toString(),
       name: name.trim(),
       email: email.trim(),
       phone: phone?.trim(),
@@ -111,7 +113,7 @@ export class ContactController {
     });
 
     const salesEmailText = this._generateSalesEmailText({
-      inquiryId: inquiry?._id?.toString(),
+      inquiryId: inquiry?.id?.toString(),
       name: name.trim(),
       email: email.trim(),
       phone: phone?.trim(),
@@ -152,8 +154,8 @@ export class ContactController {
 
     try {
       const priorityPrefix = isStartup ? '[STARTUP] ' : '';
-      const inquiryIdSuffix = inquiry?._id
-        ? ` [#${inquiry._id.toString().slice(-6)}]`
+      const inquiryIdSuffix = inquiry?.id
+        ? ` [#${inquiry.id.toString().slice(-6)}]`
         : '';
 
       await transporter.sendMail({
@@ -185,7 +187,7 @@ export class ContactController {
       return ResponseHelpers.ok(res, {
         message:
           "Your inquiry has been submitted successfully. We'll contact you within 24 hours!",
-        inquiryId: inquiry?._id?.toString(),
+        inquiryId: inquiry?.id?.toString(),
       });
     } catch (error) {
       console.error('Failed to send contact sales email:', error);

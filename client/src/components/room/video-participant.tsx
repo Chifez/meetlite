@@ -12,6 +12,7 @@ interface VideoParticipantProps {
   isLoading?: boolean;
   userEmail?: string;
   userName?: string;
+  forceSpeaking?: boolean;
 }
 
 const getInitials = (name?: string, email?: string) => {
@@ -30,6 +31,7 @@ export const VideoParticipant = ({
   isLoading = false,
   userEmail,
   userName,
+  forceSpeaking = false,
 }: VideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -135,6 +137,7 @@ export const VideoParticipant = ({
         stream={stream}
         isLocal={isLocal}
         audioEnabled={mediaState.audioEnabled}
+        forceSpeaking={forceSpeaking}
       />
 
       {(showVideoOff || showError || showLoading) && (

@@ -27,7 +27,7 @@ import {
   Zap,
   Check,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useCurrentPlan } from '@/hooks/use-current-plan';
 import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
@@ -112,9 +112,8 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
 
   const getCurrentDisplayDescription = (): string => {
     if (activeOrganization) {
-      return `${activeOrganization.memberCount || 0} member${
-        activeOrganization.memberCount === 1 ? '' : 's'
-      }`;
+      return `${activeOrganization.memberCount || 0} member${activeOrganization.memberCount === 1 ? '' : 's'
+        }`;
     }
     return 'Individual workspace';
   };
@@ -146,6 +145,7 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
               ) : (
                 <Avatar className="h-8 w-8 rounded-lg">
+                  {activeOrganization?.logo && <AvatarImage src={activeOrganization.logo} alt={activeOrganization.name} className="object-cover" />}
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-lg">
                     {getCurrentInitials()}
                   </AvatarFallback>
@@ -160,6 +160,7 @@ export function OrganizationSwitcher({ collapsed = false }: OrganizationSwitcher
             >
               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                 <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
+                  {activeOrganization?.logo && <AvatarImage src={activeOrganization.logo} alt={activeOrganization.name} className="object-cover" />}
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20">
                     {getCurrentInitials()}
                   </AvatarFallback>

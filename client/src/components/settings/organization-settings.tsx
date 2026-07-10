@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Building, Users } from 'lucide-react';
+import { Loader2, Building, Users, ImagePlus } from 'lucide-react';
+import { uploadService } from '@/services/upload-service';
 import {
   OrganizationService,
   UpdateOrganizationData,
@@ -51,10 +52,13 @@ export default function OrganizationSettings() {
     useWorkspace();
 
   const [orgLoading, setOrgLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [organization, setOrganization] = useState<any>(null);
   const [orgFormData, setOrgFormData] = useState<UpdateOrganizationData>({
     name: '',
     description: '',
+    logo: '',
     industry: '',
     size: '',
   });
@@ -66,6 +70,7 @@ export default function OrganizationSettings() {
         setOrgFormData({
           name: '',
           description: '',
+          logo: '',
           industry: '',
           size: '',
         });
@@ -81,6 +86,7 @@ export default function OrganizationSettings() {
         setOrgFormData({
           name: org.name || '',
           description: org.description || '',
+          logo: org.logo || '',
           industry: org.industry || '',
           size: org.size || '',
         });
@@ -113,6 +119,33 @@ export default function OrganizationSettings() {
       setOrgLoading(false);
     }
   };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeOrganization?.id) return;
+    
+    const MAX_SIZE = import.meta.env.VITE_MAX_LOGO_UPLOAD_SIZE_MB ? parseInt(import.meta.env.VITE_MAX_LOGO_UPLOAD_SIZE_MB) : 5;
+    if (file.size > MAX_SIZE * 1024 * 1024) {
+      toast.error(`File size must be less than ${MAX_SIZE}MB`);
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const url = await uploadService.uploadLogo(activeOrganization.id, file);
+      setOrgFormData(prev => ({ ...prev, logo: url }));
+      toast.success('Logo uploaded successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+
 
   const isOrganizationOwner = currentWorkspaceRole === 'owner';
 
@@ -167,6 +200,42 @@ export default function OrganizationSettings() {
                   placeholder="Enter workspace name"
                   required
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="orgLogo">Logo URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="orgLogo"
+                    value={orgFormData.logo || ''}
+                    onChange={(e) =>
+                      setOrgFormData({ ...orgFormData, logo: e.target.value })
+                    }
+                    placeholder="https://example.com/logo.png"
+                    type="url"
+                    className="flex-1"
+                  />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                  >
+                    {uploadingLogo ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-1.5">

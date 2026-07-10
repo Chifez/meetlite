@@ -1,20 +1,4 @@
-import { AuditLog } from '@minimeet/shared';
-
-/**
- * Audit Logging Service
- * Records all security-relevant events for compliance and debugging
- */
-
-// Allow injection of AuditLog model from service-specific connection
-let auditLogModel: any = null;
-
-/**
- * Set the AuditLog model to use (injected from service index.ts)
- * @param {any} model - Mongoose AuditLog model bound to service connection
- */
-export const setAuditLogModel = (model: any) => {
-  auditLogModel = model;
-};
+import { prisma } from '@minimeet/shared';
 
 interface AuditLogParams {
   userId?: string;
@@ -51,28 +35,31 @@ export const auditLog = async ({
   duration,
 }: AuditLogParams): Promise<any> => {
   try {
-    // Use injected model if available, otherwise fallback to default export
-    const modelToUse = auditLogModel || AuditLog;
-    
-    const log = await modelToUse.create({
-      userId,
-      category,
-      action,
-      status,
-      resourceType,
-      resourceId,
-      details,
-      metadata,
-      error: error
-        ? {
-            message: error.message,
-            code: error.code,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-          }
-        : undefined,
-      ipAddress,
-      userAgent,
-      duration,
+    const errorData = error
+      ? {
+          message: error.message,
+          code: error.code,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        }
+      : undefined;
+
+    const log = await prisma.auditLog.create({
+      data: {
+        userId,
+        category,
+        action,
+        status,
+        resourceType,
+        resourceId,
+        details,
+        metadata: metadata ? metadata : undefined,
+        errorMessage: errorData ? errorData.message : undefined,
+        errorCode: errorData ? errorData.code : undefined,
+        errorStack: errorData ? errorData.stack : undefined,
+        ipAddress,
+        userAgent,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      }
     });
 
     // Only log to console in development
@@ -110,16 +97,16 @@ export const queryAuditLogs = async (filters: any = {}, limit = 100, skip = 0): 
 
     if (filters.startDate || filters.endDate) {
       query.createdAt = {};
-      if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
-      if (filters.endDate) query.createdAt.$lte = new Date(filters.endDate);
+      if (filters.startDate) query.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) query.createdAt.lte = new Date(filters.endDate);
     }
 
-    const modelToUse = auditLogModel || AuditLog;
-    const logs = await modelToUse.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip(skip)
-      .lean();
+    const logs = await prisma.auditLog.findMany({
+      where: query,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: skip,
+    });
 
     return logs;
   } catch (error) {
@@ -141,22 +128,28 @@ export const getAuditStats = async (filters: any = {}): Promise<any> => {
     if (filters.category) query.category = filters.category;
     if (filters.startDate || filters.endDate) {
       query.createdAt = {};
-      if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
-      if (filters.endDate) query.createdAt.$lte = new Date(filters.endDate);
+      if (filters.startDate) query.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) query.createdAt.lte = new Date(filters.endDate);
     }
 
-    const modelToUse = auditLogModel || AuditLog;
-    const [total, byStatus, byCategory] = await Promise.all([
-      modelToUse.countDocuments(query),
-      modelToUse.aggregate([
-        { $match: query },
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
-      modelToUse.aggregate([
-        { $match: query },
-        { $group: { _id: '$category', count: { $sum: 1 } } },
-      ]),
-    ]);
+    const total = await prisma.auditLog.count({ where: query });
+    
+    // Prisma group by for status
+    const statusGroups = await prisma.auditLog.groupBy({
+      by: ['status'],
+      where: query,
+      _count: { _all: true },
+    });
+    
+    // Prisma group by for category
+    const categoryGroups = await prisma.auditLog.groupBy({
+      by: ['category'],
+      where: query,
+      _count: { _all: true },
+    });
+
+    const byStatus = statusGroups.map((g: any) => ({ _id: g.status, count: g._count._all }));
+    const byCategory = categoryGroups.map((g: any) => ({ _id: g.category, count: g._count._all }));
 
     return {
       total,

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 // @ts-ignore
 import { AdminService } from '../services/admin.service.js';
 import { AppError } from '@minimeet/shared';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 export class AdminController {
   /**
@@ -95,23 +95,31 @@ export class AdminController {
   async getUserDetails(req: Request, res: Response) {
     try {
       const { userId } = req.params;
-      const user = await models.User.findById(userId)
-        .select('-password -resetToken -resetTokenExpiry')
-        .lean();
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
 
       if (!user) {
         throw AppError.notFound('User not found');
       }
 
-      const orgsCount = await models.Organization.countDocuments({
-        $or: [{ ownerId: user._id }, { 'members.userId': user._id.toString() }],
+      // Exclude password and reset tokens
+      const { password, resetToken, resetTokenExpiry, ...userWithoutPassword } = user as any;
+
+      const orgsCount = await prisma.organization.count({
+        where: {
+          OR: [
+            { ownerId: userId },
+            { memberships: { some: { userId: userId } } }
+          ]
+        }
       });
 
       res.json({
         success: true,
         data: {
-          ...user,
-          id: user._id.toString(),
+          ...userWithoutPassword,
+          id: user.id,
           orgsCount,
         },
       });
@@ -132,28 +140,34 @@ export class AdminController {
       const { userId } = req.params;
       const { name, email, plan, isSystemAdmin } = req.body;
 
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw AppError.notFound('User not found');
       }
 
-      if (name !== undefined) user.name = name;
-      if (email !== undefined) user.email = email;
-      if (isSystemAdmin !== undefined) user.isSystemAdmin = isSystemAdmin;
-      if (plan?.type !== undefined) user.plan.type = plan.type;
-      if (plan?.status !== undefined) user.plan.status = plan.status;
-
-      await user.save();
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: name !== undefined ? name : undefined,
+          email: email !== undefined ? email : undefined,
+          isSystemAdmin: isSystemAdmin !== undefined ? isSystemAdmin : undefined,
+          planType: plan?.type !== undefined ? plan.type : undefined,
+          planStatus: plan?.status !== undefined ? plan.status : undefined,
+        }
+      });
 
       res.json({
         success: true,
         message: 'User updated successfully',
         data: {
-          id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          plan: user.plan,
-          isSystemAdmin: user.isSystemAdmin,
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          plan: {
+            type: updatedUser.planType,
+            status: updatedUser.planStatus,
+          },
+          isSystemAdmin: updatedUser.isSystemAdmin,
         },
       });
     } catch (error: any) {
@@ -171,13 +185,13 @@ export class AdminController {
   async deleteUser(req: Request, res: Response) {
     try {
       const { userId } = req.params;
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
 
       if (!user) {
         throw AppError.notFound('User not found');
       }
 
-      await models.User.deleteOne({ _id: userId });
+      await prisma.user.delete({ where: { id: userId } });
 
       res.json({
         success: true,
@@ -198,13 +212,15 @@ export class AdminController {
   async suspendUser(req: Request, res: Response) {
     try {
       const { userId } = req.params;
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw AppError.notFound('User not found');
       }
 
-      user.plan.status = 'cancelled';
-      await user.save();
+      await prisma.user.update({
+        where: { id: userId },
+        data: { planStatus: 'cancelled' }
+      });
 
       res.json({
         success: true,
@@ -225,13 +241,15 @@ export class AdminController {
   async unsuspendUser(req: Request, res: Response) {
     try {
       const { userId } = req.params;
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw AppError.notFound('User not found');
       }
 
-      user.plan.status = 'active';
-      await user.save();
+      await prisma.user.update({
+        where: { id: userId },
+        data: { planStatus: 'active' }
+      });
 
       res.json({
         success: true,
@@ -252,7 +270,7 @@ export class AdminController {
   async resetUserPassword(req: Request, res: Response) {
     try {
       const { userId } = req.params;
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw AppError.notFound('User not found');
       }
@@ -346,14 +364,12 @@ export class AdminController {
   async deleteMeeting(req: Request, res: Response) {
     try {
       const { meetingId } = req.params;
-      const Meeting = models.Meeting;
-
-      const meeting = await Meeting.findById(meetingId);
+      const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
       if (!meeting) {
         throw AppError.notFound('Meeting not found');
       }
 
-      await Meeting.deleteOne({ _id: meetingId });
+      await prisma.meeting.delete({ where: { id: meetingId } });
 
       res.json({
         success: true,

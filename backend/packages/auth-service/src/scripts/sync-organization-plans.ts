@@ -1,37 +1,37 @@
-import { connectionPool, createModelFactory } from '@minimeet/shared';
+import { prisma } from '@minimeet/shared';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 async function syncOrganizationPlans() {
   try {
-    const connection = await connectionPool.getConnection('auth', process.env.MONGODB_URI!);
-    const models = createModelFactory(connection);
-
-    const organizations = await models.Organization.find({}).populate(
-      'ownerId',
-      'plan'
-    );
+    await prisma.$connect();
+    
+    const organizations = await prisma.organization.findMany({
+      include: { owner: true }
+    });
 
     let syncedCount = 0;
 
     for (const org of organizations) {
-      if (!org.ownerId) {
+      if (!org.owner) {
         continue;
       }
 
-      const ownerPlan = (org.ownerId as any).plan;
-      const orgPlan = org.plan;
+      const owner = org.owner;
 
       if (
-        orgPlan.type !== ownerPlan.type ||
-        orgPlan.status !== ownerPlan.status
+        org.planType !== owner.planType ||
+        org.planStatus !== owner.planStatus
       ) {
-        await models.Organization.findByIdAndUpdate(org._id, {
-          'plan.type': ownerPlan.type,
-          'plan.status': ownerPlan.status,
-          'plan.startDate': ownerPlan.startDate,
-          'plan.endDate': ownerPlan.endDate,
+        await prisma.organization.update({
+          where: { id: org.id },
+          data: {
+            planType: owner.planType,
+            planStatus: owner.planStatus,
+            planStartDate: owner.planStartDate,
+            planEndDate: owner.planEndDate,
+          }
         });
 
         syncedCount++;
@@ -42,7 +42,7 @@ async function syncOrganizationPlans() {
   } catch (error) {
     console.error('Error syncing organization plans:', error);
   } finally {
-    await connectionPool.closeAll();
+    await prisma.$disconnect();
     process.exit(0);
   }
 }

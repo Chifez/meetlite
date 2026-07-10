@@ -1,0 +1,167 @@
+{
+  "timestamp": "2026-07-06T21:54:48.423Z",
+  "sig": "t=1783374888,v1=80c3405a6f8e83b85450fcdc92aba244c64928af19eb5d09d5614b5d99d92cc8,v0=e3a3863e207382b36fd959e7768c565e3316b7b2ac58c3cd33d069665e14d03e",
+  "endpointSecret": "whsec_sfLBGMBJNHMxnj9pW7GZcr0CABtB6Yvw",
+  "rawBodyLength": 4013,
+  "rawBodyType": "object",
+  "rawBodyIsBuffer": true,
+  "rawBodyString": "{\n  \"id\": \"evt_1TqJWRH27RgJ4Pc4vMWO1qG1\",\n  \"object\": \"event\",\n  \"api_version\": \"2025-08-27.basil\",\n  \"created\": 1783371227,\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_a1hVmrZ3EQ024hZThFcHZ6K7m6txCVwMEjxSlbcONRxGnA3dwXzbl3JfqY\",\n      \"object\": \"checkout.session\",\n      \"adaptive_pricing\": {\n        \"enabled\": true\n      },\n      \"after_expiration\": null,\n      \"allow_promotion_codes\": null,\n      \"amount_subtotal\": 1900,\n      \"amount_total\": 1900,\n      \"automatic_tax\": {\n        \"enabled\": false,\n        \"liability\": null,\n        \"provider\": null,\n        \"status\": null\n      },\n      \"billing_address_collection\": null,\n      \"branding_settings\": {\n        \"background_color\": \"#ffffff\",\n        \"border_style\": \"rounded\",\n        \"button_color\": \"#0074d4\",\n        \"display_name\": \"\",\n        \"font_family\": \"default\",\n        \"icon\": null,\n        \"logo\": null\n      },\n      \"cancel_url\": \"http://localhost:5174/settings\",\n      \"client_reference_id\": null,\n      \"client_secret\": null,\n      \"collected_information\": {\n        \"business_name\": null,\n        \"individual_name\": null,\n        \"shipping_details\": null\n      },\n      \"consent\": null,\n      \"consent_collection\": null,\n      \"created\": 1783371173,\n      \"currency\": \"usd\",\n      \"currency_conversion\": null,\n      \"custom_fields\": [],\n      \"custom_text\": {\n        \"after_submit\": null,\n        \"shipping_address\": null,\n        \"submit\": null,\n        \"terms_of_service_acceptance\": null\n      },\n      \"customer\": \"cus_UpuFja5JU6ubSR\",\n      \"customer_account\": null,\n      \"customer_creation\": null,\n      \"customer_details\": {\n        \"address\": {\n          \"city\": null,\n          \"country\": \"NG\",\n          \"line1\": null,\n          \"line2\": null,\n          \"postal_code\": null,\n          \"state\": null\n        },\n        \"business_name\": null,\n        \"email\": \"chifez1@gmail.com\",\n        \"individual_name\": null,\n        \"name\": \"Nwosu Ifeanyi Emmanuel\",\n        \"phone\": null,\n        \"tax_exempt\": \"none\",\n        \"tax_ids\": []\n      },\n      \"customer_email\": null,\n      \"discounts\": [],\n      \"expires_at\": 1783457573,\n      \"integration_identifier\": null,\n      \"invoice\": \"in_1TqJWOH27RgJ4Pc4Pg925qqW\",\n      \"invoice_creation\": null,\n      \"livemode\": false,\n      \"locale\": null,\n      \"managed_payments\": {\n        \"enabled\": false\n      },\n      \"metadata\": {\n        \"planType\": \"pro\",\n        \"duration\": \"monthly\",\n        \"userEmail\": \"chifez1@gmail.com\",\n        \"userId\": \"4a46f123-5b45-47cc-9189-41eea467961c\",\n        \"timestamp\": \"2026-07-06T20:52:50.693Z\"\n      },\n      \"mode\": \"subscription\",\n      \"origin_context\": null,\n      \"payment_intent\": null,\n      \"payment_link\": null,\n      \"payment_method_collection\": \"always\",\n      \"payment_method_configuration_details\": null,\n      \"payment_method_options\": {\n        \"card\": {\n          \"request_three_d_secure\": \"automatic\"\n        }\n      },\n      \"payment_method_types\": [\n        \"card\"\n      ],\n      \"payment_status\": \"paid\",\n      \"permissions\": null,\n      \"phone_number_collection\": {\n        \"enabled\": false\n      },\n      \"recovered_from\": null,\n      \"saved_payment_method_options\": {\n        \"allow_redisplay_filters\": [\n          \"always\"\n        ],\n        \"payment_method_remove\": \"disabled\",\n        \"payment_method_save\": null\n      },\n      \"setup_intent\": null,\n      \"shipping_address_collection\": null,\n      \"shipping_cost\": null,\n      \"shipping_options\": [],\n      \"status\": \"complete\",\n      \"submit_type\": null,\n      \"subscription\": \"sub_1TqJWNH27RgJ4Pc4onmT8weg\",\n      \"success_url\": \"http://localhost:5174/payment/success?session_id={CHECKOUT_SESSION_ID}\",\n      \"total_details\": {\n        \"amount_discount\": 0,\n        \"amount_shipping\": 0,\n        \"amount_tax\": 0\n      },\n      \"ui_mode\": \"hosted\",\n      \"url\": null,\n      \"wallet_options\": null\n    }\n  },\n  \"livemode\": false,\n  \"pending_webhooks\": 1,\n  \"request\": {\n    \"id\": null,\n    \"idempotency_key\": null\n  },\n  \"type\": \"checkout.session.completed\"\n}",
+  "body": {
+    "id": "evt_1TqJWRH27RgJ4Pc4vMWO1qG1",
+    "object": "event",
+    "api_version": "2025-08-27.basil",
+    "created": 1783371227,
+    "data": {
+      "object": {
+        "id": "cs_test_a1hVmrZ3EQ024hZThFcHZ6K7m6txCVwMEjxSlbcONRxGnA3dwXzbl3JfqY",
+        "object": "checkout.session",
+        "adaptive_pricing": {
+          "enabled": true
+        },
+        "after_expiration": null,
+        "allow_promotion_codes": null,
+        "amount_subtotal": 1900,
+        "amount_total": 1900,
+        "automatic_tax": {
+          "enabled": false,
+          "liability": null,
+          "provider": null,
+          "status": null
+        },
+        "billing_address_collection": null,
+        "branding_settings": {
+          "background_color": "#ffffff",
+          "border_style": "rounded",
+          "button_color": "#0074d4",
+          "display_name": "",
+          "font_family": "default",
+          "icon": null,
+          "logo": null
+        },
+        "cancel_url": "http://localhost:5174/settings",
+        "client_reference_id": null,
+        "client_secret": null,
+        "collected_information": {
+          "business_name": null,
+          "individual_name": null,
+          "shipping_details": null
+        },
+        "consent": null,
+        "consent_collection": null,
+        "created": 1783371173,
+        "currency": "usd",
+        "currency_conversion": null,
+        "custom_fields": [],
+        "custom_text": {
+          "after_submit": null,
+          "shipping_address": null,
+          "submit": null,
+          "terms_of_service_acceptance": null
+        },
+        "customer": "cus_UpuFja5JU6ubSR",
+        "customer_account": null,
+        "customer_creation": null,
+        "customer_details": {
+          "address": {
+            "city": null,
+            "country": "NG",
+            "line1": null,
+            "line2": null,
+            "postal_code": null,
+            "state": null
+          },
+          "business_name": null,
+          "email": "chifez1@gmail.com",
+          "individual_name": null,
+          "name": "Nwosu Ifeanyi Emmanuel",
+          "phone": null,
+          "tax_exempt": "none",
+          "tax_ids": []
+        },
+        "customer_email": null,
+        "discounts": [],
+        "expires_at": 1783457573,
+        "integration_identifier": null,
+        "invoice": "in_1TqJWOH27RgJ4Pc4Pg925qqW",
+        "invoice_creation": null,
+        "livemode": false,
+        "locale": null,
+        "managed_payments": {
+          "enabled": false
+        },
+        "metadata": {
+          "planType": "pro",
+          "duration": "monthly",
+          "userEmail": "chifez1@gmail.com",
+          "userId": "4a46f123-5b45-47cc-9189-41eea467961c",
+          "timestamp": "2026-07-06T20:52:50.693Z"
+        },
+        "mode": "subscription",
+        "origin_context": null,
+        "payment_intent": null,
+        "payment_link": null,
+        "payment_method_collection": "always",
+        "payment_method_configuration_details": null,
+        "payment_method_options": {
+          "card": {
+            "request_three_d_secure": "automatic"
+          }
+        },
+        "payment_method_types": [
+          "card"
+        ],
+        "payment_status": "paid",
+        "permissions": null,
+        "phone_number_collection": {
+          "enabled": false
+        },
+        "recovered_from": null,
+        "saved_payment_method_options": {
+          "allow_redisplay_filters": [
+            "always"
+          ],
+          "payment_method_remove": "disabled",
+          "payment_method_save": null
+        },
+        "setup_intent": null,
+        "shipping_address_collection": null,
+        "shipping_cost": null,
+        "shipping_options": [],
+        "status": "complete",
+        "submit_type": null,
+        "subscription": "sub_1TqJWNH27RgJ4Pc4onmT8weg",
+        "success_url": "http://localhost:5174/payment/success?session_id={CHECKOUT_SESSION_ID}",
+        "total_details": {
+          "amount_discount": 0,
+          "amount_shipping": 0,
+          "amount_tax": 0
+        },
+        "ui_mode": "hosted",
+        "url": null,
+        "wallet_options": null
+      }
+    },
+    "livemode": false,
+    "pending_webhooks": 1,
+    "request": {
+      "id": null,
+      "idempotency_key": null
+    },
+    "type": "checkout.session.completed"
+  },
+  "originalUrl": "/api/v1/payment/webhook",
+  "headers": {
+    "accept-encoding": "gzip",
+    "x-forwarded-proto": "https",
+    "x-forwarded-host": "3798-102-89-68-152.ngrok-free.app",
+    "x-forwarded-for": "52.15.183.38",
+    "stripe-signature": "t=1783374888,v1=80c3405a6f8e83b85450fcdc92aba244c64928af19eb5d09d5614b5d99d92cc8,v0=e3a3863e207382b36fd959e7768c565e3316b7b2ac58c3cd33d069665e14d03e",
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-cache",
+    "accept": "*/*; q=0.5, application/json",
+    "content-length": "4013",
+    "user-agent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+    "host": "localhost:5000",
+    "connection": "close"
+  }
+}

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 // @ts-ignore
 import jwt from 'jsonwebtoken';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { generateJWTToken } from '../utils/generate-token.js';
 import {
   PlanValidationService,
@@ -16,26 +16,32 @@ export class InvitationController {
   async getInvitationDetails(req: Request, res: Response) {
     const { token } = req.params;
 
-    // Find invitation by token
-    const invitation = await models.OrganizationInvitation.findByToken(token);
+    const invitation = await prisma.organizationInvitation.findUnique({
+      where: { inviteToken: token },
+      include: {
+        organization: true,
+        inviter: true,
+      }
+    });
 
     if (!invitation) {
       throw AppError.notFound('Invitation');
     }
 
+    const canBeAccepted = invitation.status === 'pending' && invitation.expiresAt > new Date();
+
     // Return invitation details without sensitive information
     return ResponseHelpers.ok(res, {
       invitation: {
-        id: invitation._id,
-        organizationName: invitation.organizationId.name,
-        organizationLogo: invitation.organizationId.logo,
-        inviterName: invitation.invitedBy.name || invitation.invitedBy.email,
+        id: invitation.id,
+        organizationName: invitation.organization.name,
+        organizationLogo: invitation.organization.logo,
+        inviterName: invitation.inviter.name || invitation.inviter.email,
         role: invitation.role,
         message: invitation.message,
         expiresAt: invitation.expiresAt,
-        createdAt: invitation.createdAt,
       },
-      isValid: invitation.canBeAccepted(),
+      isValid: canBeAccepted,
     });
   }
 
@@ -53,23 +59,28 @@ export class InvitationController {
     let userId: any;
     try {
       const decoded: any = jwt.verify(authToken, process.env.JWT_SECRET!);
-      const user = await models.User.findById(decoded.userId);
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
         throw AppError.notFound('User');
       }
-      userId = user._id;
+      userId = user.id;
     } catch (jwtError) {
       throw AppError.unauthorized('Invalid authentication token');
     }
 
     // Find invitation by token
-    const invitation = await models.OrganizationInvitation.findByToken(token);
+    const invitation = await prisma.organizationInvitation.findUnique({
+      where: { inviteToken: token },
+      include: {
+        organization: true,
+      }
+    });
     if (!invitation) {
       throw AppError.notFound('Invitation');
     }
 
     // Get user for email check
-    const user = await models.User.findById(userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw AppError.notFound('User');
     }
@@ -80,7 +91,8 @@ export class InvitationController {
     }
 
     // Check if invitation can be accepted
-    if (!invitation.canBeAccepted()) {
+    const canBeAccepted = invitation.status === 'pending' && invitation.expiresAt > new Date();
+    if (!canBeAccepted) {
       throw AppError.validation('Invitation cannot be accepted (expired or already processed)');
     }
 
@@ -90,7 +102,7 @@ export class InvitationController {
         userId,
         invitation.organizationId,
         invitation.role,
-        models
+        prisma
       );
     if (!acceptanceValidation.isValid) {
       const forbiddenError = AppError.forbidden(acceptanceValidation.message);
@@ -105,7 +117,7 @@ export class InvitationController {
     const capacityValidation =
       await PlanValidationService.validateOrganizationCapacity(
         invitation.organizationId,
-        models
+        prisma
       );
     if (!capacityValidation.isValid) {
       const forbiddenError = AppError.forbidden(capacityValidation.message);
@@ -117,34 +129,46 @@ export class InvitationController {
     }
 
     // Accept invitation
-    await invitation.accept(userId);
+    await prisma.organizationInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: 'accepted',
+        acceptedBy: userId,
+        acceptedAt: new Date()
+      }
+    });
 
     // Add user to organization using multi-organization service
-    const updatedUser =
+    const updatedUser: any =
       await MultiOrganizationService.addUserToOrganization(
         userId,
-        invitation.organizationId._id,
+        invitation.organizationId,
         invitation.role,
         invitation.invitedBy
       );
 
     // Increment token version for security
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        tokenVersion: { increment: 1 }
+      }
+    });
     updatedUser.tokenVersion = (updatedUser.tokenVersion || 1) + 1;
-    await updatedUser.save();
 
     // Update organization member count
-    await models.Organization.findByIdAndUpdate(
-      invitation.organizationId._id,
-      {
-        $inc: { 'stats.totalMembers': 1 },
+    await prisma.organization.update({
+      where: { id: invitation.organizationId },
+      data: {
+        statsTotalMembers: { increment: 1 }
       }
-    );
+    });
 
     // 3. Update user's membership usage after successful acceptance
     await PlanValidationService.updateMembershipUsage(
       userId,
       invitation.role,
-      models
+      prisma
     );
 
     // Generate new token with organization context
@@ -154,8 +178,8 @@ export class InvitationController {
       res,
       {
         organization: {
-          id: invitation.organizationId._id,
-          name: invitation.organizationId.name,
+          id: invitation.organizationId,
+          name: invitation.organization.name,
           role: invitation.role,
         },
         token: newToken,
@@ -168,8 +192,9 @@ export class InvitationController {
   async declineInvitation(req: Request, res: Response) {
     const { token } = req.params;
 
-    // Find invitation by token
-    const invitation = await models.OrganizationInvitation.findByToken(token);
+    const invitation = await prisma.organizationInvitation.findUnique({
+      where: { inviteToken: token }
+    });
 
     if (!invitation) {
       throw AppError.notFound('Invitation');
@@ -181,7 +206,10 @@ export class InvitationController {
     }
 
     // Decline invitation
-    await invitation.decline();
+    await prisma.organizationInvitation.update({
+      where: { id: invitation.id },
+      data: { status: 'declined' }
+    });
 
     return ResponseHelpers.ok(res, null, 'Invitation declined successfully');
   }

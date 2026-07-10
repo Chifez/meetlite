@@ -14,13 +14,11 @@ import calendarRoutesV1 from './routes/v1/calendar.routes.js';
 import notificationRoutesV1 from './routes/v1/notifications.routes.js';
 import { createSessionStore } from './config/session.js';
 import {
-  connectionPool,
-  createModelFactory,
+  prisma,
   NotificationWorker,
   meetingReminderEmailTemplate,
   meetingReminderEmailText,
 } from '@minimeet/shared';
-import { createLocalModels } from './utils/model-factory.js';
 import logger from './utils/logger.js';
 
 // Notification services
@@ -29,7 +27,6 @@ import {
   sendNotificationToUser,
   shutdownNotificationSSE,
 } from './services/notification-sse.service.js';
-import { setAuditLogModel } from './services/audit.service.js';
 import { sendEmail } from './services/email.service.js';
 import { sendPushNotificationToUser } from './services/push-notification.service.js';
 import {
@@ -49,9 +46,8 @@ const PORT = process.env.PORT || 5001;
 // Create HTTP server
 const httpServer = createServer(app);
 
-// Connect to MongoDB using shared connection pool
+// MongoDB connection pool variable removed
 export let roomConnection: any = null;
-export let models: any = null;
 let notificationWorker: any = null;
 
 // Health check endpoint - BEFORE CORS to allow unrestricted access
@@ -106,32 +102,13 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Connect to MongoDB using shared connection pool
+// Connect to PostgreSQL database using Prisma
 const connectDB = async () => {
   try {
-    roomConnection = await connectionPool.getConnection(
-      'room',
-      process.env.MONGODB_URI!
-    );
-
-    // Create all shared models with this specific connection
-    models = createModelFactory(roomConnection);
-
-    // Create local models using the same connection
-    const localModels = createLocalModels(roomConnection);
-
-    // Merge shared models with local models
-    models = { ...models, ...localModels };
-
-    // Inject AuditLog model into audit service to use correct connection
-    setAuditLogModel(models.AuditLog);
-
-    // Handle connection events
-    roomConnection.on('error', (err: any) => {
-      console.error('MongoDB connection error:', err);
-    });
+    await prisma.$connect();
+    console.log('✅ Connected to PostgreSQL database via Prisma (Room-Service)');
   } catch (error: any) {
-    console.error('Failed to connect to MongoDB:', error.message);
+    console.error('❌ Failed to connect to PostgreSQL:', error.message);
     process.exit(1);
   }
 };
@@ -179,8 +156,6 @@ const startServer = async () => {
     // Create notification worker with dependencies
     notificationWorker = new NotificationWorker(
       {
-        Notification: models.Notification,
-        User: models.User,
         notificationEmitter,
         sendEmail,
         sendPushNotificationToUser,
@@ -250,3 +225,4 @@ const startServer = async () => {
 };
 
 startServer();
+// Trigger nodemon reload for shared updates 2

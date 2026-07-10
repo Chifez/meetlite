@@ -52,18 +52,18 @@ export default function OrganizationDangerZone({
   };
 
   return (
-    <Card className="border-destructive/20">
+    <Card className="border-danger/30 shadow-none">
       <CardHeader>
-        <CardTitle className="text-destructive">Danger Zone</CardTitle>
+        <CardTitle className="text-danger">Danger Zone</CardTitle>
         <CardDescription>
           Irreversible actions that will permanently affect your organization.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="p-4 border border-destructive/20 rounded-xl bg-destructive/3">
+        <div className="p-4 border border-danger/30 rounded-xl bg-danger/5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h4 className="font-semibold text-destructive mb-1">
+              <h4 className="font-semibold text-danger mb-1">
                 Delete Organization
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed">

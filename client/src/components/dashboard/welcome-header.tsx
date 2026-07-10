@@ -22,7 +22,7 @@ export default function WelcomeHeader({ user }: WelcomeHeaderProps) {
 
   return (
     <div className="space-y-1">
-      <h1 className="text-[1.5rem] font-bold text-foreground tracking-[-0.025em]">
+      <h1 className="text-[28px] font-semibold text-ink tracking-tight font-display">
         {getGreeting()}, {displayName}.
       </h1>
       <p className="text-[0.875rem] text-muted-foreground">

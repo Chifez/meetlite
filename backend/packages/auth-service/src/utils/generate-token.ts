@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 export const generateJWTToken = (user: any): string => {
   return jwt.sign(
     {
-      userId: user._id,
+      userId: user._id || user.id,
       email: user.email,
       organizationId: user.organizationId || null,
       role: user.role || 'owner',

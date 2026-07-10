@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { TeamService } from '../services/team.service.js';
 import {
@@ -17,7 +17,7 @@ export class TeamController {
   // GET /organizations/:organizationId/teams - Get all teams for an organization
   async getTeams(req: any, res: Response) {
     const { organizationId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     if (!organizationId) {
       throw AppError.validation('Organization ID is required');
@@ -30,17 +30,14 @@ export class TeamController {
 
     return ResponseHelpers.ok(res, {
       teams: teams.map((team: any) => ({
-        id: team._id,
+        id: team.id,
         name: team.name,
         slug: team.slug,
         description: team.description,
         logo: team.logo,
         organizationId: team.organizationId,
-        ownerId: team.ownerId._id || team.ownerId,
-        ownerName: team.ownerId.name || team.ownerId.email,
-        memberCount:
-          team.memberCount ||
-          team.members.filter((m: any) => m.status === 'active').length,
+        ownerId: team.owner?.id || team.ownerId,
+        ownerName: team.owner?.name || team.owner?.email,
         settings: team.settings,
         status: team.status,
         createdAt: team.createdAt,
@@ -61,28 +58,25 @@ export class TeamController {
 
     return ResponseHelpers.ok(res, {
       team: {
-        id: team._id,
+        id: team.id,
         name: team.name,
         slug: team.slug,
         description: team.description,
         logo: team.logo,
         organizationId: team.organizationId,
-        ownerId: team.ownerId._id || team.ownerId,
-        ownerName: team.ownerId.name || team.ownerId.email,
+        ownerId: team.owner?.id || team.ownerId,
+        ownerName: team.owner?.name || team.owner?.email,
         members: team.members
-          .filter((m: any) => m.status === 'active')
+          ?.filter((m: any) => m.status === 'active')
           .map((m: any) => ({
-            userId: m.userId._id || m.userId,
-            userName: m.userId.name || m.userId.email,
-            userEmail: m.userId.email,
+            userId: m.user?.id || m.userId,
+            userName: m.user?.name || m.user?.email,
+            userEmail: m.user?.email,
             role: m.role,
             joinedAt: m.joinedAt,
-          })),
-        memberCount:
-          team.memberCount ||
-          team.members.filter((m: any) => m.status === 'active').length,
+          })) || [],
+        memberCount: team.members?.filter((m: any) => m.status === 'active').length || 0,
         settings: team.settings,
-        stats: team.stats,
         status: team.status,
         createdAt: team.createdAt,
         updatedAt: team.updatedAt,
@@ -93,7 +87,7 @@ export class TeamController {
   // POST /organizations/:organizationId/teams - Create a new team
   async createTeam(req: any, res: Response) {
     const { organizationId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { name, description, logo, settings } = req.body;
 
     if (!organizationId || !name) {
@@ -104,12 +98,12 @@ export class TeamController {
       throw AppError.validation('Team name cannot be empty');
     }
 
-    const organization = await models.Organization.findById(organizationId);
+    const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
     if (!organization) {
       throw AppError.notFound('Organization');
     }
 
-    const orgPlan = organization.plan?.type || 'free';
+    const orgPlan = organization.planType || 'free';
     if (orgPlan === 'free') {
       const forbiddenError = AppError.forbidden(
         'Teams feature requires a Pro or Enterprise plan. Please upgrade to create teams.'
@@ -128,14 +122,14 @@ export class TeamController {
 
     return ResponseHelpers.created(res, {
       team: {
-        id: team._id,
+        id: team.id,
         name: team.name,
         slug: team.slug,
         description: team.description,
         logo: team.logo,
         organizationId: team.organizationId,
         ownerId: team.ownerId,
-        memberCount: team.memberCount || 1,
+        memberCount: team.members?.filter((m: any) => m.status === 'active').length || 1,
         settings: team.settings,
         status: team.status,
         createdAt: team.createdAt,
@@ -166,7 +160,7 @@ export class TeamController {
 
     return ResponseHelpers.ok(res, {
       team: {
-        id: team._id,
+        id: team.id,
         name: team.name,
         slug: team.slug,
         description: team.description,
@@ -215,14 +209,16 @@ export class TeamController {
       role
     );
 
+    if (!team) {
+      throw AppError.notFound('Team not found');
+    }
+
     return ResponseHelpers.ok(res, {
       message: 'Member added to team successfully',
       team: {
-        id: team._id,
+        id: team.id,
         name: team.name,
-        memberCount:
-          team.memberCount ||
-          team.members.filter((m: any) => m.status === 'active').length,
+        memberCount: team.members?.filter((m: any) => m.status === 'active').length || 0,
       },
     });
   }
@@ -243,14 +239,16 @@ export class TeamController {
       userId
     );
 
+    if (!team) {
+      throw AppError.notFound('Team not found');
+    }
+
     return ResponseHelpers.ok(res, {
       message: 'Member removed from team successfully',
       team: {
-        id: team._id,
+        id: team.id,
         name: team.name,
-        memberCount:
-          team.memberCount ||
-          team.members.filter((m: any) => m.status === 'active').length,
+        memberCount: team.members?.filter((m: any) => m.status === 'active').length || 0,
       },
     });
   }

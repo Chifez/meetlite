@@ -18,6 +18,7 @@ import teamRoutes from './routes/v1/team.route.js';
 import teamInvitationRoutes from './routes/v1/team-invitation.route.js';
 import adminRoutes from './routes/v1/admin.route.js';
 import contactRoutes from './routes/v1/contact.routes.js';
+import activityRoutes from './routes/v1/activity.route.js';
 import { blockSystemAdmin } from './middleware/block-system-admin.js';
 
 // Import simple middleware
@@ -31,8 +32,7 @@ import logger from './utils/logger.js';
 import redisClient from './config/redis.js';
 import { createSessionStore } from './config/session.js';
 import {
-  connectionPool,
-  createModelFactory,
+  prisma,
   EmailWorker,
   getMeetingInviteEmailTemplate,
   meetingReminderEmailTemplate,
@@ -85,7 +85,14 @@ app.use(corsMiddleware);
 app.use(rateLimiter as any);
 
 // Body parsing
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req: any, res, buf) => {
+    if (req.originalUrl && req.originalUrl.includes('/webhook')) {
+      req.rawBody = buf;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ================================
@@ -95,8 +102,14 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // API routes
 app.use('/api/v1/auth', authRoutes as any);
 
+// Only load payment routes if Stripe is configured
+if (process.env.STRIPE_SECRET_KEY) {
+  app.use('/api/v1/payment', paymentRoutes as any);
+}
+
 // Public contact routes (no authentication required)
 app.use('/api/v1/contact', contactRoutes as any);
+app.use('/api/v1/activities', activityRoutes as any);
 
 // Admin routes (requires admin access) - must come BEFORE catch-all /api/v1 routes
 app.use('/api/v1/admin', adminRoutes as any);
@@ -155,10 +168,7 @@ app.use(
 );
 app.use('/api/v1', authenticateToken as any, blockSystemAdmin as any, teamInvitationRoutes as any);
 
-// Only load payment routes if Stripe is configured
-if (process.env.STRIPE_SECRET_KEY) {
-  app.use('/api/v1/payment', paymentRoutes as any);
-}
+
 
 // ================================
 // ERROR HANDLING
@@ -170,19 +180,11 @@ app.use(notFoundHandler as any);
 // Global error handler
 app.use(errorHandler as any);
 
-// Connect to MongoDB using shared connection pool
-let authConnection: any = null;
-export let models: any = null;
+// Mongoose models have been fully replaced with Prisma
+
 let emailWorker: any = null;
 
-const createInitialSystemAdmin = async (connection: any) => {
-  if (!connection || connection.readyState !== 1) {
-    console.log(
-      'ℹ️  MongoDB connection not ready - skipping initial admin creation'
-    );
-    return;
-  }
-
+const createInitialSystemAdmin = async () => {
   const adminEmail = process.env.INITIAL_SYSTEM_ADMIN_EMAIL;
   const adminPassword = process.env.INITIAL_SYSTEM_ADMIN_PASSWORD;
 
@@ -194,28 +196,32 @@ const createInitialSystemAdmin = async (connection: any) => {
   }
 
   try {
-    const existingAdmin = await models.User.findOne({ isSystemAdmin: true });
+    const existingAdmin = await prisma.user.findFirst({ where: { isSystemAdmin: true } });
     if (existingAdmin) {
       console.log('✅ System admin already exists');
       return;
     }
 
-    let user = await models.User.findOne({ email: adminEmail.toLowerCase() });
+    let user = await prisma.user.findUnique({ where: { email: adminEmail.toLowerCase() } });
 
     if (user) {
-      user.isSystemAdmin = true;
-      await user.save();
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { isSystemAdmin: true }
+      });
       console.log(`✅ Existing user ${adminEmail} promoted to system admin`);
     } else {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(adminPassword, salt);
 
-      user = await models.User.create({
-        email: adminEmail.toLowerCase(),
-        password: hashedPassword,
-        name: 'System Admin',
-        isSystemAdmin: true,
-        onboardingCompleted: true,
+      user = await prisma.user.create({
+        data: {
+          email: adminEmail.toLowerCase(),
+          passwordHash: hashedPassword,
+          name: 'System Admin',
+          isSystemAdmin: true,
+          onboardingCompleted: true,
+        }
       });
 
       console.log(`✅ System admin created: ${adminEmail}`);
@@ -227,47 +233,11 @@ const createInitialSystemAdmin = async (connection: any) => {
 
 const connectDB = async () => {
   try {
-    authConnection = await connectionPool.getConnection(
-      'auth',
-      process.env.MONGODB_URI!
-    );
-
-    if (authConnection.readyState !== 1) {
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('MongoDB connection timeout'));
-        }, 10000);
-
-        const onConnected = () => {
-          clearTimeout(timeout);
-          authConnection.removeListener('error', onError);
-          resolve();
-        };
-
-        const onError = (err: any) => {
-          clearTimeout(timeout);
-          authConnection.removeListener('connected', onConnected);
-          reject(err);
-        };
-
-        if (authConnection.readyState === 1) {
-          clearTimeout(timeout);
-          resolve();
-        } else {
-          authConnection.once('connected', onConnected);
-          authConnection.once('error', onError);
-        }
-      });
-    }
-
-    models = createModelFactory(authConnection);
-    await createInitialSystemAdmin(authConnection);
-
-    authConnection.on('error', (err: any) => {
-      console.error('MongoDB connection error:', err);
-    });
+    await prisma.$connect();
+    console.log('✅ Connected to PostgreSQL database via Prisma');
+    await createInitialSystemAdmin();
   } catch (error: any) {
-    console.error('Failed to connect to MongoDB:', error.message);
+    console.error('❌ Failed to connect to PostgreSQL:', error.message);
     process.exit(1);
   }
 };
@@ -310,7 +280,7 @@ const startServer = async () => {
 
     emailWorker = new EmailWorker(
       {
-        User: models.User,
+        User: prisma.user,
         emailTemplates,
         auditEmailSent: null,
         auditEmailFailed: null,
@@ -362,3 +332,4 @@ const startServer = async () => {
 };
 
 startServer();
+// TRIGGER 2// Trigger restart

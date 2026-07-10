@@ -1,7 +1,6 @@
 // @ts-ignore
 import cron from 'node-cron';
-import { models } from '../index.js';
-import { EmailQueue } from '@minimeet/shared';
+import { EmailQueue, prisma } from '@minimeet/shared';
 
 /**
  * Cron job to send expiry warning emails to users
@@ -15,28 +14,30 @@ cron.schedule('0 9 * * *', async () => {
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(now.getDate() + 7);
 
-    const usersToWarn = await models.User.find({
-      'plan.endDate': {
-        $gte: now,
-        $lte: sevenDaysFromNow,
-      },
-      'plan.status': 'active',
-      'plan.type': { $ne: 'free' },
-      $or: [
-        { 'plan.lastWarningSent': { $exists: false } },
-        {
-          'plan.lastWarningSent': {
-            $lt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
-          },
+    const usersToWarn = await prisma.user.findMany({
+      where: {
+        planEndDate: {
+          gte: now,
+          lte: sevenDaysFromNow,
         },
-      ],
+        planStatus: 'active',
+        planType: { not: 'free' },
+        OR: [
+          { planLastWarningSent: null },
+          {
+            planLastWarningSent: {
+              lt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+            },
+          },
+        ],
+      }
     });
 
     let sentCount = 0;
 
     for (const user of usersToWarn) {
       try {
-        const endDate = new Date(user.plan.endDate).getTime();
+        const endDate = new Date(user.planEndDate as Date).getTime();
         const daysRemaining = Math.ceil(
           (endDate - now.getTime()) / (1000 * 60 * 60 * 24)
         );
@@ -46,27 +47,28 @@ cron.schedule('0 9 * * *', async () => {
           await emailQueue.addEmailJob(
             'plan_expiration_warning',
             {
-              userId: user._id.toString(),
+              userId: user.id,
               userEmail: user.email,
               userName: user.name || 'User',
-              planType: user.plan.type,
+              planType: user.planType,
               daysRemaining,
             },
             {
               priority: 1,
-              jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
+              jobId: `plan-expiry-warning-${user.id}-${daysRemaining}`,
             }
           );
 
-          await models.User.findByIdAndUpdate(user._id, {
-            'plan.lastWarningSent': new Date(),
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { planLastWarningSent: new Date() }
           });
 
           sentCount++;
         }
       } catch (error) {
         console.error(
-          `Error sending expiry warning to user ${user._id}:`,
+          `Error sending expiry warning to user ${user.id}:`,
           error
         );
       }
@@ -87,28 +89,30 @@ cron.schedule('0 10 * * *', async () => {
     const threeDaysFromNow = new Date();
     threeDaysFromNow.setDate(now.getDate() + 3);
 
-    const usersToWarn = await models.User.find({
-      'plan.endDate': {
-        $gte: now,
-        $lte: threeDaysFromNow,
-      },
-      'plan.status': 'active',
-      'plan.type': { $ne: 'free' },
-      $or: [
-        { 'plan.lastWarningSent': { $exists: false } },
-        {
-          'plan.lastWarningSent': {
-            $lt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-          },
+    const usersToWarn = await prisma.user.findMany({
+      where: {
+        planEndDate: {
+          gte: now,
+          lte: threeDaysFromNow,
         },
-      ],
+        planStatus: 'active',
+        planType: { not: 'free' },
+        OR: [
+          { planLastWarningSent: null },
+          {
+            planLastWarningSent: {
+              lt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+            },
+          },
+        ],
+      }
     });
 
     let sentCount = 0;
 
     for (const user of usersToWarn) {
       try {
-        const endDate = new Date(user.plan.endDate).getTime();
+        const endDate = new Date(user.planEndDate as Date).getTime();
         const daysRemaining = Math.ceil(
           (endDate - now.getTime()) / (1000 * 60 * 60 * 24)
         );
@@ -118,27 +122,28 @@ cron.schedule('0 10 * * *', async () => {
           await emailQueue.addEmailJob(
             'plan_expiration_warning',
             {
-              userId: user._id.toString(),
+              userId: user.id,
               userEmail: user.email,
               userName: user.name || 'User',
-              planType: user.plan.type,
+              planType: user.planType,
               daysRemaining,
             },
             {
               priority: 1,
-              jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
+              jobId: `plan-expiry-warning-${user.id}-${daysRemaining}`,
             }
           );
 
-          await models.User.findByIdAndUpdate(user._id, {
-            'plan.lastWarningSent': new Date(),
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { planLastWarningSent: new Date() }
           });
 
           sentCount++;
         }
       } catch (error) {
         console.error(
-          `Error sending expiry warning to user ${user._id}:`,
+          `Error sending expiry warning to user ${user.id}:`,
           error
         );
       }
@@ -159,28 +164,30 @@ cron.schedule('0 11 * * *', async () => {
     const oneDayFromNow = new Date();
     oneDayFromNow.setDate(now.getDate() + 1);
 
-    const usersToWarn = await models.User.find({
-      'plan.endDate': {
-        $gte: now,
-        $lte: oneDayFromNow,
-      },
-      'plan.status': 'active',
-      'plan.type': { $ne: 'free' },
-      $or: [
-        { 'plan.lastWarningSent': { $exists: false } },
-        {
-          'plan.lastWarningSent': {
-            $lt: new Date(now.getTime() - 12 * 60 * 60 * 1000),
-          },
+    const usersToWarn = await prisma.user.findMany({
+      where: {
+        planEndDate: {
+          gte: now,
+          lte: oneDayFromNow,
         },
-      ],
+        planStatus: 'active',
+        planType: { not: 'free' },
+        OR: [
+          { planLastWarningSent: null },
+          {
+            planLastWarningSent: {
+              lt: new Date(now.getTime() - 12 * 60 * 60 * 1000),
+            },
+          },
+        ],
+      }
     });
 
     let sentCount = 0;
 
     for (const user of usersToWarn) {
       try {
-        const endDate = new Date(user.plan.endDate).getTime();
+        const endDate = new Date(user.planEndDate as Date).getTime();
         const daysRemaining = Math.ceil(
           (endDate - now.getTime()) / (1000 * 60 * 60 * 24)
         );
@@ -190,27 +197,28 @@ cron.schedule('0 11 * * *', async () => {
           await emailQueue.addEmailJob(
             'plan_expiration_warning',
             {
-              userId: user._id.toString(),
+              userId: user.id,
               userEmail: user.email,
               userName: user.name || 'User',
-              planType: user.plan.type,
+              planType: user.planType,
               daysRemaining,
             },
             {
               priority: 1,
-              jobId: `plan-expiry-warning-${user._id}-${daysRemaining}`,
+              jobId: `plan-expiry-warning-${user.id}-${daysRemaining}`,
             }
           );
 
-          await models.User.findByIdAndUpdate(user._id, {
-            'plan.lastWarningSent': new Date(),
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { planLastWarningSent: new Date() }
           });
 
           sentCount++;
         }
       } catch (error) {
         console.error(
-          `Error sending expiry warning to user ${user._id}:`,
+          `Error sending expiry warning to user ${user.id}:`,
           error
         );
       }

@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { Client } from '@microsoft/microsoft-graph-client';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 // Google OAuth2 client
 export const createGoogleOAuth2Client = () => {
@@ -42,10 +42,12 @@ export const getUserCalendarTokens = async (
   calendarType = 'google'
 ): Promise<any> => {
   try {
-    const integration = await models.CalendarIntegration.findOne({
-      userId,
-      calendarType,
-      isConnected: true,
+    const integration = await prisma.calendarIntegration.findFirst({
+      where: {
+        userId,
+        calendarType,
+        isConnected: true,
+      }
     });
 
     if (!integration) {
@@ -55,11 +57,12 @@ export const getUserCalendarTokens = async (
       return null;
     }
 
-    if (!integration.isTokenExpired()) {
+    // Check if token is expired based on current time
+    if (!integration.tokenExpiry || integration.tokenExpiry.getTime() > Date.now()) {
       return {
         access_token: integration.accessToken,
         refresh_token: integration.refreshToken,
-        expiry_date: integration.tokenExpiry.getTime(),
+        expiry_date: integration.tokenExpiry ? integration.tokenExpiry.getTime() : null,
       };
     }
 
@@ -92,10 +95,10 @@ export const getUserCalendarTokens = async (
         `[Calendar] Failed to refresh tokens for userId: ${integration.userId}, calendarType: ${calendarType} -> ${refreshError.message}`
       );
 
-      await models.CalendarIntegration.findOneAndUpdate(
-        { _id: integration._id },
-        { isConnected: false, lastSync: new Date() }
-      );
+      await prisma.calendarIntegration.update({
+        where: { id: integration.id },
+        data: { isConnected: false, lastSync: new Date() }
+      });
 
       return null;
     }
@@ -127,11 +130,24 @@ export const saveCalendarTokens = async (
       update.refreshToken = tokens.refresh_token;
     }
 
-    await models.CalendarIntegration.findOneAndUpdate(
-      { userId, calendarType },
-      update,
-      { upsert: true, new: true }
-    );
+    const existing = await prisma.calendarIntegration.findFirst({
+      where: { userId, calendarType }
+    });
+
+    if (existing) {
+      await prisma.calendarIntegration.update({
+        where: { id: existing.id },
+        data: update
+      });
+    } else {
+      await prisma.calendarIntegration.create({
+        data: {
+          ...update,
+          userId,
+          calendarType
+        }
+      });
+    }
   } catch (error) {
     console.error('Error saving calendar tokens:', error);
     throw error;
@@ -141,11 +157,10 @@ export const saveCalendarTokens = async (
 // Helper function to disconnect calendar
 export const disconnectCalendar = async (userId: string, calendarType: string): Promise<void> => {
   try {
-    await models.CalendarIntegration.findOneAndUpdate(
-      { userId, calendarType },
-      { isConnected: false },
-      { new: true }
-    );
+    await prisma.calendarIntegration.updateMany({
+      where: { userId, calendarType },
+      data: { isConnected: false }
+    });
   } catch (error) {
     console.error('Error disconnecting calendar:', error);
     throw error;

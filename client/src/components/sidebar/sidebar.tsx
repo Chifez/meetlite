@@ -22,11 +22,13 @@ interface SidebarProps {
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const { isPersonalMode } = useWorkspace();
+  const { isPersonalMode, organizations, activeOrganization } = useWorkspace();
   const { currentPlan } = useCurrentPlan();
   const { user } = useAuth();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
+
+  const hasMultipleWorkspaces = organizations && organizations.length > 0;
 
   // Memoize visible navigation items to prevent unnecessary recalculations
   const visibleNavigationItems = NAVIGATION_ITEMS.filter(
@@ -79,7 +81,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
 
       <div
         className={cn(
-          'flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300',
+          'flex flex-col bg-background border-r border-border transition-all duration-300',
           // Mobile & Tablet (< 1024px): Fixed overlay
           'fixed lg:sticky lg:top-0 z-50 lg:z-auto h-full lg:h-screen',
           'lg:flex',
@@ -98,6 +100,8 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
           onToggleCollapse={handleToggleCollapse}
           onCloseMobile={handleCloseMobileMenu}
         />
+
+
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <SidebarNavigation

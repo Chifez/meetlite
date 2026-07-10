@@ -1,4 +1,4 @@
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { ResponseHelpers, AppError } from '@minimeet/shared';
 import { Response } from 'express';
 
@@ -6,7 +6,7 @@ export const updateCollaborationMode = async (req: any, res: Response) => {
   const { roomId } = req.params;
   const { mode } = req.body;
 
-  const room = await models.Room.findOne({ roomId });
+  const room = await prisma.room.findUnique({ where: { roomId } }) as any;
 
   if (!room) {
     throw AppError.notFound('Room');
@@ -25,7 +25,13 @@ export const updateCollaborationMode = async (req: any, res: Response) => {
 
   room.collaborationMode = mode;
   room.activeTool = mode;
-  await room.save();
+  await prisma.room.update({
+    where: { id: room.id },
+    data: {
+      collaborationMode: mode,
+      activeTool: mode
+    }
+  });
 
   return ResponseHelpers.ok(res, {
     collaborationMode: room.collaborationMode,
@@ -37,7 +43,7 @@ export const updateParticipantRole = async (req: any, res: Response) => {
   const { roomId, userId } = req.params;
   const { role } = req.body;
 
-  const room = await models.Room.findOne({ roomId });
+  const room = await prisma.room.findUnique({ where: { roomId } }) as any;
 
   if (!room) {
     throw AppError.notFound('Room');
@@ -54,7 +60,12 @@ export const updateParticipantRole = async (req: any, res: Response) => {
   }
 
   participant.role = role;
-  await room.save();
+  await prisma.room.update({
+    where: { id: room.id },
+    data: {
+      participants: room.participants
+    }
+  });
 
   return ResponseHelpers.ok(res, { userId, role });
 };
@@ -63,7 +74,7 @@ export const updateRoomSettings = async (req: any, res: Response) => {
   const { roomId } = req.params;
   const { settings } = req.body;
 
-  const room = await models.Room.findOne({ roomId });
+  const room = await prisma.room.findUnique({ where: { roomId } }) as any;
 
   if (!room) {
     throw AppError.notFound('Room');
@@ -74,8 +85,13 @@ export const updateRoomSettings = async (req: any, res: Response) => {
     throw AppError.forbidden('Only host can update room settings');
   }
 
-  room.settings = { ...room.settings, ...settings };
-  await room.save();
+  room.settings = { ...(room.settings as any), ...settings };
+  await prisma.room.update({
+    where: { id: room.id },
+    data: {
+      settings: room.settings
+    }
+  });
 
   return ResponseHelpers.ok(res, { settings: room.settings });
 };
@@ -85,109 +101,51 @@ export const joinRoom = async (req: any, res: Response) => {
   const userId = req.user.userId;
   const now = new Date();
 
-  // SINGLE ATOMIC OPERATION: Find room AND add/update participant in one query
-  const room = await models.Room.findOneAndUpdate(
-    {
-      roomId,
-      'participants.userId': { $ne: userId },
-      $expr: {
-        $lt: [{ $size: '$participants' }, '$settings.maxParticipants'],
-      },
-    },
-    {
-      $push: {
-        participants: {
-          userId,
-          role: 'viewer', // Default, will update if creator below
-          joinedAt: now,
-          lastActive: now,
-        },
-      },
-    },
-    { new: true, lean: true }
-  );
+  const room = await prisma.room.findUnique({ where: { roomId } }) as any;
 
-  // Case 1: User successfully added as new participant
-  if (room) {
-    if (userId === room.createdBy) {
-      await models.Room.updateOne(
-        { roomId, 'participants.userId': userId },
-        { $set: { 'participants.$.role': 'host' } }
-      );
-      const updatedRoom: any = await models.Room.findOne(
-        { roomId },
-        {
-          participants: { $elemMatch: { userId } },
-          collaborationMode: 1,
-          activeTool: 1,
-          settings: 1,
-        }
-      ).lean();
-      const participant = updatedRoom?.participants[0];
+  if (!room) {
+    throw AppError.notFound('Room');
+  }
 
-      return ResponseHelpers.ok(res, {
-        participant,
-        collaborationMode: updatedRoom.collaborationMode,
-        activeTool: updatedRoom.activeTool,
-        settings: updatedRoom.settings,
-      });
-    }
+  const existingParticipant = room.participants.find((p: any) => p.userId === userId);
 
-    const participant = room.participants.find((p: any) => p.userId === userId);
+  if (existingParticipant) {
+    existingParticipant.lastActive = now;
+    await prisma.room.update({
+      where: { id: room.id },
+      data: { participants: room.participants }
+    });
     return ResponseHelpers.ok(res, {
-      participant,
+      participant: existingParticipant,
       collaborationMode: room.collaborationMode,
       activeTool: room.activeTool,
       settings: room.settings,
     });
   }
 
-  // Case 2: User is already a participant - just update lastActive (atomic)
-  const existingRoom: any = await models.Room.findOneAndUpdate(
-    {
-      roomId,
-      'participants.userId': userId,
-    },
-    {
-      $set: { 'participants.$.lastActive': now },
-    },
-    {
-      new: true,
-      projection: {
-        participants: { $elemMatch: { userId } },
-        collaborationMode: 1,
-        activeTool: 1,
-        settings: 1,
-      },
-      lean: true,
-    }
-  );
-
-  if (!existingRoom) {
-    const capacityCheck = await models.Room.findOne(
-      { roomId },
-      { 'settings.maxParticipants': 1, participants: 1 }
-    ).lean();
-
-    if (!capacityCheck) {
-      throw AppError.notFound('Room');
-    }
-
-    if (
-      capacityCheck.participants.length >=
-      capacityCheck.settings.maxParticipants
-    ) {
-      throw AppError.forbidden('Room is at maximum capacity');
-    }
-
-    throw AppError.notFound('Room');
+  if (room.participants.length >= (room.settings as any).maxParticipants) {
+    throw AppError.forbidden('Room is at maximum capacity');
   }
 
-  const participant = existingRoom.participants[0];
+  const role = userId === room.createdBy ? 'host' : 'viewer';
+  const newParticipant = {
+    userId,
+    role,
+    joinedAt: now,
+    lastActive: now,
+  };
+
+  room.participants.push(newParticipant);
+
+  await prisma.room.update({
+    where: { id: room.id },
+    data: { participants: room.participants }
+  });
+
   return ResponseHelpers.ok(res, {
-    participant,
-    collaborationMode: existingRoom.collaborationMode,
-    activeTool: existingRoom.activeTool,
-    settings: existingRoom.settings,
+    participant: newParticipant,
+    collaborationMode: room.collaborationMode,
+    activeTool: room.activeTool,
+    settings: room.settings,
   });
 };

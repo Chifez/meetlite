@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
@@ -20,7 +20,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     }
 
     try {
-      const user = await models.User.findById(decoded.userId).select('+isSystemAdmin');
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }

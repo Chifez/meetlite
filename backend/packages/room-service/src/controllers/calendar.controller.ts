@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
+
 import { SMART_SCHEDULING_CONFIG } from '../config/smart-scheduling.js';
 import { oauthTemplates } from '../templates/oauth-page.js';
 import {
@@ -34,9 +35,23 @@ export const getGoogleAuthUrl = (req: any, res: Response) => {
 // Google OAuth callback
 export const handleGoogleCallback = async (req: any, res: Response) => {
   const { code, state } = req.query as any;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
 
-  // Parse state to get user info
-  const stateData = JSON.parse(decodeURIComponent(state));
+  if (!code) {
+    return res.redirect(`${frontendUrl}/dashboard?error=no_code_provided`);
+  }
+
+  if (!state) {
+    return res.redirect(`${frontendUrl}/dashboard?error=invalid_state`);
+  }
+
+  let stateData;
+  try {
+    stateData = JSON.parse(decodeURIComponent(state));
+  } catch (parseError) {
+    return res.redirect(`${frontendUrl}/dashboard?error=invalid_state_format`);
+  }
+
   const { userId, email: userEmail } = stateData;
 
   const oauth2Client = createGoogleOAuth2Client();
@@ -474,9 +489,11 @@ export const getConnectedCalendars = async (req: any, res: Response) => {
   const userId = req.user.userId;
 
   // Get connected calendars from database
-  const integrations = await (models.CalendarIntegration as any).find({
-    userId,
-    isConnected: true,
+  const integrations = await prisma.calendarIntegration.findMany({
+    where: {
+      userId,
+      isConnected: true,
+    }
   });
 
   const connectedCalendars = integrations.map((integration: any) => ({

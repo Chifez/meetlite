@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 import { AuthenticatedRequest } from './auth.js';
 
 /**
@@ -19,7 +19,7 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
       return next();
     }
 
-    if (!teamId.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!teamId.match(/^[0-9a-fA-F]{24}$|^[0-9a-fA-F-]{36}$/)) {
       return res.status(400).json({ message: 'Invalid team ID format' });
     }
 
@@ -35,7 +35,10 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    const userDoc = await models.User.findById(user.userId);
+    const userDoc = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: { memberships: true, teamMemberships: true }
+    });
     if (!userDoc) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -64,10 +67,12 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
       return next();
     }
 
-    const team = await models.Team.findOne({
-      _id: teamId,
-      organizationId: organizationId,
-      status: { $ne: 'deleted' },
+    const team = await prisma.team.findFirst({
+      where: {
+        id: teamId,
+        organizationId: organizationId,
+        status: { not: 'deleted' },
+      }
     });
 
     if (!team) {

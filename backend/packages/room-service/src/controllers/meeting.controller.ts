@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
-import { models } from '../index.js';
+
 import { AppError, ResponseHelpers } from '@minimeet/shared';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { MeetingAuthorizationService } from '../services/meeting-authorization.service.js';
@@ -23,6 +23,7 @@ import {
   getCachedCalendarEvents,
   convertCalendarEventToMeeting,
 } from '../services/calendar-cache.service.js';
+import { prisma } from '@minimeet/shared';
 
 export class MeetingController {
   /**
@@ -46,19 +47,22 @@ export class MeetingController {
     const meetingId = nanoid(12);
 
     let finalInviteEmails = [...(inviteEmails || [])];
-    let finalParticipants = [...(participants || [])];
+    let finalParticipants = [...(participants || [])]; // Array of emails
 
     if (teamId && req.user.organizationId && autoIncludeTeamMembers !== false) {
-      const team = await (models.Team as any).findOne({
-        _id: teamId,
-        organizationId: req.user.organizationId,
-        status: { $ne: 'deleted' },
-      }).populate('members.userId', 'email');
+      const team = await prisma.team.findFirst({
+        where: {
+          id: teamId,
+          organizationId: req.user.organizationId,
+          status: { not: 'deleted' },
+        },
+        include: { members: { include: { user: { select: { email: true } } } } }
+      });
 
       if (team && team.members) {
         const teamMemberEmails = team.members
-          .filter((m: any) => m.status === 'active' && m.userId && m.userId.email)
-          .map((m: any) => m.userId.email)
+          .filter((m: any) => m.status === 'active' && m.user && m.user.email)
+          .map((m: any) => m.user.email)
           .filter((email: string) => email && !finalInviteEmails.includes(email));
 
         finalInviteEmails.push(...teamMemberEmails);
@@ -78,14 +82,16 @@ export class MeetingController {
     }
 
     if (teamId && req.user.organizationId) {
-      if (!teamId.match(/^[0-9a-fA-F]{24}$/)) {
+      if (!teamId.match(/^[0-9a-fA-F]{24}$|^[0-9a-fA-F-]{36}$/)) {
         throw AppError.validation('Invalid team ID format');
       }
 
-      const team = await (models.Team as any).findOne({
-        _id: teamId,
-        organizationId: req.user.organizationId,
-        status: { $ne: 'deleted' },
+      const team = await prisma.team.findFirst({
+        where: {
+          id: teamId,
+          organizationId: req.user.organizationId,
+          status: { not: 'deleted' },
+        }
       });
 
       if (!team) {
@@ -94,14 +100,17 @@ export class MeetingController {
         );
       }
 
-      const userDoc = await (models.User as any).findById(req.user.userId);
+      const userDoc = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        include: { memberships: true, teamMemberships: true }
+      });
       if (!userDoc) {
         throw AppError.notFound('User');
       }
 
       const orgMembership = userDoc.memberships?.find(
         (m: any) =>
-          m.organizationId.toString() === req.user.organizationId.toString() &&
+          m.organizationId.toString() === req.user.organizationId!.toString() &&
           m.status === 'active'
       );
 
@@ -112,7 +121,7 @@ export class MeetingController {
       const isTeamMember = userDoc.teamMemberships?.some(
         (m: any) =>
           m.teamId.toString() === teamId.toString() &&
-          m.organizationId.toString() === req.user.organizationId.toString() &&
+          m.organizationId.toString() === req.user.organizationId!.toString() &&
           m.status === 'active'
       );
 
@@ -148,23 +157,61 @@ export class MeetingController {
       };
     }
 
-    const meeting = new models.Meeting({
-      meetingId,
-      title,
-      description,
-      scheduledTime,
-      duration,
-      createdBy: req.user.userId,
-      organizationId: req.user.organizationId || null,
-      teamId: teamId || null,
-      participants: finalParticipants,
-      privacy: privacy || 'public',
-      invites,
-      isRecurring,
-      recurrence: recurrenceData,
+    const participantsUsers = await prisma.user.findMany({
+      where: { email: { in: finalParticipants } }
     });
 
-    await meeting.save();
+    const meeting = await prisma.meeting.create({
+      data: {
+        meetingId,
+        title,
+        description,
+        scheduledTime: new Date(scheduledTime),
+        duration,
+        createdBy: req.user.userId,
+        organizationId: req.user.organizationId || null,
+        teamId: teamId || null,
+        privacy: privacy || 'public',
+        isRecurring,
+        recurrenceEndDate: recurrenceData?.endDate,
+        recurrenceRrule: recurrenceData?.rrule,
+        invites: {
+          create: invites.map((inv: any) => ({
+            email: inv.email,
+            status: inv.status,
+            inviteToken: inv.inviteToken,
+          }))
+        },
+        participants: {
+          create: participantsUsers.map(u => ({
+            userId: u.id,
+          }))
+        }
+      },
+      include: {
+        invites: true,
+        participants: true
+      }
+    });
+
+    if (req.user.organizationId) {
+      try {
+        await (prisma as any).activity.create({
+          data: {
+            action: 'MEETING_SCHEDULED',
+            userId: req.user.userId,
+            organizationId: req.user.organizationId,
+            metadata: {
+              meetingId: meeting.meetingId,
+              title: meeting.title,
+              scheduledTime: meeting.scheduledTime
+            }
+          }
+        });
+      } catch (err) {
+        console.error('[Activity] Failed to log MEETING_SCHEDULED', err);
+      }
+    }
 
     if (isRecurring && recurrenceData) {
       try {
@@ -174,7 +221,7 @@ export class MeetingController {
 
         await createRecurrenceInstances(
           meeting,
-          models,
+          prisma,
           now,
           endDate
         );
@@ -211,9 +258,10 @@ export class MeetingController {
     }
 
     try {
-      const creator = await (models.User as any).findById(req.user.userId)
-        .select('name')
-        .lean();
+      const creator = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { name: true }
+      });
 
       await scheduleMeetingReminders({
         meetingId: meeting.meetingId,
@@ -250,15 +298,22 @@ export class MeetingController {
 
     const teamFilter = teamId ? { teamId } : {};
 
-    const nativeMeetings = await (models.Meeting as any).find({
-      ...orgFilter,
-      ...teamFilter,
-      $or: [
-        { createdBy: userId },
-        { participants: userId },
-        { 'invites.email': req.user.email },
-      ],
-    }).sort({ scheduledTime: 1 });
+    const nativeMeetings = await prisma.meeting.findMany({
+      where: {
+        ...orgFilter,
+        ...teamFilter,
+        OR: [
+          { createdBy: userId },
+          { participants: { some: { userId } } },
+          { invites: { some: { email: req.user.email } } },
+        ],
+      },
+      include: {
+        invites: true,
+        participants: true,
+      },
+      orderBy: { scheduledTime: 'asc' },
+    });
 
     const instanceRecurrenceIds = new Set<string>();
     nativeMeetings.forEach((meeting: any) => {
@@ -268,23 +323,32 @@ export class MeetingController {
     });
 
     if (instanceRecurrenceIds.size > 0) {
-      const parentMeetings = await (models.Meeting as any).find({
-        _id: { $in: Array.from(instanceRecurrenceIds) },
-        ...orgFilter,
-        ...teamFilter,
+      const parentMeetings = await prisma.meeting.findMany({
+        where: {
+          id: { in: Array.from(instanceRecurrenceIds) },
+          ...orgFilter,
+          ...teamFilter,
+        },
+        include: {
+          invites: true,
+          participants: true,
+        }
       });
 
       const existingMeetingIds = new Set(
-        nativeMeetings.map((m: any) => m._id.toString())
+        nativeMeetings.map((m: any) => m.id.toString())
       );
       parentMeetings.forEach((parent: any) => {
-        if (!existingMeetingIds.has(parent._id.toString())) {
+        if (!existingMeetingIds.has(parent.id.toString())) {
           nativeMeetings.push(parent);
         }
       });
     }
 
-    const userDoc = await (models.User as any).findById(userId).lean();
+    const userDoc = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { memberships: true }
+    });
 
     const filteredMeetings = nativeMeetings.filter((meeting: any) => {
       if (!meeting.teamId) {
@@ -304,7 +368,7 @@ export class MeetingController {
         const orgMembership = userDoc.memberships?.find(
           (m: any) =>
             m.organizationId.toString() ===
-              req.user.organizationId.toString() && m.status === 'active'
+              req.user.organizationId!.toString() && m.status === 'active'
         );
         const isOrgOwnerOrAdmin =
           orgMembership &&
@@ -371,8 +435,12 @@ export class MeetingController {
    * GET /meetings/:meetingId - Get meeting details
    */
   async getMeeting(req: AuthenticatedRequest, res: Response) {
-    const meeting = await models.Meeting.findOne({
-      meetingId: req.params.meetingId,
+    const meeting = await prisma.meeting.findUnique({
+      where: { meetingId: req.params.meetingId as string },
+      include: {
+        participants: true,
+        invites: true
+      }
     });
 
     if (!meeting) {
@@ -399,8 +467,12 @@ export class MeetingController {
    * PUT /meetings/:meetingId - Update meeting
    */
   async updateMeeting(req: AuthenticatedRequest, res: Response) {
-    const meeting = await models.Meeting.findOne({
-      meetingId: req.params.meetingId,
+    const meeting = await prisma.meeting.findUnique({
+      where: { meetingId: req.params.meetingId as string },
+      include: {
+        participants: true,
+        invites: true
+      }
     });
 
     if (!meeting) {
@@ -442,10 +514,7 @@ export class MeetingController {
         (e: any) => !existingEmails.has(e)
       );
 
-      meeting.invites = meeting.invites.filter(
-        (inv: any) => !removedEmails.includes(inv.email)
-      );
-
+      // In Prisma, we will handle deletions and creations separately.
       newInvites = addedEmails
         .filter((e) => typeof e === 'string' && e.trim().length > 3)
         .map((email) => ({
@@ -453,8 +522,6 @@ export class MeetingController {
           status: 'pending',
           inviteToken: uuidv4(),
         }));
-
-      meeting.invites.push(...newInvites);
 
       updates.participants = updates.inviteEmails;
       participantsChanged = true;
@@ -478,21 +545,34 @@ export class MeetingController {
       );
     }
 
+    const updateData: any = {};
     Object.keys(updates).forEach((key) => {
       if (key !== 'inviteEmails' && key !== 'participants') {
-        (meeting as any)[key] = updates[key];
-      } else if (key === 'participants') {
-        (meeting as any)[key] = updates[key];
+        updateData[key] = updates[key];
       }
     });
 
-    await meeting.save();
+    if (updates.scheduledTime) {
+      updateData.scheduledTime = new Date(updates.scheduledTime);
+    }
+
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: {
+        ...updateData,
+        invites: {
+          deleteMany: removedEmails.length > 0 ? { email: { in: removedEmails } } : undefined,
+          create: newInvites.length > 0 ? newInvites : undefined
+        }
+      }
+    });
 
     if (newInvites.length > 0) {
       try {
-        const creator = await (models.User as any).findById(meeting.createdBy)
-          .select('email name')
-          .lean();
+        const creator = await prisma.user.findUnique({
+          where: { id: meeting.createdBy },
+          select: { email: true, name: true }
+        });
 
         for (const invite of newInvites) {
           try {
@@ -521,9 +601,10 @@ export class MeetingController {
     }
 
     try {
-      const creator = await (models.User as any).findById(meeting.createdBy)
-        .select('name')
-        .lean();
+      const creator = await prisma.user.findUnique({
+        where: { id: meeting.createdBy },
+        select: { name: true }
+      });
 
       const participantEmails = meeting.invites.map((inv: any) => inv.email);
 
@@ -567,8 +648,9 @@ export class MeetingController {
    * DELETE /meetings/:meetingId - Delete meeting
    */
   async deleteMeeting(req: AuthenticatedRequest, res: Response) {
-    const meeting = await models.Meeting.findOne({
-      meetingId: req.params.meetingId,
+    const meeting = await prisma.meeting.findUnique({
+      where: { meetingId: req.params.meetingId as string },
+      include: { invites: true }
     });
 
     if (!meeting) {
@@ -591,7 +673,7 @@ export class MeetingController {
       try {
         await cancelRecurrenceSeries(
           meeting,
-          models,
+          prisma,
           'Recurring series deleted'
         );
 
@@ -601,25 +683,25 @@ export class MeetingController {
           req.user.userId
         );
 
-        await meeting.deleteOne();
+        await prisma.meeting.delete({ where: { id: meeting.id } });
       } catch (recurrenceError) {
         console.error('Failed to cancel recurrence series:', recurrenceError);
-        await meeting.deleteOne();
+        await prisma.meeting.delete({ where: { id: meeting.id } });
       }
-    } else if (meeting.recurrenceId) {
+    } else if (meeting.parentRecurrenceId) {
       await cancelMeetingReminders(
         meeting.meetingId,
         'Meeting instance deleted',
         req.user.userId
       );
-      await meeting.deleteOne();
+      await prisma.meeting.delete({ where: { id: meeting.id } });
     } else {
       await cancelMeetingReminders(
         meeting.meetingId,
         'Meeting deleted',
         req.user.userId
       );
-      await meeting.deleteOne();
+      await prisma.meeting.delete({ where: { id: meeting.id } });
     }
 
     try {
@@ -639,8 +721,9 @@ export class MeetingController {
    */
   async validateToken(req: AuthenticatedRequest, res: Response) {
     const { token } = req.body;
-    const meeting = await models.Meeting.findOne({
-      meetingId: req.params.meetingId,
+    const meeting = await prisma.meeting.findUnique({
+      where: { meetingId: req.params.meetingId as string },
+      include: { invites: true }
     });
 
     if (!meeting) {
@@ -667,8 +750,10 @@ export class MeetingController {
     }
 
     if (validInvite.status === 'pending') {
-      validInvite.status = 'accepted';
-      await meeting.save();
+      await prisma.meetingInvite.update({
+        where: { id: validInvite.id },
+        data: { status: 'accepted' }
+      });
     }
 
     return ResponseHelpers.ok(res, { valid: true, meeting });
@@ -678,8 +763,8 @@ export class MeetingController {
    * POST /meetings/:meetingId/start - Start meeting
    */
   async startMeeting(req: AuthenticatedRequest, res: Response) {
-    const meeting = await models.Meeting.findOne({
-      meetingId: req.params.meetingId,
+    const meeting = await prisma.meeting.findUnique({
+      where: { meetingId: req.params.meetingId as string }
     });
 
     if (!meeting) {
@@ -697,17 +782,22 @@ export class MeetingController {
     }
 
     const roomId = nanoid(10);
-    const room = new models.Room({
-      roomId,
-      createdBy: req.user.userId,
-      organizationId: meeting.organizationId,
-      teamId: meeting.teamId || null,
+    const room = await prisma.room.create({
+      data: {
+        roomId,
+        createdBy: req.user.userId,
+        organizationId: meeting.organizationId,
+        teamId: meeting.teamId || null,
+      }
     });
-    await room.save();
 
-    meeting.roomId = roomId;
-    meeting.status = 'ongoing';
-    await meeting.save();
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: {
+        roomId,
+        status: 'ongoing'
+      }
+    });
 
     return ResponseHelpers.ok(res, { roomId }, 'Meeting started successfully');
   }
@@ -716,8 +806,8 @@ export class MeetingController {
    * POST /meetings/:meetingId/complete - Complete meeting
    */
   async completeMeeting(req: AuthenticatedRequest, res: Response) {
-    const meeting = await models.Meeting.findOne({
-      meetingId: req.params.meetingId,
+    const meeting = await prisma.meeting.findUnique({
+      where: { meetingId: req.params.meetingId as string }
     });
 
     if (!meeting) {
@@ -736,8 +826,10 @@ export class MeetingController {
       throw AppError.validation('Cannot complete a cancelled meeting');
     }
 
-    meeting.status = 'completed';
-    await meeting.save();
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { status: 'completed' }
+    });
 
     return ResponseHelpers.ok(res, null, 'Meeting completed successfully');
   }

@@ -21,9 +21,6 @@ const contactRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: Request) => {
-    return req.ip || '';
-  },
   skipSuccessfulRequests: false,
 });
 

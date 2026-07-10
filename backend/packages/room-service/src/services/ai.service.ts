@@ -1,7 +1,7 @@
 import { SpeechClient } from '@google-cloud/speech';
 import { request as undiciRequest } from 'undici';
 import { Redis } from 'ioredis';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 
 // Google Speech client
 const speechClient = new SpeechClient({
@@ -137,13 +137,21 @@ export const generateSuggestions = async (participants: string, duration: string
 
 // Generate meeting insights (using loaded meeting transcript)
 export const generateInsights = async (meetingId: string): Promise<string> => {
-  const meeting = await models.Meeting.findById(meetingId)
-    .select('transcript title duration participants')
-    .lean();
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { title: true, duration: true, participants: true }
+  });
   
   if (!meeting) throw new Error('Meeting not found');
 
-  const prompt = `Given the transcript or notes for meeting "${meeting.title}" (ID ${meetingId}), provide insights such as engagement, participation, topics, sentiment, and recommendations.\n\nTranscript:\n${meeting.transcript || 'No transcript available.'}`;
+  // Attempt to fetch transcript from meeting recording if available
+  const recording = await prisma.meetingRecording.findFirst({
+    where: { meetingId },
+    select: { transcriptText: true }
+  });
+  const transcript = recording?.transcriptText || 'No transcript available.';
+
+  const prompt = `Given the transcript or notes for meeting "${meeting.title}" (ID ${meetingId}), provide insights such as engagement, participation, topics, sentiment, and recommendations.\n\nTranscript:\n${transcript}`;
 
   const data = await callOpenAI(
     [

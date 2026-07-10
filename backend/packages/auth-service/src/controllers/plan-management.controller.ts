@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { PlanExpirationService } from '../middleware/plan-validation.js';
 // @ts-ignore
@@ -30,7 +30,7 @@ export class PlanManagementController {
         });
       }
 
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return res.status(404).json({
           message: 'User not found',
@@ -52,15 +52,15 @@ export class PlanManagementController {
         await emailQueue.addEmailJob(
           'plan_upgrade',
           {
-            userId: updatedUser._id.toString(),
+            userId: updatedUser.id,
             userEmail: updatedUser.email,
             userName: updatedUser.name || '',
-            planType: updatedUser.plan.type,
-            endDate: updatedUser.plan.endDate,
+            planType: updatedUser.planType,
+            endDate: updatedUser.planEndDate,
           },
           {
             priority: 1,
-            jobId: `plan-upgrade-${updatedUser._id}`,
+            jobId: `plan-upgrade-${updatedUser.id}`,
           }
         );
       } catch (emailError) {
@@ -70,9 +70,16 @@ export class PlanManagementController {
       res.json({
         message: 'Plan extended successfully',
         user: {
-          id: updatedUser._id,
+          id: updatedUser.id,
           email: updatedUser.email,
-          plan: updatedUser.plan,
+          plan: {
+            type: updatedUser.planType,
+            status: updatedUser.planStatus,
+            startDate: updatedUser.planStartDate,
+            endDate: updatedUser.planEndDate,
+            stripeSubscriptionId: updatedUser.stripeSubscriptionId,
+            stripeSessionId: updatedUser.stripeSessionId
+          },
         },
         token: newToken,
       });
@@ -87,19 +94,21 @@ export class PlanManagementController {
    */
   async cancelPlan(req: any, res: Response) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
       const { immediately = false } = req.body;
 
-      const user = await models.User.findById(userId);
+      const { session_id } = req.body;
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
 
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      if (user.plan.stripeSubscriptionId) {
+      if (user.stripeSessionId === session_id) {
         try {
           await PaymentService.cancelSubscription(
-            user.plan.stripeSubscriptionId,
+            user.stripeSubscriptionId!,
             immediately
           );
         } catch (stripeError) {
@@ -118,15 +127,15 @@ export class PlanManagementController {
         await emailQueue.addEmailJob(
           'plan_cancellation',
           {
-            userId: updatedUser._id.toString(),
+            userId: updatedUser.id,
             userEmail: updatedUser.email,
             userName: updatedUser.name || '',
-            planType: updatedUser.plan.type,
-            endDate: updatedUser.plan.endDate,
+            planType: updatedUser.planType,
+            endDate: updatedUser.planEndDate,
           },
           {
             priority: 1,
-            jobId: `plan-cancellation-${updatedUser._id}`,
+            jobId: `plan-cancellation-${updatedUser.id}`,
           }
         );
       } catch (emailError) {
@@ -138,9 +147,16 @@ export class PlanManagementController {
           ? 'Plan cancelled immediately'
           : 'Plan cancelled at period end',
         user: {
-          id: updatedUser._id,
+          id: updatedUser.id,
           email: updatedUser.email,
-          plan: updatedUser.plan,
+          plan: {
+            type: updatedUser.planType,
+            status: updatedUser.planStatus,
+            startDate: updatedUser.planStartDate,
+            endDate: updatedUser.planEndDate,
+            subscription: updatedUser.stripeSubscriptionId,
+            stripeSessionId: updatedUser.stripeSessionId
+          },
         },
         token: newToken,
       });
@@ -155,22 +171,22 @@ export class PlanManagementController {
    */
   async cancelAutoRenewal(req: any, res: Response) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
-      const user = await models.User.findById(userId);
+      const user = await prisma.user.findUnique({ where: { id: userId } });
 
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      if (!user.plan.stripeSubscriptionId) {
+      if (!user.stripeSubscriptionId) {
         return res.status(400).json({
           message: 'No active subscription found to cancel',
         });
       }
 
       await PaymentService.cancelSubscription(
-        user.plan.stripeSubscriptionId,
+        user.stripeSubscriptionId,
         false
       );
 
@@ -180,9 +196,16 @@ export class PlanManagementController {
         message:
           'Auto-renewal cancelled. Your subscription will remain active until the end of the current billing period.',
         user: {
-          id: user._id,
+          id: user.id,
           email: user.email,
-          plan: user.plan,
+          plan: {
+            type: user.planType,
+            status: user.planStatus,
+            startDate: user.planStartDate,
+            endDate: user.planEndDate,
+            subscription: user.stripeSubscriptionId,
+            stripeSessionId: user.stripeSessionId
+          },
         },
         token: newToken,
       });
@@ -200,18 +223,19 @@ export class PlanManagementController {
       const user = req.user;
 
       const planStatus: any = {
-        type: user.plan.type,
-        status: user.plan.status,
-        startDate: user.plan.startDate,
-        endDate: user.plan.endDate,
-        isExpired: user.plan.status === 'expired',
-        isCancelled: user.plan.status === 'cancelled',
-        isActive: user.plan.status === 'active',
+        type: user.planType || user.plan?.type,
+        status: user.planStatus || user.plan?.status,
+        startDate: user.planStartDate || user.plan?.startDate,
+        endDate: user.planEndDate || user.plan?.endDate,
+        isExpired: (user.planStatus || user.plan?.status) === 'expired',
+        isCancelled: (user.planStatus || user.plan?.status) === 'cancelled',
+        isActive: (user.planStatus || user.plan?.status) === 'active',
       };
 
-      if (user.plan.endDate) {
+      const endDateValue = user.planEndDate || user.plan?.endDate;
+      if (endDateValue) {
         const now = new Date();
-        const endDate = new Date(user.plan.endDate);
+        const endDate = new Date(endDateValue);
         const daysUntilExpiry = Math.ceil(
           (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );

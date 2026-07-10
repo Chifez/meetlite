@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { List, Calendar, PlusCircle } from 'lucide-react';
+import { Calendar, PlusCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import MeetingCard from '@/components/meeting/meeting-card';
@@ -20,10 +20,10 @@ export default function UpcomingMeetingsSection({
   const canCreateMeetings = useCanCreateMeetings();
   
   return (
-    <div className="mt-10">
+    <div>
       <div className="flex justify-between items-center mb-5">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-          <List className="h-4.5 w-4.5 text-primary" /> Upcoming Meetings
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-ink-muted flex items-center gap-2">
+           Upcoming Meetings
         </h2>
         <Link to="/meetings" className="text-primary hover:underline text-xs font-semibold">
           See all meetings
@@ -39,7 +39,7 @@ export default function UpcomingMeetingsSection({
             </p>
           </div>
         ) : meetings.length === 0 ? (
-          <Card className="text-center py-14 border border-dashed border-border/80 bg-muted/10 rounded-2xl">
+          <Card className="text-center py-14 border border-dashed border-border/80 bg-muted/10 rounded-2xl h-[320px] flex flex-col justify-center">
             <CardContent className="space-y-4">
               <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
                 <Calendar className="w-6 h-6 text-primary" />

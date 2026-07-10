@@ -1,3 +1,4 @@
+authtoken: "${NGROK_AUTHTOKEN}"
 version: '2'
 # Authtoken is read from NGROK_AUTHTOKEN environment variable
 # Set it in your .env file or export it: export NGROK_AUTHTOKEN=your_token_here

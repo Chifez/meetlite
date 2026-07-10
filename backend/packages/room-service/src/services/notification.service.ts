@@ -1,7 +1,5 @@
 import {
-  Notification,
-  User,
-  PushSubscription,
+  prisma,
   NotificationQueue,
 } from '@minimeet/shared';
 import {
@@ -60,40 +58,50 @@ const getUserNotificationChannels = async (
   notificationType = 'meeting_reminder'
 ): Promise<string[]> => {
   try {
-    const user: any = await User.findById(userId)
-      .select('notificationPreferences')
-      .lean();
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        notifyEnabled: true,
+        notifyInApp: true,
+        notifyEmail: true,
+        notifyPush: true,
+        notifyMeetingReminders: true,
+        notifyMeetingInvitations: true,
+        notifyRecordingReady: true,
+      }
+    });
 
-    const prefs = user?.notificationPreferences || {};
+    if (!user) return [];
 
     // If notifications disabled, return empty array
-    if (prefs.enabled === false) {
+    if (!user.notifyEnabled) {
       return [];
     }
 
     // Check if this notification type is enabled
-    const preferenceKey = mapNotificationTypeToPreference(notificationType);
-    const typeEnabled = prefs.types?.[preferenceKey];
-    if (typeEnabled === false) {
-      return [];
-    }
+    if (notificationType === 'meeting_reminder' && !user.notifyMeetingReminders) return [];
+    if (notificationType === 'meeting_invitation' && !user.notifyMeetingInvitations) return [];
+    if (notificationType === 'recording_ready' && !user.notifyRecordingReady) return [];
+    if (notificationType === 'transcript_ready' && !user.notifyRecordingReady) return [];
 
     const channels: string[] = [];
 
-    // In-app is default if notifications enabled
-    channels.push('in_app');
+    if (user.notifyInApp) {
+      channels.push('in_app');
+    }
 
-    // Email if enabled (defaults to true)
-    if (prefs.channels?.email !== false) {
+    if (user.notifyEmail) {
       channels.push('email');
     }
 
     // Push if enabled AND user has active subscriptions
-    if (prefs.channels?.push === true) {
-      const hasActiveSubscriptions = await PushSubscription.exists({
-        userId,
-        isActive: true,
+    if (user.notifyPush) {
+      const subscriptionCount = await prisma.pushSubscription.count({
+        where: {
+          userId,
+        }
       });
+      const hasActiveSubscriptions = subscriptionCount > 0;
 
       if (hasActiveSubscriptions) {
         channels.push('push');
@@ -164,11 +172,10 @@ export const scheduleMeetingReminders = async (meeting: any): Promise<any[]> => 
     const allParticipants = new Set([...participantEmails]);
 
     // Find all user IDs for these emails
-    const users: any[] = await User.find({
-      email: { $in: Array.from(allParticipants) },
-    })
-      .select('_id email name')
-      .lean();
+    const users = await prisma.user.findMany({
+      where: { email: { in: Array.from(allParticipants) } },
+      select: { id: true, email: true, name: true }
+    });
 
     if (users.length === 0) {
       console.log(
@@ -183,7 +190,7 @@ export const scheduleMeetingReminders = async (meeting: any): Promise<any[]> => 
         try {
           // Get user-specific notification channels based on preferences
           const channels = await getUserNotificationChannels(
-            user._id.toString(),
+            user.id.toString(),
             'meeting_reminder'
           );
 
@@ -196,26 +203,29 @@ export const scheduleMeetingReminders = async (meeting: any): Promise<any[]> => 
           }
 
           // Create notification record with user-specific channels
-          const notification: any = await Notification.create({
-            userId: user._id,
-            meetingId: meeting.meetingId,
-            type: 'meeting_reminder',
-            title: 'Meeting Reminder',
-            message: `Your meeting "${sanitizedTitle}" starts in ${REMINDER_MINUTES} minutes`,
+          const notification = await prisma.notification.create({
             data: {
+              userId: user.id,
               meetingId: meeting.meetingId,
-              meetingTitle: sanitizedTitle,
-              meetingDescription: sanitizedDescription,
-              meetingTime: meetingTime.toISOString(),
-              duration: meeting.duration || 30,
-              timezone: meeting.timezone || 'UTC',
-              joinUrl: `${process.env.CLIENT_URL}/room/${meeting.meetingId}`,
-              organizerName: meeting.createdByName || 'Unknown',
-            },
-            status: 'scheduled',
-            scheduledAt: reminderTime,
-            channels,
-            sentChannels: [],
+              type: 'meeting_reminder',
+              title: 'Meeting Reminder',
+              message: `Your meeting "${sanitizedTitle}" starts in ${REMINDER_MINUTES} minutes`,
+              data: {
+                meetingId: meeting.meetingId,
+                meetingTitle: sanitizedTitle,
+                meetingDescription: sanitizedDescription,
+                meetingTime: meetingTime.toISOString(),
+                duration: meeting.duration || 30,
+                timezone: meeting.timezone || 'UTC',
+                joinUrl: `${process.env.CLIENT_URL}/room/${meeting.meetingId}`,
+                organizerName: meeting.createdByName || 'Unknown',
+              },
+              status: 'scheduled',
+              scheduledAt: reminderTime,
+              channels,
+              sentChannels: [],
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            }
           });
 
           // Schedule the job in BullMQ with same channels
@@ -223,8 +233,8 @@ export const scheduleMeetingReminders = async (meeting: any): Promise<any[]> => 
           const job = await getNotificationQueue().addNotificationJob(
             'meeting_reminder',
             {
-              notificationId: notification._id.toString(),
-              userId: user._id.toString(),
+              notificationId: notification.id.toString(),
+              userId: user.id.toString(),
               userName: user.name,
               userEmail: user.email,
               meetingId: meeting.meetingId,
@@ -239,19 +249,21 @@ export const scheduleMeetingReminders = async (meeting: any): Promise<any[]> => 
             },
             {
               delay,
-              jobId: `reminder-${notification._id}`,
+              jobId: `reminder-${notification.id}`,
               priority: 1, // High priority
             }
           );
 
           // Store job ID for cancellation
-          notification.jobId = job.id;
-          await notification.save();
+          await prisma.notification.update({
+            where: { id: notification.id },
+            data: { jobId: job.id }
+          });
 
           // Audit log
           await auditNotificationScheduled(
-            user._id.toString(),
-            notification._id.toString(),
+            user.id.toString(),
+            notification.id.toString(),
             meeting.meetingId,
             reminderTime.toISOString()
           );
@@ -263,7 +275,7 @@ export const scheduleMeetingReminders = async (meeting: any): Promise<any[]> => 
           return notification;
         } catch (error) {
           console.error(
-            `❌ Failed to schedule reminder for user ${user._id}:`,
+            `❌ Failed to schedule reminder for user ${user.id}:`,
             error
           );
           return null;
@@ -302,9 +314,11 @@ export const cancelMeetingReminders = async (
     });
 
     // Find all pending notifications for this meeting
-    const notifications = await Notification.find({
-      meetingId,
-      status: { $in: ['pending', 'scheduled'] },
+    const notifications = await prisma.notification.findMany({
+      where: {
+        meetingId,
+        status: { in: ['pending', 'scheduled'] },
+      }
     });
 
     if (notifications.length === 0) {
@@ -326,22 +340,26 @@ export const cancelMeetingReminders = async (
           }
 
           // Update notification status
-          notification.status = 'cancelled';
-          notification.cancelledAt = new Date();
-          notification.cancelReason = sanitizedReason;
-          await notification.save();
+          await prisma.notification.update({
+            where: { id: notification.id },
+            data: {
+              status: 'cancelled',
+              cancelledAt: new Date(),
+              cancelReason: sanitizedReason
+            }
+          });
 
           // Audit log
           await auditNotificationCancelled(
             notification.userId,
-            notification._id.toString(),
+            notification.id.toString(),
             sanitizedReason
           );
 
           cancelledCount++;
         } catch (error) {
           console.error(
-            `❌ Failed to cancel notification ${notification._id}:`,
+            `❌ Failed to cancel notification ${notification.id}:`,
             error
           );
         }
@@ -401,13 +419,16 @@ export const rescheduleMeetingReminders = async (
 export const updateMeetingReminderParticipants = async (meetingId: string, meeting: any): Promise<any> => {
   try {
     // Get existing notifications
-    const existingNotifications = await Notification.find({
-      meetingId,
-      status: { $in: ['pending', 'scheduled'] },
-    }).populate('userId', 'email');
+    const existingNotifications = await prisma.notification.findMany({
+      where: {
+        meetingId,
+        status: { in: ['pending', 'scheduled'] },
+      },
+      include: { user: { select: { email: true } } }
+    });
 
     const existingEmails = new Set(
-      existingNotifications.map((n: any) => n.userId.email)
+      existingNotifications.map((n: any) => n.user.email)
     );
 
     const newParticipants = Array.isArray(meeting.participants)
@@ -431,7 +452,7 @@ export const updateMeetingReminderParticipants = async (meetingId: string, meeti
     // Cancel reminders for removed participants
     if (removedEmails.length > 0) {
       const removedNotifications = existingNotifications.filter((n: any) =>
-        removedEmails.includes(n.userId.email)
+        removedEmails.includes(n.user.email)
       );
 
       await Promise.all(
@@ -442,14 +463,18 @@ export const updateMeetingReminderParticipants = async (meetingId: string, meeti
                 notification.jobId
               );
             }
-            notification.status = 'cancelled';
-            notification.cancelledAt = new Date();
-            notification.cancelReason = 'Participant removed from meeting';
-            await notification.save();
+            await prisma.notification.update({
+              where: { id: notification.id },
+              data: {
+                status: 'cancelled',
+                cancelledAt: new Date(),
+                cancelReason: 'Participant removed from meeting'
+              }
+            });
             removedCount++;
           } catch (error) {
             console.error(
-              `❌ Failed to cancel notification ${notification._id}:`,
+              `❌ Failed to cancel notification ${notification.id}:`,
               error
             );
           }

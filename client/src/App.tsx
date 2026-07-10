@@ -31,6 +31,7 @@ import AdminManage from './pages/admin/manage';
 import AdminRevenue from './pages/admin/revenue';
 import AdminSystem from './pages/admin/system';
 import AdminInquiries from './pages/admin/inquiries';
+import ComingSoon from './components/ui/coming-soon';
 
 function App() {
   // Initialize hotkeys
@@ -100,9 +101,9 @@ function App() {
           <Route
             path="/onboarding"
             element={
-              <PublicRoute redirectIfAuthenticated>
+              <ProtectedRoute requireOnboarding={false}>
                 <Onboarding />
-              </PublicRoute>
+              </ProtectedRoute>
             }
           />
 
@@ -188,7 +189,7 @@ function App() {
             }
           />
           <Route
-            path="/settings"
+            path="/settings/:tab?"
             element={
               <ProtectedRoute>
                 <Settings />
@@ -200,6 +201,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Notifications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <ComingSoon title="Analytics" featureName="advanced meeting analytics" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organization"
+            element={
+              <ProtectedRoute>
+                <ComingSoon title="Organization Hub" featureName="the new organization hub" />
               </ProtectedRoute>
             }
           />

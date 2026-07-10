@@ -5,12 +5,16 @@ interface SpeakingIndicatorProps {
   stream: MediaStream | null;
   isLocal?: boolean;
   audioEnabled?: boolean;
+  forceSpeaking?: boolean;
+  forceAudioLevel?: number;
 }
 
 export const SpeakingIndicator = ({
   stream,
   isLocal = false,
   audioEnabled = true,
+  forceSpeaking = false,
+  forceAudioLevel = 0,
 }: SpeakingIndicatorProps) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -20,7 +24,8 @@ export const SpeakingIndicator = ({
 
   useEffect(() => {
     // Handle case where stream is not available or audio is disabled
-    if (!stream || !audioEnabled) {
+    // If forceSpeaking is true, we bypass this check so the mockup can animate
+    if ((!stream && !forceSpeaking) || !audioEnabled) {
       setIsSpeaking(false);
       setAudioLevel(0);
 
@@ -100,13 +105,14 @@ export const SpeakingIndicator = ({
     };
   }, [audioEnabled, isLocal]);
 
-  if (!isSpeaking || !audioEnabled) {
+  if ((!isSpeaking && !forceSpeaking) || !audioEnabled) {
     return null;
   }
 
-  // Calculate dynamic values based on audio level
-  const normalizedLevel = Math.max(0.2, Math.min(1, audioLevel / 50)); // Normalize to 0.2-1 range
-  const pulseSpeed = Math.max(0.3, 1.2 - audioLevel / 100); // Faster pulse for louder audio
+  // Calculate dynamic values based on audio level or forced level
+  const activeAudioLevel = forceSpeaking ? forceAudioLevel || 60 : audioLevel;
+  const normalizedLevel = Math.max(0.2, Math.min(1, activeAudioLevel / 50)); // Normalize to 0.2-1 range
+  const pulseSpeed = Math.max(0.3, 1.2 - activeAudioLevel / 100); // Faster pulse for louder audio
 
   return (
     <div className="absolute top-2 right-2 z-10">

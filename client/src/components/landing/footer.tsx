@@ -6,20 +6,17 @@ const FOOTER_LINKS = {
     { label: 'Features', href: '#features' },
     { label: 'Pricing', href: '#pricing' },
     { label: 'Security', href: '#' },
-    { label: 'Integrations', href: '#integrations' },
     { label: 'Changelog', href: '#' },
   ],
   Company: [
     { label: 'About', href: '#' },
     { label: 'Blog', href: '#' },
     { label: 'Careers', href: '#' },
-    { label: 'Press', href: '#' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'Contact', href: '#' },
   ],
   Support: [
     { label: 'Help center', href: '#' },
     { label: 'Documentation', href: '#' },
-    { label: 'System status', href: '#' },
     { label: 'Privacy policy', href: '#' },
     { label: 'Terms of service', href: '#' },
   ],
@@ -27,29 +24,35 @@ const FOOTER_LINKS = {
 
 const Footer = () => {
   return (
-    <footer className="border-t border-border bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+    <footer className="border-t border-border bg-background pt-16 pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-12 mb-16">
           {/* Brand column */}
-          <div className="col-span-2 md:col-span-1 space-y-4">
+          <div className="col-span-2 space-y-6">
             <Logo />
-            <p className="text-[0.8125rem] text-muted-foreground leading-relaxed max-w-[200px]">
-              Professional video conferencing built for modern teams.
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
+              The collaborative meeting platform built for teams. <br/>
+              Meet, and actually build something.
             </p>
+            <div className="flex gap-4 pt-2">
+              <Link to="/signup" className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
+                Get started for free &rarr;
+              </Link>
+            </div>
           </div>
 
           {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([section, links]) => (
-            <div key={section} className="space-y-3">
-              <h4 className="text-[0.75rem] font-semibold tracking-[0.06em] uppercase text-muted-foreground">
+            <div key={section} className="space-y-4">
+              <h4 className="text-xs font-bold tracking-wider uppercase text-foreground">
                 {section}
               </h4>
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-[0.8125rem] text-muted-foreground hover:text-foreground transition-colors duration-150"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {link.label}
                     </a>
@@ -61,15 +64,15 @@ const Footer = () => {
         </div>
 
         {/* Bottom bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-12 pt-6 border-t border-border">
-          <p className="text-[0.75rem] text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-border">
+          <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} MeetLite, Inc. All rights reserved.
           </p>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="text-[0.75rem] text-muted-foreground hover:text-foreground transition-colors">
+          <div className="flex items-center gap-6">
+            <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Sign in
             </Link>
-            <Link to="/signup" className="text-[0.75rem] text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/signup" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Create account
             </Link>
           </div>

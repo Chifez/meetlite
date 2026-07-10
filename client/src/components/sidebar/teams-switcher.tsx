@@ -9,6 +9,7 @@ import {
   FileVideo,
   Settings,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/contexts/workspace-context';
@@ -81,8 +82,16 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
   if (!teams || teams.length === 0) {
     return (
       <div className="px-2 py-1">
-        <div className="text-xs text-sidebar-foreground/60 text-center py-2">
-          No teams yet
+        <div className="text-xs text-sidebar-foreground/60 py-2 flex items-center justify-between px-2">
+          <span>No teams yet</span>
+          <button 
+            type="button" 
+            onClick={() => navigate('/settings/organization')} 
+            className="text-primary hover:underline text-[10px] font-semibold flex items-center gap-1"
+          >
+            <Plus className="h-3 w-3" />
+            Create a team
+          </button>
         </div>
       </div>
     );

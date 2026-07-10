@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { models } from '../index.js';
+import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { BulkOperationsService } from '../services/bulk-operations.service.js';
 
@@ -10,7 +10,7 @@ export class BulkOperationsController {
   async bulkInviteMembers(req: any, res: Response) {
     try {
       const { organizationId, invitations } = req.body;
-      const inviterId = req.user._id;
+      const inviterId = req.user.id || req.user._id;
 
       if (!organizationId || !invitations || !Array.isArray(invitations)) {
         return res.status(400).json({
@@ -68,7 +68,7 @@ export class BulkOperationsController {
   async bulkRemoveMembers(req: any, res: Response) {
     try {
       const { organizationId, memberIds } = req.body;
-      const removerId = req.user._id;
+      const removerId = req.user.id || req.user._id;
 
       if (!organizationId || !memberIds || !Array.isArray(memberIds)) {
         return res.status(400).json({
@@ -123,7 +123,7 @@ export class BulkOperationsController {
   async bulkUpdateRoles(req: any, res: Response) {
     try {
       const { organizationId, roleUpdates } = req.body;
-      const updaterId = req.user._id;
+      const updaterId = req.user.id || req.user._id;
 
       if (!organizationId || !roleUpdates || !Array.isArray(roleUpdates)) {
         return res.status(400).json({
@@ -143,7 +143,7 @@ export class BulkOperationsController {
         });
       }
 
-      const results = await BulkOperationsService.bulkUpdateRoles(
+      const results = await BulkOperationsService.bulkChangeRoles(
         organizationId,
         updaterId,
         roleUpdates
@@ -179,23 +179,33 @@ export class BulkOperationsController {
     try {
       const { organizationId } = req.params;
       const { page = '1', limit = '20', search = '' } = req.query;
-      const userId = req.user._id;
+      const userId = req.user.id || req.user._id;
 
-      const organization = await models.Organization.findById(organizationId);
+      const organization = await prisma.organization.findUnique({
+        where: { id: organizationId }
+      });
       if (!organization) {
         return res.status(404).json({ message: 'Organization not found' });
       }
 
-      const userMembership = await models.User.findOne({
-        _id: userId,
-        'memberships.organizationId': organizationId,
-        'memberships.status': 'active',
-      });
+      const isOwner = organization.ownerId === userId;
+      let userMembership;
 
-      if (!userMembership) {
-        return res.status(403).json({
-          message: 'Access denied. You are not a member of this organization',
+      if (!isOwner) {
+        userMembership = await prisma.userOrganizationMembership.findUnique({
+          where: {
+            userId_organizationId: {
+              userId,
+              organizationId,
+            }
+          }
         });
+        
+        if (!userMembership || userMembership.status !== 'active') {
+          return res.status(403).json({
+            message: 'Access denied. You are not a member of this organization',
+          });
+        }
       }
 
       const result = await BulkOperationsService.getOrganizationMembers(
