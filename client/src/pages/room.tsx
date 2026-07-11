@@ -16,6 +16,8 @@ import SEO from '@/components/seo';
 import { RoomProvider } from '@/contexts/room-context';
 import { SharedPresentation } from '@/components/room/shared-presentation';
 import { useAuth } from '@/hooks/use-auth';
+import { SOCKET_EVENTS, COLLABORATION_MODES } from '@/lib/constants';
+
 
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -135,7 +137,7 @@ const Room = () => {
     });
 
     if (socket?.connected) {
-      socket.emit('user-left', { roomId });
+      socket.emit(SOCKET_EVENTS.USER_LEFT, { roomId });
     }
     navigate('/dashboard');
   }, [cleanupScreenShare, socket, roomId, navigate]);
@@ -248,11 +250,11 @@ const Room = () => {
           {/* Main content area */}
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-hidden bg-background p-4">
-              {collaborationState?.mode === 'workflow' ? (
+              {collaborationState?.mode === COLLABORATION_MODES.WORKFLOW ? (
                 <SharedPresentation mode="workflow" />
-              ) : collaborationState?.mode === 'whiteboard' ? (
+              ) : collaborationState?.mode === COLLABORATION_MODES.WHITEBOARD ? (
                 <SharedPresentation mode="whiteboard" />
-              ) : collaborationState?.mode === 'code' ? (
+              ) : collaborationState?.mode === COLLABORATION_MODES.CODE ? (
                 <SharedPresentation mode="code" />
               ) : (
                 // No presentation mode: Enhanced video grid with layout options

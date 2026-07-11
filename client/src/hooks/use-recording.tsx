@@ -1,6 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRoom } from '@/contexts/room-context';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import api from '@/lib/axios';
+import { SOCKET_EVENTS, RECORDING_STATUSES } from '@/lib/constants';
+
 
 export interface RecordingState {
   isRecording: boolean;
@@ -25,17 +29,41 @@ const initialState: RecordingState = {
   startedAt: null,
   startedBy: null,
   duration: 0,
-  status: 'idle',
+  status: RECORDING_STATUSES.IDLE,
   error: null,
 };
 
 export const useRecording = (roomId: string | undefined): UseRecordingReturn => {
   const { socket } = useRoom();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [recordingState, setRecordingState] = useState<RecordingState>(initialState);
+  const [isHost, setIsHost] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch room info to determine host status
+  useEffect(() => {
+    if (!roomId || !user?.id) return;
+
+    api.get(`/api/rooms/${roomId}`)
+      .then((res) => {
+        const roomData = res.data?.data || res.data;
+        const createdBy = roomData?.createdBy;
+        const userRole = user?.role;
+        // Host if: created this room, or is an org admin/owner
+        const hostStatus =
+          (createdBy && createdBy === user.id) ||
+          userRole === 'owner' ||
+          userRole === 'admin';
+        setIsHost(!!hostStatus);
+      })
+      .catch(() => {
+        // If we can't fetch room (e.g. cross-org access denied), conservatively deny host
+        setIsHost(false);
+      });
+  }, [roomId, user?.id, user?.role]);
 
   // Update duration every second while recording
   useEffect(() => {
@@ -66,7 +94,7 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
         startedAt: new Date(data.startedAt),
         startedBy: data.startedBy,
         duration: 0,
-        status: 'recording',
+        status: RECORDING_STATUSES.RECORDING,
         error: null,
       });
 
@@ -80,7 +108,7 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
       setRecordingState((prev) => ({
         ...prev,
         isRecording: false,
-        status: 'processing',
+        status: RECORDING_STATUSES.PROCESSING,
         duration: data.duration,
       }));
 
@@ -107,7 +135,7 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
     const handleRecordingError = (data: { error: string }) => {
       setRecordingState((prev) => ({
         ...prev,
-        status: 'error',
+        status: SOCKET_EVENTS.ERROR,
         error: data.error,
         isRecording: false,
       }));
@@ -119,21 +147,21 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
       });
     };
 
-    socket.on('recording:started', handleRecordingStarted);
-    socket.on('recording:stopped', handleRecordingStopped);
-    socket.on('recording:finalized', handleRecordingFinalized);
-    socket.on('recording:start-error', handleRecordingError);
-    socket.on('recording:stop-error', handleRecordingError);
+    socket.on(SOCKET_EVENTS.RECORDING_STARTED, handleRecordingStarted);
+    socket.on(SOCKET_EVENTS.RECORDING_STOPPED, handleRecordingStopped);
+    socket.on(SOCKET_EVENTS.RECORDING_FINALIZED, handleRecordingFinalized);
+    socket.on(SOCKET_EVENTS.RECORDING_START_ERROR, handleRecordingError);
+    socket.on(SOCKET_EVENTS.RECORDING_STOP_ERROR, handleRecordingError);
 
     // Request current recording status when joining
-    socket.emit('recording:status', { roomId });
+    socket.emit(SOCKET_EVENTS.RECORDING_STATUS, { roomId });
 
     return () => {
-      socket.off('recording:started', handleRecordingStarted);
-      socket.off('recording:stopped', handleRecordingStopped);
-      socket.off('recording:finalized', handleRecordingFinalized);
-      socket.off('recording:start-error', handleRecordingError);
-      socket.off('recording:stop-error', handleRecordingError);
+      socket.off(SOCKET_EVENTS.RECORDING_STARTED, handleRecordingStarted);
+      socket.off(SOCKET_EVENTS.RECORDING_STOPPED, handleRecordingStopped);
+      socket.off(SOCKET_EVENTS.RECORDING_FINALIZED, handleRecordingFinalized);
+      socket.off(SOCKET_EVENTS.RECORDING_START_ERROR, handleRecordingError);
+      socket.off(SOCKET_EVENTS.RECORDING_STOP_ERROR, handleRecordingError);
     };
   }, [socket, roomId, toast]);
 
@@ -156,16 +184,16 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
           startedAt: data.startedAt ? new Date(data.startedAt) : null,
           startedBy: data.startedBy || null,
           duration: data.duration || 0,
-          status: 'recording',
+          status: RECORDING_STATUSES.RECORDING,
           error: null,
         });
       }
     };
 
-    socket.on('recording:status', handleStatus);
+    socket.on(SOCKET_EVENTS.RECORDING_STATUS, handleStatus);
 
     return () => {
-      socket.off('recording:status', handleStatus);
+      socket.off(SOCKET_EVENTS.RECORDING_STATUS, handleStatus);
     };
   }, [socket]);
 
@@ -173,10 +201,10 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
     if (!socket || !roomId) return;
 
     try {
-      setRecordingState((prev) => ({ ...prev, status: 'starting' }));
+      setRecordingState((prev) => ({ ...prev, status: RECORDING_STATUSES.STARTING }));
 
       // Start server-side tracking
-      socket.emit('recording:start', { roomId });
+      socket.emit(SOCKET_EVENTS.RECORDING_START, { roomId });
 
       // Start client-side recording using MediaRecorder
       const streams: MediaStream[] = [];
@@ -216,7 +244,7 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
         const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
         const arrayBuffer = await blob.arrayBuffer();
 
-        socket.emit('recording:finalize', {
+        socket.emit(SOCKET_EVENTS.RECORDING_FINALIZE, {
           roomId,
           recordingId: recordingState.recordingId,
           recordingData: Array.from(new Uint8Array(arrayBuffer)),
@@ -232,7 +260,7 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
       console.error('Failed to start recording:', error);
       setRecordingState((prev) => ({
         ...prev,
-        status: 'error',
+        status: SOCKET_EVENTS.ERROR,
         error: error instanceof Error ? error.message : 'Failed to start recording',
       }));
 
@@ -248,7 +276,7 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
     if (!socket || !roomId) return;
 
     try {
-      setRecordingState((prev) => ({ ...prev, status: 'stopping' }));
+      setRecordingState((prev) => ({ ...prev, status: RECORDING_STATUSES.STOPPING }));
 
       // Stop MediaRecorder
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -257,13 +285,13 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
       }
 
       // Stop server-side tracking
-      socket.emit('recording:stop', { roomId });
+      socket.emit(SOCKET_EVENTS.RECORDING_STOP, { roomId });
 
     } catch (error) {
       console.error('Failed to stop recording:', error);
       setRecordingState((prev) => ({
         ...prev,
-        status: 'error',
+        status: SOCKET_EVENTS.ERROR,
         error: error instanceof Error ? error.message : 'Failed to stop recording',
       }));
     }
@@ -285,7 +313,8 @@ export const useRecording = (roomId: string | undefined): UseRecordingReturn => 
     recordingState,
     startRecording,
     stopRecording,
-    canRecord: !!socket && !!roomId,
+    // canRecord: only true when socket is connected AND user is the room host
+    canRecord: !!socket && !!roomId && isHost,
   };
 };
 
@@ -302,4 +331,3 @@ function formatDuration(seconds: number): string {
 }
 
 export { formatDuration };
-

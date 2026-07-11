@@ -2,6 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { PlanValidationService, prisma } from '@minimeet/shared';
 import { MultiOrganizationService } from './multi-organization.service.js';
 import { sendOrganizationInviteEmail } from './email-service.js';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export class BulkOperationsService {
   /**
@@ -36,8 +38,8 @@ export class BulkOperationsService {
 
       if (
         !inviterMembership ||
-        (inviterMembership.role !== 'owner' &&
-          inviterMembership.role !== 'admin')
+        (inviterMembership.role !== WORKSPACE_ROLES.OWNER &&
+          inviterMembership.role !== WORKSPACE_ROLES.ADMIN)
       ) {
         throw new Error(
           'Only organization owners and admins can invite members'
@@ -195,8 +197,8 @@ export class BulkOperationsService {
 
       if (
         !removerMembership ||
-        (removerMembership.role !== 'owner' &&
-          removerMembership.role !== 'admin')
+        (removerMembership.role !== WORKSPACE_ROLES.OWNER &&
+          removerMembership.role !== WORKSPACE_ROLES.ADMIN)
       ) {
         throw new Error(
           'Only organization owners and admins can remove members'
@@ -303,8 +305,8 @@ export class BulkOperationsService {
 
       if (
         !updaterMembership ||
-        (updaterMembership.role !== 'owner' &&
-          updaterMembership.role !== 'admin')
+        (updaterMembership.role !== WORKSPACE_ROLES.OWNER &&
+          updaterMembership.role !== WORKSPACE_ROLES.ADMIN)
       ) {
         throw new Error(
           'Only organization owners and admins can change roles'
@@ -331,7 +333,7 @@ export class BulkOperationsService {
             continue;
           }
 
-          if (updaterMembership.role === 'admin' && role === 'owner') {
+          if (updaterMembership.role === WORKSPACE_ROLES.ADMIN && role === WORKSPACE_ROLES.OWNER) {
             results.failed.push({
               memberId,
               error: 'Admins cannot make others owners',
@@ -365,7 +367,7 @@ export class BulkOperationsService {
             continue;
           }
 
-          if (updaterMembership.role === 'admin' && membership.role === 'owner') {
+          if (updaterMembership.role === WORKSPACE_ROLES.ADMIN && membership.role === WORKSPACE_ROLES.OWNER) {
             results.failed.push({
               memberId,
               error: 'Admins cannot change owner roles',

@@ -16,11 +16,7 @@ import {
 const router = express.Router();
 const recordingController = new RecordingController();
 
-// Apply authentication and plan validation to all routes
-router.use(verifyToken as any);
-router.use(validatePlanStatus as any);
-
-// Configure multer for file uploads with disk storage for better progress tracking
+// ─── Shared multer storage (disk) ─────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: async (req: any, file: any, cb: any) => {
     const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
@@ -79,6 +75,21 @@ const handleMulterError = (err: any, req: Request, res: Response, next: NextFunc
   }
   next();
 };
+
+// ─── Internal route (no JWT auth – uses shared secret) ───────────────────────
+// Must be registered BEFORE router.use(verifyToken) so mediasoup-service can
+// hand off recordings without a user JWT token.
+router.post(
+  '/internal-finalize',
+  upload.single('recording'),
+  handleMulterError,
+  asyncHandler(recordingController.internalFinalizeRecording.bind(recordingController))
+);
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Apply authentication and plan validation to all authenticated routes
+router.use(verifyToken as any);
+router.use(validatePlanStatus as any);
 
 /**
  * @route   POST /api/v1/recordings

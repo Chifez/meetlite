@@ -1,9 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import redisClient from './config/redis.js';
 
 import { logger, requestLogger } from './utils/logger.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -122,7 +124,11 @@ const collaborationController = new CollaborationController(
 );
 const roomController = new RoomController(mediaSoupService, io);
 const yjsController = new YjsController(yjsSyncService, io);
-const recordingController = new RecordingController(recordingService, io);
+const recordingController = new RecordingController(recordingService, io, mediaSoupService);
+
+// Register recording service so mediaSoupService can stop recordings when rooms empty out
+mediaSoupService.setRecordingService(recordingService);
+
 
 // ============================================================================
 // WEBSOCKET UPGRADE HANDLING FOR TLdraw
@@ -244,6 +250,12 @@ process.on('SIGINT', gracefulShutdown);
 
 const startServer = async () => {
   try {
+    // Initialize Redis client
+    await redisClient.connect();
+    const { pubClient, subClient } = redisClient.getPubSubClients();
+    io.adapter(createAdapter(pubClient, subClient));
+    logger.info('Redis adapter configured for Socket.IO');
+
     // Initialize MediaSoup service
     await mediaSoupService.initialize();
 

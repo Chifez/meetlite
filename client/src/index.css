@@ -35,6 +35,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --ease-out-strong: var(--ease-out-strong);
 }
 
 :root {
@@ -78,6 +79,9 @@
   
   --surface-sunken: #F0EFE9;
   --ink-faint: #A6A49C;
+
+  /* Emil's Design Engineering Easing */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .dark {
@@ -148,5 +152,25 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px);
+  }
+
+  .bg-circles-pattern {
+    background-image: radial-gradient(circle at center, transparent 40%, color-mix(in srgb, var(--foreground) 3%, transparent) 40%, color-mix(in srgb, var(--foreground) 3%, transparent) 41%, transparent 41%, transparent 50%, color-mix(in srgb, var(--foreground) 3%, transparent) 50%, color-mix(in srgb, var(--foreground) 3%, transparent) 51%, transparent 51%);
+    background-size: 600px 600px;
+    background-position: center;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 4px 24px -6px color-mix(in srgb, var(--foreground) 8%, transparent), 0 0 1px 0 color-mix(in srgb, var(--foreground) 10%, transparent);
+  }
+  
+  .shadow-elevated {
+    box-shadow: 0 12px 48px -12px color-mix(in srgb, var(--foreground) 12%, transparent), 0 0 1px 0 color-mix(in srgb, var(--foreground) 15%, transparent);
   }
 }

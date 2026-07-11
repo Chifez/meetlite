@@ -43,10 +43,9 @@ export default function Recordings() {
   } = useQueryManager({ onQueryChange: fetchRecordings });
 
   useEffect(() => {
-    if (activeOrganization?.id) {
-      refreshQuery();
-    }
+    refreshQuery();
   }, [activeOrganization?.id, refreshQuery]);
+
 
   const handleDeleteRecording = async (recording: MeetingRecording) => {
     try {
@@ -177,17 +176,7 @@ export default function Recordings() {
     }
   };
 
-  if (!activeOrganization) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
-          <p className="text-[0.875rem] text-muted-foreground">
-            Select a workspace to view recordings.
-          </p>
-        </div>
-      </DashboardLayout>
-    );
-  }
+
 
   return (
     <DashboardLayout>

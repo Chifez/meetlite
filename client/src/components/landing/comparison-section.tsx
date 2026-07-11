@@ -1,71 +1,99 @@
-import { Check, X } from 'lucide-react';
+import { motion } from 'motion/react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 
-const comparisonData = [
-  { feature: 'Native multiplayer canvas', meetlite: true, others: false },
-  { feature: 'Component architecture diagrams', meetlite: true, others: false },
-  { feature: 'Speaker-labeled AI transcripts', meetlite: true, others: false },
-  { feature: 'End-to-end encryption', meetlite: true, others: true },
-  { feature: 'HD video conferencing', meetlite: true, others: true },
+const COMPARISON = [
+  { feature: 'Multiplayer Whiteboarding', them: false, us: true },
+  { feature: 'Sub-50ms Global Latency', them: false, us: true },
+  { feature: 'End-to-End Encryption', them: 'Add-on', us: 'Default' },
+  { feature: 'AI Transcripts', them: 'Third-party', us: 'Built-in' },
+  { feature: 'Guest Access without account', them: false, us: true },
+  { feature: 'Unlimited Recording', them: false, us: true },
 ];
 
-const ComparisonSection = () => {
+export const ComparisonSection = () => {
   return (
-    <section id="comparison" className="py-24 bg-background border-b border-border">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
-
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-            A workspace first. <br/> A video call second.
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-            See how MeetLite stacks up against traditional conferencing tools.
+    <section className="py-24 lg:py-32 bg-background dark:bg-[#09090b] border-b border-border">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-16">
+          <p className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-widest">
+            The Difference
           </p>
+          <h2 className="text-4xl md:text-5xl font-display font-medium text-foreground tracking-tight">
+            Why teams switch to MeetLite
+          </h2>
         </div>
 
-        {/* Comparison table */}
-        <div className="border border-border rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground w-full">
-                  Feature
-                </th>
-                <th className="px-6 py-4 text-sm font-bold text-primary text-center whitespace-nowrap bg-primary/5">
-                  MeetLite
-                </th>
-                <th className="px-6 py-4 text-sm font-semibold text-muted-foreground text-center whitespace-nowrap">
-                  Traditional Tools
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-card">
-              {comparisonData.map((row, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm text-foreground font-semibold">
-                    {row.feature}
-                  </td>
-                  <td className="px-6 py-4 text-center bg-primary/5">
-                    {row.meetlite ? (
-                      <Check className="w-5 h-5 text-primary mx-auto" strokeWidth={3} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
+          
+          {/* Them */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="flex flex-col bg-muted/30 border border-border/50 rounded-[32px] p-8 md:p-10 opacity-70 filter grayscale"
+          >
+            <div className="text-center mb-8 pb-8 border-b border-border">
+              <h3 className="text-2xl font-display font-medium text-muted-foreground">Traditional Tools</h3>
+            </div>
+            
+            <ul className="space-y-6 flex-1">
+              {COMPARISON.map((item, i) => (
+                <li key={i} className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{item.feature}</span>
+                  {typeof item.them === 'boolean' ? (
+                    item.them ? (
+                      <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
                     ) : (
-                      <X className="w-5 h-5 text-muted-foreground/30 mx-auto" strokeWidth={2} />
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    {row.others ? (
-                      <Check className="w-5 h-5 text-muted-foreground mx-auto" strokeWidth={2} />
-                    ) : (
-                      <X className="w-5 h-5 text-muted-foreground/30 mx-auto" strokeWidth={2} />
-                    )}
-                  </td>
-                </tr>
+                      <XCircle className="w-5 h-5 text-muted-foreground/40" />
+                    )
+                  ) : (
+                    <span className="text-sm font-medium text-muted-foreground">{item.them}</span>
+                  )}
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </motion.div>
+
+          {/* VS Badge (Desktop) */}
+          <div className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-background border border-border rounded-full items-center justify-center shadow-sm z-10">
+            <span className="text-xs font-bold text-muted-foreground">VS</span>
+          </div>
+
+          {/* Us */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="flex flex-col bg-card border-2 border-primary/20 rounded-[32px] p-8 md:p-10 shadow-elevated relative overflow-hidden"
+          >
+            {/* Subtle primary glow */}
+            <div className="absolute -top-32 -right-32 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+            
+            <div className="text-center mb-8 pb-8 border-b border-border relative z-10">
+              <div className="inline-flex items-center space-x-2">
+                <span className="text-2xl font-display font-medium text-foreground">MeetLite</span>
+                <span className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Pro</span>
+              </div>
+            </div>
+            
+            <ul className="space-y-6 flex-1 relative z-10">
+              {COMPARISON.map((item, i) => (
+                <li key={i} className="flex items-center justify-between">
+                  <span className="text-foreground font-medium">{item.feature}</span>
+                  {typeof item.us === 'boolean' ? (
+                    item.us ? (
+                      <CheckCircle2 className="w-5 h-5 text-primary" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-muted-foreground" />
+                    )
+                  ) : (
+                    <span className="text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{item.us}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
         </div>
       </div>
     </section>

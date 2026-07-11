@@ -571,18 +571,19 @@ model EnterpriseInquiry {
 }
 
 model Activity {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   action         String
-  userId         String?      @map("user_id") @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  metadata       Json         @default("{}")
-  createdAt      DateTime     @default(now()) @map("created_at")
+  userId         String?       @map("user_id") @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now()) @map("created_at")
 
-  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([userId])
   @@index([action])
   @@map("activities")
 }
+

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import { PeerConnection, MediaState } from '@/components/room/types';
 import api from '@/lib/axios';
+import { SOCKET_EVENTS } from '@/lib/constants';
+
 
 // Configuration for production-ready WebRTC
 const ICE_SERVERS = [
@@ -210,7 +212,7 @@ export const useWebRTC = (
       // Handle ICE candidates
       connection.onicecandidate = (event) => {
         if (event.candidate && socket) {
-          socket.emit('p2p:ice-candidate', {
+          socket.emit(SOCKET_EVENTS.P2P_ICE_CANDIDATE, {
             to: userId,
             candidate: event.candidate,
           });
@@ -309,7 +311,7 @@ export const useWebRTC = (
             );
             currentPeer.signalState = ConnectionState.OFFER_SENT;
             console.log(`📞 [WebRTC] Sending offer to ${userId}`);
-            socket.emit('p2p:call-user', {
+            socket.emit(SOCKET_EVENTS.P2P_CALL_USER, {
               to: userId,
               offer: connection.localDescription,
             });
@@ -512,13 +514,13 @@ export const useWebRTC = (
 
     // REMOVED: socket.onAny() was causing excessive logging - 50+ logs per room join
 
-    socket.on('p2p:call-user', handleCallUser);
-    socket.on('p2p:answer-made', handleAnswerMade);
-    socket.on('p2p:ice-candidate', handleIceCandidate);
-    socket.on('user-left', handleUserLeft);
-    socket.on('media-state-update', handleMediaStateUpdate);
-    socket.on('room-data', handleRoomData);
-    socket.on('initiate-connection', handleInitiateConnection);
+    socket.on(SOCKET_EVENTS.P2P_CALL_USER, handleCallUser);
+    socket.on(SOCKET_EVENTS.P2P_ANSWER_MADE, handleAnswerMade);
+    socket.on(SOCKET_EVENTS.P2P_ICE_CANDIDATE, handleIceCandidate);
+    socket.on(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
+    socket.on(SOCKET_EVENTS.MEDIA_STATE_UPDATE, handleMediaStateUpdate);
+    socket.on(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
+    socket.on(SOCKET_EVENTS.INITIATE_CONNECTION, handleInitiateConnection);
 
     // Cleanup
     return () => {
@@ -528,13 +530,13 @@ export const useWebRTC = (
         );
       }
       // REMOVED: socket.offAny() - was causing excessive logging
-      socket.off('p2p:call-user', handleCallUser);
-      socket.off('p2p:answer-made', handleAnswerMade);
-      socket.off('p2p:ice-candidate', handleIceCandidate);
-      socket.off('user-left', handleUserLeft);
-      socket.off('media-state-update', handleMediaStateUpdate);
-      socket.off('room-data', handleRoomData);
-      socket.off('initiate-connection', handleInitiateConnection);
+      socket.off(SOCKET_EVENTS.P2P_CALL_USER, handleCallUser);
+      socket.off(SOCKET_EVENTS.P2P_ANSWER_MADE, handleAnswerMade);
+      socket.off(SOCKET_EVENTS.P2P_ICE_CANDIDATE, handleIceCandidate);
+      socket.off(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
+      socket.off(SOCKET_EVENTS.MEDIA_STATE_UPDATE, handleMediaStateUpdate);
+      socket.off(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
+      socket.off(SOCKET_EVENTS.INITIATE_CONNECTION, handleInitiateConnection);
 
       // Clean up all connections
       peersRef.current.forEach((peer) => {

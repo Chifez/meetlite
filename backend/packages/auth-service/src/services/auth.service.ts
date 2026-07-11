@@ -221,9 +221,8 @@ export class AuthService {
 
       const validUseCases = ['personal', 'education', 'business', 'team'];
       const validTeamSizes = ['1-5', '6-20', '21-50', '50+'];
-      const validExperience = ['beginner', 'intermediate', 'advanced'];
 
-      if (!name || typeof name !== 'string') {
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
         throw new Error('Name is required');
       }
       if (!validUseCases.includes(useCase)) {
@@ -236,20 +235,12 @@ export class AuthService {
       ) {
         throw new Error('Invalid team size');
       }
-      if (!Array.isArray(primaryUse) || primaryUse.length === 0) {
-        throw new Error('Select at least one primary use');
-      }
-      if (!validExperience.includes(experience)) {
-        throw new Error('Invalid experience level');
-      }
 
       const data: any = {
-        onboardingName: name.trim(),
+        name: name.trim(),
         onboardingUseCase: useCase,
-        onboardingTeamSize: teamSize,
-        onboardingPrimaryUse: primaryUse,
-        onboardingExperience: experience,
-        name: user.name || name.trim(),
+        onboardingTeamSize: teamSize || null,
+        onboardingExperience: experience || null,
         onboardingCompleted: true,
       };
 

@@ -176,7 +176,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   };
 
   return (
-    <div className="glass-card border-border shadow-sm transition-all duration-300 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden group">
+    <div className="glass-card border-border shadow-sm transition-[transform,shadow,border] duration-150 ease-out-strong rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden group">
       
       {/* 1. Left Section: Title & Metadata */}
       <div className="flex-1 min-w-0 space-y-2.5">

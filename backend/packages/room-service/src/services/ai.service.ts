@@ -1,7 +1,6 @@
 import { SpeechClient } from '@google-cloud/speech';
 import { request as undiciRequest } from 'undici';
 import { Redis } from 'ioredis';
-import { prisma } from '@minimeet/shared';
 
 // Google Speech client
 const speechClient = new SpeechClient({
@@ -135,23 +134,15 @@ export const generateSuggestions = async (participants: string, duration: string
   return data.choices?.[0]?.message?.content?.trim() || '';
 };
 
-// Generate meeting insights (using loaded meeting transcript)
-export const generateInsights = async (meetingId: string): Promise<string> => {
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    select: { title: true, duration: true, participants: true }
-  });
-  
-  if (!meeting) throw new Error('Meeting not found');
+// Generate meeting insights (pure function, no DB dependencies)
+export const generateInsights = async (params: {
+  title: string;
+  duration: number;
+  transcript: string;
+}): Promise<string> => {
+  const { title, duration, transcript } = params;
 
-  // Attempt to fetch transcript from meeting recording if available
-  const recording = await prisma.meetingRecording.findFirst({
-    where: { meetingId },
-    select: { transcriptText: true }
-  });
-  const transcript = recording?.transcriptText || 'No transcript available.';
-
-  const prompt = `Given the transcript or notes for meeting "${meeting.title}" (ID ${meetingId}), provide insights such as engagement, participation, topics, sentiment, and recommendations.\n\nTranscript:\n${transcript}`;
+  const prompt = `Given the transcript or notes for meeting "${title}", provide insights such as engagement, participation, topics, sentiment, and recommendations.\n\nTranscript:\n${transcript}`;
 
   const data = await callOpenAI(
     [
@@ -413,7 +404,7 @@ Your task is to analyze the transcript and provide:
 4. Topics covered
 5. Overall sentiment analysis
 
-Format your response as valid JSON with this exact structure:
+You MUST respond in pure JSON. Do not include markdown blocks or other text. Ensure the JSON strictly follows this exact schema:
 {
   "summary": "Brief 2-3 sentence overview of the meeting",
   "keyPoints": ["Point 1", "Point 2", "Point 3"],
@@ -437,9 +428,7 @@ Participants: ${participantCount}
 Duration: ${Math.round(duration / 60)} minutes
 
 Transcript:
-${transcript}
-
-Please analyze this meeting transcript and provide a comprehensive summary in the requested JSON format.`;
+${transcript}`;
 
     const data = await callOpenAI(
       [
@@ -447,7 +436,8 @@ Please analyze this meeting transcript and provide a comprehensive summary in th
         { role: 'user', content: userPrompt },
       ],
       {
-        model: 'gpt-4',
+        model: 'gpt-4-turbo-preview', // Stronger model for JSON
+        response_format: { type: 'json_object' },
         max_tokens: 2000,
         temperature: 0.3,
       }
@@ -459,17 +449,7 @@ Please analyze this meeting transcript and provide a comprehensive summary in th
       throw new Error('No response from AI service');
     }
 
-    let summaryData;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        summaryData = JSON.parse(jsonMatch[0]);
-      } else {
-        summaryData = JSON.parse(responseText);
-      }
-    } catch (parseError) {
-      throw new Error(`Failed to parse AI summary response: ${responseText}`);
-    }
+    const summaryData = JSON.parse(responseText); // Safe to parse due to json_object flag
 
     if (!summaryData.summary || !Array.isArray(summaryData.keyPoints)) {
       throw new Error('Invalid summary format received');

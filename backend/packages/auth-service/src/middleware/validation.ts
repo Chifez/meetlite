@@ -67,14 +67,13 @@ export const validateSignupInput = (req: Request, res: Response, next: NextFunct
 
 // Validate onboarding input
 export const validateOnboardingInput = (req: Request, res: Response, next: NextFunction) => {
-  const { name, useCase, teamSize, primaryUse, experience } = req.body || {};
+  const { name, useCase, teamSize } = req.body || {};
 
   // Basic validation
   const validUseCases = ['personal', 'education', 'business', 'team'];
   const validTeamSizes = ['1-5', '6-20', '21-50', '50+'];
-  const validExperience = ['beginner', 'intermediate', 'advanced'];
 
-  if (!name || typeof name !== 'string') {
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
     return res.status(400).json({ message: 'Name is required' });
   }
   if (!validUseCases.includes(useCase)) {
@@ -82,12 +81,6 @@ export const validateOnboardingInput = (req: Request, res: Response, next: NextF
   }
   if (useCase === 'team' && teamSize && !validTeamSizes.includes(teamSize)) {
     return res.status(400).json({ message: 'Invalid team size' });
-  }
-  if (!Array.isArray(primaryUse) || primaryUse.length === 0) {
-    return res.status(400).json({ message: 'Select at least one primary use' });
-  }
-  if (!validExperience.includes(experience)) {
-    return res.status(400).json({ message: 'Invalid experience level' });
   }
 
   next();

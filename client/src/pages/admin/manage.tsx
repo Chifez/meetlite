@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { format } from 'date-fns';
 import {
   Select,
   SelectContent,
@@ -35,8 +36,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { extractError } from '@/lib/api-response';
 import SEO from '@/components/seo';
 import { Pagination } from '@/components/admin/pagination';
 
@@ -119,7 +120,7 @@ export default function AdminManage() {
       toast.success('User deleted successfully');
       refetchUsers();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete user');
+      toast.error(extractError(error) || 'Failed to delete user');
     }
   };
 
@@ -129,7 +130,7 @@ export default function AdminManage() {
       toast.success('User suspended successfully');
       refetchUsers();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to suspend user');
+      toast.error(extractError(error) || 'Failed to suspend user');
     }
   };
 
@@ -139,7 +140,7 @@ export default function AdminManage() {
       toast.success('User unsuspended successfully');
       refetchUsers();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to unsuspend user');
+      toast.error(extractError(error) || 'Failed to unsuspend user');
     }
   };
 
@@ -150,7 +151,7 @@ export default function AdminManage() {
       toast.success('Meeting deleted successfully');
       refetchMeetings();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete meeting');
+      toast.error(extractError(error) || 'Failed to delete meeting');
     }
   };
 

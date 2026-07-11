@@ -17,6 +17,7 @@ import MeetingViewToggle from '@/components/meetings/meeting-view-toggle';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
+import { extractError } from '@/lib/api-response';
 
 const Meetings = () => {
   const { user } = useAuth();
@@ -64,7 +65,7 @@ const Meetings = () => {
     try {
       await fetchMeetingsFromStore(user?.id);
     } catch (e) {
-      toast.error('Failed to load meetings');
+      toast.error(extractError(e) || 'Failed to load meetings');
     }
   };
 
@@ -115,7 +116,7 @@ const Meetings = () => {
       }
     } catch (error) {
       console.error('Error scheduling on calendar:', error);
-      toast.error('Failed to schedule meeting on Google Calendar');
+      toast.error(extractError(error) || 'Failed to schedule meeting on Google Calendar');
     }
   };
 

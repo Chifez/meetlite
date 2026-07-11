@@ -4,6 +4,8 @@ import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { OrganizationMemberService } from '../services/organization-member.service.js';
 import { PlanValidationService, EmailQueue } from '@minimeet/shared';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export class OrganizationMemberController {
   private memberService: OrganizationMemberService;
@@ -313,7 +315,7 @@ export class OrganizationMemberController {
         .filter(Boolean);
 
       let pendingInvitations: any[] = [];
-      if (isOwner || (userMembership && userMembership.role === 'admin')) {
+      if (isOwner || (userMembership && userMembership.role === WORKSPACE_ROLES.ADMIN)) {
         pendingInvitations = await prisma.organizationInvitation.findMany({
             where: {
               organizationId,

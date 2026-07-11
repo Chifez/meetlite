@@ -49,7 +49,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           fill="none"
           strokeDasharray={strokeDasharray}
           strokeDashoffset={strokeDashoffset}
-          className="text-blue-600 transition-all duration-300 ease-in-out"
+          className="text-blue-600 transition-[stroke-dashoffset] duration-200 ease-out-strong"
           strokeLinecap="round"
         />
       </svg>

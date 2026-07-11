@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { SOCKET_EVENTS, COLLABORATION_MODES } from '@/lib/constants';
 import {
   CollaborationState,
   WorkflowData,
@@ -15,8 +16,8 @@ interface UseCollaborationProps {
 export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
   const [collaborationState, setCollaborationState] =
     useState<CollaborationState>({
-      mode: 'none',
-      activeTool: 'none',
+      mode: COLLABORATION_MODES.NONE,
+      activeTool: COLLABORATION_MODES.NONE,
       workflowData: null,
       whiteboardData: null,
       codeData: null,
@@ -37,18 +38,18 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     if (!socket || !roomId) return;
 
     // Request overall collaboration state (mode, presenter, screen sharing)
-    socket.emit('collaboration:request-state', { roomId });
+    socket.emit(SOCKET_EVENTS.COLLAB_REQUEST_STATE, { roomId });
 
     // Request tool-specific data
-    socket.emit('workflow:request-sync', { roomId });
-    socket.emit('whiteboard:request-sync', { roomId });
-    socket.emit('code:request-sync', { roomId });
+    socket.emit(SOCKET_EVENTS.WORKFLOW_REQUEST_SYNC, { roomId });
+    socket.emit(SOCKET_EVENTS.WHITEBOARD_REQUEST_SYNC, { roomId });
+    socket.emit(SOCKET_EVENTS.CODE_REQUEST_SYNC, { roomId });
   }, [socket, roomId]);
 
   const changeCollaborationMode = useCallback(
     (mode: 'none' | 'workflow' | 'whiteboard' | 'code') => {
       if (!socket || !roomId) return;
-      socket.emit('collaboration:mode', { roomId, mode });
+      socket.emit(SOCKET_EVENTS.COLLAB_MODE, { roomId, mode });
     },
     [socket, roomId]
   );
@@ -148,7 +149,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
 
   const sendWorkflowOperation = useCallback(
     (operation: WorkflowOperation) => {
-      if (!socket || !roomId || collaborationState.mode !== 'workflow') {
+      if (!socket || !roomId || collaborationState.mode !== COLLABORATION_MODES.WORKFLOW) {
         console.warn('Cannot send workflow operation:', {
           socketConnected: !!socket,
           roomId,
@@ -167,7 +168,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
       setOperationVersion((prev) => prev + 1);
 
       // Send operation
-      socket.emit('workflow:operation', {
+      socket.emit(SOCKET_EVENTS.WORKFLOW_OPERATION, {
         roomId,
         operation: versionedOperation,
       });
@@ -214,10 +215,10 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
 
   const sendWhiteboardUpdate = useCallback(
     (update: WhiteboardUpdate) => {
-      if (!socket || !roomId || collaborationState.mode !== 'whiteboard')
+      if (!socket || !roomId || collaborationState.mode !== COLLABORATION_MODES.WHITEBOARD)
         return;
 
-      socket.emit('whiteboard:update', { roomId, update });
+      socket.emit(SOCKET_EVENTS.WHITEBOARD_UPDATE, { roomId, update });
     },
     [socket, roomId, collaborationState.mode]
   );
@@ -225,7 +226,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
   // Handle whiteboard state sync request
   const requestWhiteboardSync = useCallback(() => {
     if (!socket || !roomId) return;
-    socket.emit('whiteboard:request-sync', { roomId });
+    socket.emit(SOCKET_EVENTS.WHITEBOARD_REQUEST_SYNC, { roomId });
   }, [socket, roomId]);
 
   // REMOVED: sendCodeUpdate - Code synchronization now handled by pure YJS
@@ -236,7 +237,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     (language: string) => {
       if (!socket || !roomId) return;
 
-      socket.emit('code:language-change', {
+      socket.emit(SOCKET_EVENTS.CODE_LANGUAGE_CHANGE, {
         roomId,
         language,
         userId: socket.user?.id,
@@ -248,7 +249,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
 
   const requestCodeSync = useCallback(() => {
     if (!socket || !roomId) return;
-    socket.emit('code:request-sync', { roomId });
+    socket.emit(SOCKET_EVENTS.CODE_REQUEST_SYNC, { roomId });
   }, [socket, roomId]);
 
   // Presenter functionality
@@ -256,7 +257,7 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     (mode: 'workflow' | 'whiteboard' | 'code') => {
       if (!socket || !roomId) return;
 
-      socket.emit('presentation:start', { roomId, mode });
+      socket.emit(SOCKET_EVENTS.PRESENTATION_START, { roomId, mode });
     },
     [socket, roomId]
   );
@@ -465,17 +466,17 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     // Request initial state sync (fallback)
     requestStateSync();
 
-    socket.on('room-data', handleRoomData);
-    socket.on('collaboration:state', handleCollaborationState);
-    socket.on('collaboration:mode-changed', handleCollaborationModeChanged);
+    socket.on(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
+    socket.on(SOCKET_EVENTS.COLLAB_STATE, handleCollaborationState);
+    socket.on(SOCKET_EVENTS.COLLAB_MODE_CHANGED, handleCollaborationModeChanged);
     socket.on(
       'collaboration:settings-changed',
       handleCollaborationSettingsChanged
     );
-    socket.on('workflow:operation', handleWorkflowOperation);
-    socket.on('whiteboard:update', handleWhiteboardUpdate);
+    socket.on(SOCKET_EVENTS.WORKFLOW_OPERATION, handleWorkflowOperation);
+    socket.on(SOCKET_EVENTS.WHITEBOARD_UPDATE, handleWhiteboardUpdate);
     // REMOVED: 'code:update' - Now using pure YJS for code synchronization
-    socket.on('code:language-change', handleCodeLanguageChange);
+    socket.on(SOCKET_EVENTS.CODE_LANGUAGE_CHANGE, handleCodeLanguageChange);
 
     // Handle state sync response
     socket.on('workflow:state-sync', (state: CollaborationState) => {
@@ -502,17 +503,17 @@ export const useCollaboration = ({ socket, roomId }: UseCollaborationProps) => {
     });
 
     return () => {
-      socket.off('room-data', handleRoomData);
-      socket.off('collaboration:state', handleCollaborationState);
-      socket.off('collaboration:mode-changed', handleCollaborationModeChanged);
+      socket.off(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
+      socket.off(SOCKET_EVENTS.COLLAB_STATE, handleCollaborationState);
+      socket.off(SOCKET_EVENTS.COLLAB_MODE_CHANGED, handleCollaborationModeChanged);
       socket.off(
         'collaboration:settings-changed',
         handleCollaborationSettingsChanged
       );
-      socket.off('workflow:operation', handleWorkflowOperation);
-      socket.off('whiteboard:update', handleWhiteboardUpdate);
+      socket.off(SOCKET_EVENTS.WORKFLOW_OPERATION, handleWorkflowOperation);
+      socket.off(SOCKET_EVENTS.WHITEBOARD_UPDATE, handleWhiteboardUpdate);
       // REMOVED: 'code:update' - Now using pure YJS for code synchronization
-      socket.off('code:language-change', handleCodeLanguageChange);
+      socket.off(SOCKET_EVENTS.CODE_LANGUAGE_CHANGE, handleCodeLanguageChange);
       socket.off('workflow:state-sync');
       socket.off('whiteboard:state-sync');
       socket.off('code:state-sync');

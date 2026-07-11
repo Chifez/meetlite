@@ -1,5 +1,4 @@
 import { Response } from 'express';
-import fs from 'fs';
 import { prisma } from '@minimeet/shared';
 // @ts-ignore
 import { PaymentService } from '../services/payment.service.js';
@@ -196,37 +195,20 @@ export class PaymentController {
 
       let event;
 
-      const debugInfo = {
-        timestamp: new Date().toISOString(),
-        sig: sig,
-        endpointSecret: endpointSecret,
-        rawBodyLength: req.rawBody ? req.rawBody.length : 'undefined',
-        rawBodyType: req.rawBody ? typeof req.rawBody : 'undefined',
-        rawBodyIsBuffer: req.rawBody ? Buffer.isBuffer(req.rawBody) : false,
-        rawBodyString: req.rawBody ? req.rawBody.toString('utf8') : 'undefined',
-        body: req.body,
-        originalUrl: req.originalUrl,
-        headers: req.headers,
-      };
-      fs.writeFileSync('c:\\Users\\c\\Desktop\\minimeet\\webhook_debug.txt', JSON.stringify(debugInfo, null, 2));
-
-      console.log('[Stripe Webhook] Received webhook. sig:', sig ? 'present' : 'missing', 'endpointSecret:', endpointSecret ? 'present' : 'missing', 'rawBody:', req.rawBody ? `${req.rawBody.length} bytes` : 'undefined', 'body:', req.body ? 'present' : 'undefined');
+      console.log('[Stripe Webhook] Received webhook. sig:', sig ? 'present' : 'missing', 'endpointSecret:', endpointSecret ? 'present' : 'missing');
       try {
         const stripe = getStripe();
         event = stripe.webhooks.constructEvent(req.rawBody || req.body, sig, endpointSecret);
       } catch (err: any) {
-        fs.appendFileSync('c:\\Users\\c\\Desktop\\minimeet\\webhook_debug.txt', `\n\nVerification Error: ${err.message}\n${err.stack}`);
         console.error('[Stripe Webhook] Signature verification failed:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
       const result = await PaymentService.handleWebhookEvent(event);
 
-      if (result.handled) {
-        res.json({ received: true });
-      } else {
-        res.status(400).json({ received: false, message: 'Event not handled' });
-      }
+      // Always respond 200 to Stripe — even for events we choose not to handle.
+      // Returning 4xx for unhandled events causes Stripe to retry for up to 3 days.
+      res.json({ received: true, handled: result.handled ?? false });
     } catch (error) {
       console.error('Webhook error:', error);
       res.status(500).json({ message: 'Server error' });

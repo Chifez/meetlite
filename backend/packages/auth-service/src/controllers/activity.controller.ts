@@ -7,16 +7,19 @@ export const getActivities = async (req: Request, res: Response): Promise<void> 
     const { organizationId } = req.params;
     const { limit = '20', offset = '0' } = req.query;
 
-    if (!organizationId || !isUuid(organizationId)) {
+    const userId = (req as any).user.id;
+    const isSystemAdmin = (req as any).user.isSystemAdmin;
+
+    // Special sentinel value 'personal' means: fetch activities with no org for this user
+    const isPersonal = organizationId === 'personal';
+
+    if (!isPersonal && (!organizationId || !isUuid(organizationId))) {
       res.status(400).json({ success: false, message: 'Invalid organization ID' });
       return;
     }
 
-    // Verify user has access to organization
-    const userId = (req as any).user.id;
-    const isSystemAdmin = (req as any).user.isSystemAdmin;
-
-    if (!isSystemAdmin) {
+    if (!isPersonal && !isSystemAdmin) {
+      // Verify user has access to organization
       const membership = await prisma.userOrganizationMembership.findUnique({
         where: {
           userId_organizationId: {
@@ -32,8 +35,18 @@ export const getActivities = async (req: Request, res: Response): Promise<void> 
       }
     }
 
+    // Build the where clause depending on personal vs org scope
+    const where: any = isPersonal
+      ? {
+          organizationId: null,
+          userId, // Only return this user's personal activities
+        }
+      : {
+          organizationId,
+        };
+
     const activities = await prisma.activity.findMany({
-      where: { organizationId },
+      where,
       orderBy: { createdAt: 'desc' },
       take: parseInt(limit as string, 10),
       skip: parseInt(offset as string, 10),
@@ -48,9 +61,7 @@ export const getActivities = async (req: Request, res: Response): Promise<void> 
       },
     });
 
-    const total = await prisma.activity.count({
-      where: { organizationId },
-    });
+    const total = await prisma.activity.count({ where });
 
     res.json({
       success: true,

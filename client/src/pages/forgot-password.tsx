@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2, MailCheck } from 'lucide-react';
 import api from '@/lib/axios';
+import { extractError } from '@/lib/api-response';
 import SEO from '@/components/seo';
 
 const forgotPasswordSchema = z.object({
@@ -41,7 +42,7 @@ const ForgotPassword = () => {
       setIsSubmitted(true);
     } catch (error: any) {
       toast.error('Could not send reset link', {
-        description: error.response?.data?.message || 'Please try again in a moment.',
+        description: extractError(error) || 'Please try again in a moment.',
       });
     } finally {
       setIsLoading(false);

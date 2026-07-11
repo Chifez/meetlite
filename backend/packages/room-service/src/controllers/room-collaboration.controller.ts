@@ -142,10 +142,30 @@ export const joinRoom = async (req: any, res: Response) => {
     data: { participants: room.participants }
   });
 
+  // Log MEETING_JOINED activity for non-host participants
+  if (role !== 'host') {
+    try {
+      await (prisma as any).activity.create({
+        data: {
+          action: 'MEETING_JOINED',
+          userId,
+          organizationId: (room as any).organizationId || null,
+          metadata: {
+            roomId,
+            createdBy: room.createdBy,
+          }
+        }
+      });
+    } catch (err) {
+      console.error('[Activity] Failed to log MEETING_JOINED', err);
+    }
+  }
+
   return ResponseHelpers.ok(res, {
     participant: newParticipant,
     collaborationMode: room.collaborationMode,
     activeTool: room.activeTool,
     settings: room.settings,
   });
+
 };

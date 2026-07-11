@@ -1,6 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
+// @ts-ignore
+import fetch from 'node-fetch';
+import FormData from 'form-data';
 import { logger } from '../utils/logger.js';
+import { RECORDING_STATUSES } from '@minimeet/shared';
+
 
 /**
  * Recording Service
@@ -78,7 +83,7 @@ export class RecordingService {
         startedAt: new Date(),
         outputPath,
         outputFileName,
-        status: 'starting',
+        status: RECORDING_STATUSES.STARTING as string,
         options: {
           quality: options.quality || '720p',
           format: options.format || 'webm',
@@ -94,7 +99,7 @@ export class RecordingService {
 
       // Store recording state
       this.activeRecordings.set(roomId, recordingState);
-      recordingState.status = 'recording';
+      recordingState.status = RECORDING_STATUSES.RECORDING as string;
 
       logger.info('Recording started', {
         recordingId,
@@ -108,11 +113,24 @@ export class RecordingService {
         success: true,
         recordingId,
         startedAt: recordingState.startedAt,
-        status: 'recording',
+        status: RECORDING_STATUSES.RECORDING,
       };
     } catch (error: any) {
       logger.error('Failed to start recording', { roomId, userId, error: error.message });
       throw error;
+    }
+  }
+
+  /**
+   * Add a participant to an active recording
+   */
+  addParticipantToRecording(roomId: string, userId: string) {
+    const recordingState = this.activeRecordings.get(roomId);
+    if (recordingState && recordingState.status === RECORDING_STATUSES.RECORDING) {
+      if (!recordingState.participants.includes(userId)) {
+        recordingState.participants.push(userId);
+        logger.info('Added late joiner to recording participants', { roomId, userId });
+      }
     }
   }
 
@@ -131,7 +149,7 @@ export class RecordingService {
       }
 
       // Update status
-      recordingState.status = 'stopping';
+      recordingState.status = RECORDING_STATUSES.STOPPING as string;
       recordingState.stoppedBy = userId;
       recordingState.stoppedAt = new Date();
       recordingState.duration = Math.round(
@@ -190,7 +208,7 @@ export class RecordingService {
     try {
       const recordingState = this.activeRecordings.get(roomId);
       
-      if (!recordingState || recordingState.status !== 'recording') {
+      if (!recordingState || recordingState.status !== RECORDING_STATUSES.RECORDING) {
         throw new Error('No active recording for room');
       }
 
@@ -218,6 +236,18 @@ export class RecordingService {
         recordingState.status = 'completed';
         recordingState.fileSize = recordingData.length;
 
+        const result = {
+          success: true,
+          recordingId,
+          filePath: recordingState.outputPath,
+          fileName: recordingState.outputFileName,
+          fileSize: recordingData.length,
+          duration: recordingState.duration,
+          roomId,
+          startedBy: recordingState.startedBy,
+          participants: recordingState.participants,
+        };
+
         logger.info('Recording finalized', {
           recordingId,
           roomId,
@@ -225,14 +255,14 @@ export class RecordingService {
           outputPath: recordingState.outputPath,
         });
 
-        return {
-          success: true,
-          recordingId,
-          filePath: recordingState.outputPath,
-          fileName: recordingState.outputFileName,
-          fileSize: recordingData.length,
-          duration: recordingState.duration,
-        };
+        this.activeRecordings.delete(roomId);
+
+        // Asynchronously upload to room-service for queued processing
+        this.uploadToRoomService(result).catch((err) =>
+          logger.error('Failed to upload recording to room-service', { recordingId, error: err.message })
+        );
+
+        return result;
       }
 
       // Fallback: Create new recording entry
@@ -242,6 +272,15 @@ export class RecordingService {
       
       await fs.writeFile(outputPath, recordingData);
 
+      const fallbackResult = {
+        success: true,
+        recordingId: recordingId || `rec_${roomId}_${Date.now()}`,
+        filePath: outputPath,
+        fileName: outputFileName,
+        fileSize: recordingData.length,
+        roomId,
+      };
+
       logger.info('Recording saved (no state)', {
         recordingId,
         roomId,
@@ -249,15 +288,65 @@ export class RecordingService {
         outputPath,
       });
 
-      return {
-        success: true,
-        recordingId: recordingId || `rec_${roomId}_${Date.now()}`,
-        filePath: outputPath,
-        fileName: outputFileName,
-        fileSize: recordingData.length,
-      };
+      // Also upload fallback to room-service
+      this.uploadToRoomService(fallbackResult).catch((err) =>
+        logger.error('Failed to upload fallback recording to room-service', { recordingId, error: err.message })
+      );
+
+      return fallbackResult;
     } catch (error: any) {
       logger.error('Failed to finalize recording', { roomId, recordingId, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Upload a finalized recording file to room-service for async queue processing.
+   */
+  private async uploadToRoomService(recordingMeta: any): Promise<void> {
+    const roomServiceUrl = process.env.ROOM_SERVICE_URL || 'http://localhost:5001';
+    const internalSecret = process.env.INTERNAL_SERVICE_SECRET || 'internal-secret';
+    const endpoint = `${roomServiceUrl}/api/v1/recordings/internal-finalize`;
+
+    try {
+      const fileBuffer = await fs.readFile(recordingMeta.filePath);
+      const form = new FormData();
+      form.append('recording', fileBuffer, {
+        filename: recordingMeta.fileName,
+        contentType: 'video/webm',
+      });
+      form.append('roomId', recordingMeta.roomId || '');
+      form.append('recordingId', recordingMeta.recordingId || '');
+      form.append('duration', String(recordingMeta.duration || 0));
+      form.append('fileSize', String(recordingMeta.fileSize || 0));
+      form.append('startedBy', recordingMeta.startedBy || '');
+      if (recordingMeta.participants) {
+        form.append('participants', JSON.stringify(recordingMeta.participants));
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          ...form.getHeaders(),
+          'x-internal-secret': internalSecret,
+        },
+        body: form,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`room-service responded with ${response.status}: ${text}`);
+      }
+
+      logger.info('Recording uploaded to room-service for queue processing', {
+        recordingId: recordingMeta.recordingId,
+        roomId: recordingMeta.roomId,
+      });
+
+      // Clean up local file after successful upload
+      await fs.unlink(recordingMeta.filePath).catch(() => {});
+    } catch (error: any) {
+      logger.error('uploadToRoomService failed', { error: error.message, recordingMeta });
       throw error;
     }
   }
@@ -276,12 +365,12 @@ export class RecordingService {
     }
 
     return {
-      isRecording: recordingState.status === 'recording',
+      isRecording: recordingState.status === RECORDING_STATUSES.RECORDING,
       recordingId: recordingState.recordingId,
       status: recordingState.status,
       startedAt: recordingState.startedAt,
       startedBy: recordingState.startedBy,
-      duration: recordingState.status === 'recording'
+      duration: recordingState.status === RECORDING_STATUSES.RECORDING
         ? Math.round((Date.now() - recordingState.startedAt.getTime()) / 1000)
         : recordingState.duration,
       options: recordingState.options,
@@ -317,7 +406,7 @@ export class RecordingService {
         status: state.status,
         startedAt: state.startedAt,
         startedBy: state.startedBy,
-        duration: state.status === 'recording'
+        duration: state.status === RECORDING_STATUSES.RECORDING
           ? Math.round((Date.now() - state.startedAt.getTime()) / 1000)
           : state.duration,
       });

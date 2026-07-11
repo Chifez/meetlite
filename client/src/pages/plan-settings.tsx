@@ -24,6 +24,7 @@ import PlanComparison from '@/components/plan/plan-comparison';
 import { PaymentService } from '@/services/payment-service';
 import { PlanSummary } from '@/types/plan';
 import { toast } from 'sonner';
+import { extractError } from '@/lib/api-response';
 
 export default function PlanSettings() {
   const [planSummary, setPlanSummary] = useState<PlanSummary | null>(null);
@@ -83,7 +84,7 @@ export default function PlanSettings() {
       setPlanSummary(mockSummary);
     } catch (err: any) {
       console.error('Failed to load plan data:', err);
-      toast.error('Failed to load plan information');
+      toast.error(extractError(err) || 'Failed to load plan information. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ export default function PlanSettings() {
       await PaymentService.redirectToCheckout(planType, 'monthly');
     } catch (error: any) {
       console.error('Upgrade error:', error);
-      toast.error(error.message || 'Failed to start upgrade process');
+      toast.error(extractError(error) || 'Failed to start upgrade process. Please try again.');
     }
   };
 

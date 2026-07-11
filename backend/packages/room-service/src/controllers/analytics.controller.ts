@@ -6,18 +6,29 @@ export class AnalyticsController {
   /**
    * GET /analytics/organization/:organizationId - Get organization analytics
    */
-  async getOrganizationAnalytics(req: Request, res: Response) {
+  async getOrganizationAnalytics(req: any, res: Response) {
     const { organizationId } = req.params;
 
     if (!organizationId) {
       throw AppError.validation('Organization ID is required');
     }
 
+    const isPersonal = organizationId === 'personal';
+    const userId = req.user?.userId;
+
+    const whereClause: any = isPersonal
+      ? {
+          organizationId: null,
+          isArchived: false,
+          participants: { some: { userId } },
+        }
+      : {
+          organizationId: organizationId as string,
+          isArchived: false,
+        };
+
     const recordings = await prisma.meetingRecording.findMany({
-      where: {
-        organizationId: organizationId as string,
-        isArchived: false,
-      }
+      where: whereClause,
     });
 
     const totalRecordings = recordings.length;

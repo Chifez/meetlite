@@ -1,4 +1,6 @@
 import { prisma } from '@minimeet/shared';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export class TeamService {
   /**
@@ -38,7 +40,7 @@ export class TeamService {
     if (
       !isOwner &&
       (!membership ||
-        (membership.role !== 'owner' && membership.role !== 'admin'))
+        (membership.role !== WORKSPACE_ROLES.OWNER && membership.role !== WORKSPACE_ROLES.ADMIN))
     ) {
       throw new Error('Only organization owners and admins can create teams');
     }
@@ -114,7 +116,7 @@ export class TeamService {
           m.status === 'active'
       );
 
-      if (!orgMembership || orgMembership.role !== 'owner') {
+      if (!orgMembership || orgMembership.role !== WORKSPACE_ROLES.OWNER) {
         const userTeamIds =
           user?.teamMemberships
             ?.filter(

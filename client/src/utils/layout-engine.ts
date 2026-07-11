@@ -368,14 +368,6 @@ export class LayoutEngine {
     secondarySpeaker: string;
     zoomScale: number;
   } {
-    const sizeClasses = {
-      full: 'w-full h-full',
-      large: 'w-full h-full', // Use full height for better space utilization
-      medium: 'w-full h-full', // Use full height for better space utilization
-      small: 'w-full h-full', // Use full height for better space utilization
-      thumbnail: 'w-full h-full', // Make thumbnails fluid too
-    };
-
     // Enhanced transition classes for Google Meet-style fluidity
     const transitionClasses =
       'transition-all duration-500 ease-out transform-gpu';
@@ -392,17 +384,14 @@ export class LayoutEngine {
       grid: `grid ${config.gap} ${
         config.scrollable ? 'overflow-y-auto scrollbar-hide' : ''
       } place-items-stretch min-h-full max-w-5xl mx-auto ${transitionClasses}`,
-      participant: `relative ${config.aspectRatio} ${
-        sizeClasses[config.secondarySpeakerSize]
-      } min-w-0 min-h-0 ${participantTransitionClasses} rounded-lg overflow-hidden shadow-lg hover:shadow-xl`,
-      mainSpeaker: `relative ${config.aspectRatio} ${
-        sizeClasses[config.mainSpeakerSize]
-      } min-w-0 min-h-0 ${participantTransitionClasses} rounded-lg overflow-hidden shadow-lg hover:shadow-xl`,
-      secondarySpeaker: `relative ${config.aspectRatio} ${
-        sizeClasses[config.secondarySpeakerSize]
-      } min-w-0 min-h-0 ${participantTransitionClasses} rounded-lg overflow-hidden shadow-lg hover:shadow-xl`,
+      // NOTE: No aspect-ratio class on participant cards – the grid cell provides stable height via fr units.
+      // Adding aspect-ratio here fights with the grid and causes the "unfolding" height transition on join.
+      participant: `relative w-full h-full min-w-0 min-h-0 ${participantTransitionClasses} rounded-lg overflow-hidden shadow-lg hover:shadow-xl`,
+      mainSpeaker: `relative w-full h-full min-w-0 min-h-0 ${participantTransitionClasses} rounded-lg overflow-hidden shadow-lg hover:shadow-xl`,
+      secondarySpeaker: `relative w-full h-full min-w-0 min-h-0 ${participantTransitionClasses} rounded-lg overflow-hidden shadow-lg hover:shadow-xl`,
       zoomScale: config.zoomScale, // Include zoom scale for CSS transform
     };
+
   }
 
   /**

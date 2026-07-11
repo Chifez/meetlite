@@ -6,7 +6,7 @@ export interface Activity {
   id: string;
   action: string;
   userId?: string;
-  organizationId: string;
+  organizationId: string | null;
   metadata: any;
   createdAt: string;
   user?: {
@@ -16,15 +16,20 @@ export interface Activity {
   };
 }
 
+/**
+ * Fetches recent activity for the given organization, or personal activities
+ * when no organizationId is provided (uses the 'personal' sentinel).
+ */
 export function useActivities(organizationId?: string) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchActivities = useCallback(async () => {
-    if (!organizationId) return;
+    // Use 'personal' as sentinel when there's no org
+    const targetId = organizationId || 'personal';
     try {
       setLoading(true);
-      const res = await api.get(`/api/activities/${organizationId}`);
+      const res = await api.get(`/api/activities/${targetId}`);
       const result = extractData<{ activities: Activity[] }>(res);
       setActivities(result.activities || []);
     } catch (error) {

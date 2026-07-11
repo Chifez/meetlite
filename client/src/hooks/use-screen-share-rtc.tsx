@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
+import { SOCKET_EVENTS } from '@/lib/constants';
+
 
 // Configuration for WebRTC
 const ICE_SERVERS = [
@@ -308,7 +310,7 @@ export const useScreenShareRTC = (
     socket.on('screen-share-call', handleScreenShareCall);
     socket.on('screen-share-answer', handleScreenShareAnswer);
     socket.on('screen-share-candidate', handleScreenShareCandidate);
-    socket.on('user-left', handleUserLeft);
+    socket.on(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
     socket.on('initiate-screen-connection', ({ targetUserId, isInitiator }) => {
       initiateScreenConnection(targetUserId, isInitiator);
     });
@@ -318,7 +320,7 @@ export const useScreenShareRTC = (
       socket.off('screen-share-call', handleScreenShareCall);
       socket.off('screen-share-answer', handleScreenShareAnswer);
       socket.off('screen-share-candidate', handleScreenShareCandidate);
-      socket.off('user-left', handleUserLeft);
+      socket.off(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
       socket.off('initiate-screen-connection');
 
       // Clean up all connections

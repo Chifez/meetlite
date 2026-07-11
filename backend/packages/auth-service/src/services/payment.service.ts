@@ -422,33 +422,60 @@ export class PaymentService {
         endDate.setFullYear(endDate.getFullYear() + 1);
       }
 
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          planType: planType as any,
-          planStatus: 'active',
-          planStartDate: new Date(),
-          planEndDate: endDate,
-          stripePaymentIntentId: paymentIntent.id,
-          tokenVersion: { increment: 1 },
-        }
-      });
+      await prisma.$transaction(async (tx) => {
+        // Idempotency check — prevents Stripe retries from overwriting plan dates
+        const existingLog = await tx.auditLog.findFirst({
+          where: {
+            action: 'PAYMENT_INTENT_SUCCEEDED',
+            resourceId: paymentIntent.id,
+          },
+        });
 
-      if (user) {
-        await prisma.organization.updateMany({
-          where: { ownerId: userId },
+        if (existingLog) {
+          console.log(`[Stripe Webhook] Idempotent trigger for paymentIntent ${paymentIntent.id}, skipping`);
+          return;
+        }
+
+        // Record idempotency
+        await tx.auditLog.create({
+          data: {
+            category: 'BILLING',
+            action: 'PAYMENT_INTENT_SUCCEEDED',
+            resourceType: 'PaymentIntent',
+            resourceId: paymentIntent.id,
+            userId: userId,
+            status: 'success',
+            details: JSON.stringify({ planType, duration }),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          },
+        });
+
+        const user = await tx.user.update({
+          where: { id: userId },
           data: {
             planType: planType as any,
             planStatus: 'active',
             planStartDate: new Date(),
             planEndDate: endDate,
+            stripePaymentIntentId: paymentIntent.id,
+            tokenVersion: { increment: 1 },
           }
         });
 
-        return { handled: true, userId, planType };
-      }
+        if (user) {
+          await tx.organization.updateMany({
+            where: { ownerId: userId },
+            data: {
+              planType: planType as any,
+              planStatus: 'active',
+              planStartDate: new Date(),
+              planEndDate: endDate,
+            }
+          });
+        }
+      });
 
-      return { handled: false };
+      return { handled: true, userId, planType };
     } catch (error) {
       console.error('Error handling payment success:', error);
       throw error;
@@ -815,7 +842,7 @@ export class PaymentService {
    */
   static async handleInvoicePaymentFailed(invoice: any) {
     try {
-      const { userId } = invoice.metadata;
+      const { userId } = invoice.metadata || {};
 
       let user = null;
 
@@ -839,6 +866,27 @@ export class PaymentService {
             tokenVersion: { increment: 1 },
           }
         });
+
+        // Notify the user their renewal failed so they can update payment method
+        try {
+          const emailQueue = new EmailQueue();
+          await emailQueue.addEmailJob(
+            'payment_failure',
+            {
+              userEmail: user.email,
+              userName: user.name || user.email,
+              planType: user.planType || 'pro',
+              errorMessage: invoice.last_finalization_error?.message ||
+                'Your subscription renewal could not be processed. Please update your payment method.',
+            },
+            {
+              priority: 1,
+              jobId: `invoice-failed-${invoice.id}`,
+            }
+          );
+        } catch (emailError) {
+          console.error('Failed to queue invoice payment failure email:', emailError);
+        }
       }
 
       return { handled: true };

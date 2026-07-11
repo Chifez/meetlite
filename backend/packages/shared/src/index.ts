@@ -5,6 +5,7 @@ export * from './prisma.js';
 
 export * from './config/plans.js';
 export * from './constants/error-codes.js';
+export * from './constants/index.js';
 export { AppError } from './utils/app-error.js';
 export { PlanValidationService } from './services/plan-validation.service.js';
 export { StorageService, s3Client } from './services/storage.service.js';

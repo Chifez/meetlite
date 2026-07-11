@@ -15,9 +15,11 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Users, GraduationCap, Briefcase, Home, Loader2, Video } from 'lucide-react';
+import { Users, GraduationCap, Briefcase, Home, Loader2 } from 'lucide-react';
 import SEO from '@/components/seo';
+import Logo from '@/components/logo';
 import api from '@/lib/axios';
+import { extractError } from '@/lib/api-response';
 import { useAuth } from '@/hooks/use-auth';
 
 const onboardingSchema = z.object({
@@ -48,7 +50,7 @@ const Onboarding = () => {
       toast.success('Welcome to MeetLite!');
       navigate('/dashboard');
     } catch (err) {
-      toast.error('Something went wrong. Please try again.');
+      toast.error(extractError(err) || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +79,7 @@ const Onboarding = () => {
       value: 'business',
       label: 'Business',
       icon: Briefcase,
-      description: 'Enterprise calls and presentations',
+      description: 'Client calls and presentations',
     },
   ];
 
@@ -87,22 +89,17 @@ const Onboarding = () => {
         title="Welcome to MeetLite"
         description="Let's get your account set up."
       />
-      
+
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
         {/* Ambient glow */}
         <div className="absolute top-[-20%] left-[20%] w-[700px] h-[700px] rounded-full bg-primary/5 blur-[140px] pointer-events-none" aria-hidden="true" />
-        
+
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-primary">
-              <Video className="w-6 h-6" />
+            <div className="flex justify-center mb-2">
+              <Logo size="base" />
             </div>
-            <h1 className="text-[1.5rem] font-bold tracking-tight text-foreground">
-              Welcome to MeetLite
-            </h1>
-            <p className="text-muted-foreground mt-2 text-[0.875rem]">
-              Let's personalize your experience.
-            </p>
+
           </div>
 
           <div className="bg-card border border-border/50 shadow-sm rounded-2xl p-6 md:p-8">
@@ -111,6 +108,14 @@ const Onboarding = () => {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
+                <div>
+                  <p className="text-lg font-bold tracking-tight text-foreground">
+                    Welcome to MeetLite
+                  </p>
+                  <p className="text-muted-foreground text-[0.875rem]">
+                    Let's personalize your experience.
+                  </p>
+                </div>
                 <FormField
                   control={form.control}
                   name="name"
@@ -118,10 +123,10 @@ const Onboarding = () => {
                     <FormItem>
                       <FormLabel className="text-foreground text-[0.875rem]">Full name</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="Enter your name" 
+                        <Input
+                          placeholder="Enter your name"
                           className="bg-background border-border/50 focus-visible:ring-primary/20 h-11"
-                          {...field} 
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
@@ -155,11 +160,10 @@ const Onboarding = () => {
                                 </FormControl>
                                 <FormLabel
                                   htmlFor={option.value}
-                                  className={`flex flex-col items-center justify-between rounded-xl border p-4 text-center cursor-pointer transition-all duration-200 ${
-                                    isChecked
-                                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                                      : 'border-border/60 bg-card hover:border-primary/40 hover:bg-accent/30'
-                                  }`}
+                                  className={`flex flex-col items-center justify-between rounded-xl border px-2 py-4 text-center cursor-pointer transition-all duration-200 ${isChecked
+                                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                    : 'border-border/60 bg-card hover:border-primary/40 hover:bg-accent/30'
+                                    }`}
                                 >
                                   <Icon className={`mb-2.5 h-5 w-5 ${isChecked ? 'text-primary' : 'text-muted-foreground'}`} />
                                   <div>
@@ -182,8 +186,7 @@ const Onboarding = () => {
                 <div className="pt-2">
                   <Button
                     type="submit"
-                    className="w-full rounded-xl h-12"
-                    size="lg"
+                    className="w-full rounded-xl"
                     disabled={isLoading}
                   >
                     {isLoading ? (

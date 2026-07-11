@@ -1,4 +1,6 @@
 import { getEmailTemplate } from './email-wrapper.js';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export const getTeamInviteEmailTemplate = (
   teamName: string,
@@ -9,7 +11,7 @@ export const getTeamInviteEmailTemplate = (
   message?: string,
   role = 'member'
 ) => {
-  const roleText = role === 'owner' ? 'as an owner' : 'as a member';
+  const roleText = role === WORKSPACE_ROLES.OWNER ? 'as an owner' : 'as a member';
 
   const contentStyles = `
     <style>

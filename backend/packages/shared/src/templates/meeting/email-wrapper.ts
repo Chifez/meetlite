@@ -30,7 +30,7 @@ export const getEmailTemplate = ({
           margin: 0;
           padding: 0;
           font-family: 'Segoe UI', Arial, sans-serif;
-          background: #f5f3ff;
+          background: #F7F6F2;
           min-height: 100vh;
           display: flex;
           align-items: center;
@@ -42,11 +42,11 @@ export const getEmailTemplate = ({
           margin: 20px;
           background: #fff;
           border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(160, 120, 255, 0.2);
+          box-shadow: 0 8px 32px rgba(61, 90, 128, 0.12);
           overflow: hidden;
         }
         .header-padding {
-          background: #7c3aed;
+          background: #3D5A80;
           padding: 24px 20px 16px 20px;
           text-align: center;
         }
@@ -70,17 +70,28 @@ export const getEmailTemplate = ({
           letter-spacing: -0.5px;
         }
         .subtitle-size {
-          color: #ede9fe;
+          color: #C8D8E8;
           font-size: 0.9rem;
           margin: 4px 0 0 0;
         }
+        .cta-button {
+          display: inline-block;
+          background: #3D5A80;
+          color: #ffffff !important;
+          text-decoration: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          margin: 8px 0;
+        }
         .bottom-footer {
-          background: #ede9fe;
-          color: #7c3aed;
+          background: #E4E1D8;
+          color: #6B6B63;
           text-align: center;
           padding: 12px 0;
           font-size: 0.8rem;
-          border-top: 1px solid #e0e7ff;
+          border-top: 1px solid #D0CDC4;
         }
         @media only screen and (max-width: 480px) {
           .email-container {

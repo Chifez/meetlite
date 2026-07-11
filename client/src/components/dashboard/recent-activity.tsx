@@ -1,17 +1,21 @@
-import { Video, Calendar, Users, Briefcase } from 'lucide-react';
+import { Video, Calendar, Users, Briefcase, LogIn } from 'lucide-react';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useActivities, Activity } from '@/hooks/use-activities';
 import { formatDistanceToNow } from 'date-fns';
+import { ACTIVITY_TYPES } from '@/lib/constants';
+
 
 function getActivityIcon(action: string) {
   switch (action) {
-    case 'MEETING_SCHEDULED':
+    case ACTIVITY_TYPES.MEETING_SCHEDULED:
       return <Calendar className="w-4 h-4 text-primary" />;
-    case 'QUICK_MEETING_STARTED':
+    case ACTIVITY_TYPES.QUICK_MEETING_STARTED:
       return <Video className="w-4 h-4 text-emerald-500" />;
-    case 'MEMBER_INVITED':
-    case 'MEMBER_JOINED':
-    case 'MEMBER_REMOVED':
+    case ACTIVITY_TYPES.MEETING_JOINED:
+      return <LogIn className="w-4 h-4 text-sky-500" />;
+    case ACTIVITY_TYPES.MEMBER_INVITED:
+    case ACTIVITY_TYPES.MEMBER_JOINED:
+    case ACTIVITY_TYPES.MEMBER_REMOVED:
       return <Users className="w-4 h-4 text-blue-500" />;
     default:
       return <Briefcase className="w-4 h-4 text-ink-muted" />;
@@ -21,20 +25,26 @@ function getActivityIcon(action: string) {
 function getActivityText(activity: Activity) {
   const actor = activity.user?.name || activity.user?.email || 'Someone';
   switch (activity.action) {
-    case 'MEETING_SCHEDULED':
+    case ACTIVITY_TYPES.MEETING_SCHEDULED:
       return (
         <span>
           <strong className="text-ink font-semibold">{actor}</strong> scheduled a meeting:{' '}
           <span className="text-ink-muted">{activity.metadata?.title || 'Untitled'}</span>
         </span>
       );
-    case 'QUICK_MEETING_STARTED':
+    case ACTIVITY_TYPES.QUICK_MEETING_STARTED:
       return (
         <span>
-          <strong className="text-ink font-semibold">{actor}</strong> started a quick meeting
+          <strong className="text-ink font-semibold">{actor}</strong> started an instant meeting
         </span>
       );
-    case 'MEMBER_INVITED':
+    case ACTIVITY_TYPES.MEETING_JOINED:
+      return (
+        <span>
+          <strong className="text-ink font-semibold">{actor}</strong> joined a meeting
+        </span>
+      );
+    case ACTIVITY_TYPES.MEMBER_INVITED:
       return (
         <span>
           <strong className="text-ink font-semibold">{actor}</strong> invited{' '}

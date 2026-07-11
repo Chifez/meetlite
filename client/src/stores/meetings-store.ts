@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Meeting } from '@/lib/types';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { extractData } from '@/lib/api-response';
+import { extractData, extractError } from '@/lib/api-response';
 
 interface MeetingsState {
   // State
@@ -97,7 +97,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
         set({ meetings: data });
       }
     } catch (error) {
-      toast.error('Failed to load meetings');
+      toast.error(extractError(error) || 'Unable to load meetings. Please try again.');
       console.error('Fetch meetings error:', error);
     } finally {
       set({ loading: false, lastFetched: now });
@@ -117,7 +117,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       toast.success('Meeting created successfully!');
       return result.meetingId;
     } catch (error) {
-      toast.error('Failed to create meeting');
+      toast.error(extractError(error) || 'Failed to create meeting. Please try again.');
       console.error('Create meeting error:', error);
       return null;
     }
@@ -136,7 +136,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
       toast.success('Meeting deleted successfully');
     } catch (error) {
-      toast.error('Failed to delete meeting');
+      toast.error(extractError(error) || 'Failed to delete meeting. Please try again.');
       console.error('Delete meeting error:', error);
       throw error;
     } finally {
@@ -160,7 +160,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
       toast.success('Google Calendar event deleted successfully');
     } catch (error) {
-      toast.error('Failed to delete Google Calendar event');
+      toast.error(extractError(error) || 'Failed to delete the Google Calendar event. Please try again.');
       console.error('Delete Google Calendar event error:', error);
       throw error;
     } finally {
@@ -205,7 +205,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
 
       toast.success('Meeting completed successfully');
     } catch (error) {
-      toast.error('Failed to complete meeting');
+      toast.error(extractError(error) || 'Failed to complete meeting. Please try again.');
       console.error('Complete meeting error:', error);
       throw error;
     }
@@ -275,7 +275,7 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to refresh Google Calendar events:', error);
-      toast.error('Failed to refresh Google Calendar events');
+      toast.error(extractError(error) || 'Failed to refresh Google Calendar events. Check your calendar connection.');
     }
   },
 

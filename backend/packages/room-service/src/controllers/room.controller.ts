@@ -10,6 +10,8 @@ import {
   joinRoom,
 } from './room-collaboration.controller.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
+import { ACTIVITY_TYPES } from '@minimeet/shared';
+
 
 export class RoomController {
   /**
@@ -44,22 +46,22 @@ export class RoomController {
 
       await prisma.room.create({ data: roomData });
 
-      if (orgId) {
-        try {
-          await (prisma as any).activity.create({
-            data: {
-              action: 'QUICK_MEETING_STARTED',
-              userId: userId,
-              organizationId: orgId,
-              metadata: {
-                roomId
-              }
+      // Log activity for both org and personal workspace instant meetings
+      try {
+        await (prisma as any).activity.create({
+          data: {
+            action: ACTIVITY_TYPES.QUICK_MEETING_STARTED,
+            userId: userId,
+            organizationId: orgId || null,
+            metadata: {
+              roomId
             }
-          });
-        } catch (err) {
-          console.error('[Activity] Failed to log QUICK_MEETING_STARTED', err);
-        }
+          }
+        });
+      } catch (err) {
+        console.error('[Activity] Failed to log QUICK_MEETING_STARTED', err);
       }
+
 
       return ResponseHelpers.created(
         res,

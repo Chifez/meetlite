@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
 import { toast } from 'sonner';
+import { extractError } from '@/lib/api-response';
 import SEO from '@/components/seo';
 import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import api from '@/lib/axios';
@@ -77,7 +78,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error scheduling on calendar:', error);
-      toast.error('Failed to schedule meeting on Google Calendar');
+      toast.error(extractError(error) || 'Failed to schedule meeting on Google Calendar');
     }
   };
 
@@ -90,7 +91,7 @@ const Dashboard = () => {
       navigate(`/lobby/${roomId}`);
     } catch (error) {
       toast.error('Error', {
-        description: 'Failed to create room. Please try again.',
+        description: extractError(error) || 'Failed to create room. Please try again.',
       });
     } finally {
       setGlobalLoading(false);

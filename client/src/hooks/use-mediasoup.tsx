@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Socket } from 'socket.io-client';
 import * as mediasoupClient from 'mediasoup-client';
+import { SOCKET_EVENTS } from '@/lib/constants';
+
 
 interface MediaSoupPeer {
   id: string;
@@ -126,13 +128,13 @@ export const useMediaSoup = (
         iceCandidates: any[];
         dtlsParameters: any;
       }>((resolve, reject) => {
-        socket.emit('mediasoup:create-transport', {
+        socket.emit(SOCKET_EVENTS.MEDIASOUP_CREATE_TRANSPORT, {
           roomId,
           direction: 'send',
         });
 
         socket.once('transport-created', resolve);
-        socket.once('error', reject);
+        socket.once(SOCKET_EVENTS.ERROR, reject);
       });
 
       const sendTransport = device.createSendTransport({
@@ -144,11 +146,11 @@ export const useMediaSoup = (
 
       // Handle transport connection
       sendTransport.on(
-        'connect',
+        SOCKET_EVENTS.CONNECT,
         async ({ dtlsParameters }, callback, errback) => {
           try {
             await new Promise<void>((resolve, reject) => {
-              socket.emit('mediasoup:connect-transport', {
+              socket.emit(SOCKET_EVENTS.MEDIASOUP_CONNECT_TRANSPORT, {
                 roomId,
                 transportId: transportData.id,
                 dtlsParameters,
@@ -158,7 +160,7 @@ export const useMediaSoup = (
                 callback();
                 resolve();
               });
-              socket.once('error', reject);
+              socket.once(SOCKET_EVENTS.ERROR, reject);
             });
           } catch (error) {
             errback(error as Error);
@@ -173,7 +175,7 @@ export const useMediaSoup = (
           try {
             const producerData = await new Promise<{ id: string }>(
               (resolve, reject) => {
-                socket.emit('mediasoup:create-producer', {
+                socket.emit(SOCKET_EVENTS.MEDIASOUP_CREATE_PRODUCER, {
                   roomId,
                   transportId: transportData.id,
                   rtpParameters,
@@ -182,7 +184,7 @@ export const useMediaSoup = (
                 });
 
                 socket.once('producer-created', resolve);
-                socket.once('error', reject);
+                socket.once(SOCKET_EVENTS.ERROR, reject);
               }
             );
 
@@ -211,13 +213,13 @@ export const useMediaSoup = (
         iceCandidates: any[];
         dtlsParameters: any;
       }>((resolve, reject) => {
-        socket.emit('mediasoup:create-transport', {
+        socket.emit(SOCKET_EVENTS.MEDIASOUP_CREATE_TRANSPORT, {
           roomId,
           direction: 'recv',
         });
 
         socket.once('transport-created', resolve);
-        socket.once('error', reject);
+        socket.once(SOCKET_EVENTS.ERROR, reject);
       });
 
       const recvTransport = device.createRecvTransport({
@@ -229,11 +231,11 @@ export const useMediaSoup = (
 
       // Handle transport connection
       recvTransport.on(
-        'connect',
+        SOCKET_EVENTS.CONNECT,
         async ({ dtlsParameters }, callback, errback) => {
           try {
             await new Promise<void>((resolve, reject) => {
-              socket.emit('mediasoup:connect-transport', {
+              socket.emit(SOCKET_EVENTS.MEDIASOUP_CONNECT_TRANSPORT, {
                 roomId,
                 transportId: transportData.id,
                 dtlsParameters,
@@ -243,7 +245,7 @@ export const useMediaSoup = (
                 callback();
                 resolve();
               });
-              socket.once('error', reject);
+              socket.once(SOCKET_EVENTS.ERROR, reject);
             });
           } catch (error) {
             errback(error as Error);
@@ -469,7 +471,7 @@ export const useMediaSoup = (
         }
 
         // Request consumer from server
-        socket.emit('mediasoup:create-consumer', {
+        socket.emit(SOCKET_EVENTS.MEDIASOUP_CREATE_CONSUMER, {
           roomId,
           transportId: recvTransport.id,
           producerId,
@@ -482,7 +484,7 @@ export const useMediaSoup = (
             reject(new Error('Consumer creation timeout'));
           }, 10000);
 
-          socket.once('consumer-created', (data) => {
+          socket.once(SOCKET_EVENTS.CONSUMER_CREATED, (data) => {
             clearTimeout(timeout);
             resolve(data);
           });
@@ -651,8 +653,8 @@ export const useMediaSoup = (
             if (data.producerId === producerId) {
               if (!resolved) {
                 resolved = true;
-                socket.off('consumer-created', handleConsumerCreated);
-                socket.off('error', handleError);
+                socket.off(SOCKET_EVENTS.CONSUMER_CREATED, handleConsumerCreated);
+                socket.off(SOCKET_EVENTS.ERROR, handleError);
                 clearTimeout(timeoutId);
                 resolve(data);
               }
@@ -662,8 +664,8 @@ export const useMediaSoup = (
           const handleError = (error: any) => {
             if (!resolved) {
               resolved = true;
-              socket.off('consumer-created', handleConsumerCreated);
-              socket.off('error', handleError);
+              socket.off(SOCKET_EVENTS.CONSUMER_CREATED, handleConsumerCreated);
+              socket.off(SOCKET_EVENTS.ERROR, handleError);
               clearTimeout(timeoutId);
               reject(error);
             }
@@ -673,8 +675,8 @@ export const useMediaSoup = (
           const timeoutId = setTimeout(() => {
             if (!resolved) {
               resolved = true;
-              socket.off('consumer-created', handleConsumerCreated);
-              socket.off('error', handleError);
+              socket.off(SOCKET_EVENTS.CONSUMER_CREATED, handleConsumerCreated);
+              socket.off(SOCKET_EVENTS.ERROR, handleError);
               reject(
                 new Error(
                   `Timeout waiting for consumer-created for producer ${producerId}`
@@ -683,10 +685,10 @@ export const useMediaSoup = (
             }
           }, 10000);
 
-          socket.on('consumer-created', handleConsumerCreated);
-          socket.on('error', handleError);
+          socket.on(SOCKET_EVENTS.CONSUMER_CREATED, handleConsumerCreated);
+          socket.on(SOCKET_EVENTS.ERROR, handleError);
 
-          socket.emit('mediasoup:create-consumer', {
+          socket.emit(SOCKET_EVENTS.MEDIASOUP_CREATE_CONSUMER, {
             roomId,
             transportId: recvTransport!.id,
             producerId,
@@ -984,27 +986,27 @@ export const useMediaSoup = (
     };
 
     // Register event listeners
-    socket.on('room-data', handleRoomData);
-    socket.on('new-producer', handleNewProducer);
-    socket.on('user-joined', handleUserJoined);
-    socket.on('participant-joined', handleUserJoined); // CRITICAL FIX: Also handle participant-joined
-    socket.on('user-left', handleUserLeft);
-    socket.on('media-state-update', handleMediaStateUpdate);
-    socket.on('screen-share-started', handleScreenShareStarted);
-    socket.on('screen-share-stopped', handleScreenShareStopped);
-    socket.on('error', handleError);
+    socket.on(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
+    socket.on(SOCKET_EVENTS.NEW_PRODUCER, handleNewProducer);
+    socket.on(SOCKET_EVENTS.USER_JOINED, handleUserJoined);
+    socket.on(SOCKET_EVENTS.PARTICIPANT_JOINED, handleUserJoined); // CRITICAL FIX: Also handle participant-joined
+    socket.on(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
+    socket.on(SOCKET_EVENTS.MEDIA_STATE_UPDATE, handleMediaStateUpdate);
+    socket.on(SOCKET_EVENTS.SCREEN_SHARE_STARTED, handleScreenShareStarted);
+    socket.on(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, handleScreenShareStopped);
+    socket.on(SOCKET_EVENTS.ERROR, handleError);
 
     // Cleanup
     return () => {
-      socket.off('room-data', handleRoomData);
-      socket.off('new-producer', handleNewProducer);
-      socket.off('user-joined', handleUserJoined);
-      socket.off('participant-joined', handleUserJoined);
-      socket.off('user-left', handleUserLeft);
-      socket.off('media-state-update', handleMediaStateUpdate);
-      socket.off('screen-share-started', handleScreenShareStarted);
-      socket.off('screen-share-stopped', handleScreenShareStopped);
-      socket.off('error', handleError);
+      socket.off(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
+      socket.off(SOCKET_EVENTS.NEW_PRODUCER, handleNewProducer);
+      socket.off(SOCKET_EVENTS.USER_JOINED, handleUserJoined);
+      socket.off(SOCKET_EVENTS.PARTICIPANT_JOINED, handleUserJoined);
+      socket.off(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
+      socket.off(SOCKET_EVENTS.MEDIA_STATE_UPDATE, handleMediaStateUpdate);
+      socket.off(SOCKET_EVENTS.SCREEN_SHARE_STARTED, handleScreenShareStarted);
+      socket.off(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, handleScreenShareStopped);
+      socket.off(SOCKET_EVENTS.ERROR, handleError);
 
       // Cleanup all peers
       stateRef.current.peers.forEach((peer) => {

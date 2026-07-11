@@ -349,27 +349,27 @@ export class PlanValidationService {
       const today = new Date();
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
-      await prisma.user.updateMany({
-        where: { usageLastInvitationDate: { lt: yesterday } },
+      await prisma.userUsage.updateMany({
+        where: { lastInvitationDate: { lt: yesterday } },
         data: {
-          usageInvitationsSentToday: 0,
-          usageLastInvitationDate: today,
+          invitationsSentToday: 0,
+          lastInvitationDate: today,
         }
       });
 
-      await prisma.user.updateMany({
-        where: { usageLastMeetingDate: { lt: yesterday } },
+      await prisma.userUsage.updateMany({
+        where: { lastMeetingDate: { lt: yesterday } },
         data: {
-          usageMeetingsCreatedToday: 0,
-          usageLastMeetingDate: today,
+          meetingsCreatedToday: 0,
+          lastMeetingDate: today,
         }
       });
 
-      await prisma.user.updateMany({
-        where: { usageLastApiCallDate: { lt: yesterday } },
+      await prisma.userUsage.updateMany({
+        where: { lastApiCallDate: { lt: yesterday } },
         data: {
-          usageApiCallsToday: 0,
-          usageLastApiCallDate: today,
+          apiCallsToday: 0,
+          lastApiCallDate: today,
         }
       });
     } catch (error) {
@@ -386,12 +386,12 @@ export class PlanValidationService {
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      await prisma.user.updateMany({
-        where: { usageLastMonthlyReset: { lt: startOfMonth } },
+      await prisma.userUsage.updateMany({
+        where: { lastMonthlyReset: { lt: startOfMonth } },
         data: {
-          usageInvitationsSentThisMonth: 0,
-          usageMeetingsCreatedThisMonth: 0,
-          usageLastMonthlyReset: today,
+          invitationsSentThisMonth: 0,
+          meetingsCreatedThisMonth: 0,
+          lastMonthlyReset: today,
         }
       });
     } catch (error) {

@@ -24,6 +24,8 @@ import {
   convertCalendarEventToMeeting,
 } from '../services/calendar-cache.service.js';
 import { prisma } from '@minimeet/shared';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export class MeetingController {
   /**
@@ -116,7 +118,7 @@ export class MeetingController {
 
       const isOrgOwnerOrAdmin =
         orgMembership &&
-        (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+        (orgMembership.role === WORKSPACE_ROLES.OWNER || orgMembership.role === WORKSPACE_ROLES.ADMIN);
 
       const isTeamMember = userDoc.teamMemberships?.some(
         (m: any) =>
@@ -372,7 +374,7 @@ export class MeetingController {
         );
         const isOrgOwnerOrAdmin =
           orgMembership &&
-          (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+          (orgMembership.role === WORKSPACE_ROLES.OWNER || orgMembership.role === WORKSPACE_ROLES.ADMIN);
 
         if (isOrgOwnerOrAdmin) {
           return true;

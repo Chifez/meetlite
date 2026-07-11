@@ -55,6 +55,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import api from '@/lib/axios';
+import { extractError } from '@/lib/api-response';
 import { toast } from 'sonner';
 
 interface Inquiry {
@@ -146,7 +147,7 @@ export default function AdminInquiries() {
       setPagination(response.data.pagination);
     } catch (error) {
       console.error('Failed to load inquiries:', error);
-      toast.error('Failed to load inquiries');
+      toast.error(extractError(error) || 'Failed to load inquiries');
     } finally {
       setIsLoading(false);
     }
@@ -201,7 +202,7 @@ export default function AdminInquiries() {
       }
     } catch (error) {
       console.error('Failed to update status:', error);
-      toast.error('Failed to update status');
+      toast.error(extractError(error) || 'Failed to update status');
     } finally {
       setIsSaving(false);
     }
@@ -225,7 +226,7 @@ export default function AdminInquiries() {
       }
     } catch (error) {
       console.error('Failed to update priority:', error);
-      toast.error('Failed to update priority');
+      toast.error(extractError(error) || 'Failed to update priority');
     } finally {
       setIsSaving(false);
     }
@@ -245,7 +246,7 @@ export default function AdminInquiries() {
       toast.success('Note added');
     } catch (error) {
       console.error('Failed to add note:', error);
-      toast.error('Failed to add note');
+      toast.error(extractError(error) || 'Failed to add note');
     } finally {
       setIsSaving(false);
     }

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { extractError } from '@/lib/api-response';
 import { Trash2, Building, Users, AlertCircle, Loader2 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SEO from '@/components/seo';
@@ -86,7 +87,7 @@ export default function OrganizationSettingsPage() {
         });
       } catch (error) {
         console.error('Failed to load organization:', error);
-        toast.error('Failed to load organization details');
+        toast.error(extractError(error) || 'Failed to load organization details');
         navigate('/dashboard');
       }
     };
@@ -111,7 +112,7 @@ export default function OrganizationSettingsPage() {
     } catch (error: any) {
       console.error('Failed to update workspace:', error);
       toast.error(
-        error.response?.data?.message || 'Failed to update workspace'
+        extractError(error) || 'Failed to update workspace'
       );
     } finally {
       setLoading(false);

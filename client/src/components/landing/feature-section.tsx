@@ -1,116 +1,196 @@
-import { MousePointer2, Bot, Calendar, Sparkles } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Share2, Workflow } from 'lucide-react';
 
-export const FeatureSection = () => {
-  return (
-    <section className="py-24 bg-background border-b border-border">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-32">
+const EdgeRoutingGraphic = () => (
+  <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.5" className="w-32 h-32 text-foreground/40 dark:text-foreground/20">
+    {Array.from({ length: 15 }).map((_, i) => (
+      <ellipse key={i} cx="50" cy={25 + i * 3.5} rx="35" ry="12" />
+    ))}
+  </svg>
+);
+
+const VideoQualityGraphic = () => (
+  <svg viewBox="0 0 100 100" fill="currentColor" className="w-32 h-32 text-foreground/40 dark:text-foreground/20">
+    {Array.from({ length: 16 }).map((_, i) => {
+      return Array.from({ length: 8 }).map((_, j) => {
+        const angle = (i * (360 / 16)) * (Math.PI / 180);
+        const radius = 10 + j * 4;
+        const cx = 50 + Math.cos(angle) * radius;
+        const cy = 50 + Math.sin(angle) * radius;
+        return <circle key={`${i}-${j}`} cx={cx} cy={cy} r={1.5 - (j * 0.15)} />;
+      });
+    })}
+  </svg>
+);
+
+const DotGridGraphic = () => (
+  <svg viewBox="0 0 100 100" fill="currentColor" className="w-48 h-48 text-foreground/30 dark:text-foreground/20">
+    {Array.from({ length: 12 }).map((_, i) => {
+      return Array.from({ length: 12 }).map((_, j) => {
+        return <circle key={`${i}-${j}`} cx={4 + i * 8.5} cy={4 + j * 8.5} r="1.2" />;
+      });
+    })}
+  </svg>
+);
+
+const NoiseCancellationGraphic = () => (
+  <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.5" className="w-40 h-40 text-foreground/40 dark:text-foreground/20">
+    <g>
+      <path d="M20,50 Q40,10 60,50 T100,50" />
+      <path d="M10,40 Q30,80 50,40 T90,40" />
+      <path d="M30,60 Q50,20 70,60 T110,60" />
+      <path d="M15,55 Q35,15 55,55 T95,55" />
+      <path d="M25,45 Q45,85 65,45 T105,45" />
+      <path d="M0,50 Q20,90 40,50 T80,50" />
+    </g>
+  </svg>
+);
+
+const NetworkConstellationGraphic = () => (
+  <div className="absolute inset-0 overflow-hidden flex items-center justify-center opacity-80 dark:opacity-60 pointer-events-none">
+    <svg width="100%" height="100%" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" fill="none" stroke="currentColor" strokeWidth="0.75" className="text-foreground/20 dark:text-foreground/30">
+      <motion.g
+        animate={{ rotate: [0, 2, -2, 0] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        style={{ transformOrigin: "200px 100px" }}
+      >
+        <circle cx="100" cy="80" r="2" fill="currentColor" />
+        <circle cx="180" cy="50" r="2.5" fill="currentColor" />
+        <circle cx="280" cy="70" r="2" fill="currentColor" />
+        <circle cx="320" cy="140" r="2.5" fill="currentColor" />
+        <circle cx="220" cy="160" r="2" fill="currentColor" />
+        <circle cx="120" cy="140" r="2.5" fill="currentColor" />
+        <circle cx="200" cy="100" r="3" fill="currentColor" />
         
-        {/* Block 1: Canvas */}
-        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-24">
-          <div className="flex-1 space-y-6">
-            <div className="inline-flex p-3 rounded-2xl bg-warm/10 border border-warm/20 text-warm">
-              <MousePointer2 className="w-6 h-6" />
+        <motion.line x1="100" y1="80" x2="180" y2="50" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} />
+        <motion.line x1="180" y1="50" x2="280" y2="70" animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 5, repeat: Infinity, delay: 1, ease: "easeInOut" }} />
+        <motion.line x1="280" y1="70" x2="320" y2="140" animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 6, repeat: Infinity, delay: 2, ease: "easeInOut" }} />
+        <motion.line x1="320" y1="140" x2="220" y2="160" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 4, repeat: Infinity, delay: 1.5, ease: "easeInOut" }} />
+        <motion.line x1="220" y1="160" x2="120" y2="140" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 5, repeat: Infinity, delay: 0.5, ease: "easeInOut" }} />
+        <motion.line x1="120" y1="140" x2="100" y2="80" animate={{ opacity: [0.4, 0.9, 0.4] }} transition={{ duration: 4.5, repeat: Infinity, delay: 2.5, ease: "easeInOut" }} />
+        
+        <motion.line x1="200" y1="100" x2="180" y2="50" animate={{ opacity: [0.2, 0.7, 0.2] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }} />
+        <motion.line x1="200" y1="100" x2="280" y2="70" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 4, repeat: Infinity, delay: 1, ease: "easeInOut" }} />
+        <motion.line x1="200" y1="100" x2="220" y2="160" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 3.5, repeat: Infinity, delay: 2, ease: "easeInOut" }} />
+        <motion.line x1="200" y1="100" x2="120" y2="140" animate={{ opacity: [0.4, 0.9, 0.4] }} transition={{ duration: 5, repeat: Infinity, delay: 0.5, ease: "easeInOut" }} />
+      </motion.g>
+    </svg>
+  </div>
+);
+
+const FeatureSection = () => {
+  return (
+    <section className="relative py-24 lg:py-32 bg-background dark:bg-[#09090b] border-b border-border overflow-hidden">
+      {/* Decorative Grid Background */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
+        
+        {/* Header */}
+        <div className="mb-16 md:mb-24 flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div className="max-w-2xl space-y-4">
+            <div className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <Workflow className="w-3 h-3 mr-2 text-primary" />
+              Built for Performance
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-              An infinite canvas for finite time.
+            <h2 className="text-4xl md:text-5xl font-display font-medium text-foreground tracking-tight leading-tight">
+              We've orchestrated <br />
+              <span className="text-primary italic font-serif">Collaboration.</span>
             </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Stop talking over each other and start sketching. The built-in multiplayer canvas synchronizes cursors instantly, letting everyone draw, drop shapes, and paste assets with sub-10ms latency.
-            </p>
           </div>
-          <div className="flex-1 w-full relative">
-            <div className="absolute inset-0 bg-warm/5 blur-3xl rounded-full" />
-            <div className="relative aspect-[4/3] bg-card border border-border rounded-2xl shadow-xl overflow-hidden p-6 flex flex-col justify-center">
-              <div className="absolute inset-0 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:16px_16px] opacity-50" />
-              <div className="relative w-48 h-32 bg-white shadow-sm border border-border mx-auto flex items-center justify-center transform -rotate-3">
-                 <span className="font-semibold text-zinc-900">Q4 Roadmap</span>
-              </div>
-              <div className="relative w-40 h-24 bg-white shadow-sm border-2 border-warm mx-auto -mt-4 ml-12 flex items-center justify-center transform rotate-6">
-                 <span className="font-semibold text-zinc-900 text-sm">Launch Plan</span>
-                 <div className="absolute -top-3 -right-3 w-4 h-4 bg-warm rounded-full" />
-                 <span className="absolute -top-7 -right-10 bg-warm text-white text-[10px] px-2 py-1 rounded">Alex</span>
-              </div>
-            </div>
-          </div>
+          <p className="max-w-md text-lg text-muted-foreground leading-relaxed">
+            MeetLite brings clarity, not complexity—uniting video, whiteboarding, and transcription into one adaptive system that empowers your team.
+          </p>
         </div>
 
-        {/* Block 2: AI Layer */}
-        <div className="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-24">
-          <div className="flex-1 space-y-6">
-            <div className="inline-flex p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
-              <Bot className="w-6 h-6" />
+        {/* Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          {/* Card 01 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex flex-col justify-between bg-card border border-border rounded-[32px] p-8 shadow-sm hover:shadow-soft transition-shadow group relative overflow-hidden"
+          >
+            <div className="absolute -right-8 -top-8 opacity-40 group-hover:opacity-100 transition-opacity">
+              <DotGridGraphic />
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-              Focus on the meeting, not the notes.
-            </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Our AI engine listens to the conversation, identifies speakers, and automatically generates precise transcripts and structured action items in real-time.
-            </p>
-          </div>
-          <div className="flex-1 w-full relative">
-            <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full" />
-            <div className="relative aspect-[4/3] bg-card border border-border rounded-2xl shadow-xl p-6 flex flex-col justify-between">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-6">
-                   <Sparkles className="w-4 h-4 text-primary" />
-                   <span className="text-sm font-semibold text-foreground">AI Meeting Summary</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-                  <div className="h-4 bg-muted rounded w-full animate-pulse" />
-                  <div className="h-4 bg-muted rounded w-5/6 animate-pulse" />
-                </div>
-              </div>
-              <div className="mt-8 pt-4 border-t border-border">
-                <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
-                  <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">Action:</strong> Emma to finalize the Figma mockups by Friday.
-                  </p>
-                </div>
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <span className="text-5xl font-display font-light text-muted-foreground/30 group-hover:text-primary transition-colors">01.</span>
+              <div className="mt-20">
+                <h3 className="text-xl font-display font-medium text-foreground mb-2">Interactive Whiteboards</h3>
+                <p className="text-muted-foreground leading-relaxed text-sm">
+                  Ideate in real-time. Sub-10ms latency cursor sync for seamless multiplayer creativity.
+                </p>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
 
-        {/* Block 3: Calendar Sync */}
-        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-24">
-          <div className="flex-1 space-y-6">
-            <div className="inline-flex p-3 rounded-2xl bg-[#2E7D5B]/10 border border-[#2E7D5B]/20 text-[#2E7D5B]">
-              <Calendar className="w-6 h-6" />
+          {/* MAIN CARD (Spans 2 columns) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="lg:col-span-2 flex flex-col bg-card border border-border rounded-[32px] shadow-sm hover:shadow-soft transition-shadow overflow-hidden group"
+          >
+            {/* Abstract Graphic Area */}
+            <div className="relative h-64 bg-background w-full overflow-hidden flex items-center justify-center border-b border-border">
+              <span className="absolute top-8 left-8 text-5xl font-display font-light text-muted-foreground/30 group-hover:text-primary transition-colors z-10">02.</span>
+              <NetworkConstellationGraphic />
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-              Scheduling without the headache.
-            </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              MeetLite automatically resolves timezones and finds the perfect overlap across Google Calendar and Outlook, sending smart invites with context built-in.
-            </p>
-          </div>
-          <div className="flex-1 w-full relative">
-            <div className="absolute inset-0 bg-[#2E7D5B]/5 blur-3xl rounded-full" />
-            <div className="relative aspect-[4/3] bg-card border border-border rounded-2xl shadow-xl overflow-hidden p-6 flex items-center justify-center">
-              <div className="w-full max-w-sm bg-white border border-border shadow-md rounded-xl p-5 space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-bold text-zinc-900 text-lg">Weekly Sync</h4>
-                    <p className="text-sm text-zinc-500">Tomorrow, 10:00 AM - 11:00 AM</p>
-                  </div>
-                  <div className="bg-[#2E7D5B]/10 text-[#2E7D5B] text-xs font-bold px-2 py-1 rounded">
-                    Timezone Matched
-                  </div>
-                </div>
-                <div className="flex -space-x-2 pt-2">
-                   <div className="w-8 h-8 rounded-full bg-primary/20 border-2 border-white flex items-center justify-center text-xs font-bold text-primary">A</div>
-                   <div className="w-8 h-8 rounded-full bg-warm/20 border-2 border-white flex items-center justify-center text-xs font-bold text-warm">B</div>
-                   <div className="w-8 h-8 rounded-full bg-[#2E7D5B]/20 border-2 border-white flex items-center justify-center text-xs font-bold text-[#2E7D5B]">C</div>
-                </div>
-                <button className="w-full mt-2 bg-primary text-primary-foreground py-2 rounded-lg font-semibold text-sm">
-                  Join MeetLite Workspace
-                </button>
-              </div>
+            
+            <div className="p-8 flex-1 flex flex-col justify-end">
+              <h3 className="text-3xl font-display font-medium text-foreground mb-3">Command Team Sync</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Coordinate your entire organization through a unified platform that ensures high-fidelity video, instantaneous file sharing, and zero lag anywhere you operate.
+              </p>
             </div>
-          </div>
-        </div>
+          </motion.div>
 
+          {/* Cards 03 & 04 (Stacked in one column) */}
+          <div className="flex flex-col gap-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="flex-1 flex flex-col justify-between bg-card border border-border rounded-[32px] p-6 shadow-sm hover:shadow-soft transition-shadow group relative overflow-hidden"
+            >
+              <div className="absolute -right-6 -top-6 opacity-30 group-hover:opacity-100 transition-opacity">
+                <EdgeRoutingGraphic />
+              </div>
+              <div className="relative z-10">
+                <span className="text-4xl font-display font-light text-muted-foreground/30 group-hover:text-primary transition-colors block mb-8">03.</span>
+                <h3 className="text-lg font-display font-medium text-foreground mb-1">HD Screen Sharing</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Crystal clear presentations with adaptive bitrate streaming.
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="flex-1 flex flex-col justify-between bg-card border border-border rounded-[32px] p-6 shadow-sm hover:shadow-soft transition-shadow group relative overflow-hidden"
+            >
+              <div className="absolute -right-6 -top-6 opacity-30 group-hover:opacity-100 transition-opacity">
+                <VideoQualityGraphic />
+              </div>
+              <div className="relative z-10">
+                <span className="text-4xl font-display font-light text-muted-foreground/30 group-hover:text-primary transition-colors block mb-8">04.</span>
+                <h3 className="text-lg font-display font-medium text-foreground mb-1">Instant Transcripts</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  AI-generated notes and action items the moment the call ends.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+
+        </div>
       </div>
     </section>
   );

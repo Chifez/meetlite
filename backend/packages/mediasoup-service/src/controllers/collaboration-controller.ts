@@ -1,5 +1,7 @@
 import { logger } from '../utils/logger.js';
 import { applyWorkflowOperation } from './workflow-controller.js';
+import { SOCKET_EVENTS, COLLABORATION_MODES } from '@minimeet/shared';
+
 
 /**
  * CollaborationController - Handles all chat and collaboration-related Socket.IO events
@@ -121,7 +123,7 @@ export class CollaborationController {
           userId
         );
 
-      this.io.to(roomId).emit('collaboration:mode-changed', {
+      this.io.to(roomId).emit(SOCKET_EVENTS.COLLAB_MODE_CHANGED, {
         mode,
         activeTool: mode,
         presenter: updatedState.presenter,
@@ -243,7 +245,7 @@ export class CollaborationController {
         logger.warn('Failed to get screen sharing state', { error });
       }
 
-      socket.emit('collaboration:state', {
+      socket.emit(SOCKET_EVENTS.COLLAB_STATE, {
         mode: collaborationState?.mode || 'none',
         activeTool: collaborationState?.activeTool || 'none',
         presenter: collaborationState?.presenter || null,
@@ -282,7 +284,7 @@ export class CollaborationController {
       const collabState =
         this.collaborationStateManager.getCollaborationState(roomId);
 
-      if (!collabState || collabState.mode !== 'workflow') {
+      if (!collabState || collabState.mode !== COLLABORATION_MODES.WORKFLOW) {
         logger.warn('Workflow operation rejected - not in workflow mode', {
           roomId,
           userId,
@@ -327,7 +329,7 @@ export class CollaborationController {
         userId
       );
 
-      this.io.to(roomId).emit('workflow:operation', {
+      this.io.to(roomId).emit(SOCKET_EVENTS.WORKFLOW_OPERATION, {
         operation,
         userId,
         timestamp: Date.now(),
@@ -344,7 +346,7 @@ export class CollaborationController {
       });
     } catch (error) {
       logger.error('Failed to handle workflow operation', error);
-      socket.emit('error', {
+      socket.emit(SOCKET_EVENTS.ERROR, {
         message: 'Failed to apply workflow operation',
         timestamp: Date.now(),
       });
@@ -363,7 +365,7 @@ export class CollaborationController {
         return;
       }
 
-      socket.to(roomId).emit('workflow:awareness', {
+      socket.to(roomId).emit(SOCKET_EVENTS.WORKFLOW_AWARENESS, {
         userId,
         userName: socket.user.name || socket.user.email,
         userEmail: socket.user.email,
@@ -436,7 +438,7 @@ export class CollaborationController {
         userId
       );
 
-      this.io.to(roomId).emit('whiteboard:update', {
+      this.io.to(roomId).emit(SOCKET_EVENTS.WHITEBOARD_UPDATE, {
         update,
         userId,
         timestamp: Date.now(),
@@ -565,7 +567,7 @@ export class CollaborationController {
         userId
       );
 
-      this.io.to(roomId).emit('code:language-change', {
+      this.io.to(roomId).emit(SOCKET_EVENTS.CODE_LANGUAGE_CHANGE, {
         language,
         userId,
         timestamp: timestamp || Date.now(),
@@ -638,7 +640,7 @@ export class CollaborationController {
           userId
         );
 
-      this.io.to(roomId).emit('collaboration:mode-changed', {
+      this.io.to(roomId).emit(SOCKET_EVENTS.COLLAB_MODE_CHANGED, {
         mode,
         activeTool: mode,
         presenter: updatedState.presenter,
@@ -677,9 +679,9 @@ export class CollaborationController {
           userId
         );
 
-      this.io.to(roomId).emit('collaboration:mode-changed', {
-        mode: 'none',
-        activeTool: 'none',
+      this.io.to(roomId).emit(SOCKET_EVENTS.COLLAB_MODE_CHANGED, {
+        mode: COLLABORATION_MODES.NONE,
+        activeTool: COLLABORATION_MODES.NONE,
         presenter: updatedState.presenter,
         changedBy: userId,
         timestamp: Date.now(),

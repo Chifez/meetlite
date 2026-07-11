@@ -44,7 +44,30 @@ export const suggestMeetingImprovements = async (req: Request, res: Response) =>
 // Get meeting insights
 export const getMeetingInsights = async (req: Request, res: Response) => {
   const { meetingId } = req.params;
-  const insights = await generateInsights(meetingId as string);
+  const idStr = meetingId as string;
+
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: idStr },
+    select: { title: true, duration: true }
+  });
+  
+  if (!meeting) {
+    throw AppError.notFound('Meeting');
+  }
+
+  const recording = await prisma.meetingRecording.findFirst({
+    where: { meetingId: idStr },
+    select: { transcriptText: true }
+  });
+  
+  const transcript = recording?.transcriptText || 'No transcript available.';
+
+  const insights = await generateInsights({
+    title: meeting.title,
+    duration: meeting.duration,
+    transcript
+  });
+
   res.json({ insights });
 };
 

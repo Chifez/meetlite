@@ -74,6 +74,7 @@ export const MemberList: React.FC<MemberListProps> = ({
   members,
   pendingInvitations,
   userRole,
+  onInviteClick,
   onRefresh,
 }) => {
   const {

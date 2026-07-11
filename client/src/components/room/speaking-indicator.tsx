@@ -48,6 +48,7 @@ export const SpeakingIndicator = ({
     if (!audioContext) return;
 
     try {
+      if (!stream) return;
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
 

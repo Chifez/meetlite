@@ -34,24 +34,6 @@ export const useMeetingAssets = (organizationId?: string) => {
 
   const fetchRecordings = useCallback(
     async (query: MeetingAssetsQuery = {}) => {
-      if (!organizationId) {
-        setRecordings([]);
-        setStats({
-          totalRecordings: 0,
-          totalSize: 0,
-          totalDuration: 0,
-          completedTranscripts: 0,
-          completedSummaries: 0,
-        });
-        setPagination({
-          page: 1,
-          limit: 20,
-          total: 0,
-          totalPages: 0,
-        });
-        return;
-      }
-
       setLoading(true);
       try {
         // Fetch recordings first (critical)
@@ -63,6 +45,7 @@ export const useMeetingAssets = (organizationId?: string) => {
         if (!response || typeof response !== 'object') {
           throw new Error('Invalid response format from recordings API');
         }
+
 
         const recordings = response.recordings || [];
         const pagination = response.pagination || {
@@ -77,7 +60,7 @@ export const useMeetingAssets = (organizationId?: string) => {
 
         try {
           const analyticsData = await analyticsService.getOrganizationAnalytics(
-            organizationId
+            organizationId || 'personal'
           );
           setStats({
             totalRecordings: analyticsData.totalRecordings,

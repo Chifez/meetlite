@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import api from '@/lib/axios';
-import { extractData } from '@/lib/api-response';
+import { extractData, extractError } from '@/lib/api-response';
 import Logo from '@/components/logo';
 import SEO from '@/components/seo';
 
@@ -104,7 +104,7 @@ export default function InvitationPage() {
     } catch (error: any) {
       console.error('Failed to accept invitation:', error);
       toast.error(
-        error.response?.data?.message || 'Failed to accept invitation'
+        extractError(error) || 'Failed to accept invitation. Please try again.'
       );
     } finally {
       setAccepting(false);
@@ -127,7 +127,7 @@ export default function InvitationPage() {
     } catch (error: any) {
       console.error('Failed to decline invitation:', error);
       toast.error(
-        error.response?.data?.message || 'Failed to decline invitation'
+        extractError(error) || 'Failed to decline invitation. Please try again.'
       );
     } finally {
       setDeclining(false);

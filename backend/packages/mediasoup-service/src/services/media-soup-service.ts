@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import { MediaSoupWorker } from './media-soup-worker.js';
 import { logger } from '../utils/logger.js';
 import { mediasoupConfig } from '../config/mediasoup.js';
+import redisClient from '../config/redis.js';
 
 /**
  * Main MediaSoup Service
@@ -15,6 +16,7 @@ export class MediaSoupService {
   private screenSharing: Map<string, any>;
   private roomServiceUrl: string;
   public collaborationStateManager: any;
+  private recordingService: any = null;
 
   constructor(collaborationStateManager: any = null) {
     this.worker = new MediaSoupWorker();
@@ -29,6 +31,22 @@ export class MediaSoupService {
       roomServiceUrl: this.roomServiceUrl,
       hasCollaborationManager: !!collaborationStateManager,
     });
+  }
+
+  /**
+   * Register the recording service to enable automatic recording cleanup on room teardown.
+   */
+  setRecordingService(recordingService: any) {
+    this.recordingService = recordingService;
+  }
+
+  /**
+   * Notify the recording service that a new participant has joined so they can be added to the recording list.
+   */
+  notifyRecordingParticipantJoined(roomId: string, userId: string) {
+    if (this.recordingService) {
+      this.recordingService.addParticipantToRecording(roomId, userId);
+    }
   }
 
   /**
@@ -219,9 +237,9 @@ export class MediaSoupService {
         this.participants.delete(participantKey);
       }
 
-      // Clean up room if empty
+      // Clean up room if empty – pass recordingService so active recordings are stopped
       if (roomData.participants.size === 0) {
-        await this.cleanupRoom(roomId);
+        await this.cleanupRoom(roomId, this.recordingService);
       }
 
       logger.info('Participant removed from room', {
@@ -351,12 +369,18 @@ export class MediaSoupService {
         throw new Error(`User not authorized for room: ${roomId}`);
       }
 
-      // Check if user is already screen sharing (single sharer enforcement)
+      // Check if user is already screen sharing (single sharer enforcement) using Redis Lock
       if (appData.source === 'screen') {
-        const currentSharer = this.screenSharing.get(roomId);
-        if (currentSharer && currentSharer.userId !== userId) {
-          throw new Error('Another user is already sharing their screen');
+        const lockKey = `room:${roomId}:screen-share`;
+        const lockAcquired = await redisClient.getClient().setnx(lockKey, userId);
+        if (!lockAcquired) {
+          const currentSharer = await redisClient.getClient().get(lockKey);
+          if (currentSharer !== userId) {
+            throw new Error('Another user is already sharing their screen');
+          }
         }
+        // Set TTL on the lock to prevent zombie locks
+        await redisClient.getClient().expire(lockKey, 3600); // 1 hour max
       }
 
       const producerData = await this.worker.createProducer(
@@ -524,9 +548,18 @@ export class MediaSoupService {
   /**
    * Cleanup room
    */
-  async cleanupRoom(roomId: string) {
+  async cleanupRoom(roomId: string, recordingService?: any) {
     try {
       logger.info('Cleaning up room', { roomId });
+
+      // Stop any active recordings before cleaning up (event-driven hook)
+      if (recordingService?.handleRoomCleanup) {
+        try {
+          await recordingService.handleRoomCleanup(roomId);
+        } catch (recError) {
+          logger.warn('Error stopping recording during room cleanup', { roomId, error: recError });
+        }
+      }
 
       // Remove all participants
       const roomData = this.rooms.get(roomId);
@@ -544,6 +577,9 @@ export class MediaSoupService {
       if (this.collaborationStateManager) {
         this.collaborationStateManager.removeRoom(roomId);
       }
+
+      // Release any screen share locks for this room
+      await redisClient.getClient().del(`room:${roomId}:screen-share`);
 
       // Remove room from map
       this.rooms.delete(roomId);
@@ -682,11 +718,18 @@ export class MediaSoupService {
   /**
    * Stop screen sharing in a room
    */
-  stopScreenSharing(roomId: string, userId: string) {
+  async stopScreenSharing(roomId: string, userId: string) {
     const screenShareData = this.screenSharing.get(roomId);
 
     if (screenShareData && screenShareData.userId === userId) {
       this.screenSharing.delete(roomId);
+      
+      // Release Redis lock
+      try {
+        await redisClient.getClient().del(`room:${roomId}:screen-share`);
+      } catch (err) {
+        logger.error('Failed to release screen share lock', { roomId, error: err });
+      }
 
       logger.info('Screen sharing stopped', {
         roomId,

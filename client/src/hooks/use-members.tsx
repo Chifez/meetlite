@@ -5,6 +5,7 @@ import {
   type InviteMemberRequest,
 } from '@/services/member-service';
 import { useToast } from '@/hooks/use-toast';
+import { extractError } from '@/lib/api-response';
 
 export const useMembers = () => {
   const [members, setMembers] = useState<OrganizationMembersResponse | null>(
@@ -35,7 +36,7 @@ export const useMembers = () => {
         console.error('[FRONTEND] Error fetching members:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to load members',
+          description: extractError(error) || 'Failed to load members',
           variant: 'destructive',
         });
       } finally {
@@ -88,7 +89,7 @@ export const useMembers = () => {
         console.error('Error inviting member:', error);
         toast({
           title: 'Failed to send invitation',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return false;
@@ -128,7 +129,7 @@ export const useMembers = () => {
         console.error('Error removing member:', error);
         toast({
           title: 'Failed to remove member',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return false;
@@ -167,7 +168,7 @@ export const useMembers = () => {
         console.error('Error canceling invitation:', error);
         toast({
           title: 'Failed to cancel invitation',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return false;
@@ -210,7 +211,7 @@ export const useMembers = () => {
         console.error('Error updating member role:', error);
         toast({
           title: 'Failed to update role',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return false;

@@ -50,7 +50,6 @@ import {
   AlertCircle,
   UserPlus,
   Mail,
-  UserX,
 } from 'lucide-react';
 import type { Team, TeamMember } from '@/types/team';
 import SEO from '@/components/seo';
@@ -62,7 +61,6 @@ export default function TeamSettings() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { activeOrganization, isPersonalMode } = useWorkspace();
-  const { user } = useAuth();
   const { fetchTeams } = useTeamsStore();
   const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);

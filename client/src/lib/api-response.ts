@@ -68,16 +68,47 @@ export function extractData<T>(response: any): T {
 }
 
 /**
- * Extract error message from API response
+ * Extract a user-friendly error message from an API or network error.
+ *
+ * Priority order:
+ * 1. error.response.data.message  (standard backend: { message: "..." })
+ * 2. error.response.data.error    (alternative backend: { error: "..." })
+ * 3. error.message                (network/timeout errors, or thrown Errors)
+ * 4. returns null so callers can supply their own fallback
  */
-export function extractError(response: any): string {
-  if (response.response?.data?.message) {
-    return response.response.data.message;
+export function extractError(error: unknown): string | null {
+  if (!error) return null;
+
+  // Axios error with a response body
+  if (typeof error === 'object' && error !== null) {
+    const err = error as any;
+
+    // Standard backend: { message: "..." }
+    if (typeof err.response?.data?.message === 'string' && err.response.data.message.trim()) {
+      return err.response.data.message.trim();
+    }
+
+    // Alternative backend: { error: "..." }
+    if (typeof err.response?.data?.error === 'string' && err.response.data.error.trim()) {
+      return err.response.data.error.trim();
+    }
+
+    // Network error / timeout / thrown Error instance
+    if (typeof err.message === 'string' && err.message.trim()) {
+      // Suppress raw Axios/network internals that aren't user-friendly
+      const msg = err.message.trim();
+      if (
+        msg.startsWith('Network Error') ||
+        msg.startsWith('timeout of') ||
+        msg.startsWith('Request failed')
+      ) {
+        return null; // Let callers show a generic fallback
+      }
+      return msg;
+    }
   }
-  if (response.message) {
-    return response.message;
-  }
-  return 'An error occurred';
+
+  return null;
 }
 
 /**

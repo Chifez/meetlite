@@ -1,5 +1,7 @@
 import { logger } from '../utils/logger.js';
 import { mediasoupConfig } from '../config/mediasoup.js';
+import { SOCKET_EVENTS, COLLABORATION_MODES } from '@minimeet/shared';
+
 
 /**
  * MediaController - Handles all media-related Socket.IO events
@@ -22,7 +24,7 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
@@ -35,7 +37,7 @@ export class MediaController {
       );
 
       if (!validation.valid) {
-        socket.emit('error', { message: validation.error });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: validation.error });
         return;
       }
 
@@ -69,7 +71,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to create room via Socket.IO', error);
-      socket.emit('error', { message: 'Failed to create room' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to create room' });
     }
   }
 
@@ -82,7 +84,7 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
@@ -95,7 +97,7 @@ export class MediaController {
       );
 
       if (!validation.valid) {
-        socket.emit('error', { message: validation.error });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: validation.error });
         return;
       }
 
@@ -157,7 +159,7 @@ export class MediaController {
         });
       }
 
-      socket.emit('room-data', {
+      socket.emit(SOCKET_EVENTS.ROOM_DATA, {
         participants: participants.map((p: any) => p.userId),
         mediaState: participants.reduce((acc: any, p: any) => {
           if (p.userId === userId) {
@@ -230,8 +232,11 @@ export class MediaController {
           data: userJoinedData,
         });
 
-        socket.to(roomId).emit('user-joined', userJoinedData);
+        socket.to(roomId).emit(SOCKET_EVENTS.USER_JOINED, userJoinedData);
       }
+
+      // Notify recording service that a user joined (so they get access if recording is active)
+      this.mediaSoupService.notifyRecordingParticipantJoined(roomId, userId);
 
       logger.info('User ready and joined room', {
         roomId,
@@ -240,7 +245,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to handle ready event', error);
-      socket.emit('error', { message: 'Failed to join room' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to join room' });
     }
   }
 
@@ -253,7 +258,7 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
@@ -266,7 +271,7 @@ export class MediaController {
       );
 
       if (!validation.valid) {
-        socket.emit('error', { message: validation.error });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: validation.error });
         return;
       }
 
@@ -323,7 +328,7 @@ export class MediaController {
       });
 
       // Notify other participants with full participant info and media state
-      socket.to(roomId).emit('participant-joined', {
+      socket.to(roomId).emit(SOCKET_EVENTS.PARTICIPANT_JOINED, {
         userId,
         userInfo: {
           email: socket.user.email,
@@ -354,7 +359,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to join room via Socket.IO', error);
-      socket.emit('error', { message: 'Failed to join room' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to join room' });
     }
   }
 
@@ -382,7 +387,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to create transport', error);
-      socket.emit('error', { message: 'Failed to create transport' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to create transport' });
     }
   }
 
@@ -410,7 +415,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to connect transport', error);
-      socket.emit('error', { message: 'Failed to connect transport' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to connect transport' });
     }
   }
 
@@ -446,7 +451,7 @@ export class MediaController {
         ).filter((id) => id !== socket.id),
       });
 
-      socket.to(roomId).emit('new-producer', {
+      socket.to(roomId).emit(SOCKET_EVENTS.NEW_PRODUCER, {
         producerId: producerData.id,
         userId,
         kind,
@@ -464,7 +469,7 @@ export class MediaController {
       });
     } catch (error: any) {
       logger.error('Failed to create producer', error);
-      socket.emit('error', {
+      socket.emit(SOCKET_EVENTS.ERROR, {
         message: error.message || 'Failed to create producer',
       });
     }
@@ -486,7 +491,7 @@ export class MediaController {
         userId
       );
 
-      socket.emit('consumer-created', consumerData);
+      socket.emit(SOCKET_EVENTS.CONSUMER_CREATED, consumerData);
 
       logger.info('Consumer created', {
         roomId,
@@ -496,7 +501,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to create consumer', error);
-      socket.emit('error', { message: 'Failed to create consumer' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to create consumer' });
     }
   }
 
@@ -518,7 +523,7 @@ export class MediaController {
       logger.info('Producer paused', { roomId, userId, producerId });
     } catch (error) {
       logger.error('Failed to pause producer', error);
-      socket.emit('error', { message: 'Failed to pause producer' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to pause producer' });
     }
   }
 
@@ -540,7 +545,7 @@ export class MediaController {
       logger.info('Producer resumed', { roomId, userId, producerId });
     } catch (error) {
       logger.error('Failed to resume producer', error);
-      socket.emit('error', { message: 'Failed to resume producer' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to resume producer' });
     }
   }
 
@@ -553,7 +558,7 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
@@ -564,7 +569,7 @@ export class MediaController {
       });
 
       // Broadcast to other participants
-      socket.to(roomId).emit('media-state-update', {
+      socket.to(roomId).emit(SOCKET_EVENTS.MEDIA_STATE_UPDATE, {
         userId,
         audioEnabled,
         videoEnabled,
@@ -578,7 +583,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to update media state', error);
-      socket.emit('error', { message: 'Failed to update media state' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to update media state' });
     }
   }
 
@@ -591,13 +596,13 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
       await this.mediaSoupService.updateParticipantActivity(roomId, userId);
 
-      socket.to(roomId).emit('screen-share-started', { userId });
+      socket.to(roomId).emit(SOCKET_EVENTS.SCREEN_SHARE_STARTED, { userId });
 
       logger.info('Screen share started', {
         roomId,
@@ -605,7 +610,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to handle screen share started', error);
-      socket.emit('error', { message: 'Failed to start screen share' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to start screen share' });
     }
   }
 
@@ -618,7 +623,7 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
@@ -651,7 +656,7 @@ export class MediaController {
 
       await this.mediaSoupService.updateParticipantActivity(roomId, userId);
 
-      socket.to(roomId).emit('screen-share-stopped', { userId });
+      socket.to(roomId).emit(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, { userId });
 
       logger.info('Screen share stopped', {
         roomId,
@@ -659,7 +664,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to handle screen share stopped', error);
-      socket.emit('error', { message: 'Failed to stop screen share' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to stop screen share' });
     }
   }
 
@@ -672,7 +677,7 @@ export class MediaController {
       const userId = socket.user.userId;
 
       if (!roomId) {
-        socket.emit('error', { message: 'Room ID is required' });
+        socket.emit(SOCKET_EVENTS.ERROR, { message: 'Room ID is required' });
         return;
       }
 
@@ -684,7 +689,7 @@ export class MediaController {
       });
     } catch (error) {
       logger.error('Failed to handle screen share ready', error);
-      socket.emit('error', { message: 'Failed to handle screen share ready' });
+      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to handle screen share ready' });
     }
   }
 

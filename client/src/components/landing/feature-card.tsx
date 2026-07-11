@@ -23,11 +23,11 @@ const FeatureCard = ({
   };
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 border hover:border-primary/50 bg-card cursor-pointer hover:-translate-y-1">
+    <Card className="group hover:shadow-lg transition-[transform,shadow,border] duration-150 ease-out-strong border hover:border-primary/50 bg-card cursor-pointer hover:-translate-y-1">
       <CardContent className="p-6 sm:p-8 space-y-4">
         <div
           className={cn(
-            'w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
+            'w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-150 ease-out-strong group-hover:scale-110 group-hover:rotate-3',
             colorClasses[color]
           )}
         >

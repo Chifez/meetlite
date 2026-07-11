@@ -1,4 +1,6 @@
 import { getEmailTemplate } from './email-wrapper.js';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export const getOrganizationInviteEmailTemplate = (
   organizationName: string,
@@ -8,7 +10,7 @@ export const getOrganizationInviteEmailTemplate = (
   message?: string,
   role = 'member'
 ) => {
-  const roleText = role === 'owner' ? 'as an owner' : 'as a member';
+  const roleText = role === WORKSPACE_ROLES.OWNER ? 'as an owner' : 'as a member';
 
   const contentStyles = `
     <style>

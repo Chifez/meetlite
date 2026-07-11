@@ -1,182 +1,151 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import PricingCard from '@/components/landing/pricing-card';
+import { motion } from 'motion/react';
+import { Check, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
-import ScheduleDemoModal from '@/components/landing/schedule-demo-modal';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
+import { useNavigate } from 'react-router-dom';
 
-// Pricing configuration
-const PRICING = {
-  pro: {
-    monthly: 19,
-    yearly: 190,
-  },
-};
-
-const pricingPlans = [
+const TIERS = [
   {
-    title: 'Starter',
-    description: 'Perfect for personal use',
+    name: 'Free',
+    price: '$0',
+    description: 'Perfect for small teams getting started with collaborative meetings.',
     features: [
-      'Up to 3 participants',
-      '40-minute meetings',
-      'Basic scheduling',
-      'Standard support',
+      'Up to 45 minute group meetings',
+      '10 participants per call',
+      'Basic collaborative canvas',
+      'Standard video quality (720p)',
+      'Community support'
     ],
-    buttonText: 'Get started',
-    buttonVariant: 'default' as const,
-    planType: 'free' as const,
+    buttonText: 'Get Started',
+    popular: false,
   },
   {
-    title: 'Pro',
-    description: 'For growing teams',
+    name: 'Pro',
+    price: '$12',
+    period: '/mo',
+    description: 'For high-performing teams that need unrestricted collaboration.',
     features: [
-      'Up to 100 participants',
-      'Unlimited meetings',
-      'Advanced scheduling',
-      'Priority support',
-      'Recording & transcripts',
+      'Unlimited meeting duration',
+      '100 participants per call',
+      'Infinite multiplayer canvas',
+      'Figma & Miro imports',
+      'HD Video (1080p)',
+      'Real-time AI Transcripts'
     ],
-    buttonText: 'Get started',
-    buttonVariant: 'default' as const,
-    isPopular: true,
-    planType: 'pro' as const,
-    monthlyPrice: PRICING.pro.monthly,
-    yearlyPrice: PRICING.pro.yearly,
+    buttonText: 'Start Free Trial',
+    popular: true,
   },
   {
-    title: 'Enterprise',
-    description: 'For large organizations',
+    name: 'Enterprise',
+    price: 'Custom',
+    description: 'Advanced security and control for large organizations.',
     features: [
-      'Unlimited participants',
-      'Custom branding',
-      'Advanced analytics',
-      '24/7 support',
-      'SSO integration',
+      'Up to 500 participants',
+      'Custom subdomain & branding',
+      'SSO (SAML, Okta, Google)',
+      'Dedicated Customer Success',
+      'SLA 99.99% Uptime',
+      'Advanced RBAC & Auditing'
     ],
-    buttonText: 'Get started',
-    buttonVariant: 'outline' as const,
-    planType: 'enterprise' as const,
-  },
+    buttonText: 'Contact Sales',
+    popular: false,
+  }
 ];
 
-const PricingSection = () => {
+export const PricingSection = () => {
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [billingDuration, setBillingDuration] = useState<'monthly' | 'yearly'>('monthly');
 
-  // Calculate savings for yearly
-  const yearlySavings = PRICING.pro.monthly * 12 - PRICING.pro.yearly;
-  const yearlySavingsPercent = Math.round((yearlySavings / (PRICING.pro.monthly * 12)) * 100);
+  const handleAction = (isEnterprise: boolean) => {
+    if (isEnterprise) {
+      window.location.href = 'mailto:sales@meetlite.com';
+      return;
+    }
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    } else {
+      navigate('/signup');
+    }
+  };
 
   return (
-    <section
-      id="pricing"
-      className="py-24 bg-background relative overflow-hidden border-b border-border"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:24px_24px] opacity-30"></div>
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-3 mb-8">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground">
-            Simple pricing
-          </h2>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Choose the plan that fits your needs.
+    <section className="py-24 lg:py-32 bg-[#FAFAFA] dark:bg-[#09090b] border-b border-border relative overflow-hidden">
+      {/* Decorative Grid */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-16 md:mb-24">
+          <p className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-widest">
+            Pricing
           </p>
+          <h2 className="text-4xl md:text-5xl font-display font-medium text-foreground tracking-tight">
+            Transparent pricing for <br className="hidden sm:block" /> any team size
+          </h2>
         </div>
 
-        {/* Monthly/Yearly Toggle */}
-        <div className="flex items-center justify-center gap-3 mb-10">
-          <div className="inline-flex items-center rounded-full bg-muted p-1 border border-border">
-            <button
-              onClick={() => setBillingDuration('monthly')}
-              className={cn(
-                'px-4 py-2 rounded-full text-sm font-medium transition-all duration-200',
-                billingDuration === 'monthly'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-center">
+          {TIERS.map((tier, idx) => (
+            <motion.div
+              key={tier.name}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              className={`relative flex flex-col bg-card border rounded-[32px] p-8 md:p-10 transition-all duration-300 ${
+                tier.popular 
+                  ? 'border-primary/30 shadow-elevated md:scale-105 z-10 bg-background dark:bg-[#121214]' 
+                  : 'border-border shadow-sm hover:shadow-apple'
+              }`}
             >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingDuration('yearly')}
-              className={cn(
-                'px-4 py-2 rounded-full text-sm font-medium transition-all duration-200',
-                billingDuration === 'yearly'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+              {tier.popular && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider py-1.5 px-4 rounded-full shadow-sm">
+                  Recommended
+                </div>
               )}
-            >
-              Yearly
-            </button>
-          </div>
-          {billingDuration === 'yearly' && (
-            <span className="text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-3 py-1 rounded-full border border-green-200 dark:border-green-800">
-              Save {yearlySavingsPercent}%
-            </span>
-          )}
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
-          {pricingPlans.map((plan, index) => (
-            <PricingCard
-              key={index}
-              title={plan.title}
-              description={plan.description}
-              features={plan.features}
-              buttonText={plan.buttonText}
-              buttonVariant={plan.buttonVariant}
-              isPopular={plan.isPopular}
-              planType={plan.planType}
-              duration={billingDuration}
-              monthlyPrice={plan.monthlyPrice}
-              yearlyPrice={plan.yearlyPrice}
-            />
+              {/* Header */}
+              <div className="mb-8">
+                <h3 className="text-2xl font-display font-medium text-foreground mb-2">{tier.name}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed h-10">
+                  {tier.description}
+                </p>
+              </div>
+
+              {/* Price */}
+              <div className="mb-8 pb-8 border-b border-border">
+                <div className="flex items-baseline text-foreground">
+                  <span className="text-5xl font-display font-medium tracking-tight">{tier.price}</span>
+                  {tier.period && (
+                    <span className="text-muted-foreground ml-1">{tier.period}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-4 mb-8 flex-1">
+                {tier.features.map((feature, i) => (
+                  <li key={i} className="flex items-start">
+                    <Check className="w-5 h-5 text-primary shrink-0 mr-3 mt-0.5" />
+                    <span className="text-muted-foreground text-sm leading-snug">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Action */}
+              <Button
+                variant={tier.popular ? 'default' : 'outline'}
+                className={`w-full rounded-2xl py-6 text-base font-medium shadow-sm transition-all group ${
+                  tier.popular ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-transparent border-border hover:bg-muted'
+                }`}
+                onClick={() => handleAction(tier.name === 'Enterprise')}
+              >
+                {tier.buttonText}
+                {tier.popular && <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />}
+              </Button>
+            </motion.div>
           ))}
         </div>
-
-        {/* CTA Card */}
-        <div className="mt-12 max-w-4xl mx-auto">
-          <div className="relative rounded-3xl overflow-hidden bg-card p-8 sm:p-12 shadow-sm border border-border">
-
-            <div className="relative text-center space-y-6">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
-                Ready to get started?
-              </h2>
-              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                Join thousands of teams using MeetLite.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-4">
-                <Button
-                  size="default"
-                  onClick={() => navigate('/signup')}
-                  className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-8 py-6 text-base font-bold shadow-sm transition-all duration-200 group"
-                >
-                  Start Your First Meeting
-                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => setIsScheduleModalOpen(true)}
-                  className="w-full sm:w-auto border border-border text-foreground hover:bg-background rounded-xl px-8 py-6 text-base font-bold bg-transparent"
-                >
-                  Schedule a Demo
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Schedule Demo Modal */}
-        <ScheduleDemoModal
-          open={isScheduleModalOpen}
-          onClose={() => setIsScheduleModalOpen(false)}
-        />
       </div>
     </section>
   );

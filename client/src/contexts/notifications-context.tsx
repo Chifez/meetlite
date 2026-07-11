@@ -55,7 +55,7 @@ const NotificationsContext = createContext<NotificationsContextType | undefined>
 );
 
 export const NotificationsProvider = ({ children }: { children: ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,12 +179,9 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       const token = Cookies.get('token');
       if (!token) return;
 
-      const profileResponse = await api.get('/api/auth/profile');
-      const profile = profileResponse.data.user || profileResponse.data;
-      const notificationPrefs = profile.notificationPreferences;
-      
-      if (notificationPrefs?.enabled === false) {
-        console.log('Notifications disabled by user preferences');
+      // Read notification preference from auth context — no extra network call needed
+      const notifyEnabled = (user as any)?.notificationPreferences?.enabled;
+      if (notifyEnabled === false) {
         setError(null);
         setIsConnected(false);
         return;
@@ -200,7 +197,6 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       reconnectAttemptsRef.current = 0;
 
       eventSource.onopen = () => {
-        console.log('✅ Connected to notification SSE stream');
         setIsConnected(true);
         setError(null);
       };
@@ -229,7 +225,6 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
           if (event.data.startsWith(':')) return;
 
           if (data.id || data.type) {
-            console.log('📨 New notification received:', data);
             setNotifications((prev) => [data, ...prev]);
             if (!data.read) {
               setUnreadCount((prev) => prev + 1);
@@ -278,7 +273,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       setError('Failed to connect to notification service');
       setIsConnected(false);
     }
-  }, []);
+  }, [user]);
 
   const retryConnection = useCallback(async () => {
     if (reconnectTimeoutRef.current) {
@@ -305,6 +300,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     };
   }, [setupSSE]);
 
+  // Initial data load on auth
   useEffect(() => {
     if (isAuthenticated) {
       fetchNotifications(1);
@@ -312,13 +308,9 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     }
   }, [fetchNotifications, fetchUnreadCount, isAuthenticated]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchUnreadCount, isAuthenticated]);
+  // NOTE: Redundant 30s setInterval polling removed.
+  // The SSE stream above already pushes new notifications in real-time.
+  // The initial fetchUnreadCount() above gives the accurate count on load.
 
   return (
     <NotificationsContext.Provider

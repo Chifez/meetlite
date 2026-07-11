@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { prisma } from '@minimeet/shared';
 import { AppError, ResponseHelpers } from '@minimeet/shared';
+import { VideoProcessingQueue } from '@minimeet/shared';
 import {
   uploadVideoFile,
   checkR2Config,
@@ -13,6 +15,18 @@ import {
   generateRecordingSummary,
 } from '../services/ai.service.js';
 import { Request, Response } from 'express';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
+
+// Singleton queue instance – lazily initialized
+let videoQueue: VideoProcessingQueue | null = null;
+function getVideoQueue(): VideoProcessingQueue {
+  if (!videoQueue) {
+    videoQueue = new VideoProcessingQueue();
+  }
+  return videoQueue;
+}
+
 
 /**
  * Background function to process recording AI (transcript/summary)
@@ -308,12 +322,6 @@ export class RecordingController {
       teamId,
     } = req.query;
 
-    if (!req.user.organizationId) {
-      throw AppError.validation(
-        'Organization membership required to access recordings'
-      );
-    }
-
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
@@ -331,7 +339,19 @@ export class RecordingController {
       teamId: teamId || undefined,
     };
 
-    const query: any = { organizationId: req.user.organizationId };
+    // Build query – supports both org-scoped and personal (no org) recordings
+    const orgId = req.user.organizationId || null;
+    const query: any = {};
+
+    if (orgId) {
+      // Org workspace: filter by organizationId
+      query.organizationId = orgId;
+    } else {
+      // Personal workspace: recordings with no org where the user is a participant
+      query.organizationId = null;
+      query.participants = { some: { userId: req.user.userId } };
+    }
+
     if (teamId) {
       query.teamId = teamId;
     }
@@ -354,6 +374,7 @@ export class RecordingController {
         { description: { contains: search, mode: 'insensitive' } },
       ];
     }
+
 
     const nativeRecordings = await prisma.meetingRecording.findMany({
       where: query,
@@ -425,7 +446,7 @@ export class RecordingController {
 
     // Access check
     let canAccess = false;
-    if (req.user.role === 'admin' || req.user.role === 'owner') {
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
     } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
       canAccess = true;
@@ -460,7 +481,7 @@ export class RecordingController {
     }
 
     let canAccess = false;
-    if (req.user.role === 'admin' || req.user.role === 'owner') {
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
     } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
       canAccess = true;
@@ -503,8 +524,8 @@ export class RecordingController {
       recording.participants.some(
         (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
-      req.user.role === 'owner' ||
-      req.user.role === 'admin';
+      req.user.role === WORKSPACE_ROLES.OWNER ||
+      req.user.role === WORKSPACE_ROLES.ADMIN;
 
     if (!canEdit) {
       throw AppError.forbidden('Permission denied to edit this recording');
@@ -547,8 +568,8 @@ export class RecordingController {
       recording.participants.some(
         (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
-      req.user.role === 'owner' ||
-      req.user.role === 'admin';
+      req.user.role === WORKSPACE_ROLES.OWNER ||
+      req.user.role === WORKSPACE_ROLES.ADMIN;
 
     if (!canDelete) {
       throw AppError.forbidden('Permission denied to delete this recording');
@@ -595,7 +616,7 @@ export class RecordingController {
     }
 
     let canAccess = false;
-    if (req.user.role === 'admin' || req.user.role === 'owner') {
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
     } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
       canAccess = true;
@@ -656,7 +677,7 @@ export class RecordingController {
     }
 
     let canAccess = false;
-    if (req.user.role === 'admin' || req.user.role === 'owner') {
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
     } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
       canAccess = true;
@@ -700,8 +721,8 @@ export class RecordingController {
       recording.participants.some(
         (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
-      req.user.role === 'owner' ||
-      req.user.role === 'admin';
+      req.user.role === WORKSPACE_ROLES.OWNER ||
+      req.user.role === WORKSPACE_ROLES.ADMIN;
 
     if (!canArchive) {
       throw AppError.forbidden('Permission denied to archive this recording');
@@ -732,8 +753,8 @@ export class RecordingController {
       recording.participants.some(
         (p: any) => p.userId === req.user.userId && p.role === 'host'
       ) ||
-      req.user.role === 'owner' ||
-      req.user.role === 'admin';
+      req.user.role === WORKSPACE_ROLES.OWNER ||
+      req.user.role === WORKSPACE_ROLES.ADMIN;
 
     if (!canUnarchive) {
       throw AppError.forbidden('Permission denied to unarchive this recording');
@@ -827,7 +848,7 @@ export class RecordingController {
     }
 
     let canAccess = false;
-    if (req.user.role === 'admin' || req.user.role === 'owner') {
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
     } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
       canAccess = true;
@@ -848,6 +869,102 @@ export class RecordingController {
 
     return res.redirect(recording.downloadUrl);
   }
+
+  /**
+   * POST /recordings/internal-finalize
+   * Internal endpoint called by mediasoup-service to hand off a completed recording file.
+   * Validates the internal service secret, creates a MeetingRecording DB record with
+   * processingStatus='queued', then enqueues a VideoProcessingQueue job.
+   */
+  async internalFinalizeRecording(req: any, res: Response) {
+    // Internal secret auth
+    const secret = req.headers['x-internal-secret'];
+    const expectedSecret = process.env.INTERNAL_SERVICE_SECRET || 'internal-secret';
+    if (secret !== expectedSecret) {
+      return res.status(401).json({ success: false, message: 'Unauthorized internal request' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No recording file provided' });
+    }
+
+    const {
+      roomId,
+      recordingId: sourceRecordingId,
+      duration,
+      startedBy,
+      participants: participantsJson,
+    } = req.body;
+
+    // Optionally find meeting linked to room
+    let meetingId: string | null = null;
+    let organizationId: string | null = null;
+    if (roomId) {
+      const room = await prisma.room.findUnique({ where: { roomId } });
+      if (room) {
+        organizationId = (room as any).organizationId || null;
+        const meeting = await prisma.meeting.findFirst({ where: { roomId } });
+        if (meeting) meetingId = meeting.id;
+      }
+    }
+
+    // Build participant list from host userId
+    let participantList: { userId: string; role: string; joinTime: Date }[] = [];
+    if (startedBy) {
+      participantList.push({ userId: startedBy, role: 'host', joinTime: new Date() });
+    }
+    try {
+      const parsed = JSON.parse(participantsJson || '[]');
+      if (Array.isArray(parsed)) {
+        for (const p of parsed) {
+          if (p && p !== startedBy) {
+            participantList.push({ userId: String(p), role: 'participant', joinTime: new Date() });
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Create the DB record in 'queued' state
+    const recording = await prisma.meetingRecording.create({
+      data: {
+        meetingId: meetingId || null,
+        organizationId: organizationId || null,
+        title: `Meeting Recording – ${new Date().toLocaleString()}`,
+        fileName: req.file.originalname || req.file.filename,
+        fileSize: req.file.size,
+        format: 'webm',
+        storageProvider: 'r2',
+        visibility: 'participants',
+        duration: parseInt(duration || '0', 10),
+        processingStatus: 'queued',
+        transcriptStatus: 'pending',
+        summaryStatus: 'pending',
+        participants: {
+          create: participantList,
+        },
+      },
+    });
+
+    // Enqueue processing job (the worker will upload to R2, then run AI)
+    const tempFilePath = req.file.path; // multer saved it here
+    await getVideoQueue().addVideoJob('process', {
+      recordingId: recording.id,
+      tempFilePath,
+      fileName: req.file.originalname || req.file.filename,
+      organizationId,
+      duration: parseInt(duration || '0', 10),
+      startedBy,
+      roomId,
+      sourceRecordingId,
+    });
+
+    return res.status(202).json({
+      success: true,
+      message: 'Recording accepted and queued for processing',
+      recordingId: recording.id,
+    });
+  }
 }
+
 
 export default RecordingController;

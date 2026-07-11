@@ -3,6 +3,7 @@ import HeroSection from '@/components/landing/hero-section';
 import LogoCloudSection from '@/components/landing/logo-cloud-section';
 import FeaturesSection from '@/components/landing/feature-section';
 import UseCasesSection from '@/components/landing/use-cases-section';
+import StatsSection from '@/components/landing/stats-section';
 import SecuritySection from '@/components/landing/security-section';
 import TestimonialsSection from '@/components/landing/testimonials-section';
 import ComparisonSection from '@/components/landing/comparison-section';
@@ -22,6 +23,7 @@ export default function Landing() {
         <LogoCloudSection />
         <FeaturesSection />
         <UseCasesSection />
+        <StatsSection />
         <SecuritySection />
         <TestimonialsSection />
         <ComparisonSection />

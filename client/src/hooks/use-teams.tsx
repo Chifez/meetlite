@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { TeamService } from '@/services/team-service';
 import { TeamInvitationService } from '@/services/team-invitation-service';
 import { useToast } from '@/hooks/use-toast';
+import { extractError } from '@/lib/api-response';
 import type { Team, CreateTeamRequest, UpdateTeamRequest } from '@/types/team';
 import type { CreateTeamInvitationRequest } from '@/types/team-invitation';
 
@@ -31,7 +32,7 @@ export const useTeams = () => {
         console.error('Error fetching teams:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to load teams',
+          description: extractError(error) || 'Failed to load teams',
           variant: 'destructive',
         });
         setTeams([]);
@@ -56,7 +57,7 @@ export const useTeams = () => {
         console.error('Error fetching team:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to load team',
+          description: extractError(error) || 'Failed to load team',
           variant: 'destructive',
         });
         return null;
@@ -83,7 +84,7 @@ export const useTeams = () => {
         console.error('Error creating team:', error);
         toast({
           title: 'Failed to create team',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return null;
@@ -123,7 +124,7 @@ export const useTeams = () => {
         console.error('Error updating team:', error);
         toast({
           title: 'Failed to update team',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return null;
@@ -153,7 +154,7 @@ export const useTeams = () => {
         console.error('Error deleting team:', error);
         toast({
           title: 'Failed to delete team',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return false;
@@ -194,7 +195,7 @@ export const useTeams = () => {
         console.error('Error adding member to team:', error);
         toast({
           title: 'Failed to add member',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return null;
@@ -227,7 +228,7 @@ export const useTeams = () => {
         console.error('Error removing member from team:', error);
         toast({
           title: 'Failed to remove member',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return null;
@@ -261,7 +262,7 @@ export const useTeams = () => {
         console.error('Error inviting to team:', error);
         toast({
           title: 'Failed to send invitation',
-          description: error.message || 'Please try again',
+          description: extractError(error) || 'Please try again',
           variant: 'destructive',
         });
         return false;

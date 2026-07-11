@@ -1,6 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '@minimeet/shared';
 import { AuthenticatedRequest } from './auth.js';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 /**
  * Middleware to check if user can access team-specific data
@@ -51,7 +53,7 @@ export const requireTeamAccess = async (req: AuthenticatedRequest, res: Response
 
     if (
       orgMembership &&
-      (orgMembership.role === 'owner' || orgMembership.role === 'admin')
+      (orgMembership.role === WORKSPACE_ROLES.OWNER || orgMembership.role === WORKSPACE_ROLES.ADMIN)
     ) {
       return next();
     }

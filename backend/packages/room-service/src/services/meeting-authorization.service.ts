@@ -1,4 +1,6 @@
 import { prisma } from '@minimeet/shared';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export class MeetingAuthorizationService {
   /**
@@ -28,7 +30,7 @@ export class MeetingAuthorizationService {
 
     const isOrgOwnerOrAdmin =
       orgMembership &&
-      (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+      (orgMembership.role === WORKSPACE_ROLES.OWNER || orgMembership.role === WORKSPACE_ROLES.ADMIN);
 
     if (isOrgOwnerOrAdmin) {
       return true;
@@ -52,7 +54,7 @@ export class MeetingAuthorizationService {
           (m: any) =>
             m.teamId.toString() === meeting.teamId.toString() &&
             m.organizationId.toString() === organizationId.toString() &&
-            m.role === 'admin' &&
+            m.role === WORKSPACE_ROLES.ADMIN &&
             m.status === 'active'
         );
 
@@ -99,7 +101,7 @@ export class MeetingAuthorizationService {
 
     const isOrgOwnerOrAdmin =
       orgMembership &&
-      (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+      (orgMembership.role === WORKSPACE_ROLES.OWNER || orgMembership.role === WORKSPACE_ROLES.ADMIN);
 
     if (isOrgOwnerOrAdmin) {
       return true;

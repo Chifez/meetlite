@@ -2,6 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { TeamService } from './team.service.js';
 import { MultiOrganizationService } from './multi-organization.service.js';
 import { EmailQueue, prisma } from '@minimeet/shared';
+import { WORKSPACE_ROLES } from '@minimeet/shared';
+
 
 export class TeamInvitationService {
   private teamService: TeamService;
@@ -407,7 +409,7 @@ export class TeamInvitationService {
 
     const isOrgOwnerOrAdmin =
       orgMembership &&
-      (orgMembership.role === 'owner' || orgMembership.role === 'admin');
+      (orgMembership.role === WORKSPACE_ROLES.OWNER || orgMembership.role === WORKSPACE_ROLES.ADMIN);
     const isInviter = invitation.invitedBy === userId;
 
     const team = await prisma.team.findUnique({
@@ -418,7 +420,7 @@ export class TeamInvitationService {
     const isTeamAdmin =
       team &&
       team.members.some(
-        (m: any) => m.userId === userId && m.role === 'admin'
+        (m: any) => m.userId === userId && m.role === WORKSPACE_ROLES.ADMIN
       );
 
     if (!isOrgOwnerOrAdmin && !isInviter && !isTeamOwner && !isTeamAdmin) {

@@ -3,6 +3,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useSound } from '@/hooks/use-sound';
 import { Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/use-auth';
+import { SOCKET_EVENTS } from '@/lib/constants';
+
 
 interface ScreenShareState {
   stream: MediaStream | null;
@@ -57,12 +59,12 @@ export const useScreenShare = ({
       playUserLeaveSound();
     };
 
-    socket.on('user-joined', handleUserJoined);
-    socket.on('user-left', handleUserLeft);
+    socket.on(SOCKET_EVENTS.USER_JOINED, handleUserJoined);
+    socket.on(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
 
     return () => {
-      socket.off('user-joined', handleUserJoined);
-      socket.off('user-left', handleUserLeft);
+      socket.off(SOCKET_EVENTS.USER_JOINED, handleUserJoined);
+      socket.off(SOCKET_EVENTS.USER_LEFT, handleUserLeft);
     };
   }, [socket, playUserJoinSound, playUserLeaveSound]);
 
@@ -93,7 +95,7 @@ export const useScreenShare = ({
           }
 
           // Notify server
-          socket?.emit('screen-share-stopped', { roomId });
+          socket?.emit(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, { roomId });
 
           // Update local state
           setScreenShareState({
@@ -121,7 +123,7 @@ export const useScreenShare = ({
             await stopScreenProduction();
           }
 
-          socket?.emit('screen-share-stopped', { roomId });
+          socket?.emit(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, { roomId });
 
           setScreenShareState({
             stream: null,
@@ -138,7 +140,7 @@ export const useScreenShare = ({
         });
 
         // Notify server we're starting
-        socket?.emit('screen-share-started', { roomId });
+        socket?.emit(SOCKET_EVENTS.SCREEN_SHARE_STARTED, { roomId });
 
         // Produce through MediaSoup
         if (produceScreenStream) {

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useTeamsStore } from '@/stores/teams-store';
+import { WORKSPACE_ROLES } from '@/lib/constants';
 
 /**
  * Hook to check if user can invite members to organization
@@ -18,7 +19,7 @@ export const useCanInviteMembers = (
 
     // Owners and admins can invite
     const hasPermission =
-      currentWorkspaceRole === 'owner' || currentWorkspaceRole === 'admin';
+      currentWorkspaceRole === WORKSPACE_ROLES.OWNER || currentWorkspaceRole === WORKSPACE_ROLES.ADMIN;
 
     // Check member limit if provided
     if (maxMembers !== undefined && memberCount !== undefined) {
@@ -36,10 +37,13 @@ export const useCanInviteMembers = (
  */
 export const useCanCreateMeetings = (teamId?: string) => {
   const { user } = useAuth();
-  const { activeOrganization, currentWorkspaceRole } = useWorkspace();
+  const { activeOrganization, currentWorkspaceRole, isPersonalMode } = useWorkspace();
   const { teams } = useTeamsStore();
 
   return useMemo(() => {
+    // Personal workspace has no restrictions
+    if (isPersonalMode) return true;
+
     // Must be in an organization
     if (!activeOrganization) return false;
 
@@ -59,7 +63,7 @@ export const useCanCreateMeetings = (teamId?: string) => {
 
     // Organization owners/admins can create team meetings even if not direct members
     const isOrgOwnerOrAdmin =
-      currentWorkspaceRole === 'owner' || currentWorkspaceRole === 'admin';
+      currentWorkspaceRole === WORKSPACE_ROLES.OWNER || currentWorkspaceRole === WORKSPACE_ROLES.ADMIN;
 
     return isTeamMember || isOrgOwnerOrAdmin;
   }, [activeOrganization, currentWorkspaceRole, teamId, teams, user?.id]);
@@ -71,10 +75,13 @@ export const useCanCreateMeetings = (teamId?: string) => {
  */
 export const useCanUploadRecordings = (teamId?: string) => {
   const { user } = useAuth();
-  const { activeOrganization, currentWorkspaceRole } = useWorkspace();
+  const { activeOrganization, currentWorkspaceRole, isPersonalMode } = useWorkspace();
   const { teams } = useTeamsStore();
 
   return useMemo(() => {
+    // Personal workspace has no restrictions
+    if (isPersonalMode) return true;
+
     // Must be in an organization
     if (!activeOrganization) return false;
 
@@ -94,7 +101,7 @@ export const useCanUploadRecordings = (teamId?: string) => {
 
     // Organization owners/admins can upload team recordings even if not direct members
     const isOrgOwnerOrAdmin =
-      currentWorkspaceRole === 'owner' || currentWorkspaceRole === 'admin';
+      currentWorkspaceRole === WORKSPACE_ROLES.OWNER || currentWorkspaceRole === WORKSPACE_ROLES.ADMIN;
 
     return isTeamMember || isOrgOwnerOrAdmin;
   }, [activeOrganization, currentWorkspaceRole, teamId, teams, user?.id]);
@@ -107,7 +114,7 @@ export const useIsOwnerOrAdmin = () => {
   const { currentWorkspaceRole } = useWorkspace();
 
   return useMemo(() => {
-    return currentWorkspaceRole === 'owner' || currentWorkspaceRole === 'admin';
+    return currentWorkspaceRole === WORKSPACE_ROLES.OWNER || currentWorkspaceRole === WORKSPACE_ROLES.ADMIN;
   }, [currentWorkspaceRole]);
 };
 
@@ -118,6 +125,6 @@ export const useIsOwner = () => {
   const { currentWorkspaceRole } = useWorkspace();
 
   return useMemo(() => {
-    return currentWorkspaceRole === 'owner';
+    return currentWorkspaceRole === WORKSPACE_ROLES.OWNER;
   }, [currentWorkspaceRole]);
 };

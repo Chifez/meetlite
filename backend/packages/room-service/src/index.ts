@@ -19,6 +19,7 @@ import {
   meetingReminderEmailTemplate,
   meetingReminderEmailText,
 } from '@minimeet/shared';
+import { VideoProcessingWorker } from './jobs/video-processing.worker.js';
 import logger from './utils/logger.js';
 
 // Notification services
@@ -86,11 +87,11 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     const response = err.toResponse
       ? err.toResponse()
       : {
-          success: false,
-          message: err.message,
-          code: err.code,
-          timestamp: err.timestamp,
-        };
+        success: false,
+        message: err.message,
+        code: err.code,
+        timestamp: err.timestamp,
+      };
     return res.status(err.statusCode || 500).json(response);
   }
 
@@ -153,8 +154,8 @@ const startServer = async () => {
       },
     };
 
-    // Create notification worker with dependencies
-    notificationWorker = new NotificationWorker(
+    // Start workers
+    new NotificationWorker(
       {
         notificationEmitter,
         sendEmail,
@@ -176,13 +177,19 @@ const startServer = async () => {
     );
     logger.info('Notification worker started');
 
+    // Boot video processing worker
+    new VideoProcessingWorker({
+      concurrency: parseInt(process.env.VIDEO_WORKER_CONCURRENCY || '2'),
+    });
+    logger.info('Video processing worker started');
+
     // Start HTTP server
     httpServer.listen(PORT, () => {
       logger.info(`Room service started on port ${PORT}`);
       logger.info(`- HTTP API: http://localhost:${PORT}`);
       logger.info(`- SSE: http://localhost:${PORT}/api/v1/notifications/stream`);
       logger.info(`- Redis: ${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`);
-      logger.info(`- MongoDB: Connected`);
+      logger.info(`- PostgreSQL: Connected`);
     });
 
     // Graceful shutdown

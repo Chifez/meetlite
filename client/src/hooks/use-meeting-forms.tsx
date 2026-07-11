@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
-import { extractData } from '@/lib/api-response';
+import { extractData, extractError } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
 import { MeetingFormData } from '@/lib/types';
@@ -222,7 +222,7 @@ export const useMeetingForm = (
       onSuccess?.(result.meetingId);
       resetForm();
     } catch (error) {
-      toast.error('Failed to create meeting');
+      toast.error(extractError(error) || 'Failed to create meeting. Please try again.');
       console.error('Create meeting error:', error);
     } finally {
       setLoading(false);
