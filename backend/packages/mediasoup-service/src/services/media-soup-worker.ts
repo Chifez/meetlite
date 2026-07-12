@@ -507,6 +507,44 @@ export class MediaSoupWorker {
   }
 
   /**
+   * Set consumer preferred spatial layer for simulcast
+   */
+  async setConsumerLayers(consumerId: string, spatialLayer: number) {
+    try {
+      const consumerData = this.consumers.get(consumerId);
+      if (!consumerData) {
+        throw new Error(`Consumer not found: ${consumerId}`);
+      }
+
+      await consumerData.consumer.setPreferredLayers({ spatialLayer });
+      logger.info('Consumer spatial layer set', { consumerId, spatialLayer });
+      return { success: true };
+    } catch (error) {
+      logger.error('Failed to set consumer layers', { consumerId, spatialLayer, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Restart ICE for a transport
+   */
+  async restartIce(transportId: string) {
+    try {
+      const transportData = this.transports.get(transportId);
+      if (!transportData) {
+        throw new Error(`Transport not found: ${transportId}`);
+      }
+
+      const iceParameters = await transportData.transport.restartIce();
+      logger.info('Transport ICE restarted', { transportId });
+      return iceParameters;
+    } catch (error) {
+      logger.error('Failed to restart ICE', { transportId, error });
+      throw error;
+    }
+  }
+
+  /**
    * Get all producers for a room
    */
   getProducersForRoom(roomId: string) {

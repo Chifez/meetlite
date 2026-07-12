@@ -413,9 +413,55 @@ export class MediaController {
         userId,
         transportId,
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to connect transport', error);
-      socket.emit(SOCKET_EVENTS.ERROR, { message: 'Failed to connect transport' });
+      socket.emit(SOCKET_EVENTS.ERROR, {
+        message: error.message || 'Failed to connect transport',
+        severity: 'warning',
+        action: 'restart-ice'
+      });
+    }
+  }
+
+  /**
+   * Handle setting consumer layers
+   */
+  async handleSetLayers(socket: any, data: any, callback?: Function) {
+    try {
+      const { consumerId, spatialLayer } = data;
+      await this.mediaSoupService.worker.setConsumerLayers(
+        consumerId,
+        spatialLayer
+      );
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error: any) {
+      logger.error('Failed to set consumer layers', error);
+      socket.emit(SOCKET_EVENTS.ERROR, {
+        message: error.message || 'Failed to set layers',
+        severity: 'warning'
+      });
+      if (callback) {
+        callback({ error: error.message });
+      }
+    }
+  }
+
+  /**
+   * Handle restarting ICE
+   */
+  async handleRestartIce(socket: any, data: any) {
+    try {
+      const { roomId, transportId } = data;
+      const iceParameters = await this.mediaSoupService.worker.restartIce(transportId);
+      socket.emit('ice-restarted', { transportId, iceParameters });
+    } catch (error: any) {
+      logger.error('Failed to restart ICE', error);
+      socket.emit(SOCKET_EVENTS.ERROR, {
+        message: error.message || 'Failed to restart ICE',
+        severity: 'warning'
+      });
     }
   }
 

@@ -10,6 +10,7 @@ export interface PeerConnection {
   connection: RTCPeerConnection;
   stream?: MediaStream;
   isLoading?: boolean;
+  consumers?: Map<string, any>;
 }
 
 export interface MediaState {
@@ -141,6 +142,7 @@ export interface RoomContextType {
     allowedUsers?: string[];
   }) => void;
   canEdit: (userId: string) => boolean;
+  setConsumerLayer?: (consumerId: string, spatialLayer: number) => void;
 }
 
 export interface Participant {

@@ -25,7 +25,7 @@ const Room = () => {
   const { user } = useAuth();
 
   // Setup socket connection
-  const { socket } = useSocketSetup({ roomId });
+  const { socket, connectionStatus } = useSocketSetup({ roomId });
 
   // Initialize Yjs provider for real-time collaboration
   useYjsProvider(
@@ -84,6 +84,7 @@ const Room = () => {
     screenSharingUserId,
     produceScreenStream,
     stopScreenProduction,
+    setConsumerLayer,
   } = useMediaSoup(
     socket,
     localStream,
@@ -191,6 +192,7 @@ const Room = () => {
       stopPresenting,
       updateCollaborationSettings,
       canEdit,
+      setConsumerLayer,
     }),
     [
       socket,
@@ -227,6 +229,7 @@ const Room = () => {
       stopPresenting,
       updateCollaborationSettings,
       canEdit,
+      setConsumerLayer,
     ]
   );
 
@@ -248,7 +251,12 @@ const Room = () => {
         {/* Wrap the entire room in `.dark` so everything automatically uses the official dark tokens */}
         <div className="dark flex h-screen bg-background text-foreground">
           {/* Main content area */}
-          <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-col flex-1 overflow-hidden relative">
+            {connectionStatus === 'reconnecting' && (
+              <div className="absolute top-0 left-0 w-full z-50 bg-yellow-500/90 text-yellow-50 text-sm font-medium py-2 px-4 text-center backdrop-blur-sm shadow-md animate-in slide-in-from-top-4">
+                Reconnecting... Please wait.
+              </div>
+            )}
             <div className="flex-1 overflow-hidden bg-background p-4">
               {collaborationState?.mode === COLLABORATION_MODES.WORKFLOW ? (
                 <SharedPresentation mode="workflow" />

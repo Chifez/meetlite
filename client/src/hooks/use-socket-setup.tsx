@@ -15,6 +15,7 @@ export const useSocketSetup = ({ roomId }: UseSocketSetupProps) => {
   const { toast } = useToast();
   const socketRef = useRef<Socket | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('disconnected');
 
   useEffect(() => {
     const token = Cookies.get('token');
@@ -47,6 +48,15 @@ export const useSocketSetup = ({ roomId }: UseSocketSetupProps) => {
 
         newSocket.on('connect', () => {
           setSocket(newSocket);
+          setConnectionStatus('connected');
+        });
+
+        newSocket.on('disconnect', () => {
+          setConnectionStatus('reconnecting');
+        });
+
+        newSocket.io.on('reconnect', () => {
+          setConnectionStatus('connected');
         });
 
         newSocket.on('connect_error', (err) => {
@@ -79,5 +89,5 @@ export const useSocketSetup = ({ roomId }: UseSocketSetupProps) => {
     };
   }, [roomId, navigate, toast]);
 
-  return { socket, socketRef };
+  return { socket, socketRef, connectionStatus, setConnectionStatus };
 };

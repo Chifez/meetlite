@@ -4,7 +4,7 @@ import { SharedScreen } from '@/components/room/shared-screen';
 import { useRoom } from '@/contexts/room-context';
 import { useLayoutManager } from '@/hooks/use-layout-manager';
 import { useBandwidthOptimization } from '@/hooks/use-bandwidth-optimization';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 export const ResponsiveVideoGrid = () => {
   const {
@@ -46,6 +46,29 @@ export const ResponsiveVideoGrid = () => {
       Array.from(screenPeers.values()).find((p) => p.id === screenSharingUser)
         ?.stream) ||
     null;
+
+  // Set consumer preferred layers based on bandwidth mode
+  const { setConsumerLayer } = useRoom();
+  
+  useEffect(() => {
+    if (!setConsumerLayer) return;
+    
+    let spatialLayer = 2; // high
+    if (bandwidthSettings.mode === 'medium') spatialLayer = 1;
+    if (bandwidthSettings.mode === 'low') spatialLayer = 0;
+
+    // Apply to all current video consumers
+    peers.forEach((peer) => {
+      // Safely check for consumers, as P2P peers don't have them
+      if (peer.consumers) {
+        peer.consumers.forEach((consumer: any) => {
+          if (consumer.kind === 'video') {
+            setConsumerLayer(consumer.id, spatialLayer);
+          }
+        });
+      }
+    });
+  }, [bandwidthSettings.mode, peers, setConsumerLayer]);
 
   // Create array of all participants (local + peers) with user info
   const allParticipants = useMemo(

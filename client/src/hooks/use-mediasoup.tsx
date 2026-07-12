@@ -150,23 +150,44 @@ export const useMediaSoup = (
         async ({ dtlsParameters }, callback, errback) => {
           try {
             await new Promise<void>((resolve, reject) => {
+              const handleConnected = (data: { transportId: string }) => {
+                if (data.transportId === transportData.id) {
+                  socket.off('transport-connected', handleConnected);
+                  socket.off(SOCKET_EVENTS.ERROR, handleError);
+                  callback();
+                  resolve();
+                }
+              };
+
+              const handleError = (error: { message: string, transportId?: string }) => {
+                // If it's a global error or our specific error
+                if (!error.transportId || error.transportId === transportData.id) {
+                  socket.off('transport-connected', handleConnected);
+                  socket.off(SOCKET_EVENTS.ERROR, handleError);
+                  reject(new Error(error.message));
+                }
+              };
+
+              socket.on('transport-connected', handleConnected);
+              socket.on(SOCKET_EVENTS.ERROR, handleError);
+
               socket.emit(SOCKET_EVENTS.MEDIASOUP_CONNECT_TRANSPORT, {
                 roomId,
                 transportId: transportData.id,
                 dtlsParameters,
               });
-
-              socket.once('transport-connected', () => {
-                callback();
-                resolve();
-              });
-              socket.once(SOCKET_EVENTS.ERROR, reject);
             });
           } catch (error) {
             errback(error as Error);
           }
         }
       );
+
+      sendTransport.on('connectionstatechange', (state) => {
+        if (state === 'disconnected' || state === 'failed') {
+          socket.emit('media:restart-ice', { roomId, transportId: sendTransport.id });
+        }
+      });
 
       // Handle produce events
       sendTransport.on(
@@ -235,17 +256,32 @@ export const useMediaSoup = (
         async ({ dtlsParameters }, callback, errback) => {
           try {
             await new Promise<void>((resolve, reject) => {
+              const handleConnected = (data: { transportId: string }) => {
+                if (data.transportId === transportData.id) {
+                  socket.off('transport-connected', handleConnected);
+                  socket.off(SOCKET_EVENTS.ERROR, handleError);
+                  callback();
+                  resolve();
+                }
+              };
+
+              const handleError = (error: { message: string, transportId?: string }) => {
+                // If it's a global error or our specific error
+                if (!error.transportId || error.transportId === transportData.id) {
+                  socket.off('transport-connected', handleConnected);
+                  socket.off(SOCKET_EVENTS.ERROR, handleError);
+                  reject(new Error(error.message));
+                }
+              };
+
+              socket.on('transport-connected', handleConnected);
+              socket.on(SOCKET_EVENTS.ERROR, handleError);
+
               socket.emit(SOCKET_EVENTS.MEDIASOUP_CONNECT_TRANSPORT, {
                 roomId,
                 transportId: transportData.id,
                 dtlsParameters,
               });
-
-              socket.once('transport-connected', () => {
-                callback();
-                resolve();
-              });
-              socket.once(SOCKET_EVENTS.ERROR, reject);
             });
           } catch (error) {
             errback(error as Error);
@@ -253,23 +289,35 @@ export const useMediaSoup = (
         }
       );
 
+      recvTransport.on('connectionstatechange', (state) => {
+        if (state === 'disconnected' || state === 'failed') {
+          socket.emit('media:restart-ice', { roomId, transportId: recvTransport.id });
+        }
+      });
+
       return recvTransport;
     },
     [socket]
   );
 
   // Produce local stream
-  const produceLocalStream = useCallback(
-    async (
-      roomId: string,
-      stream: MediaStream,
-      device: mediasoupClient.types.Device
-    ) => {
-      if (!device || !stream) return;
+    const produceLocalStream = useCallback(
+      async (
+        roomId: string,
+        stream: MediaStream,
+        device: mediasoupClient.types.Device
+      ) => {
+        if (!device || !stream) return;
 
-      try {
-        const audioTrack = stream.getAudioTracks()[0];
-        const videoTrack = stream.getVideoTracks()[0];
+        const localPeerId = 'local';
+        const existingLocalPeer = stateRef.current.peers.get(localPeerId);
+        if (existingLocalPeer && existingLocalPeer.producers.size > 0) {
+          return; // Already producing, prevent duplicate tracks on reconnect
+        }
+
+        try {
+          const audioTrack = stream.getAudioTracks()[0];
+          const videoTrack = stream.getVideoTracks()[0];
 
         // CRITICAL FIX: canProduce is a Device method, not Transport method
         const canProduceAudio = audioTrack && device.canProduce('audio');
@@ -292,7 +340,15 @@ export const useMediaSoup = (
 
         // Produce video
         if (canProduceVideo && videoTrack) {
-          videoProducer = await sendTransport.produce({ track: videoTrack });
+          videoProducer = await sendTransport.produce({ 
+            track: videoTrack,
+            encodings: [
+              { scaleResolutionDownBy: 4, maxBitrate: 250000 },
+              { scaleResolutionDownBy: 2, maxBitrate: 1000000 },
+              { scaleResolutionDownBy: 1, maxBitrate: 4000000 }
+            ],
+            codecOptions: { videoGoogleStartBitrate: 1000 }
+          });
         }
 
         // Update local peer state
@@ -561,7 +617,17 @@ export const useMediaSoup = (
         audioConsumer: null,
       },
     }));
-  }, []);
+  }, [currentUserId]);
+
+  // Set consumer preferred spatial layer for simulcast
+  const setConsumerLayer = useCallback(
+    (consumerId: string, spatialLayer: number) => {
+      if (socket?.connected) {
+        socket.emit('media:set-layers', { consumerId, spatialLayer });
+      }
+    },
+    [socket]
+  );
 
   // Consume remote stream
   const consumeRemoteStream = useCallback(
@@ -709,11 +775,15 @@ export const useMediaSoup = (
         // Add consumer to peer
         peer.consumers.set(consumer.id, consumer);
 
-        // Create or update stream
-        if (!peer.stream) {
-          peer.stream = new MediaStream();
+        // Create a new stream object to force React to detect the reference change!
+        // The browser's native addtrack event doesn't fire when called from a script,
+        // so we must provide a new object reference to trigger the useEffect.
+        const newStream = new MediaStream();
+        if (peer.stream) {
+          peer.stream.getTracks().forEach((t) => newStream.addTrack(t));
         }
-        peer.stream.addTrack(consumer.track);
+        newStream.addTrack(consumer.track);
+        peer.stream = newStream;
 
         updatePeers(userId, {
           consumers: peer.consumers,
@@ -1059,6 +1129,7 @@ export const useMediaSoup = (
           connection: null, // Not used in MediaSoup
           stream: peer.stream,
           isLoading: peer.isLoading,
+          consumers: peer.consumers,
         });
       }
     });
@@ -1079,5 +1150,6 @@ export const useMediaSoup = (
     stopScreenProduction,
     consumeScreenStream,
     stopScreenConsumption,
+    setConsumerLayer,
   };
 };

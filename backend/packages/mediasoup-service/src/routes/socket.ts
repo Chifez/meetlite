@@ -58,6 +58,14 @@ export const setupSocketRoutes = (
       mediaController.handleCreateConsumer(socket, data)
     );
 
+    socket.on('media:set-layers', (data, callback) =>
+      mediaController.handleSetLayers(socket, data, callback)
+    );
+
+    socket.on('media:restart-ice', (data) =>
+      mediaController.handleRestartIce(socket, data)
+    );
+
     socket.on('media-state-change', (data) =>
       mediaController.handleMediaStateChange(socket, data)
     );
