@@ -241,12 +241,13 @@ export class PaymentController {
         return res.status(400).json({ message: 'Invalid session metadata' });
       }
 
-      if (req.user) {
-        if (userId !== (req.user.id || req.user._id).toString()) {
-          return res.status(403).json({
-            message: 'Session does not belong to authenticated user',
-          });
-        }
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      if (userId !== (req.user.id || req.user._id).toString()) {
+        return res.status(403).json({
+          message: 'Session does not belong to authenticated user',
+        });
       }
 
       const existingUser = await prisma.user.findUnique({ where: { id: userId } });

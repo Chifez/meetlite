@@ -95,6 +95,7 @@ const collaborationStateManager = new CollaborationStateManager();
 
 // Initialize MediaSoup service with collaboration state manager
 const mediaSoupService = new MediaSoupService(collaborationStateManager as any);
+mediaSoupService.setSocketIo(io);
 
 // Initialize Tldraw service
 const tldrawService = new TldrawService();

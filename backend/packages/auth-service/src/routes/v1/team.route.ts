@@ -3,7 +3,7 @@ import { TeamController } from '../../controllers/team.controller.js';
 // @ts-ignore
 import { authenticateToken } from '../../middleware/authenticate-token.js';
 // @ts-ignore
-import { requireTeamManagement } from '../../middleware/team-access.js';
+import { requireTeamManagement, requireTeamAccess } from '../../middleware/team-access.js';
 // @ts-ignore
 import { validateObjectId } from '../../middleware/validation.js';
 // @ts-ignore
@@ -24,6 +24,7 @@ router.get(
   '/organizations/:organizationId/teams/:teamId',
   validateObjectId('organizationId'),
   validateObjectId('teamId'),
+  requireTeamAccess,
   asyncHandler(teamController.getTeam.bind(teamController))
 );
 

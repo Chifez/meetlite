@@ -25,14 +25,14 @@ router.post(
   asyncHandler(paymentController.handleWebhook.bind(paymentController))
 );
 
-// GET /payment/success - Handle successful payment
+router.use(authenticateToken);
+
+// GET /payment/success - Handle successful payment (requires authentication)
 router.get(
   '/success',
   validateSessionId,
   asyncHandler(paymentController.handlePaymentSuccess.bind(paymentController))
 );
-
-router.use(authenticateToken);
 
 // POST /payment/create-customer - Create Stripe customer
 router.post(

@@ -100,6 +100,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ================================
 
 // API routes
+
+
 app.use('/api/v1/auth', authRoutes as any);
 
 // Only load payment routes if Stripe is configured
@@ -190,7 +192,7 @@ const createInitialSystemAdmin = async () => {
 
   if (!adminEmail || !adminPassword) {
     console.log(
-      'ℹ️  INITIAL_SYSTEM_ADMIN_EMAIL and INITIAL_SYSTEM_ADMIN_PASSWORD not set - skipping initial admin creation'
+      'â„¹ï¸  INITIAL_SYSTEM_ADMIN_EMAIL and INITIAL_SYSTEM_ADMIN_PASSWORD not set - skipping initial admin creation'
     );
     return;
   }
@@ -198,7 +200,7 @@ const createInitialSystemAdmin = async () => {
   try {
     const existingAdmin = await prisma.user.findFirst({ where: { isSystemAdmin: true } });
     if (existingAdmin) {
-      console.log('✅ System admin already exists');
+      console.log('âœ… System admin already exists');
       return;
     }
 
@@ -209,7 +211,7 @@ const createInitialSystemAdmin = async () => {
         where: { id: user.id },
         data: { isSystemAdmin: true }
       });
-      console.log(`✅ Existing user ${adminEmail} promoted to system admin`);
+      console.log(`âœ… Existing user ${adminEmail} promoted to system admin`);
     } else {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(adminPassword, salt);
@@ -224,20 +226,20 @@ const createInitialSystemAdmin = async () => {
         }
       });
 
-      console.log(`✅ System admin created: ${adminEmail}`);
+      console.log(`âœ… System admin created: ${adminEmail}`);
     }
   } catch (error) {
-    console.error('❌ Error creating initial system admin:', error);
+    console.error('âŒ Error creating initial system admin:', error);
   }
 };
 
 const connectDB = async () => {
   try {
     await prisma.$connect();
-    console.log('✅ Connected to PostgreSQL database via Prisma');
+    console.log('âœ… Connected to PostgreSQL database via Prisma');
     await createInitialSystemAdmin();
   } catch (error: any) {
-    console.error('❌ Failed to connect to PostgreSQL:', error.message);
+    console.error('âŒ Failed to connect to PostgreSQL:', error.message);
     process.exit(1);
   }
 };
@@ -332,4 +334,4 @@ const startServer = async () => {
 };
 
 startServer();
-// TRIGGER 2// Trigger restart
+

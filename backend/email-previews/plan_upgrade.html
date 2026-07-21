@@ -1,27 +1,10 @@
-export interface EmailTemplateOptions {
-  title: string;
-  subtitle?: string;
-  content: string;
-  footerText?: string;
-  logoHeight?: number;
-  pageTitle?: string;
-}
 
-export const getEmailTemplate = ({
-  title,
-  subtitle,
-  content,
-  footerText = '© 2025 MeetLite. All rights reserved.',
-  logoHeight = 24,
-  pageTitle,
-}: EmailTemplateOptions): string => {
-  return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${pageTitle || title || 'MeetLite'}</title>
+      <title>Plan Upgraded - MeetLite</title>
       <style>
         body {
           margin: 0;
@@ -57,7 +40,7 @@ export const getEmailTemplate = ({
           margin-bottom: 28px;
         }
         .logo-container img {
-          height: ${logoHeight}px;
+          height: 24px;
           width: auto;
           display: block;
         }
@@ -238,16 +221,118 @@ export const getEmailTemplate = ({
           <!-- Header -->
           <div class="header-padding">
             <div class="logo-container">
-              <img src="${process.env.LOGO_URL || 'https://minimeet.com/logo.png'}" alt='MeetLite Logo' />
+              <img src="https://minimeet.com/logo.png" alt='MeetLite Logo' />
               <span class="logo-text">MeetLite</span>
             </div>
-            ${title ? `<h2 class="title-size">${title}</h2>` : ''}
-            ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
+            <h2 class="title-size">Plan Upgraded!</h2>
+            <p class="subtitle-size">Welcome to premium features</p>
           </div>
           
           <!-- Content -->
           <div class="content-padding">
-            ${content}
+            
+    
+    <style>
+      .upgrade-title {
+        color: #3D5A80;
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .upgrade-text {
+        color: #1A1A1A;
+        margin: 0 0 20px 0;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+    </style>
+  
+    <h3 class="upgrade-title">Hi Jane Doe!</h3>
+    <p class="upgrade-text">
+      Great news! Your MeetLite plan has been successfully upgraded to <strong>Premium</strong>.
+    </p>
+    
+    <!-- Receipt & Plan Details Card -->
+    <div class="card">
+      <div class="card-header">Receipt & Plan Details</div>
+      <table class="receipt-table">
+        <tr class="receipt-row">
+          <td class="receipt-label">Plan</td>
+          <td class="receipt-value">Premium</td>
+        </tr>
+        <tr class="receipt-row">
+          <td class="receipt-label">Status</td>
+          <td class="receipt-value" style="color: #2E7D32;">● Active</td>
+        </tr>
+        
+        
+        
+        <tr class="receipt-row">
+          <td class="receipt-label">Next Billing Date</td>
+          <td class="receipt-value">21/07/2026</td>
+        </tr>
+        
+        
+      </table>
+    </div>
+    
+    <!-- Unlocked Features Card -->
+    <div class="card">
+      <div class="card-header">Your Newly Unlocked Features</div>
+      <ul class="feature-list">
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+              <div>
+                <div class="feature-title">Unlimited Meeting Duration</div>
+                <div class="feature-desc">Host calls without the 45-minute limit.</div>
+              </div>
+            </div>
+          </li>
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+              <div>
+                <div class="feature-title">Custom Branding</div>
+                <div class="feature-desc">Add your company logo to waiting rooms.</div>
+              </div>
+            </div>
+          </li>
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+              <div>
+                <div class="feature-title">Cloud Recording</div>
+                <div class="feature-desc">Save and share your meetings seamlessly.</div>
+              </div>
+            </div>
+          </li>
+        
+      </ul>
+    </div>
+    
+    <div style="text-align: center; margin-top: 32px;">
+      <a href="http://localhost:3000/dashboard" class="btn-primary">
+        Go to Dashboard
+      </a>
+    </div>
+    
+    <!-- Need Assistance Section -->
+    <div class="assistance-section">
+      <div class="assistance-title">Need Assistance?</div>
+      <div class="assistance-text">
+        Our support team is here to help you get the most out of your new features.
+      </div>
+      <div class="assistance-links">
+        <a href="http://localhost:3000/help">Help Center</a>
+        <a href="http://localhost:3000/contact">Contact Us</a>
+      </div>
+    </div>
+  
           </div>
           
           <!-- Footer -->
@@ -257,11 +342,10 @@ export const getEmailTemplate = ({
               <a href="#">Privacy Policy</a>
               <a href="#">Unsubscribe</a>
             </div>
-            <p style="margin: 0;">${footerText}</p>
+            <p style="margin: 0;">© 2025 MeetLite. All rights reserved.</p>
           </div>
         </div>
       </div>
     </body>
     </html>
-  `;
-};
+  

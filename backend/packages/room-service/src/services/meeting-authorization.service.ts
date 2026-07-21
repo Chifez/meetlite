@@ -119,7 +119,7 @@ export class MeetingAuthorizationService {
         const isParticipant =
           meeting.invites?.some(
             (invite: any) => invite.email === userEmail && invite.status !== 'declined'
-          ) || meeting.participants?.includes(userId);
+          ) || meeting.participants?.some((p: any) => p.userId === userId);
 
         return isParticipant;
       }

@@ -1,4 +1,4 @@
-import { VideoOff, MicOff, Loader2 } from 'lucide-react';
+import { MicOff, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { SpeakingIndicator } from '@/components/room/speaking-indicator';
 
@@ -13,6 +13,7 @@ interface VideoParticipantProps {
   userEmail?: string;
   userName?: string;
   forceSpeaking?: boolean;
+  audioLevel?: number;
 }
 
 const getInitials = (name?: string, email?: string) => {
@@ -32,6 +33,7 @@ export const VideoParticipant = ({
   userEmail,
   userName,
   forceSpeaking = false,
+  audioLevel = 0,
 }: VideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -138,6 +140,7 @@ export const VideoParticipant = ({
         isLocal={isLocal}
         audioEnabled={mediaState.audioEnabled}
         forceSpeaking={forceSpeaking}
+        forceAudioLevel={audioLevel}
       />
 
       {(showVideoOff || showError || showLoading) && (

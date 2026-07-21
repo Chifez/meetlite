@@ -1,27 +1,10 @@
-export interface EmailTemplateOptions {
-  title: string;
-  subtitle?: string;
-  content: string;
-  footerText?: string;
-  logoHeight?: number;
-  pageTitle?: string;
-}
 
-export const getEmailTemplate = ({
-  title,
-  subtitle,
-  content,
-  footerText = '© 2025 MeetLite. All rights reserved.',
-  logoHeight = 24,
-  pageTitle,
-}: EmailTemplateOptions): string => {
-  return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${pageTitle || title || 'MeetLite'}</title>
+      <title>Meeting Reminder</title>
       <style>
         body {
           margin: 0;
@@ -57,7 +40,7 @@ export const getEmailTemplate = ({
           margin-bottom: 28px;
         }
         .logo-container img {
-          height: ${logoHeight}px;
+          height: 24px;
           width: auto;
           display: block;
         }
@@ -238,16 +221,86 @@ export const getEmailTemplate = ({
           <!-- Header -->
           <div class="header-padding">
             <div class="logo-container">
-              <img src="${process.env.LOGO_URL || 'https://minimeet.com/logo.png'}" alt='MeetLite Logo' />
+              <img src="https://minimeet.com/logo.png" alt='MeetLite Logo' />
               <span class="logo-text">MeetLite</span>
             </div>
-            ${title ? `<h2 class="title-size">${title}</h2>` : ''}
-            ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
+            <h2 class="title-size">Meeting Reminder</h2>
+            <p class="subtitle-size">Your meeting is starting soon</p>
           </div>
           
           <!-- Content -->
           <div class="content-padding">
-            ${content}
+            
+    <div style="font-size: 16px; color: #1A1A1A; margin-bottom: 16px;">
+        Hi there,
+    </div>
+    <p style="color: #4A4A4A; line-height: 1.6; margin-bottom: 24px; font-size: 16px;">
+        This is a friendly reminder that your meeting <strong>Weekly Sync</strong> is starting soon. 
+    </p>
+
+    <!-- Meeting Details Card -->
+    <div class="card" style="border-top: 4px solid #C1502E;">
+        <div class="card-header" style="border-bottom: none; padding-bottom: 0; margin-bottom: 16px;">
+            <div style="display: inline-flex; align-items: center; color: #C1502E; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+                <span style="margin-right: 8px;">⏰</span> Starting in 10 minutes
+            </div>
+            <h3 style="margin: 0; font-size: 20px; color: #1A1A1A; letter-spacing: -0.02em;">Weekly Sync</h3>
+        </div>
+        
+        
+        <table class="receipt-table">
+            <tr class="receipt-row">
+                <td class="receipt-label">Date</td>
+                <td class="receipt-value">Tuesday, July 21, 2026</td>
+            </tr>
+            <tr class="receipt-row">
+                <td class="receipt-label">Time</td>
+                <td class="receipt-value">00:53:55 (UTC)</td>
+            </tr>
+            <tr class="receipt-row">
+                <td class="receipt-label">Duration</td>
+                <td class="receipt-value">60 minutes</td>
+            </tr>
+            
+            <tr class="receipt-row">
+                <td class="receipt-label">Host</td>
+                <td class="receipt-value">Jane Doe</td>
+            </tr>
+            
+        </table>
+    </div>
+
+    <!-- Preparation List -->
+    <div class="card">
+      <div class="card-header">Quick Checks before joining</div>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+            <div class="feature-content">Find a quiet space with a stable internet connection</div>
+          </div>
+        </li>
+        <li class="feature-item" style="margin-bottom: 0;">
+          <div style="display: flex;">
+            <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+            <div class="feature-content">Test your microphone and camera</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin-top: 32px; margin-bottom: 32px;">
+        <a href="http://localhost:3000/room/123" class="btn-primary" style="background: #2E7D5B;">
+            Join Meeting Now
+        </a>
+    </div>
+
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #E4E1D8; color: #6B6B63; font-size: 13px; line-height: 1.5; text-align: center;">
+        If the button doesn't work, copy and paste this link into your browser:<br>
+        <a href="http://localhost:3000/room/123" style="color: #3D5A80; word-break: break-all;">http://localhost:3000/room/123</a>
+    </div>
+  
           </div>
           
           <!-- Footer -->
@@ -257,11 +310,10 @@ export const getEmailTemplate = ({
               <a href="#">Privacy Policy</a>
               <a href="#">Unsubscribe</a>
             </div>
-            <p style="margin: 0;">${footerText}</p>
+            <p style="margin: 0;">© 2025 MeetLite. All rights reserved.</p>
           </div>
         </div>
       </div>
     </body>
     </html>
-  `;
-};
+  

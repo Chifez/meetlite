@@ -1,150 +1,108 @@
 import { getEmailTemplate } from './email-wrapper.js';
 
-export const getPaymentFailureEmailTemplate = (userName: string, planType: string, errorMessage: string) => {
-  const contentStyles = `
-    <style>
-      .failure-title {
-        color: #dc2626;
-        margin: 0 0 16px 0;
-        font-size: 1.2rem;
-        font-weight: 600;
-      }
-      .failure-text {
-        color: #555;
-        margin: 0 0 20px 0;
-        font-size: 0.95rem;
-        line-height: 1.5;
-      }
-      .error-box {
-        background: #fee2e2;
-        padding: 20px;
-        border-radius: 8px;
-        margin: 20px 0;
-        border-left: 4px solid #dc2626;
-      }
-      .error-box h3 {
-        color: #991b1b;
-        margin-top: 0;
-        font-size: 1rem;
-        font-weight: 600;
-      }
-      .error-box p {
-        color: #991b1b;
-        margin: 0;
-        font-size: 0.9rem;
-      }
-      .info-box {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 8px;
-        margin: 20px 0;
-        border-left: 4px solid #7c3aed;
-      }
-      .info-box h3 {
-        color: #333;
-        margin-top: 0;
-        font-size: 1rem;
-        font-weight: 600;
-      }
-      .info-box ul {
-        color: #666;
-        padding-left: 20px;
-        margin: 0;
-      }
-      .info-box li {
-        margin-bottom: 8px;
-        font-size: 0.9rem;
-      }
-      .update-button {
-        display: inline-block;
-        background: #7c3aed;
-        color: #fff;
-        font-weight: 600;
-        padding: 12px 24px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-size: 0.95rem;
-        box-shadow: 0 4px 12px rgba(124,58,237,0.3);
-        transition: all 0.2s;
-        min-width: 120px;
-        text-align: center;
-      }
-      .update-button:hover {
-        background: #6d28d9;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(124,58,237,0.4);
-      }
-      .footer-note {
-        color: #888;
-        font-size: 0.8rem;
-        margin-top: 16px;
-        line-height: 1.4;
-        text-align: center;
-      }
-      @media only screen and (max-width: 480px) {
-        .error-box, .info-box {
-          padding: 16px;
-          margin: 16px 0;
-        }
-        .update-button {
-          padding: 10px 20px;
-          font-size: 0.9rem;
-        }
-      }
-    </style>
-  `;
+export interface PaymentFailureData {
+  userName: string;
+  planType: string;
+  amountFailed?: string;
+  errorMessage?: string;
+  nextRetryDate?: string;
+}
+
+export const getPaymentFailureEmailTemplate = (data: PaymentFailureData) => {
+  const { userName, planType, amountFailed, errorMessage, nextRetryDate } = data;
+  const capitalizedPlan = planType ? planType.charAt(0).toUpperCase() + planType.slice(1) : 'Premium';
 
   const content = `
-    ${contentStyles}
-    <h3 class="failure-title">Hi ${userName || 'there'}!</h3>
-    <p class="failure-text">
-      We encountered an issue processing your payment for the <strong>${
-        planType.charAt(0).toUpperCase() + planType.slice(1)
-      }</strong> plan.
+    <div style="font-size: 16px; color: #1A1A1A; margin-bottom: 16px;">
+        Hi ${userName || 'there'},
+    </div>
+    <p style="color: #4A4A4A; line-height: 1.6; margin-bottom: 24px; font-size: 16px;">
+        We encountered an issue processing your payment for the <strong>${capitalizedPlan}</strong> plan.
     </p>
     
-    <!-- Error Box -->
-    <div class="error-box">
-      <h3>⚠️ Payment Failed</h3>
-      <p>
-        ${errorMessage || 'Your payment could not be processed. Please update your payment method to continue.'}
+    <!-- Failure Notice Card -->
+    <div class="card" style="border-top: 4px solid #C1502E;">
+      <div class="card-header" style="border-bottom: none; padding-bottom: 0; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 18px; color: #C1502E; letter-spacing: -0.02em;">Payment Failed</h3>
+      </div>
+      <p style="margin: 0 0 16px 0; color: #4A4A4A; font-size: 15px; line-height: 1.6;">
+        ${errorMessage || 'Your payment could not be processed. Please update your payment method to continue using premium features.'}
+      </p>
+      
+      <table class="receipt-table">
+        <tr class="receipt-row">
+          <td class="receipt-label">Plan</td>
+          <td class="receipt-value">${capitalizedPlan}</td>
+        </tr>
+        ${amountFailed ? `
+        <tr class="receipt-row">
+          <td class="receipt-label">Amount Due</td>
+          <td class="receipt-value">${amountFailed}</td>
+        </tr>
+        ` : ''}
+        ${nextRetryDate ? `
+        <tr class="receipt-row">
+          <td class="receipt-label">Next Retry</td>
+          <td class="receipt-value">${nextRetryDate}</td>
+        </tr>
+        ` : ''}
+      </table>
+    </div>
+    
+    <!-- Next Steps Card -->
+    <div class="card">
+      <div class="card-header">How to resolve this</div>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #C1502E; margin-right: 12px; font-weight: bold;">•</div>
+            <div class="feature-content">Check that your card has sufficient funds or hasn't expired.</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #C1502E; margin-right: 12px; font-weight: bold;">•</div>
+            <div class="feature-content">Update your payment method in your account settings.</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #C1502E; margin-right: 12px; font-weight: bold;">•</div>
+            <div class="feature-content">Contact your bank if the issue persists.</div>
+          </div>
+        </li>
+      </ul>
+      <p style="color: #4A4A4A; line-height: 1.6; margin-top: 16px; margin-bottom: 0; font-size: 14px;">
+        Don't worry - your account remains active for now. Once you update your payment method, we'll automatically retry the payment and restore your full access.
       </p>
     </div>
     
-    <!-- Info Box -->
-    <div class="info-box">
-      <h3>What to do next:</h3>
-      <ul>
-        <li>Update your payment method in your account settings</li>
-        <li>Check that your card has sufficient funds</li>
-        <li>Verify your billing information is correct</li>
-        <li>Contact your bank if the issue persists</li>
-      </ul>
-    </div>
-    
-    <p class="failure-text">
-      Don't worry - your account remains active. Once you update your payment method, we'll automatically retry the payment.
-    </p>
-    
-    <!-- CTA Button -->
-    <div style="text-align: center;">
-      <a href="${process.env.CLIENT_URL}/settings" class="update-button">
+    <div style="text-align: center; margin-top: 32px;">
+      <a href="${process.env.CLIENT_URL || 'https://minimeet.com'}/settings" class="btn-primary" style="background: #C1502E;">
         Update Payment Method
       </a>
     </div>
     
-    <p class="footer-note">
-      Need help? Contact our support team and we'll be happy to assist you.
-    </p>
+    <!-- Need Assistance Section -->
+    <div class="assistance-section">
+      <div class="assistance-title">Need Assistance?</div>
+      <div class="assistance-text">
+        Our support team is here to help you resolve this billing issue.
+      </div>
+      <div class="assistance-links">
+        <a href="${process.env.CLIENT_URL || 'https://minimeet.com'}/help">Help Center</a>
+        <a href="${process.env.CLIENT_URL || 'https://minimeet.com'}/contact">Contact Support</a>
+      </div>
+    </div>
   `;
 
   return {
     subject: `Payment Failed - Action Required`,
     html: getEmailTemplate({
-      title: '⚠️ Payment Failed',
+      title: 'Payment Failed',
       subtitle: 'Update your payment method',
       content,
-      logoHeight: 100,
+      logoHeight: 24,
       pageTitle: 'Payment Failed - MeetLite',
     }),
   };

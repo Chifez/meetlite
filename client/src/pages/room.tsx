@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef, useState } from 'react';
 import { ResponsiveVideoGrid } from '@/components/room/responsive-video-grid';
 import { RoomControls } from '@/components/room/room-controls';
 import { ChatPanel } from '@/components/chat/chat-panel';
@@ -85,6 +85,8 @@ const Room = () => {
     produceScreenStream,
     stopScreenProduction,
     setConsumerLayer,
+    activeSpeakerId,
+    audioLevels,
   } = useMediaSoup(
     socket,
     localStream,
@@ -110,6 +112,9 @@ const Room = () => {
     roomId,
     updateParticipantInfo
   );
+
+  // Dynamic layout states
+  const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(null);
 
   // Use MediaSoup peers if connected, otherwise fallback to P2P
   const peers = isMediaSoupConnected ? mediaSoupPeers : p2pPeers;
@@ -193,6 +198,10 @@ const Room = () => {
       updateCollaborationSettings,
       canEdit,
       setConsumerLayer,
+      activeSpeakerId: activeSpeakerId || null,
+      audioLevels: audioLevels || {},
+      pinnedParticipant,
+      setPinnedParticipant,
     }),
     [
       socket,
@@ -230,6 +239,9 @@ const Room = () => {
       updateCollaborationSettings,
       canEdit,
       setConsumerLayer,
+      activeSpeakerId,
+      audioLevels,
+      pinnedParticipant,
     ]
   );
 

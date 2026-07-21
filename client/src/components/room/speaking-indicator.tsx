@@ -23,6 +23,13 @@ export const SpeakingIndicator = ({
   const animationFrameRef = useRef<number>();
 
   useEffect(() => {
+    // If this is a remote participant, we don't need Web Audio API because the server provides levels
+    if (!isLocal) {
+      setIsSpeaking(forceSpeaking);
+      setAudioLevel(forceAudioLevel);
+      return;
+    }
+
     // Handle case where stream is not available or audio is disabled
     // If forceSpeaking is true, we bypass this check so the mockup can animate
     if ((!stream && !forceSpeaking) || !audioEnabled) {
@@ -104,7 +111,7 @@ export const SpeakingIndicator = ({
       analyserRef.current = null;
       audioContextRef.current = null;
     };
-  }, [audioEnabled, isLocal]);
+  }, [audioEnabled, isLocal, stream, forceSpeaking, forceAudioLevel]);
 
   if ((!isSpeaking && !forceSpeaking) || !audioEnabled) {
     return null;
@@ -112,8 +119,11 @@ export const SpeakingIndicator = ({
 
   // Calculate dynamic values based on audio level or forced level
   const activeAudioLevel = forceSpeaking ? forceAudioLevel || 60 : audioLevel;
-  const normalizedLevel = Math.max(0.2, Math.min(1, activeAudioLevel / 50)); // Normalize to 0.2-1 range
-  const pulseSpeed = Math.max(0.3, 1.2 - activeAudioLevel / 100); // Faster pulse for louder audio
+  // Use activeAudioLevel to render the rings
+  const ringLevel = activeAudioLevel > 0 ? activeAudioLevel : audioLevel;
+
+  const normalizedLevel = Math.max(0.2, Math.min(1, ringLevel / 50)); // Normalize to 0.2-1 range
+  const pulseSpeed = Math.max(0.3, 1.2 - ringLevel / 100); // Faster pulse for louder audio
 
   return (
     <div className="absolute top-2 right-2 z-10">
@@ -124,8 +134,8 @@ export const SpeakingIndicator = ({
         <div
           className="absolute border-2 border-green-400 rounded-full transition-all duration-100 ease-out"
           style={{
-            width: `${32 + audioLevel * 0.4}px`,
-            height: `${32 + audioLevel * 0.4}px`,
+            width: `${32 + ringLevel * 0.4}px`,
+            height: `${32 + ringLevel * 0.4}px`,
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
@@ -136,8 +146,8 @@ export const SpeakingIndicator = ({
         <div
           className="absolute border-2 border-green-400 rounded-full transition-all duration-150 ease-out"
           style={{
-            width: `${36 + audioLevel * 0.6}px`,
-            height: `${36 + audioLevel * 0.6}px`,
+            width: `${36 + ringLevel * 0.6}px`,
+            height: `${36 + ringLevel * 0.6}px`,
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
@@ -148,8 +158,8 @@ export const SpeakingIndicator = ({
         <div
           className="absolute border-2 border-green-400 rounded-full transition-all duration-200 ease-out"
           style={{
-            width: `${40 + audioLevel * 0.8}px`,
-            height: `${40 + audioLevel * 0.8}px`,
+            width: `${40 + ringLevel * 0.8}px`,
+            height: `${40 + ringLevel * 0.8}px`,
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',

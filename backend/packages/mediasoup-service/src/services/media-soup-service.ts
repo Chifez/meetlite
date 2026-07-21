@@ -17,6 +17,7 @@ export class MediaSoupService {
   private roomServiceUrl: string;
   public collaborationStateManager: any;
   private recordingService: any = null;
+  private io: any = null;
 
   constructor(collaborationStateManager: any = null) {
     this.worker = new MediaSoupWorker();
@@ -38,6 +39,13 @@ export class MediaSoupService {
    */
   setRecordingService(recordingService: any) {
     this.recordingService = recordingService;
+  }
+
+  /**
+   * Register Socket.IO instance for broadcasting events
+   */
+  setSocketIo(io: any) {
+    this.io = io;
   }
 
   /**
@@ -125,6 +133,36 @@ export class MediaSoupService {
       };
 
       this.rooms.set(roomId, roomData);
+
+      // Handle observer events if we have socket.io instance
+      if (this.io) {
+        const workerRouterData = this.worker.getRouterData(roomId);
+        
+        if (workerRouterData?.activeSpeakerObserver) {
+          workerRouterData.activeSpeakerObserver.on('dominantspeaker', (dominantSpeaker: any) => {
+            const producerData = this.worker.getProducerData(dominantSpeaker.producer.id);
+            if (producerData) {
+              this.io.to(roomId).emit('mediasoup:active-speaker', { userId: producerData.userId });
+            }
+          });
+        }
+        
+        if (workerRouterData?.audioLevelObserver) {
+          workerRouterData.audioLevelObserver.on('volumes', (volumes: any[]) => {
+            const audioLevels = volumes.map(v => {
+              const producerData = this.worker.getProducerData(v.producer.id);
+              return {
+                userId: producerData?.userId,
+                volume: v.volume
+              };
+            }).filter(v => v.userId);
+            
+            if (audioLevels.length > 0) {
+              this.io.to(roomId).emit('mediasoup:audio-levels', audioLevels);
+            }
+          });
+        }
+      }
 
       // Initialize collaboration state for the room
       if (this.collaborationStateManager) {

@@ -18,6 +18,9 @@ export const ResponsiveVideoGrid = () => {
     screenStream,
     screenSharingUser,
     screenPeers,
+    activeSpeakerId,
+    audioLevels,
+    pinnedParticipant,
   } = useRoom();
 
   const { layoutMode, screenSize } = useLayoutManager();
@@ -53,22 +56,24 @@ export const ResponsiveVideoGrid = () => {
   useEffect(() => {
     if (!setConsumerLayer) return;
     
-    let spatialLayer = 2; // high
-    if (bandwidthSettings.mode === 'medium') spatialLayer = 1;
-    if (bandwidthSettings.mode === 'low') spatialLayer = 0;
+    let baseSpatialLayer = 1; // medium
+    if (bandwidthSettings.mode === 'low') baseSpatialLayer = 0;
 
     // Apply to all current video consumers
-    peers.forEach((peer) => {
+    peers.forEach((peer, peerId) => {
       // Safely check for consumers, as P2P peers don't have them
       if (peer.consumers) {
         peer.consumers.forEach((consumer: any) => {
           if (consumer.kind === 'video') {
-            setConsumerLayer(consumer.id, spatialLayer);
+            // Determine spatial layer based on focus (pinned or active speaker)
+            const isFocused = peerId === pinnedParticipant || (!pinnedParticipant && peerId === activeSpeakerId);
+            const targetLayer = isFocused ? 2 : baseSpatialLayer; // 2 = high
+            setConsumerLayer(consumer.id, targetLayer);
           }
         });
       }
     });
-  }, [bandwidthSettings.mode, peers, setConsumerLayer]);
+  }, [bandwidthSettings.mode, peers, setConsumerLayer, activeSpeakerId, pinnedParticipant]);
 
   // Create array of all participants (local + peers) with user info
   const allParticipants = useMemo(
@@ -81,6 +86,8 @@ export const ResponsiveVideoGrid = () => {
         isLoading: false,
         userEmail: undefined,
         userName: 'You',
+        isActiveSpeaker: activeSpeakerId === 'local',
+        audioLevel: audioLevels['local'] || 0,
       },
       ...Array.from(peers.entries()).map(([peerId, peer]) => {
         const participantEmail = getParticipantEmail(peer.id);
@@ -97,6 +104,8 @@ export const ResponsiveVideoGrid = () => {
           isLoading: peer.isLoading || false,
           userEmail: participantEmail,
           userName: participantDisplayName || participantEmail || 'Participant',
+          isActiveSpeaker: activeSpeakerId === peerId,
+          audioLevel: audioLevels[peerId] || 0,
         };
       }),
     ],
@@ -108,6 +117,8 @@ export const ResponsiveVideoGrid = () => {
       peerMediaState,
       getParticipantEmail,
       getParticipantDisplayName,
+      activeSpeakerId,
+      audioLevels,
     ]
   );
 
@@ -156,7 +167,9 @@ export const ResponsiveVideoGrid = () => {
               layoutMode={layoutMode}
               screenSize={screenSize}
               isPresenting={!!sharedScreenStream}
-              hasActiveSpeaker={false} // Will be calculated internally by the renderer
+              hasActiveSpeaker={!!activeSpeakerId}
+              activeSpeakerId={activeSpeakerId}
+              pinnedParticipant={pinnedParticipant}
               bandwidthMode={bandwidthSettings.mode}
               userPreferences={userPreferences}
             />

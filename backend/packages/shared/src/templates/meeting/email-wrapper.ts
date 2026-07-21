@@ -7,15 +7,12 @@ export interface EmailTemplateOptions {
   pageTitle?: string;
 }
 
-/**
- * Base email template wrapper that provides consistent styling and structure
- */
 export const getEmailTemplate = ({
   title,
   subtitle,
   content,
-  footerText = '© MeetLite. All rights reserved.',
-  logoHeight = 100,
+  footerText = '© 2025 MeetLite. All rights reserved.',
+  logoHeight = 24,
   pageTitle,
 }: EmailTemplateOptions): string => {
   return `
@@ -29,111 +26,239 @@ export const getEmailTemplate = ({
         body {
           margin: 0;
           padding: 0;
-          font-family: 'Segoe UI', Arial, sans-serif;
-          background: #F7F6F2;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          background: #F0EFE9;
           min-height: 100vh;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: center;
+          color: #1A1A1A;
+        }
+        .email-outer {
+          width: 100%;
+          padding: 48px 0 64px 0;
         }
         .email-container {
-          max-width: 480px;
+          max-width: 520px;
           width: 100%;
-          margin: 20px;
-          background: #fff;
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(61, 90, 128, 0.12);
+          margin: 0 auto;
+          background: #FFFFFF;
+          border-radius: 16px;
+          box-shadow: 0 1px 3px rgba(26, 26, 26, 0.06), 0 8px 32px -8px rgba(26, 26, 26, 0.1);
           overflow: hidden;
         }
         .header-padding {
-          background: #3D5A80;
-          padding: 24px 20px 16px 20px;
-          text-align: center;
+          padding: 32px 40px 28px 40px;
+          border-bottom: 1px solid #EDECEA;
         }
         .logo-container {
-          display: inline-block;
-          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          margin-bottom: 28px;
         }
         .logo-container img {
           height: ${logoHeight}px;
-          max-width: 100%;
+          width: auto;
           display: block;
         }
-        .content-padding {
-          padding: 24px 20px 20px 20px;
+        .logo-text {
+          color: #1A1A1A;
+          font-size: 17px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          margin-left: 9px;
         }
         .title-size {
-          color: #fff;
-          font-size: 1.4rem;
+          color: #1A1A1A;
+          font-size: 22px;
           margin: 0;
           font-weight: 700;
-          letter-spacing: -0.5px;
+          letter-spacing: -0.025em;
+          line-height: 1.25;
         }
         .subtitle-size {
-          color: #C8D8E8;
-          font-size: 0.9rem;
-          margin: 4px 0 0 0;
+          color: #6B6B63;
+          font-size: 15px;
+          margin: 6px 0 0 0;
+          line-height: 1.5;
+          font-weight: 400;
         }
-        .cta-button {
-          display: inline-block;
-          background: #3D5A80;
-          color: #ffffff !important;
-          text-decoration: none;
-          padding: 12px 24px;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 0.95rem;
-          margin: 8px 0;
+        .content-padding {
+          padding: 32px 40px 40px 40px;
         }
         .bottom-footer {
-          background: #E4E1D8;
-          color: #6B6B63;
+          background: #F7F6F2;
+          color: #9B9B93;
           text-align: center;
-          padding: 12px 0;
-          font-size: 0.8rem;
-          border-top: 1px solid #D0CDC4;
+          padding: 24px 40px;
+          font-size: 12px;
+          line-height: 1.6;
+          border-top: 1px solid #EDECEA;
         }
-        @media only screen and (max-width: 480px) {
+        .footer-links {
+          margin-bottom: 10px;
+        }
+        .footer-links a {
+          color: #6B6B63;
+          text-decoration: none;
+          margin: 0 10px;
+          font-size: 12px;
+          font-weight: 500;
+        }
+        .footer-links a:hover {
+          color: #3D5A80;
+        }
+        .card {
+          background: #FFFFFF;
+          border-radius: 12px;
+          padding: 24px;
+          margin: 24px 0;
+          border: 1px solid #E4E1D8;
+          box-shadow: 0 2px 8px rgba(26, 26, 26, 0.04);
+        }
+        .card-header {
+          border-bottom: 1px solid #E4E1D8;
+          padding-bottom: 16px;
+          margin-bottom: 16px;
+          font-weight: 600;
+          font-size: 16px;
+          color: #1A1A1A;
+        }
+        .receipt-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .receipt-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 12px 0;
+          border-bottom: 1px solid #F0EFE9;
+          font-size: 14px;
+        }
+        .receipt-row:last-child {
+          border-bottom: none;
+        }
+        .receipt-label {
+          color: #6B6B63;
+        }
+        .receipt-value {
+          font-weight: 500;
+          color: #1A1A1A;
+          text-align: right;
+        }
+        .feature-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .feature-item {
+          margin-bottom: 16px;
+          font-size: 14px;
+          color: #1A1A1A;
+        }
+        .feature-title {
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+        .feature-desc {
+          color: #6B6B63;
+          font-size: 13px;
+          line-height: 1.4;
+        }
+        .assistance-section {
+          background: #F7F6F2;
+          border-radius: 12px;
+          padding: 24px;
+          text-align: center;
+          margin-top: 32px;
+        }
+        .assistance-title {
+          font-weight: 600;
+          margin-bottom: 8px;
+          font-size: 15px;
+          color: #1A1A1A;
+        }
+        .assistance-text {
+          color: #6B6B63;
+          font-size: 13px;
+          margin-bottom: 16px;
+          line-height: 1.5;
+        }
+        .assistance-links a {
+          display: inline-block;
+          margin: 0 8px;
+          color: #3D5A80;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .btn-primary {
+          display: inline-block;
+          background: #3D5A80;
+          color: #ffffff;
+          font-weight: 500;
+          padding: 12px 24px;
+          border-radius: 8px;
+          text-decoration: none;
+          font-size: 14px;
+          text-align: center;
+        }
+        @media only screen and (max-width: 560px) {
+          .email-outer {
+            padding: 0;
+          }
           .email-container {
-            margin: 12px;
-            max-width: calc(100% - 24px);
+            margin: 0;
+            max-width: 100%;
+            border-radius: 0;
+            box-shadow: none;
           }
           .header-padding {
-            padding: 20px 16px 12px 16px;
+            padding: 24px 24px 20px 24px;
           }
           .content-padding {
-            padding: 20px 16px 16px 16px;
+            padding: 24px 24px 32px 24px;
           }
           .title-size {
-            font-size: 1.2rem;
+            font-size: 20px;
           }
-          .subtitle-size {
-            font-size: 0.85rem;
+          .bottom-footer {
+            padding: 20px 24px;
+          }
+          .footer-links a {
+            display: inline-block;
+            margin: 0 6px 4px 6px;
           }
         }
       </style>
     </head>
     <body>
-      <div class="email-container">
-        <!-- Header -->
-        <div class="header-padding">
-          <div class="logo-container">
-            <img src="${process.env.LOGO_URL}" alt='MeetLite Logo' />
+      <div class="email-outer">
+        <div class="email-container">
+          <!-- Header -->
+          <div class="header-padding">
+            <div class="logo-container">
+              <img src="${process.env.LOGO_URL || 'https://minimeet.com/logo.png'}" alt='MeetLite Logo' />
+              <span class="logo-text">MeetLite</span>
+            </div>
+            ${title ? `<h2 class="title-size">${title}</h2>` : ''}
+            ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
           </div>
-          <h2 class="title-size">${title || ''}</h2>
-          ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
-        </div>
-        
-        <!-- Content -->
-        <div class="content-padding">
-          ${content}
-        </div>
-        
-        <!-- Footer -->
-        <div class="bottom-footer">
-          <p style="margin: 0;">
-            ${footerText}
-          </p>
+          
+          <!-- Content -->
+          <div class="content-padding">
+            ${content}
+          </div>
+          
+          <!-- Footer -->
+          <div class="bottom-footer">
+            <div class="footer-links">
+              <a href="#">Help Center</a>
+              <a href="#">Privacy Policy</a>
+              <a href="#">Unsubscribe</a>
+            </div>
+            <p style="margin: 0;">${footerText}</p>
+          </div>
         </div>
       </div>
     </body>

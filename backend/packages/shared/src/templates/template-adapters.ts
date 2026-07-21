@@ -39,7 +39,7 @@ export function adaptTemplate(templateFn: (...args: any[]) => { subject: string;
 export function adaptWelcomeTemplate(originalTemplate: any) {
   return (data: any): AdaptedEmailResult => {
     const userName = data.user?.name || data.userName || '';
-    return adaptTemplate(originalTemplate)(userName);
+    return adaptTemplate(originalTemplate)({ userName });
   };
 }
 
@@ -49,9 +49,12 @@ export function adaptWelcomeTemplate(originalTemplate: any) {
 export function adaptPasswordResetTemplate(originalTemplate: any) {
   return (data: any): AdaptedEmailResult => {
     const userEmail = data.userEmail || data.user?.email;
-    const resetToken = data.resetToken || data.token;
+    const resetUrl = data.resetUrl || data.resetToken || data.token; // Changed to resetUrl for compatibility
     const userName = data.user?.name || data.userName || '';
-    return adaptTemplate(originalTemplate)(userEmail, resetToken, userName);
+    return adaptTemplate(originalTemplate)({
+      resetUrl,
+      userName,
+    });
   };
 }
 
@@ -60,12 +63,15 @@ export function adaptPasswordResetTemplate(originalTemplate: any) {
  */
 export function adaptOrganizationInviteTemplate(originalTemplate: any) {
   return (data: any): AdaptedEmailResult => {
+    const inviteUrl =
+      data.inviteUrl ||
+      `${process.env.CLIENT_URL}/invite/${data.inviteToken || data.token}`;
     return adaptTemplate(originalTemplate)({
       email: data.userEmail || data.user?.email,
       organizationName: data.organizationName,
       inviterName: data.inviterName,
       inviterEmail: data.inviterEmail,
-      inviteToken: data.inviteToken || data.token,
+      inviteUrl,
       message: data.message || '',
       role: data.role || 'member',
     });
@@ -168,14 +174,12 @@ export function adaptPlanEmailTemplate(originalTemplate: any) {
   return (data: any): AdaptedEmailResult => {
     const userEmail = data.userEmail || data.user?.email;
     const userName = data.user?.name || data.userName || '';
-    const planType = data.planType;
-    const endDate = data.endDate;
-    return adaptTemplate(originalTemplate)(
+    
+    return adaptTemplate(originalTemplate)({
+      ...data,
       userEmail,
       userName,
-      planType,
-      endDate
-    );
+    });
   };
 }
 
@@ -185,8 +189,9 @@ export function adaptPlanEmailTemplate(originalTemplate: any) {
 export function adaptPlanExpirationWarningTemplate(originalTemplate: any) {
   return (data: any): AdaptedEmailResult => {
     const userName = data.user?.name || data.userName || '';
-    const planType = data.planType;
-    const daysRemaining = data.daysRemaining;
-    return adaptTemplate(originalTemplate)(userName, planType, daysRemaining);
+    return adaptTemplate(originalTemplate)({
+      ...data,
+      userName,
+    });
   };
 }

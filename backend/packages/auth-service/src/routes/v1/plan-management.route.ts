@@ -4,6 +4,8 @@ import { authenticateToken } from '../../middleware/authenticate-token.js';
 import { validatePlanStatus } from '../../middleware/plan-validation.js';
 // @ts-ignore
 import { asyncHandler } from '../../middleware/error-handler.js';
+// @ts-ignore
+import { requireAdmin } from '../../middleware/require-admin.js';
 import PlanManagementController from '../../controllers/plan-management.controller.js';
 
 const router = express.Router();
@@ -35,6 +37,7 @@ router.post(
 
 router.post(
   '/extend',
+  requireAdmin,
   asyncHandler(
     planManagementController.extendPlan.bind(planManagementController)
   )
@@ -42,6 +45,7 @@ router.post(
 
 router.post(
   '/check-expired',
+  requireAdmin,
   asyncHandler(
     planManagementController.checkExpiredPlans.bind(planManagementController)
   )

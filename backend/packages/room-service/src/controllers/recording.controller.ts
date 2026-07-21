@@ -774,16 +774,22 @@ export class RecordingController {
   async getRecordingStatus(req: any, res: Response) {
     const recording = await prisma.meetingRecording.findUnique({
       where: { id: req.params.id },
-      select: {
-        processingStatus: true,
-        processingProgress: true,
-        transcriptStatus: true,
-        summaryStatus: true
-      }
-    });
+      include: { participants: true },
+    }) as any;
 
     if (!recording) {
       throw AppError.notFound('Recording');
+    }
+
+    let canAccess = false;
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
+    if (!canAccess) {
+      throw AppError.forbidden('Access denied to this recording');
     }
 
     return res.json({
@@ -879,7 +885,10 @@ export class RecordingController {
   async internalFinalizeRecording(req: any, res: Response) {
     // Internal secret auth
     const secret = req.headers['x-internal-secret'];
-    const expectedSecret = process.env.INTERNAL_SERVICE_SECRET || 'internal-secret';
+    const expectedSecret = process.env.INTERNAL_SERVICE_SECRET;
+    if (!expectedSecret) {
+      return res.status(500).json({ success: false, message: 'Server misconfiguration: internal secret not set' });
+    }
     if (secret !== expectedSecret) {
       return res.status(401).json({ success: false, message: 'Unauthorized internal request' });
     }

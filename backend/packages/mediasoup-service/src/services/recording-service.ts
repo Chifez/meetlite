@@ -305,7 +305,10 @@ export class RecordingService {
    */
   private async uploadToRoomService(recordingMeta: any): Promise<void> {
     const roomServiceUrl = process.env.ROOM_SERVICE_URL || 'http://localhost:5001';
-    const internalSecret = process.env.INTERNAL_SERVICE_SECRET || 'internal-secret';
+    const internalSecret = process.env.INTERNAL_SERVICE_SECRET;
+    if (!internalSecret) {
+      throw new Error('INTERNAL_SERVICE_SECRET environment variable is required');
+    }
     const endpoint = `${roomServiceUrl}/api/v1/recordings/internal-finalize`;
 
     try {

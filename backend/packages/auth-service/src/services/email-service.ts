@@ -37,7 +37,7 @@ const createTransport = () => {
 export const sendWelcomeEmail = async (userEmail: string, userName = '') => {
   try {
     const transporter = createTransport();
-    const template = getWelcomeEmailTemplate(userName);
+    const template = getWelcomeEmailTemplate({ userName });
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
@@ -62,7 +62,7 @@ export const sendPasswordResetEmail = async (
   try {
     const transporter = createTransport();
     const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
-    const template = getPasswordResetEmailTemplate(resetUrl, userName);
+    const template = getPasswordResetEmailTemplate({ resetUrl, userName });
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
@@ -107,14 +107,14 @@ export const sendOrganizationInviteEmail = async (payload: {
     const inviteUrl = `${process.env.CLIENT_URL}/invite/${inviteToken}`;
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
-    const template = getOrganizationInviteEmailTemplate(
+    const template = getOrganizationInviteEmailTemplate({
       organizationName,
       inviterName,
       inviterEmail,
       inviteUrl,
       message,
       role
-    );
+    });
 
     const emailContent = {
       from: `${fromName} <${process.env.SMTP_FROM}>`,
@@ -138,7 +138,7 @@ export const sendPlanUpgradeEmail = async (
 ) => {
   try {
     const transporter = createTransport();
-    const template = getPlanUpgradeEmailTemplate(userName, planType, endDate);
+    const template = getPlanUpgradeEmailTemplate({ userName, planType, endDate });
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
@@ -163,11 +163,11 @@ export const sendPlanCancellationEmail = async (
 ) => {
   try {
     const transporter = createTransport();
-    const template = getPlanCancellationEmailTemplate(
+    const template = getPlanCancellationEmailTemplate({
       userName,
       planType,
       endDate
-    );
+    });
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
@@ -192,11 +192,11 @@ export const sendPlanExpirationWarningEmail = async (
 ) => {
   try {
     const transporter = createTransport();
-    const template = getPlanExpirationWarningEmailTemplate(
+    const template = getPlanExpirationWarningEmailTemplate({
       userName,
       planType,
       daysRemaining
-    );
+    });
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {
@@ -236,7 +236,7 @@ export const sendTeamInvitationEmail = async (payload: {
     } = payload;
 
     const transporter = createTransport();
-    const template = getTeamInviteEmailTemplate(
+    const template = getTeamInviteEmailTemplate({
       teamName,
       organizationName,
       inviterName,
@@ -244,7 +244,7 @@ export const sendTeamInvitationEmail = async (payload: {
       inviteUrl,
       message,
       role
-    );
+    });
     const fromName = process.env.SMTP_FROM_NAME || 'MeetLite';
 
     const emailContent = {

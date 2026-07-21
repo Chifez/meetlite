@@ -63,6 +63,10 @@ export const useMediaSoup = (
     Map<string, { audioEnabled: boolean; videoEnabled: boolean }>
   >(new Map());
 
+  // Track active speaker and audio levels
+  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
+  const [audioLevels, setAudioLevels] = useState<Record<string, number>>({});
+
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -1055,6 +1059,20 @@ export const useMediaSoup = (
       updateState({ isConnected: false, isLoading: false });
     };
 
+    const handleActiveSpeaker = ({ userId }: { userId: string }) => {
+      setActiveSpeakerId(userId);
+    };
+
+    const handleAudioLevels = (levels: { userId: string; volume: number }[]) => {
+      setAudioLevels((prev) => {
+        const newLevels = { ...prev };
+        levels.forEach((level) => {
+          newLevels[level.userId] = level.volume;
+        });
+        return newLevels;
+      });
+    };
+
     // Register event listeners
     socket.on(SOCKET_EVENTS.ROOM_DATA, handleRoomData);
     socket.on(SOCKET_EVENTS.NEW_PRODUCER, handleNewProducer);
@@ -1064,6 +1082,8 @@ export const useMediaSoup = (
     socket.on(SOCKET_EVENTS.MEDIA_STATE_UPDATE, handleMediaStateUpdate);
     socket.on(SOCKET_EVENTS.SCREEN_SHARE_STARTED, handleScreenShareStarted);
     socket.on(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, handleScreenShareStopped);
+    socket.on('mediasoup:active-speaker', handleActiveSpeaker);
+    socket.on('mediasoup:audio-levels', handleAudioLevels);
     socket.on(SOCKET_EVENTS.ERROR, handleError);
 
     // Cleanup
@@ -1076,6 +1096,8 @@ export const useMediaSoup = (
       socket.off(SOCKET_EVENTS.MEDIA_STATE_UPDATE, handleMediaStateUpdate);
       socket.off(SOCKET_EVENTS.SCREEN_SHARE_STARTED, handleScreenShareStarted);
       socket.off(SOCKET_EVENTS.SCREEN_SHARE_STOPPED, handleScreenShareStopped);
+      socket.off('mediasoup:active-speaker', handleActiveSpeaker);
+      socket.off('mediasoup:audio-levels', handleAudioLevels);
       socket.off(SOCKET_EVENTS.ERROR, handleError);
 
       // Cleanup all peers
@@ -1151,5 +1173,7 @@ export const useMediaSoup = (
     consumeScreenStream,
     stopScreenConsumption,
     setConsumerLayer,
+    activeSpeakerId,
+    audioLevels,
   };
 };

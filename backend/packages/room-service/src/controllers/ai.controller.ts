@@ -10,6 +10,7 @@ import {
 import { request as undiciRequest } from 'undici';
 import { AppError } from '@minimeet/shared';
 import { prisma } from '@minimeet/shared';
+import { MeetingAuthorizationService } from '../services/meeting-authorization.service.js';
 
 // Summarize meeting
 export const summarizeMeeting = async (req: Request, res: Response) => {
@@ -44,15 +45,26 @@ export const suggestMeetingImprovements = async (req: Request, res: Response) =>
 // Get meeting insights
 export const getMeetingInsights = async (req: Request, res: Response) => {
   const { meetingId } = req.params;
+  const user = (req as any).user;
   const idStr = meetingId as string;
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: idStr },
-    select: { title: true, duration: true }
-  });
+    include: { participants: true, invites: true },
+  }) as any;
   
   if (!meeting) {
     throw AppError.notFound('Meeting');
+  }
+
+  const canAccess = await MeetingAuthorizationService.canAccess(
+    meeting,
+    user.userId,
+    user.email,
+    user.organizationId || meeting.organizationId || ''
+  );
+  if (!canAccess) {
+    throw AppError.forbidden('Access denied to this meeting');
   }
 
   const recording = await prisma.meetingRecording.findFirst({

@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { LayoutEngine, LayoutEngineOptions } from '@/utils/layout-engine';
 import { Participant } from '@/components/room/types';
 import { LayoutMode } from '@/components/room/layout-toggle';
+import { useRoom } from '@/contexts/room-context';
 
 // Layout Adapters
 import { SingleLayout } from './layouts/single-layout';
@@ -23,6 +24,8 @@ interface AdvancedLayoutRendererProps {
     preferSpeakerView: boolean;
     autoSwitchLayout: boolean;
   };
+  activeSpeakerId?: string | null;
+  pinnedParticipant?: string | null;
   className?: string;
 }
 
@@ -38,12 +41,10 @@ export const AdvancedLayoutRenderer = ({
     preferSpeakerView: true,
     autoSwitchLayout: true,
   },
+  activeSpeakerId = null,
+  pinnedParticipant = null,
   className = '',
 }: AdvancedLayoutRendererProps) => {
-  const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(
-    null
-  );
-  const [activeSpeaker] = useState<string | null>(null);
 
   // Compute layout configuration
   const layoutConfig = useMemo(() => {
@@ -71,7 +72,7 @@ export const AdvancedLayoutRenderer = ({
     const participantsWithPriority = participants.map((participant) => ({
       ...participant,
       priority: LayoutEngine.getParticipantPriority(participant, layoutConfig),
-      isActiveSpeaker: participant.id === activeSpeaker,
+      isActiveSpeaker: participant.id === activeSpeakerId,
     }));
 
     return participantsWithPriority.sort((a, b) => {
@@ -82,7 +83,7 @@ export const AdvancedLayoutRenderer = ({
       // Then by priority score
       return b.priority - a.priority;
     });
-  }, [participants, layoutConfig, pinnedParticipant, activeSpeaker]);
+  }, [participants, layoutConfig, pinnedParticipant, activeSpeakerId]);
 
   // Get layout-specific CSS classes
   const layoutClasses = useMemo(() => {
@@ -90,10 +91,13 @@ export const AdvancedLayoutRenderer = ({
   }, [layoutConfig]);
 
   // Handle participant pinning
+  const { setPinnedParticipant } = useRoom();
   const handlePinParticipant = (participantId: string) => {
-    setPinnedParticipant(
-      pinnedParticipant === participantId ? null : participantId
-    );
+    if (setPinnedParticipant) {
+      setPinnedParticipant(
+        pinnedParticipant === participantId ? null : participantId
+      );
+    }
   };
 
   const baseProps: BaseLayoutProps = {

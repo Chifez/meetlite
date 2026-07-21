@@ -126,8 +126,17 @@ export class MediaSoupWorker {
         mediaCodecs: mediasoupConfig.router.mediaCodecs,
       });
 
+      const activeSpeakerObserver = await router.createActiveSpeakerObserver();
+      const audioLevelObserver = await router.createAudioLevelObserver({
+        maxEntries: 1,
+        threshold: -80,
+        interval: 300,
+      });
+
       this.routers.set(roomId, {
         router,
+        activeSpeakerObserver,
+        audioLevelObserver,
         worker,
         createdAt: Date.now(),
         participantCount: 0,
@@ -152,6 +161,13 @@ export class MediaSoupWorker {
   getRouter(roomId: string) {
     const routerData = this.routers.get(roomId);
     return routerData ? routerData.router : null;
+  }
+
+  /**
+   * Get router data for a room
+   */
+  getRouterData(roomId: string) {
+    return this.routers.get(roomId) || null;
   }
 
   /**
@@ -232,6 +248,13 @@ export class MediaSoupWorker {
   }
 
   /**
+   * Get producer data by ID
+   */
+  getProducerData(producerId: string) {
+    return this.producers.get(producerId) || null;
+  }
+
+  /**
    * Close and remove a transport by ID
    */
   closeTransport(transportId: string) {
@@ -287,6 +310,15 @@ export class MediaSoupWorker {
       const routerData = this.routers.get(transportData.roomId);
       if (routerData) {
         routerData.participantCount++;
+
+        if (kind === 'audio') {
+          if (routerData.activeSpeakerObserver) {
+            await routerData.activeSpeakerObserver.addProducer({ producerId: producer.id });
+          }
+          if (routerData.audioLevelObserver) {
+            await routerData.audioLevelObserver.addProducer({ producerId: producer.id });
+          }
+        }
       }
 
       logger.info('Producer created', {

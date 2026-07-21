@@ -1,27 +1,10 @@
-export interface EmailTemplateOptions {
-  title: string;
-  subtitle?: string;
-  content: string;
-  footerText?: string;
-  logoHeight?: number;
-  pageTitle?: string;
-}
 
-export const getEmailTemplate = ({
-  title,
-  subtitle,
-  content,
-  footerText = '© 2025 MeetLite. All rights reserved.',
-  logoHeight = 24,
-  pageTitle,
-}: EmailTemplateOptions): string => {
-  return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${pageTitle || title || 'MeetLite'}</title>
+      <title>Join Acme Corp on MeetLite</title>
       <style>
         body {
           margin: 0;
@@ -57,7 +40,7 @@ export const getEmailTemplate = ({
           margin-bottom: 28px;
         }
         .logo-container img {
-          height: ${logoHeight}px;
+          height: 24px;
           width: auto;
           display: block;
         }
@@ -238,16 +221,87 @@ export const getEmailTemplate = ({
           <!-- Header -->
           <div class="header-padding">
             <div class="logo-container">
-              <img src="${process.env.LOGO_URL || 'https://minimeet.com/logo.png'}" alt='MeetLite Logo' />
+              <img src="https://minimeet.com/logo.png" alt='MeetLite Logo' />
               <span class="logo-text">MeetLite</span>
             </div>
-            ${title ? `<h2 class="title-size">${title}</h2>` : ''}
-            ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
+            <h2 class="title-size">You're Invited!</h2>
+            <p class="subtitle-size">Join Acme Corp on MeetLite</p>
           </div>
           
           <!-- Content -->
           <div class="content-padding">
-            ${content}
+            
+    <h3 style="color: #3D5A80; margin: 0 0 16px 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em;">Welcome to the team!</h3>
+    <p style="color: #1A1A1A; margin: 0 0 20px 0; font-size: 15px; line-height: 1.6;">
+      You've been invited to join <strong>Acme Corp</strong> on MeetLite! You'll be able to participate in team meetings, collaborate on projects, and stay connected with your colleagues.
+    </p>
+    
+    <!-- Invitation Card -->
+    <div class="card" style="text-align: center;">
+      <div style="font-size: 20px; font-weight: 700; color: #3D5A80; margin-bottom: 8px; letter-spacing: -0.01em;">Acme Corp</div>
+      <div style="display: inline-block; background: #E4E1D8; color: #1A1A1A; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 12px;">Invited as a member</div>
+      <div style="color: #6B6B63; font-size: 14px;">
+        Invited by John Smith (john@acme.com)
+      </div>
+    </div>
+
+    
+    <!-- Personal Message -->
+    <div class="card" style="font-style: italic; background: #F8F9FA;">
+      <p style="color: #1A1A1A; font-size: 14px; line-height: 1.5; margin: 0;">
+        <strong>Personal message:</strong><br>
+        "Please join our org!"
+      </p>
+    </div>
+    
+    
+    <!-- Features List -->
+    <div class="card">
+      <div class="card-header">What you can do</div>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+            <div class="feature-content">Join unlimited team meetings</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+            <div class="feature-content">Collaborate with whiteboards and workflows</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+            <div class="feature-content">Schedule and manage team meetings</div>
+          </div>
+        </li>
+        <li class="feature-item" style="margin-bottom: 0;">
+          <div style="display: flex;">
+            <div style="color: #3D5A80; margin-right: 12px; font-weight: bold;">✓</div>
+            <div class="feature-content">Access organization-specific features</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- CTA Button -->
+    <div style="text-align: center; margin-top: 32px;">
+      <a href="http://localhost:3000/invite/123" class="btn-primary">
+        Accept Invitation
+      </a>
+    </div>
+    
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #E4E1D8; color: #6B6B63; font-size: 13px; line-height: 1.5;">
+      <strong>What happens next?</strong><br>
+      1. Click "Accept Invitation" above<br>
+      2. Create your account or sign in<br>
+      3. Start collaborating with your team!<br><br>
+      This invitation will expire in 7 days. If the button doesn't work, copy and paste this link into your browser:<br>
+      <a href="http://localhost:3000/invite/123" style="color: #3D5A80; word-break: break-all;">http://localhost:3000/invite/123</a>
+    </div>
+  
           </div>
           
           <!-- Footer -->
@@ -257,11 +311,10 @@ export const getEmailTemplate = ({
               <a href="#">Privacy Policy</a>
               <a href="#">Unsubscribe</a>
             </div>
-            <p style="margin: 0;">${footerText}</p>
+            <p style="margin: 0;">© 2025 MeetLite. All rights reserved.</p>
           </div>
         </div>
       </div>
     </body>
     </html>
-  `;
-};
+  

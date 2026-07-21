@@ -1,27 +1,10 @@
-export interface EmailTemplateOptions {
-  title: string;
-  subtitle?: string;
-  content: string;
-  footerText?: string;
-  logoHeight?: number;
-  pageTitle?: string;
-}
 
-export const getEmailTemplate = ({
-  title,
-  subtitle,
-  content,
-  footerText = '© 2025 MeetLite. All rights reserved.',
-  logoHeight = 24,
-  pageTitle,
-}: EmailTemplateOptions): string => {
-  return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${pageTitle || title || 'MeetLite'}</title>
+      <title>Payment Failed - MeetLite</title>
       <style>
         body {
           margin: 0;
@@ -57,7 +40,7 @@ export const getEmailTemplate = ({
           margin-bottom: 28px;
         }
         .logo-container img {
-          height: ${logoHeight}px;
+          height: 24px;
           width: auto;
           display: block;
         }
@@ -238,16 +221,88 @@ export const getEmailTemplate = ({
           <!-- Header -->
           <div class="header-padding">
             <div class="logo-container">
-              <img src="${process.env.LOGO_URL || 'https://minimeet.com/logo.png'}" alt='MeetLite Logo' />
+              <img src="https://minimeet.com/logo.png" alt='MeetLite Logo' />
               <span class="logo-text">MeetLite</span>
             </div>
-            ${title ? `<h2 class="title-size">${title}</h2>` : ''}
-            ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
+            <h2 class="title-size">Payment Failed</h2>
+            <p class="subtitle-size">Update your payment method</p>
           </div>
           
           <!-- Content -->
           <div class="content-padding">
-            ${content}
+            
+    <div style="font-size: 16px; color: #1A1A1A; margin-bottom: 16px;">
+        Hi Jane Doe,
+    </div>
+    <p style="color: #4A4A4A; line-height: 1.6; margin-bottom: 24px; font-size: 16px;">
+        We encountered an issue processing your payment for the <strong>Premium</strong> plan.
+    </p>
+    
+    <!-- Failure Notice Card -->
+    <div class="card" style="border-top: 4px solid #C1502E;">
+      <div class="card-header" style="border-bottom: none; padding-bottom: 0; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 18px; color: #C1502E; letter-spacing: -0.02em;">Payment Failed</h3>
+      </div>
+      <p style="margin: 0 0 16px 0; color: #4A4A4A; font-size: 15px; line-height: 1.6;">
+        Your payment could not be processed. Please update your payment method to continue using premium features.
+      </p>
+      
+      <table class="receipt-table">
+        <tr class="receipt-row">
+          <td class="receipt-label">Plan</td>
+          <td class="receipt-value">Premium</td>
+        </tr>
+        
+        
+      </table>
+    </div>
+    
+    <!-- Next Steps Card -->
+    <div class="card">
+      <div class="card-header">How to resolve this</div>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #C1502E; margin-right: 12px; font-weight: bold;">•</div>
+            <div class="feature-content">Check that your card has sufficient funds or hasn't expired.</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #C1502E; margin-right: 12px; font-weight: bold;">•</div>
+            <div class="feature-content">Update your payment method in your account settings.</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div style="display: flex;">
+            <div style="color: #C1502E; margin-right: 12px; font-weight: bold;">•</div>
+            <div class="feature-content">Contact your bank if the issue persists.</div>
+          </div>
+        </li>
+      </ul>
+      <p style="color: #4A4A4A; line-height: 1.6; margin-top: 16px; margin-bottom: 0; font-size: 14px;">
+        Don't worry - your account remains active for now. Once you update your payment method, we'll automatically retry the payment and restore your full access.
+      </p>
+    </div>
+    
+    <div style="text-align: center; margin-top: 32px;">
+      <a href="http://localhost:3000/settings" class="btn-primary" style="background: #C1502E;">
+        Update Payment Method
+      </a>
+    </div>
+    
+    <!-- Need Assistance Section -->
+    <div class="assistance-section">
+      <div class="assistance-title">Need Assistance?</div>
+      <div class="assistance-text">
+        Our support team is here to help you resolve this billing issue.
+      </div>
+      <div class="assistance-links">
+        <a href="http://localhost:3000/help">Help Center</a>
+        <a href="http://localhost:3000/contact">Contact Support</a>
+      </div>
+    </div>
+  
           </div>
           
           <!-- Footer -->
@@ -257,11 +312,10 @@ export const getEmailTemplate = ({
               <a href="#">Privacy Policy</a>
               <a href="#">Unsubscribe</a>
             </div>
-            <p style="margin: 0;">${footerText}</p>
+            <p style="margin: 0;">© 2025 MeetLite. All rights reserved.</p>
           </div>
         </div>
       </div>
     </body>
     </html>
-  `;
-};
+  

@@ -1,27 +1,10 @@
-export interface EmailTemplateOptions {
-  title: string;
-  subtitle?: string;
-  content: string;
-  footerText?: string;
-  logoHeight?: number;
-  pageTitle?: string;
-}
 
-export const getEmailTemplate = ({
-  title,
-  subtitle,
-  content,
-  footerText = '© 2025 MeetLite. All rights reserved.',
-  logoHeight = 24,
-  pageTitle,
-}: EmailTemplateOptions): string => {
-  return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${pageTitle || title || 'MeetLite'}</title>
+      <title>Plan Downgraded - MeetLite</title>
       <style>
         body {
           margin: 0;
@@ -57,7 +40,7 @@ export const getEmailTemplate = ({
           margin-bottom: 28px;
         }
         .logo-container img {
-          height: ${logoHeight}px;
+          height: 24px;
           width: auto;
           display: block;
         }
@@ -238,16 +221,114 @@ export const getEmailTemplate = ({
           <!-- Header -->
           <div class="header-padding">
             <div class="logo-container">
-              <img src="${process.env.LOGO_URL || 'https://minimeet.com/logo.png'}" alt='MeetLite Logo' />
+              <img src="https://minimeet.com/logo.png" alt='MeetLite Logo' />
               <span class="logo-text">MeetLite</span>
             </div>
-            ${title ? `<h2 class="title-size">${title}</h2>` : ''}
-            ${subtitle ? `<p class="subtitle-size">${subtitle}</p>` : ''}
+            <h2 class="title-size">Plan Downgraded</h2>
+            <p class="subtitle-size">Your subscription has ended</p>
           </div>
           
           <!-- Content -->
           <div class="content-padding">
-            ${content}
+            
+    <div style="font-size: 16px; color: #1A1A1A; margin-bottom: 16px;">
+        Hi Jane Doe,
+    </div>
+    <p style="color: #4A4A4A; line-height: 1.6; margin-bottom: 24px; font-size: 16px;">
+        Your subscription has ended and your account has been downgraded from 
+        <strong>Premium</strong> to 
+        <strong>Free</strong>.
+    </p>
+    
+    <!-- Downgrade Details Card -->
+    <div class="card">
+      <div class="card-header">Account Status</div>
+      <table class="receipt-table">
+        <tr class="receipt-row">
+          <td class="receipt-label">Previous Plan</td>
+          <td class="receipt-value">Premium</td>
+        </tr>
+        <tr class="receipt-row">
+          <td class="receipt-label">Current Plan</td>
+          <td class="receipt-value">Free</td>
+        </tr>
+        <tr class="receipt-row">
+          <td class="receipt-label">Effective Date</td>
+          <td class="receipt-value">Immediately</td>
+        </tr>
+      </table>
+    </div>
+    
+    <!-- Features Lost Card -->
+    <div class="card">
+      <div class="card-header">Features no longer available</div>
+      <ul class="feature-list">
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #6B6B63; margin-right: 12px; font-weight: bold;">-</div>
+              <div class="feature-content">
+                <div class="feature-title" style="color: #4A4A4A;">Extended meeting duration</div>
+                <div class="feature-desc">Meetings are now capped at 45 minutes.</div>
+              </div>
+            </div>
+          </li>
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #6B6B63; margin-right: 12px; font-weight: bold;">-</div>
+              <div class="feature-content">
+                <div class="feature-title" style="color: #4A4A4A;">Advanced recording & transcripts</div>
+                <div class="feature-desc">Cloud recordings are disabled.</div>
+              </div>
+            </div>
+          </li>
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #6B6B63; margin-right: 12px; font-weight: bold;">-</div>
+              <div class="feature-content">
+                <div class="feature-title" style="color: #4A4A4A;">Priority support</div>
+                <div class="feature-desc">Standard support response times apply.</div>
+              </div>
+            </div>
+          </li>
+        
+          <li class="feature-item">
+            <div style="display: flex;">
+              <div style="color: #6B6B63; margin-right: 12px; font-weight: bold;">-</div>
+              <div class="feature-content">
+                <div class="feature-title" style="color: #4A4A4A;">Custom branding options</div>
+                <div class="feature-desc">Custom logos are removed.</div>
+              </div>
+            </div>
+          </li>
+        
+      </ul>
+    </div>
+    
+    <p style="color: #4A4A4A; line-height: 1.6; margin-top: 16px; margin-bottom: 32px; font-size: 15px;">
+      You can continue using MeetLite with the Free plan features. If you'd like to regain access to premium features, you can upgrade anytime.
+    </p>
+    
+    <div style="text-align: center; margin-top: 32px;">
+      <a href="http://localhost:3000/settings" class="btn-primary">
+        Upgrade Your Plan
+      </a>
+    </div>
+    
+    <!-- Need Assistance Section -->
+    <div class="assistance-section">
+      <div class="assistance-title">Need Assistance?</div>
+      <div class="assistance-text">
+        If you have any questions about your account changes, our support team is here to help.
+      </div>
+      <div class="assistance-links">
+        <a href="http://localhost:3000/help">Help Center</a>
+        <a href="http://localhost:3000/contact">Contact Support</a>
+      </div>
+    </div>
+  
           </div>
           
           <!-- Footer -->
@@ -257,11 +338,10 @@ export const getEmailTemplate = ({
               <a href="#">Privacy Policy</a>
               <a href="#">Unsubscribe</a>
             </div>
-            <p style="margin: 0;">${footerText}</p>
+            <p style="margin: 0;">© 2025 MeetLite. All rights reserved.</p>
           </div>
         </div>
       </div>
     </body>
     </html>
-  `;
-};
+  

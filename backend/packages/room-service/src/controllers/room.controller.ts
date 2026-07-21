@@ -150,6 +150,10 @@ export class RoomController {
         return ResponseHelpers.ok(res, roomResponse);
       }
     } else {
+      // Personal workspace instant room — only the creator may access it
+      if (room.createdBy !== userId) {
+        throw AppError.forbidden('Access denied to this room');
+      }
       const { meeting: _, ...roomResponse } = room;
       return ResponseHelpers.ok(res, roomResponse);
     }

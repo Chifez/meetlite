@@ -143,6 +143,11 @@ export interface RoomContextType {
   }) => void;
   canEdit: (userId: string) => boolean;
   setConsumerLayer?: (consumerId: string, spatialLayer: number) => void;
+  // Dynamic layout states
+  activeSpeakerId: string | null;
+  audioLevels: Record<string, number>;
+  pinnedParticipant: string | null;
+  setPinnedParticipant: (userId: string | null) => void;
 }
 
 export interface Participant {
@@ -156,6 +161,9 @@ export interface Participant {
   isLoading: boolean;
   userEmail?: string;
   userName?: string;
+  isActiveSpeaker?: boolean;
+  audioLevel?: number;
+  priority?: number;
 }
 
 // For audio visualization

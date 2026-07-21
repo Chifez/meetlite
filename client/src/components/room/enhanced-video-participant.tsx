@@ -1,4 +1,4 @@
-import { VideoOff, MicOff, Loader2, Maximize2 } from 'lucide-react';
+import { MicOff, Loader2, Maximize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { SpeakingIndicator } from '@/components/room/speaking-indicator';
 
@@ -14,6 +14,8 @@ interface EnhancedVideoParticipantProps {
   userName?: string;
   layoutMode?: 'grid' | 'speaker' | 'presentation';
   isMainSpeaker?: boolean;
+  isActiveSpeaker?: boolean;
+  audioLevel?: number;
 }
 
 const getInitials = (name?: string, email?: string) => {
@@ -34,6 +36,8 @@ export const EnhancedVideoParticipant = ({
   userName,
   layoutMode = 'grid',
   isMainSpeaker = false,
+  isActiveSpeaker = false,
+  audioLevel = 0,
 }: EnhancedVideoParticipantProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -171,6 +175,8 @@ export const EnhancedVideoParticipant = ({
         stream={stream}
         isLocal={isLocal}
         audioEnabled={mediaState.audioEnabled}
+        forceSpeaking={isActiveSpeaker}
+        forceAudioLevel={audioLevel}
       />
 
       {/* Video Off / Error / Loading States */}
