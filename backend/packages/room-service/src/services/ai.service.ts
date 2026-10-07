@@ -9,7 +9,7 @@ const speechClient = new SpeechClient({
 
 // Fail-fast environment key validation check
 if (!process.env.OPENAI_API_KEY) {
-  throw new Error('FATAL: OPENAI_API_KEY environment variable is not defined.');
+  console.warn('WARN: OPENAI_API_KEY environment variable is not defined. AI features will fail if invoked.');
 }
 
 // Add per-user Redis rate limiting for AI endpoints
@@ -24,6 +24,9 @@ export const checkAIRateLimit = async (userId: string, redis: Redis): Promise<bo
 
 // OpenAI API call helper with retry and exponential backoff
 export const callOpenAI = async (messages: any[], options = {}, retries = 3): Promise<any> => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is not defined.');
+  }
   const defaultOptions = {
     model: 'gpt-3.5-turbo',
     max_tokens: 256,

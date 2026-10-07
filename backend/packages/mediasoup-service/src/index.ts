@@ -51,9 +51,25 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // CORS configuration - Allow frontend to access MediaSoup service directly
+const allowedMediaOrigins = (
+  process.env.CORS_ORIGIN ||
+  'http://localhost:5175,http://localhost:5174,http://localhost:3000'
+)
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5174',
+    origin: (origin, callback) => {
+      if (!origin || allowedMediaOrigins.includes(origin) || allowedMediaOrigins.includes('*')) {
+        return callback(null, true);
+      }
+      if (/^http:\/\/localhost:[0-9]+$/.test(origin) || /^http:\/\/127\.0\.0\.1:[0-9]+$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

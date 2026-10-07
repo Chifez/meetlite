@@ -1,0 +1,229 @@
+services:
+  # ====================================================
+  # 1. DATABASE TIER (PostgreSQL 16)
+  # ====================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: meetlite-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meetlite}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meetlite_secure_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-meetlite}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - meetlite-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meetlite -d meetlite"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ====================================================
+  # 2. CACHE & QUEUE TIER (Redis 7.2)
+  # ====================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: meetlite-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - meetlite-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ====================================================
+  # 3. SCHEMA MIGRATION RUNNER
+  # ====================================================
+  prisma-migrate:
+    image: meetlite-auth-service:latest
+    container_name: meetlite-prisma-migrate
+    command: npx prisma db push --schema=/app/packages/shared/prisma/schema.prisma --accept-data-loss
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - meetlite-net
+    restart: "no"
+
+  # ====================================================
+  # 4. AUTH SERVICE
+  # ====================================================
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: packages/auth-service/Dockerfile
+    container_name: meetlite-auth-service
+    restart: unless-stopped
+    ports:
+      - "5002:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-meetlite_super_secret_jwt_key_2026}
+      SESSION_SECRET: ${SESSION_SECRET:-meetlite_session_secret_key_2026}
+      INITIAL_SYSTEM_ADMIN_EMAIL: ${INITIAL_SYSTEM_ADMIN_EMAIL:-admin@meetlite.dev}
+      INITIAL_SYSTEM_ADMIN_PASSWORD: ${INITIAL_SYSTEM_ADMIN_PASSWORD:-admin123}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}
+      CORS_ORIGIN: http://localhost:5175,http://localhost:5174,http://localhost:3000
+      FRONTEND_URL: http://localhost:5175
+      CLIENT_URL: http://localhost:5175
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 5. ROOM SERVICE
+  # ====================================================
+  room-service:
+    build:
+      context: ./backend
+      dockerfile: packages/room-service/Dockerfile
+    container_name: meetlite-room-service
+    restart: unless-stopped
+    ports:
+      - "5003:5001"
+    environment:
+      PORT: 5001
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-meetlite_super_secret_jwt_key_2026}
+      SESSION_SECRET: ${SESSION_SECRET:-meetlite_session_secret_key_2026}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-mock_openai_api_key_for_testing}
+      CORS_ORIGIN: http://localhost:5175,http://localhost:5174,http://localhost:3000
+      CLIENT_URL: http://localhost:5175
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 6. MEDIASOUP WEBRTC SERVICE
+  # ====================================================
+  mediasoup-service:
+    build:
+      context: ./backend
+      dockerfile: packages/mediasoup-service/Dockerfile
+    container_name: meetlite-mediasoup-service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+      - "10000-10100:10000-10100/udp"
+      - "10000-10100:10000-10100/tcp"
+    environment:
+      PORT: 3003
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      CLIENT_URL: http://localhost:5175
+      CORS_ORIGIN: http://localhost:5175,http://localhost:5174,http://localhost:3000
+      API_GATEWAY_URL: http://api-gateway:3000
+      ROOM_SERVICE_URL: http://room-service:5001
+      JWT_SECRET: ${JWT_SECRET:-meetlite_super_secret_jwt_key_2026}
+      ANNOUNCED_IP: ${ANNOUNCED_IP:-127.0.0.1}
+      RTC_MIN_PORT: 10000
+      RTC_MAX_PORT: 10100
+      LOG_LEVEL: info
+    volumes:
+      - mediasoup-uploads:/app/packages/mediasoup-service/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+      room-service:
+        condition: service_healthy
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 7. API GATEWAY
+  # ====================================================
+  api-gateway:
+    build:
+      context: ./backend
+      dockerfile: packages/api-gateway/Dockerfile
+    container_name: meetlite-api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: http://localhost:5175
+      AUTH_SERVICE_URL: http://auth-service:5000
+      ROOM_SERVICE_URL: http://room-service:5001
+      MEDIASOUP_SERVICE_URL: http://mediasoup-service:3003
+      CORS_ORIGINS: http://localhost:5175,http://localhost:5174,http://localhost:3000
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      room-service:
+        condition: service_healthy
+      mediasoup-service:
+        condition: service_healthy
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 8. CLIENT FRONTEND (React SPA via Nginx)
+  # ====================================================
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_GATEWAY_URL: http://localhost:3000
+        VITE_MEDIASOUP_SERVER_URL: http://localhost:3003
+        VITE_BASE_URL: http://localhost:5175
+    container_name: meetlite-client
+    restart: unless-stopped
+    ports:
+      - "5175:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - meetlite-net
+
+networks:
+  meetlite-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  mediasoup-uploads:

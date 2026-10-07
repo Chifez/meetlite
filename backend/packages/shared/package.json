@@ -14,8 +14,11 @@
     "@aws-sdk/s3-request-presigner": "^3.1084.0",
     "@prisma/client": "^5.20.0",
     "bullmq": "^5.66.2",
+    "dotenv": "^16.4.5",
     "ioredis": "^5.8.2",
-    "redis": "^5.8.0"
+    "nodemailer": "^7.0.6",
+    "redis": "^5.8.0",
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
