@@ -1,0 +1,42 @@
+# Cloudflare Tunnel Configuration for MeetLite Staging Ingress
+# Managed via cloudflared daemon
+
+tunnel: ${CLOUDFLARE_TUNNEL_ID:-staging-tunnel-id}
+credentials-file: /etc/cloudflared/credentials.json
+
+warp-routing:
+  enabled: false
+
+# Global Origin Request Settings
+originRequest:
+  connectTimeout: 30s
+  tlsTimeout: 10s
+  tcpKeepAlive: 30s
+  noHappyEyeballs: false
+  keepAliveConnections: 100
+  keepAliveTimeout: 90s
+  http2Origin: false # Downscale to HTTP/1.1 for origin Node.js WebSocket and SSE stability
+
+# Ingress Rules: Evaluated top-to-bottom. First matching rule wins.
+ingress:
+  # 1. Staging Control API & Gateway Routes
+  - hostname: api-staging.meetlite.dev
+    service: http://api-gateway:3000
+    originRequest:
+      httpHostHeader: api-staging.meetlite.dev
+      noTLSVerify: false
+
+  # 2. WebSocket & Realtime Signalling Route
+  - hostname: rtc-staging.meetlite.dev
+    service: http://api-gateway:3000
+    originRequest:
+      httpHostHeader: rtc-staging.meetlite.dev
+
+  # 3. Direct Room Service Route (Internal / Diagnostics)
+  - hostname: room-staging.meetlite.dev
+    service: http://room-service:5001
+    originRequest:
+      httpHostHeader: room-staging.meetlite.dev
+
+  # 4. Mandatory Catch-All Rule: Must be last to reject unmapped traffic
+  - service: http_status:404

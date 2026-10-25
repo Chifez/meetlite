@@ -1,0 +1,17 @@
+# Cloudflare Pages Edge and Browser Caching Rules
+
+# 1. Hashed, immutable frontend bundle assets
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 2. HTML entry point: zero-cache, must-revalidate for immediate deployment pickup
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# 3. Service Worker & PWA Manifests: zero-cache, must-revalidate
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/manifest.json
+  Cache-Control: public, max-age=0, must-revalidate
+/site.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate

@@ -1,0 +1,35 @@
+# Example Cloudflare Tunnel Configuration Template
+# Copy to config.yml and replace tunnel ID with your Cloudflare Tunnel UUID
+
+tunnel: 00000000-0000-0000-0000-000000000000
+credentials-file: /etc/cloudflared/credentials.json
+
+warp-routing:
+  enabled: false
+
+originRequest:
+  connectTimeout: 30s
+  tlsTimeout: 10s
+  tcpKeepAlive: 30s
+  noHappyEyeballs: false
+  keepAliveConnections: 100
+  keepAliveTimeout: 90s
+  http2Origin: false
+
+ingress:
+  - hostname: api-staging.meetlite.dev
+    service: http://api-gateway:3000
+    originRequest:
+      httpHostHeader: api-staging.meetlite.dev
+
+  - hostname: rtc-staging.meetlite.dev
+    service: http://api-gateway:3000
+    originRequest:
+      httpHostHeader: rtc-staging.meetlite.dev
+
+  - hostname: room-staging.meetlite.dev
+    service: http://room-service:5001
+    originRequest:
+      httpHostHeader: room-staging.meetlite.dev
+
+  - service: http_status:404
