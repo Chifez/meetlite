@@ -5,28 +5,46 @@
 
 # --- Stage 1: Build TypeScript ---
 FROM node:20-bookworm-slim AS builder
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package*.json ./
 COPY tsconfig.base.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/shared/tsconfig.json ./packages/shared/
+COPY packages/shared/prisma ./packages/shared/prisma/
 COPY packages/api-gateway/package*.json ./packages/api-gateway/
 COPY packages/api-gateway/tsconfig.json ./packages/api-gateway/
 
-RUN npm ci --workspace=@minimeet/api-gateway
+RUN npm ci --workspace=@minimeet/shared --workspace=@minimeet/api-gateway
 
+WORKDIR /app/packages/shared
+RUN npx prisma generate
+
+WORKDIR /app
+COPY packages/shared/src ./packages/shared/src
 COPY packages/api-gateway/src ./packages/api-gateway/src
-RUN npm run build --workspace=@minimeet/api-gateway
+
+RUN npm run build --workspace=@minimeet/shared --workspace=@minimeet/api-gateway
 
 # --- Stage 2: Production Runner ---
 FROM node:20-bookworm-slim AS runner
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/shared/prisma ./packages/shared/prisma/
 COPY packages/api-gateway/package*.json ./packages/api-gateway/
 
-RUN npm ci --omit=dev --workspace=@minimeet/api-gateway
+RUN npm ci --omit=dev --workspace=@minimeet/shared --workspace=@minimeet/api-gateway
 
+WORKDIR /app/packages/shared
+RUN npx prisma generate
+
+WORKDIR /app
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/api-gateway/dist ./packages/api-gateway/dist
 
 WORKDIR /app/packages/api-gateway

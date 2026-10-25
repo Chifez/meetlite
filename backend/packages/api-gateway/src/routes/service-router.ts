@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import config from '../config/index.js';
+import { stripHeadersFromProxyReq } from '../middleware/identity-stripping.js';
 
 export interface ServiceConfig {
   name?: string;
@@ -100,6 +101,17 @@ export function createServiceProxy(serviceConfig: ServiceConfig) {
     parseReqBody: false,
 
     onProxyReq: (proxyReq: any, req: Request) => {
+      // Zero-trust header stripping: ensure downstream services never receive spoofed identity headers
+      stripHeadersFromProxyReq(proxyReq);
+
+      const correlationId =
+        (req as any).correlationId ||
+        req.headers['x-request-id'] ||
+        req.headers['x-correlation-id'];
+      if (correlationId) {
+        proxyReq.setHeader('x-request-id', correlationId);
+        proxyReq.setHeader('x-correlation-id', correlationId);
+      }
       if (isSSEStream(req.url)) {
         proxyReq.setHeader('Connection', 'keep-alive');
         proxyReq.setHeader('Cache-Control', 'no-cache');

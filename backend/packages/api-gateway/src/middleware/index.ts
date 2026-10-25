@@ -10,6 +10,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import config from '../config/index.js';
+import { createIdentityStrippingMiddleware } from './identity-stripping.js';
 
 /**
  * Security middleware
@@ -34,6 +35,9 @@ export function setupSecurityMiddleware(app: Express) {
       optionsSuccessStatus: 200,
     })
   );
+
+  // Zero-trust header stripping: scrub spoofable client identity headers on ingress
+  app.use(createIdentityStrippingMiddleware());
 }
 
 /**
@@ -120,19 +124,41 @@ export function setupBodyParsingMiddleware(app: Express) {
   );
 }
 
+import {
+  HealthManager,
+  createHealthRouter,
+  createHttpProbe,
+  createCorrelationMiddleware,
+  createRequestLoggingMiddleware,
+  createLogger,
+} from '@minimeet/shared';
+
+const gatewayLogger = createLogger('api-gateway');
+
+export const gatewayHealthManager = new HealthManager();
+gatewayHealthManager.registerProbe(
+  'auth-service',
+  createHttpProbe(`${config.services.auth}/health/live`, { timeoutMs: 2000 }),
+  { critical: false }
+);
+gatewayHealthManager.registerProbe(
+  'room-service',
+  createHttpProbe(`${config.services.room}/health/live`, { timeoutMs: 2000 }),
+  { critical: false }
+);
+
+/**
+ * Correlation middleware
+ */
+export function setupCorrelationMiddleware(app: Express) {
+  app.use(createCorrelationMiddleware('api-gateway') as any);
+}
+
 /**
  * Health check middleware
  */
 export function setupHealthCheckMiddleware(app: Express) {
-  app.get('/health', (req: Request, res: Response) => {
-    res.json({
-      status: config.healthCheck.status,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      services: config.healthCheck.services,
-      environment: config.server.nodeEnv,
-    });
-  });
+  app.use('/health', createHealthRouter(gatewayHealthManager) as any);
 }
 
 /**
@@ -151,7 +177,12 @@ export function setupErrorHandlingMiddleware(app: Express) {
 
   // Global error handler
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-    console.error('[GATEWAY ERROR]:', err);
+    gatewayLogger.error('Gateway Error', {
+      error: err.message,
+      stack: err.stack,
+      path: req.originalUrl,
+      method: req.method,
+    });
 
     // Don't send response if headers already sent
     if (res.headersSent) {
@@ -171,11 +202,13 @@ export function setupErrorHandlingMiddleware(app: Express) {
  * Request logging middleware
  */
 export function setupRequestLoggingMiddleware(app: Express) {
-  // Request logging disabled for performance
-  // Enable in development if needed
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    next();
-  });
+  app.use(
+    createRequestLoggingMiddleware({
+      serviceName: 'api-gateway',
+      skipPaths: ['/health', '/health/live', '/health/ready', '/health/startup'],
+      logger: gatewayLogger,
+    }) as any
+  );
 }
 
 export default {

@@ -36,6 +36,8 @@ export const config = {
       'http://127.0.0.1:5175',
       'http://127.0.0.1:5174',
       'http://127.0.0.1:5173',
+      'https://staging.meetlite.dev',
+      'https://api-staging.meetlite.dev',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -46,8 +48,13 @@ export const config = {
       'Accept',
       'X-Total-Count',
       'X-Page-Count',
+      'x-request-id',
+      'x-correlation-id',
+      'cf-ray',
+      'cf-connecting-ip',
+      'cf-visitor',
     ],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count', 'x-request-id', 'x-correlation-id'],
   },
 
   // Rate Limiting

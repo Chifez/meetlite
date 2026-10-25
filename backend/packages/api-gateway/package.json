@@ -8,7 +8,10 @@
     "dev": "nodemon --watch src -e ts --exec \"tsc && node dist/index.js\"",
     "dev:no-watch": "tsc && node dist/index.js",
     "start": "node dist/index.js",
-    "build": "tsc"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx --test 'src/**/*.test.ts'",
+    "test": "npm run test:unit"
   },
   "keywords": [
     "api-gateway",
@@ -19,6 +22,7 @@
   "author": "MeetLite Team",
   "license": "MIT",
   "dependencies": {
+    "@minimeet/shared": "*",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

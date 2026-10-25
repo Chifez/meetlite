@@ -18,8 +18,10 @@ import {
   setupPerformanceMiddleware,
   setupRateLimitMiddleware,
   setupHealthCheckMiddleware,
+  gatewayHealthManager,
   setupErrorHandlingMiddleware,
   setupRequestLoggingMiddleware,
+  setupCorrelationMiddleware,
 } from './middleware/index.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
@@ -31,6 +33,9 @@ dotenv.config();
  */
 function createApp(): Express {
   const app = express();
+
+  // Setup correlation context first so all requests receive or preserve correlation IDs
+  setupCorrelationMiddleware(app);
 
   // Setup middleware in correct order
   // Health check must be BEFORE security middleware (CORS) to allow unrestricted access
@@ -142,6 +147,7 @@ function startServer(): http.Server {
 
   // Start server
   const server = app.listen(config.server.port, () => {
+    gatewayHealthManager.markStarted();
     console.log(
       `API Gateway started on port ${config.server.port} (${config.server.nodeEnv})`
     );
@@ -152,12 +158,14 @@ function startServer(): http.Server {
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
+    gatewayHealthManager.markStopped();
     server.close(() => {
       process.exit(0);
     });
   });
 
   process.on('SIGINT', () => {
+    gatewayHealthManager.markStopped();
     server.close(() => {
       process.exit(0);
     });
