@@ -4,10 +4,10 @@ import { prisma } from '@minimeet/shared';
 import { createRecurrenceInstances, getNextOccurrences } from '../services/recurrence.service.js';
 
 /**
- * Cron job to generate recurring meeting instances
- * Runs daily at 2 AM UTC to create instances 30 days ahead
+ * Core logic for generating recurring meeting instances.
+ * Generates instances 30 days ahead for all active recurring meetings.
  */
-cron.schedule('0 2 * * *', async () => {
+export async function runRecurrenceJob(): Promise<{ meetingsProcessed: number; instancesCreated: number }> {
   try {
     console.log('🔄 Starting recurrence instance generation job...');
 
@@ -20,7 +20,7 @@ cron.schedule('0 2 * * *', async () => {
       where: {
         isRecurring: true,
         status: { in: ['scheduled', 'ongoing'] },
-      }
+      },
     });
 
     console.log(`📅 Found ${recurringMeetings.length} recurring meetings to process`);
@@ -68,7 +68,29 @@ cron.schedule('0 2 * * *', async () => {
     console.log(
       `✅ Recurrence job completed: ${processedCount} meetings processed, ${totalInstancesCreated} instances created`
     );
+    return { meetingsProcessed: processedCount, instancesCreated: totalInstancesCreated };
   } catch (error) {
     console.error('❌ Error during recurrence instance generation:', error);
+    throw error;
   }
-});
+}
+
+/**
+ * Start explicit recurrence cron scheduler.
+ * Runs daily at 2 AM UTC by default.
+ */
+export function startRecurrenceScheduler(cronExpression = '0 2 * * *') {
+  console.log(`⏱️  Scheduling recurrence job with expression: ${cronExpression}`);
+  const task = cron.schedule(cronExpression, async () => {
+    try {
+      await runRecurrenceJob();
+    } catch (err) {
+      console.error('Scheduled recurrence job failed:', err);
+    }
+  });
+
+  return {
+    task,
+    stop: () => task.stop(),
+  };
+}

@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { prisma } from '@minimeet/shared';
-import { AppError, ResponseHelpers } from '@minimeet/shared';
+import { prisma, AppError, ResponseHelpers, StorageService, WORKSPACE_ROLES } from '@minimeet/shared';
 import { VideoProcessingQueue } from '@minimeet/shared';
 import {
   uploadVideoFile,
@@ -9,13 +8,17 @@ import {
   extractAudioFromVideo,
   generateSignedUrl,
   deleteFile,
+  initiateDirectMultipartUpload,
+  generatePartUploadUrl,
+  finalizeMultipartUpload,
+  cancelMultipartUpload,
+  getPrivatePlaybackUrl,
 } from '../services/cloudflare-r2.service.js';
 import {
   transcribeRecording,
   generateRecordingSummary,
 } from '../services/ai.service.js';
 import { Request, Response } from 'express';
-import { WORKSPACE_ROLES } from '@minimeet/shared';
 
 
 // Singleton queue instance – lazily initialized
@@ -138,6 +141,16 @@ async function processRecordingAI(recording: any, type: string, processingId: st
     } catch (saveError) {
       console.error('Failed to update recording status:', saveError);
     }
+  }
+}
+
+/**
+ * Strict tenant isolation check: throws 404 (not 403) to prevent leaking existence across tenants
+ */
+function checkRecordingTenantAccess(recording: any, req: any) {
+  const userOrgId = req.user?.organizationId || null;
+  if (recording.organizationId && recording.organizationId !== userOrgId) {
+    throw AppError.notFound('Recording');
   }
 }
 
@@ -307,6 +320,332 @@ export class RecordingController {
   }
 
   /**
+   * POST /recordings/direct-upload/initiate - Initiate direct presigned multipart upload
+   */
+  async initiateDirectUpload(req: any, res: Response) {
+    const {
+      title,
+      description,
+      meetingId,
+      teamId,
+      fileName,
+      contentType,
+      fileSize,
+      visibility = 'participants',
+      tags = [],
+    } = req.body;
+
+    if (!fileName || typeof fileName !== 'string') {
+      throw AppError.validation('fileName is required');
+    }
+
+    if (!contentType || typeof contentType !== 'string') {
+      throw AppError.validation('contentType is required');
+    }
+
+    if (!StorageService.isAllowedContentType(contentType)) {
+      throw AppError.validation(
+        `Unsupported contentType: ${contentType}. Only authorized video and audio formats are permitted.`
+      );
+    }
+
+    if (!title || typeof title !== 'string') {
+      throw AppError.validation('title is required');
+    }
+
+    if (!req.user?.organizationId) {
+      throw AppError.validation(
+        'User must belong to an organization to upload recordings'
+      );
+    }
+
+    if (!req.user?.userId) {
+      throw AppError.unauthorized('Invalid user token - missing userId');
+    }
+
+    if (meetingId) {
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: meetingId },
+        include: { participants: true },
+      });
+      if (!meeting) {
+        throw AppError.notFound('Meeting');
+      }
+
+      const hasAccess =
+        meeting.createdBy === req.user.userId ||
+        meeting.participants.some((p: any) => p.userId === req.user.userId);
+
+      if (!hasAccess) {
+        throw AppError.forbidden('Access denied to this meeting');
+      }
+    }
+
+    const format = contentType.includes('/') ? contentType.split('/')[1] : 'mp4';
+    const recording = await prisma.meetingRecording.create({
+      data: {
+        meetingId: meetingId || null,
+        organizationId: req.user.organizationId,
+        teamId: teamId || null,
+        title: title.trim(),
+        description: description?.trim(),
+        fileName,
+        fileSize: fileSize ? Number(fileSize) : 0,
+        format,
+        storageProvider: 'r2',
+        visibility,
+        tags: Array.isArray(tags)
+          ? tags
+          : typeof tags === 'string'
+          ? tags.split(',').map((t: string) => t.trim())
+          : [],
+        processingStatus: 'pending_upload',
+        participants: {
+          create: [
+            {
+              userId: req.user.userId,
+              role: 'host',
+              joinTime: new Date(),
+            },
+          ],
+        },
+      },
+    });
+
+    try {
+      const result = await initiateDirectMultipartUpload({
+        organizationId: req.user.organizationId,
+        recordingId: recording.id,
+        fileName,
+        contentType,
+      });
+
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: { storagePath: result.key },
+      });
+
+      return res.status(201).json({
+        success: true,
+        recordingId: recording.id,
+        uploadId: result.uploadId,
+        key: result.key,
+        bucket: result.bucket,
+        partSize: result.partSize,
+      });
+    } catch (error: any) {
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: { processingStatus: 'failed' },
+      });
+      throw AppError.internal(`Failed to initiate direct multipart upload: ${error.message}`);
+    }
+  }
+
+  /**
+   * POST /recordings/direct-upload/part-url - Get presigned upload URL for a specific part
+   */
+  async getPartUploadUrl(req: any, res: Response) {
+    const { recordingId, uploadId, partNumber } = req.body;
+
+    if (!recordingId) {
+      throw AppError.validation('recordingId is required');
+    }
+    if (!uploadId) {
+      throw AppError.validation('uploadId is required');
+    }
+    if (partNumber === undefined || partNumber === null) {
+      throw AppError.validation('partNumber is required');
+    }
+
+    const parsedPart = Number(partNumber);
+    try {
+      StorageService.validatePartNumber(parsedPart);
+    } catch {
+      throw AppError.validation('partNumber must be an integer between 1 and 10,000');
+    }
+
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: recordingId },
+    });
+
+    if (!recording) {
+      throw AppError.notFound('Recording');
+    }
+
+    checkRecordingTenantAccess(recording, req);
+
+    if (!recording.storagePath) {
+      throw AppError.validation('Recording has no allocated storage path');
+    }
+
+    const uploadUrl = await generatePartUploadUrl({
+      key: recording.storagePath,
+      uploadId,
+      partNumber: parsedPart,
+      expiresIn: 3600,
+    });
+
+    return res.json({
+      success: true,
+      recordingId,
+      partNumber: parsedPart,
+      uploadUrl,
+      expiresIn: 3600,
+    });
+  }
+
+  /**
+   * POST /recordings/direct-upload/complete - Finalize presigned multipart upload
+   */
+  async completeDirectUpload(req: any, res: Response) {
+    const { recordingId, uploadId, parts } = req.body;
+
+    if (!recordingId) {
+      throw AppError.validation('recordingId is required');
+    }
+    if (!uploadId) {
+      throw AppError.validation('uploadId is required');
+    }
+    if (!Array.isArray(parts) || parts.length === 0) {
+      throw AppError.validation('parts array is required and must not be empty');
+    }
+
+    for (const part of parts) {
+      if (!part.partNumber || !part.etag) {
+        throw AppError.validation('Each part must contain partNumber and etag');
+      }
+      try {
+        StorageService.validatePartNumber(Number(part.partNumber));
+      } catch {
+        throw AppError.validation('Part partNumber must be between 1 and 10,000');
+      }
+    }
+
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: recordingId },
+      include: { participants: true },
+    });
+
+    if (!recording) {
+      throw AppError.notFound('Recording');
+    }
+
+    checkRecordingTenantAccess(recording, req);
+
+    if (!recording.storagePath) {
+      throw AppError.validation('Recording has no allocated storage path');
+    }
+
+    await finalizeMultipartUpload({
+      key: recording.storagePath,
+      uploadId,
+      parts: parts.map((p: any) => ({
+        partNumber: Number(p.partNumber),
+        etag: String(p.etag),
+      })),
+    });
+
+    const signedPlaybackUrl = await getPrivatePlaybackUrl(recording.storagePath, 3600);
+
+    const updated = await prisma.meetingRecording.update({
+      where: { id: recordingId },
+      data: {
+        processingStatus: 'completed',
+        downloadUrl: signedPlaybackUrl,
+        streamingUrl: signedPlaybackUrl,
+      },
+    });
+
+    return res.json({
+      success: true,
+      recording: updated,
+      message: 'Multipart upload completed successfully',
+    });
+  }
+
+  /**
+   * POST /recordings/direct-upload/abort - Cancel in-progress presigned multipart upload
+   */
+  async abortDirectUpload(req: any, res: Response) {
+    const { recordingId, uploadId } = req.body;
+
+    if (!recordingId) {
+      throw AppError.validation('recordingId is required');
+    }
+    if (!uploadId) {
+      throw AppError.validation('uploadId is required');
+    }
+
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: recordingId },
+    });
+
+    if (!recording) {
+      throw AppError.notFound('Recording');
+    }
+
+    checkRecordingTenantAccess(recording, req);
+
+    if (recording.storagePath) {
+      await cancelMultipartUpload({
+        key: recording.storagePath,
+        uploadId,
+      });
+    }
+
+    await prisma.meetingRecording.update({
+      where: { id: recordingId },
+      data: { processingStatus: 'aborted' },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Multipart upload aborted successfully',
+    });
+  }
+
+  /**
+   * GET /recordings/:id/playback-url - Get short-lived signed playback URL
+   */
+  async getPlaybackUrl(req: any, res: Response) {
+    const recording = await prisma.meetingRecording.findUnique({
+      where: { id: req.params.id },
+      include: { participants: true },
+    });
+
+    if (!recording) {
+      throw AppError.notFound('Recording');
+    }
+
+    checkRecordingTenantAccess(recording, req);
+
+    let canAccess = false;
+    if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
+      canAccess = true;
+    } else if (recording.participants.some((p: any) => p.userId === req.user.userId)) {
+      canAccess = true;
+    }
+
+    if (!canAccess) {
+      throw AppError.forbidden('Access denied to this recording');
+    }
+
+    if (!recording.storagePath) {
+      throw AppError.notFound('Recording file path not available');
+    }
+
+    const expiresIn = Number(req.query.expiresIn) || 3600;
+    const playbackUrl = await getPrivatePlaybackUrl(recording.storagePath, expiresIn);
+
+    return res.json({
+      success: true,
+      playbackUrl,
+      expiresIn,
+    });
+  }
+
+  /**
    * GET /recordings - Get recordings list
    */
   async getRecordings(req: any, res: Response) {
@@ -433,6 +772,8 @@ export class RecordingController {
       throw AppError.notFound('Recording');
     }
 
+    checkRecordingTenantAccess(recording, req);
+
     if (recording.participants) {
       recording.participants = recording.participants.map((participant: any) => {
         return {
@@ -480,6 +821,8 @@ export class RecordingController {
       throw AppError.notFound('Recording');
     }
 
+    checkRecordingTenantAccess(recording, req);
+
     let canAccess = false;
     if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
@@ -519,6 +862,8 @@ export class RecordingController {
     if (!recording) {
       throw AppError.notFound('Recording');
     }
+
+    checkRecordingTenantAccess(recording, req);
 
     const canEdit =
       recording.participants.some(
@@ -563,6 +908,8 @@ export class RecordingController {
     if (!recording) {
       throw AppError.notFound('Recording');
     }
+
+    checkRecordingTenantAccess(recording, req);
 
     const canDelete =
       recording.participants.some(
@@ -614,6 +961,8 @@ export class RecordingController {
     if (!recording) {
       throw AppError.notFound('Recording');
     }
+
+    checkRecordingTenantAccess(recording, req);
 
     let canAccess = false;
     if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
@@ -676,6 +1025,8 @@ export class RecordingController {
       throw AppError.notFound('Recording');
     }
 
+    checkRecordingTenantAccess(recording, req);
+
     let canAccess = false;
     if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
       canAccess = true;
@@ -717,6 +1068,8 @@ export class RecordingController {
       throw AppError.notFound('Recording');
     }
 
+    checkRecordingTenantAccess(recording, req);
+
     const canArchive =
       recording.participants.some(
         (p: any) => p.userId === req.user.userId && p.role === 'host'
@@ -749,6 +1102,8 @@ export class RecordingController {
       throw AppError.notFound('Recording');
     }
 
+    checkRecordingTenantAccess(recording, req);
+
     const canUnarchive =
       recording.participants.some(
         (p: any) => p.userId === req.user.userId && p.role === 'host'
@@ -780,6 +1135,8 @@ export class RecordingController {
     if (!recording) {
       throw AppError.notFound('Recording');
     }
+
+    checkRecordingTenantAccess(recording, req);
 
     let canAccess = false;
     if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {
@@ -852,6 +1209,8 @@ export class RecordingController {
     if (!recording) {
       throw AppError.notFound('Recording');
     }
+
+    checkRecordingTenantAccess(recording, req);
 
     let canAccess = false;
     if (req.user.role === WORKSPACE_ROLES.ADMIN || req.user.role === WORKSPACE_ROLES.OWNER) {

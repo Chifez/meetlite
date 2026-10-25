@@ -41,14 +41,14 @@ const notificationRateLimiter = rateLimit({
  */
 const sseRateLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 3, // Max 3 connection attempts per minute per user
+  max: 60, // Max 60 connection attempts per minute per user
   message: {
     success: false,
     error: 'Too many connection attempts, please try again later',
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true,
   keyGenerator: (req: any) => {
     if (req.user?.userId) {
       return `sse:${req.user.userId}`;

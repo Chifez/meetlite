@@ -122,12 +122,6 @@ export class RoomController {
 
     const roomOrgId = room.organizationId || null;
 
-    if (userOrgId?.toString() !== roomOrgId?.toString()) {
-      throw AppError.forbidden(
-        'Access denied. Room belongs to a different workspace.'
-      );
-    }
-
     if (room.createdBy === userId) {
       const { meeting: _, ...roomResponse } = room;
       return ResponseHelpers.ok(res, roomResponse);
@@ -149,13 +143,22 @@ export class RoomController {
         const { meeting: _, ...roomResponse } = room;
         return ResponseHelpers.ok(res, roomResponse);
       }
-    } else {
-      // Personal workspace instant room — only the creator may access it
-      if (room.createdBy !== userId) {
-        throw AppError.forbidden('Access denied to this room');
+    }
+
+    if (!meeting) {
+      if (roomOrgId && userOrgId?.toString() !== roomOrgId?.toString()) {
+        throw AppError.forbidden(
+          'Access denied. Room belongs to a different workspace.'
+        );
       }
       const { meeting: _, ...roomResponse } = room;
       return ResponseHelpers.ok(res, roomResponse);
+    }
+
+    if (userOrgId?.toString() !== roomOrgId?.toString()) {
+      throw AppError.forbidden(
+        'Access denied. Room belongs to a different workspace.'
+      );
     }
 
     throw AppError.forbidden('Access denied to this room');

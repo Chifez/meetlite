@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { createVerifiedPrincipal, VerifiedPrincipal } from '@minimeet/shared';
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
+  principal?: VerifiedPrincipal;
 }
 
 export const verifyToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -24,6 +26,7 @@ export const verifyToken = (req: AuthenticatedRequest, res: Response, next: Next
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     req.user = decoded;
+    req.principal = createVerifiedPrincipal(decoded);
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token' });

@@ -1,6 +1,86 @@
 import { prisma } from '@minimeet/shared';
 import { ResponseHelpers, AppError } from '@minimeet/shared';
 import { Response } from 'express';
+import { ParticipantRoomRole } from '@minimeet/shared';
+import {
+  issueRoomCapability,
+  normalizeRoomTier,
+} from '../services/room-capability.service.js';
+
+async function resolveAuthoritativeRoomTier(room: any) {
+  if (room.organizationId) {
+    const organization = await prisma.organization.findUnique({
+      where: { id: room.organizationId },
+      select: { planType: true, planStatus: true },
+    });
+    return organization?.planStatus === 'active'
+      ? normalizeRoomTier(organization.planType)
+      : 'free';
+  }
+
+  const owner = await prisma.user.findUnique({
+    where: { id: room.createdBy },
+    select: { planType: true, planStatus: true },
+  });
+  return owner?.planStatus === 'active' ? normalizeRoomTier(owner.planType) : 'free';
+}
+
+async function assertRoomJoinAccess(req: any, room: any): Promise<void> {
+  const userId = req.user.userId;
+  const userOrgId = req.user.organizationId || null;
+  const roomOrgId = room.organizationId || null;
+
+  if (room.createdBy === userId) return;
+
+  const meeting = await prisma.meeting.findFirst({
+    where: { roomId: room.roomId },
+    select: { createdBy: true, privacy: true, invites: true },
+  });
+
+  if (meeting) {
+    if (meeting.createdBy === userId || meeting.privacy === 'public') return;
+    const invite = meeting.invites?.find(
+      (candidate: any) => candidate.email === req.user.email && candidate.status !== 'declined'
+    );
+    if (invite) return;
+  }
+
+  if (!meeting) {
+    if (roomOrgId && userOrgId?.toString() !== roomOrgId?.toString()) {
+      throw AppError.forbidden('Access denied. Room belongs to a different workspace.');
+    }
+    return;
+  }
+
+  if (userOrgId?.toString() !== roomOrgId?.toString()) {
+    throw AppError.forbidden('Access denied. Room belongs to a different workspace.');
+  }
+
+  throw AppError.forbidden('Access denied to this room');
+}
+
+async function joinResponse(req: any, roomId: string, room: any, participant: any) {
+  const response: Record<string, unknown> = {
+    participant,
+    collaborationMode: room.collaborationMode,
+    activeTool: room.activeTool,
+    settings: room.settings,
+  };
+
+  if (req.query.includeCapability === 'true') {
+    if (!req.principal) {
+      throw AppError.unauthorized('Verified principal is required to issue a room capability');
+    }
+    response.capabilityToken = issueRoomCapability(
+      req.principal,
+      roomId,
+      participant.role as ParticipantRoomRole,
+      await resolveAuthoritativeRoomTier(room)
+    );
+  }
+
+  return response;
+}
 
 export const updateCollaborationMode = async (req: any, res: Response) => {
   const { roomId } = req.params;
@@ -107,6 +187,8 @@ export const joinRoom = async (req: any, res: Response) => {
     throw AppError.notFound('Room');
   }
 
+  await assertRoomJoinAccess(req, room);
+
   const existingParticipant = room.participants.find((p: any) => p.userId === userId);
 
   if (existingParticipant) {
@@ -115,12 +197,7 @@ export const joinRoom = async (req: any, res: Response) => {
       where: { id: room.id },
       data: { participants: room.participants }
     });
-    return ResponseHelpers.ok(res, {
-      participant: existingParticipant,
-      collaborationMode: room.collaborationMode,
-      activeTool: room.activeTool,
-      settings: room.settings,
-    });
+    return ResponseHelpers.ok(res, await joinResponse(req, roomId, room, existingParticipant));
   }
 
   if (room.participants.length >= (room.settings as any).maxParticipants) {
@@ -161,11 +238,6 @@ export const joinRoom = async (req: any, res: Response) => {
     }
   }
 
-  return ResponseHelpers.ok(res, {
-    participant: newParticipant,
-    collaborationMode: room.collaborationMode,
-    activeTool: room.activeTool,
-    settings: room.settings,
-  });
+  return ResponseHelpers.ok(res, await joinResponse(req, roomId, room, newParticipant));
 
 };

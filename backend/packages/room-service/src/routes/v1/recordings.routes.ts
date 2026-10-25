@@ -92,6 +92,47 @@ router.use(verifyToken as any);
 router.use(validatePlanStatus as any);
 
 /**
+ * @route   POST /api/v1/recordings/direct-upload/initiate
+ * @desc    Initiate presigned multipart direct upload (off-origin memory)
+ * @access  Private (Org Member)
+ */
+router.post(
+  '/direct-upload/initiate',
+  requirePlanFeature(PLAN_FEATURES.MEETING_RECORDING_BASIC) as any,
+  asyncHandler(recordingController.initiateDirectUpload.bind(recordingController))
+);
+
+/**
+ * @route   POST /api/v1/recordings/direct-upload/part-url
+ * @desc    Get presigned upload URL for a specific multipart chunk
+ * @access  Private (Org Member)
+ */
+router.post(
+  '/direct-upload/part-url',
+  asyncHandler(recordingController.getPartUploadUrl.bind(recordingController))
+);
+
+/**
+ * @route   POST /api/v1/recordings/direct-upload/complete
+ * @desc    Finalize direct multipart upload
+ * @access  Private (Org Member)
+ */
+router.post(
+  '/direct-upload/complete',
+  asyncHandler(recordingController.completeDirectUpload.bind(recordingController))
+);
+
+/**
+ * @route   POST /api/v1/recordings/direct-upload/abort
+ * @desc    Cancel in-progress multipart upload and clean up parts
+ * @access  Private (Org Member)
+ */
+router.post(
+  '/direct-upload/abort',
+  asyncHandler(recordingController.abortDirectUpload.bind(recordingController))
+);
+
+/**
  * @route   POST /api/v1/recordings
  */
 router.post(
@@ -126,6 +167,16 @@ router.get(
 router.get(
   '/:id/stream',
   asyncHandler(recordingController.getStreamingUrl.bind(recordingController))
+);
+
+/**
+ * @route   GET /api/v1/recordings/:id/playback-url
+ * @desc    Get private short-lived signed playback URL
+ * @access  Private (Org Member / Participant)
+ */
+router.get(
+  '/:id/playback-url',
+  asyncHandler(recordingController.getPlaybackUrl.bind(recordingController))
 );
 
 /**

@@ -35,7 +35,7 @@ export async function createSessionStore() {
     // Session configuration
     const sessionConfig: session.SessionOptions = {
       store: store,
-      secret: process.env.SESSION_SECRET || 'secret',
+      secret: process.env.SESSION_SECRET!,
       name: process.env.SESSION_NAME || 'sid',
       resave: false, // Don't save session if unmodified
       saveUninitialized: false, // Don't create session until something stored
@@ -54,7 +54,7 @@ export async function createSessionStore() {
 
     // Fallback to memory store (for development only)
     return session({
-      secret: process.env.SESSION_SECRET || 'secret',
+      secret: process.env.SESSION_SECRET!,
       name: process.env.SESSION_NAME || 'sid',
       resave: false,
       saveUninitialized: false,

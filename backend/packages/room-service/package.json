@@ -6,7 +6,13 @@
     "dev": "nodemon --watch src -e ts --exec \"tsc && node dist/index.js\"",
     "dev:no-watch": "tsc && node dist/index.js",
     "start": "node dist/index.js",
-    "build": "tsc"
+    "start:http": "node dist/index.js",
+    "start:worker": "node dist/worker.js",
+    "start:scheduler": "node dist/scheduler.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx --test 'src/**/*.test.ts'",
+    "test": "npm run test:unit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",

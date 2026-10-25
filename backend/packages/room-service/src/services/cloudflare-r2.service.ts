@@ -50,6 +50,8 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
   return Buffer.concat(chunks);
 };
 
+import { StorageService } from '@minimeet/shared';
+
 /**
  * Check if R2 is properly configured
  * @returns {boolean} Configuration status
@@ -61,6 +63,100 @@ export const checkR2Config = (): boolean => {
     R2_CONFIG.secretAccessKey &&
     R2_CONFIG.bucketName
   );
+};
+
+/**
+ * Initiate a direct presigned multipart upload to Cloudflare R2
+ */
+export const initiateDirectMultipartUpload = async (options: {
+  organizationId: string;
+  recordingId: string;
+  fileName: string;
+  contentType: string;
+}) => {
+  const { organizationId, recordingId, fileName, contentType } = options;
+
+  if (!StorageService.isAllowedContentType(contentType)) {
+    throw new Error(
+      `Unsupported content type: ${contentType}. Only authorized video and audio formats are permitted.`
+    );
+  }
+
+  const key = StorageService.allocateKey(organizationId, recordingId, fileName);
+  const result = await StorageService.createMultipartUpload(
+    R2_CONFIG.bucketName,
+    key,
+    contentType,
+    {
+      organizationId,
+      recordingId,
+    }
+  );
+
+  return {
+    uploadId: result.uploadId,
+    key: result.key,
+    bucket: R2_CONFIG.bucketName,
+    partSize: 10 * 1024 * 1024, // 10MB chunk size
+  };
+};
+
+/**
+ * Generate a presigned URL for uploading a specific part directly to Cloudflare R2
+ */
+export const generatePartUploadUrl = async (options: {
+  key: string;
+  uploadId: string;
+  partNumber: number;
+  expiresIn?: number;
+}) => {
+  const { key, uploadId, partNumber, expiresIn = 3600 } = options;
+  return StorageService.getUploadPartUrl(
+    R2_CONFIG.bucketName,
+    key,
+    uploadId,
+    partNumber,
+    expiresIn
+  );
+};
+
+/**
+ * Finalize a direct multipart upload on Cloudflare R2
+ */
+export const finalizeMultipartUpload = async (options: {
+  key: string;
+  uploadId: string;
+  parts: { partNumber: number; etag: string }[];
+}) => {
+  const { key, uploadId, parts } = options;
+  return StorageService.completeMultipartUpload(
+    R2_CONFIG.bucketName,
+    key,
+    uploadId,
+    parts
+  );
+};
+
+/**
+ * Cancel an in-progress multipart upload on Cloudflare R2
+ */
+export const cancelMultipartUpload = async (options: {
+  key: string;
+  uploadId: string;
+}) => {
+  const { key, uploadId } = options;
+  return StorageService.abortMultipartUpload(
+    R2_CONFIG.bucketName,
+    key,
+    uploadId
+  );
+};
+
+/**
+ * Generate a private, signed URL for authorized video playback
+ */
+export const getPrivatePlaybackUrl = async (key: string, expiresIn = 3600) => {
+  return StorageService.getSignedDownloadUrl(R2_CONFIG.bucketName, key, expiresIn);
 };
 
 /**
