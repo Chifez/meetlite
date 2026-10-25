@@ -2,8 +2,17 @@ import { prisma } from './prisma.js';
 
 
 export * from './prisma.js';
+export * from './database/connection-config.js';
 
 export * from './config/plans.js';
+export * from './config/required-env.js';
+export * from './health/health-manager.js';
+export * from './telemetry/correlation.js';
+export * from './auth/token-service.js';
+export * from './auth/principal.js';
+export * from './auth/capability-token.js';
+export * from './auth/request-assertion.js';
+export * from './auth/identity-stripping.js';
 export * from './constants/error-codes.js';
 export * from './constants/index.js';
 export { AppError } from './utils/app-error.js';
