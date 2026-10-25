@@ -1,0 +1,32 @@
+name = "meetlite-room-coordinator"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "local"
+CAPABILITY_AUDIENCE = "meetlite-edge-coordinator"
+
+[[durable_objects.bindings]]
+name = "ROOM_COORDINATOR"
+class_name = "RoomCoordinatorDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomCoordinatorDO"]
+
+# Cloudflare Hyperdrive edge database connection accelerator (S5-01)
+# Cached binding for stale-tolerant read queries
+[[hyperdrive]]
+binding = "HYPERDRIVE_CACHED"
+id = "meetlite-db-hyperdrive-cached"
+
+# Uncached direct-origin binding for strongly consistent operations and writes
+[[hyperdrive]]
+binding = "HYPERDRIVE_UNCACHED"
+id = "meetlite-db-hyperdrive-uncached"
+
+# Legacy/Default hyperdrive binding for backward compatibility
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "meetlite-db-hyperdrive"
