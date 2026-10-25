@@ -30,6 +30,7 @@ const Lobby = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const initializationIdRef = useRef(0);
 
   // Consolidated state
   const [isLoading, setIsLoading] = useState(true);
@@ -55,11 +56,13 @@ const Lobby = () => {
 
   const initializeLobby = useCallback(async () => {
     if (!roomId) return;
+    const initializationId = ++initializationIdRef.current;
 
     try {
       // Authorization check - ProtectedRoute ensures user is authenticated
       // This API call will return 403 if user doesn't have access
       await api.get(`/api/rooms/${roomId}`);
+      if (initializationId !== initializationIdRef.current) return;
 
       // Additional check: verify user has access to the meeting
       // This is a basic check - in a real implementation, you might want to
@@ -72,6 +75,10 @@ const Lobby = () => {
         });
 
         const deviceList = await navigator.mediaDevices.enumerateDevices();
+        if (initializationId !== initializationIdRef.current) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
 
         const audioInputs = deviceList
           .filter((device) => device.kind === 'audioinput')
@@ -99,19 +106,26 @@ const Lobby = () => {
         setDevices({ audio: audioInputs, video: videoInputs });
         setSelectedDevices({ audio: defaultAudio, video: defaultVideo });
 
-        // Set video element source
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
       } catch (mediaError) {
+        if (initializationId !== initializationIdRef.current) return;
         console.error('Error accessing media devices:', mediaError);
         toast.error('Camera/Microphone Error', {
           description:
             'Could not access your camera or microphone. Please check permissions.',
         });
       }
-    } catch (error: any) {
-      if (error.response?.status === 403) {
+    } catch (error: unknown) {
+      if (initializationId !== initializationIdRef.current) return;
+      const responseStatus =
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof error.response === 'object' &&
+        error.response !== null &&
+        'status' in error.response
+          ? error.response.status
+          : undefined;
+      if (responseStatus === 403) {
         toast.error('Access Denied', {
           description: 'You do not have permission to join this meeting room.',
         });
@@ -123,21 +137,45 @@ const Lobby = () => {
       }
       navigate('/dashboard');
     } finally {
-      setIsLoading(false);
+      if (initializationId === initializationIdRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, []);
+  }, [navigate, roomId]);
+
+  const streamRef = useRef<MediaStream | null>(null);
+  streamRef.current = stream;
 
   useEffect(() => {
-    initializeLobby();
+    void initializeLobby();
+    return () => {
+      initializationIdRef.current += 1;
+    };
   }, [initializeLobby]);
 
+  // Bind video preview whenever stream or loading state changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream || isLoading) return;
+
+    video.srcObject = stream;
+    void video.play().catch((error: unknown) => {
+      console.error('Error starting lobby preview:', error);
+    });
+
+    return () => {
+      if (video.srcObject === stream) video.srcObject = null;
+    };
+  }, [stream, isLoading]);
+
+  // Cleanup stream ONLY when Lobby unmounts
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [stream]);
+  }, []);
 
   // Media control functions
   const toggleAudio = () => {
@@ -162,11 +200,14 @@ const Lobby = () => {
     if (!stream) return;
     try {
       // Stop current audio tracks
-      stream.getAudioTracks().forEach((track) => track.stop());
+      stream.getAudioTracks().forEach((track) => {
+        track.stop();
+        stream.removeTrack(track);
+      });
 
-      // Get new audio track
+      // Get new audio track with ideal constraint
       const newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: deviceId } },
+        audio: deviceId ? { deviceId: { ideal: deviceId } } : true,
       });
 
       // Add new audio track to existing stream
@@ -188,11 +229,14 @@ const Lobby = () => {
     if (!stream) return;
     try {
       // Stop current video tracks
-      stream.getVideoTracks().forEach((track) => track.stop());
+      stream.getVideoTracks().forEach((track) => {
+        track.stop();
+        stream.removeTrack(track);
+      });
 
-      // Get new video track
+      // Get new video track with ideal constraint
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } },
+        video: deviceId ? { deviceId: { ideal: deviceId } } : true,
       });
 
       const newVideoTrack = newStream.getVideoTracks()[0];
@@ -224,6 +268,12 @@ const Lobby = () => {
     );
     sessionStorage.setItem('meetlite_audio_device', selectedDevices.audio);
     sessionStorage.setItem('meetlite_video_device', selectedDevices.video);
+
+    // Explicitly release preview stream tracks before navigating so room can acquire them
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
 
     // Navigate to room
     navigate(`/room/${roomId}`);

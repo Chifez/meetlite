@@ -1,5 +1,5 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
+import { getAuthToken, setAuthToken, removeAuthToken } from '@/lib/token-storage';
 
 import { env } from '@/config/env';
 
@@ -31,7 +31,7 @@ const processQueue = (error: any, token: string | null = null) => {
 // Request interceptor to add auth headers
 api.interceptors.request.use(
   (config) => {
-    const token = Cookies.get('token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -73,7 +73,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const token = Cookies.get('token');
+      const token = getAuthToken();
       if (!token) {
         isRefreshing = false;
         // Redirect to login
@@ -87,8 +87,15 @@ api.interceptors.response.use(
           token,
         });
 
-        const newToken = response.data.token;
-        Cookies.set('token', newToken, { secure: true, sameSite: 'lax' });
+        const newToken = response.data?.token || response.data?.accessToken;
+        setAuthToken(newToken);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('meetlite:token-refreshed', {
+              detail: { token: newToken },
+            })
+          );
+        }
 
         // Update the original request
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -100,7 +107,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Token refresh failed
         processQueue(refreshError, null);
-        Cookies.remove('token');
+        removeAuthToken();
 
         // Redirect to login
         window.location.href = '/login';

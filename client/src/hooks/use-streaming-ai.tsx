@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { env } from '@/config/env';
 import api from '@/lib/axios';
-import Cookies from 'js-cookie';
+import { getAuthToken } from '@/lib/token-storage';
 import { extractData } from '@/lib/api-response';
 
 interface StreamingAIResponse {
@@ -29,8 +29,8 @@ export const useStreamingAI = () => {
       let fullContent = '';
 
       try {
-        // Get token from cookies (same as axios interceptor)
-        const token = Cookies.get('token');
+        // Get token from token-storage (same as axios interceptor)
+        const token = getAuthToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',

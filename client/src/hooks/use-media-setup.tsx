@@ -11,9 +11,10 @@ interface MediaState {
 interface UseMediaSetupProps {
   socket: Socket | null;
   roomId: string | undefined;
+  enabled?: boolean;
 }
 
-export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
+export const useMediaSetup = ({ socket, roomId, enabled }: UseMediaSetupProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -25,7 +26,10 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
 
   // Initial media setup
   useEffect(() => {
-    if (!socket || !roomId) return;
+    const shouldAcquireMedia = enabled ?? Boolean(socket);
+    if (!shouldAcquireMedia || !roomId) return;
+
+    let cancelled = false;
 
     const setupMedia = async () => {
       try {
@@ -35,8 +39,8 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
           sessionStorage.getItem('meetlite_video_device') || undefined;
 
         const constraints = {
-          audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
-          video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
+          audio: audioDeviceId ? { deviceId: { ideal: audioDeviceId } } : true,
+          video: videoDeviceId ? { deviceId: { ideal: videoDeviceId } } : true,
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -54,6 +58,11 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
           track.enabled = savedVideoEnabled;
         });
 
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
         setMediaState({
           audioEnabled: savedAudioEnabled,
           videoEnabled: savedVideoEnabled,
@@ -61,31 +70,77 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
 
         setLocalStream(stream);
 
-        socket.emit('ready', {
-          roomId,
-          mediaState: {
-            audioEnabled: savedAudioEnabled,
-            videoEnabled: savedVideoEnabled,
-          },
-        });
       } catch (error) {
-        console.error('Error accessing media devices:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Media Error',
-          description:
-            'Could not access camera or microphone. Please check permissions.',
-        });
-        navigate('/lobby/' + roomId);
+        if (cancelled) return;
+        console.warn('Full media acquisition failed, attempting audio-only:', error);
+        try {
+          const audioDeviceId =
+            sessionStorage.getItem('meetlite_audio_device') || undefined;
+          const audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: audioDeviceId ? { deviceId: { ideal: audioDeviceId } } : true,
+            video: false,
+          });
+
+          if (cancelled) {
+            audioStream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+
+          const savedAudioEnabled =
+            sessionStorage.getItem('meetlite_audio_enabled') !== 'false';
+          audioStream.getAudioTracks().forEach((track) => {
+            track.enabled = savedAudioEnabled;
+          });
+
+          setMediaState({
+            audioEnabled: savedAudioEnabled,
+            videoEnabled: false,
+          });
+          setLocalStream(audioStream);
+
+          toast({
+            title: 'Camera Unavailable',
+            description: 'Joined meeting with microphone only.',
+          });
+        } catch (audioError) {
+          if (cancelled) return;
+          console.error('Microphone acquisition also failed:', audioError);
+          setMediaState({
+            audioEnabled: false,
+            videoEnabled: false,
+          });
+          setLocalStream(null);
+          toast({
+            variant: 'destructive',
+            title: 'No Media Devices',
+            description: 'Joined meeting as a listener (no camera or microphone).',
+          });
+        }
       }
     };
 
-    setupMedia();
-  }, [socket, roomId, toast, navigate]);
+    void setupMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, roomId, toast, navigate]);
+
+  // Room membership signaling is independent from browser media acquisition.
+  // Cloudflare rooms can publish even while the legacy collaboration socket reconnects.
+  useEffect(() => {
+    if (!socket || !roomId || !localStream) return;
+    socket.emit('ready', {
+      roomId,
+      mediaState: {
+        audioEnabled: localStream.getAudioTracks()[0]?.enabled ?? false,
+        videoEnabled: localStream.getVideoTracks()[0]?.enabled ?? false,
+      },
+    });
+  }, [socket, roomId, localStream]);
 
   // Toggle audio
   const toggleAudio = () => {
-    if (localStream && socket && roomId) {
+    if (localStream && roomId) {
       const newAudioEnabled = !mediaState.audioEnabled;
       localStream.getAudioTracks().forEach((track) => {
         track.enabled = newAudioEnabled;
@@ -94,7 +149,7 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
 
       sessionStorage.setItem('meetlite_audio_enabled', String(newAudioEnabled));
 
-      socket.emit('media-state-change', {
+      socket?.emit('media-state-change', {
         roomId,
         audioEnabled: newAudioEnabled,
         videoEnabled: mediaState.videoEnabled,
@@ -104,7 +159,7 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
 
   // Toggle video
   const toggleVideo = () => {
-    if (localStream && socket && roomId) {
+    if (localStream && roomId) {
       const newVideoEnabled = !mediaState.videoEnabled;
       localStream.getVideoTracks().forEach((track) => {
         track.enabled = newVideoEnabled;
@@ -113,7 +168,7 @@ export const useMediaSetup = ({ socket, roomId }: UseMediaSetupProps) => {
 
       sessionStorage.setItem('meetlite_video_enabled', String(newVideoEnabled));
 
-      socket.emit('media-state-change', {
+      socket?.emit('media-state-change', {
         roomId,
         audioEnabled: mediaState.audioEnabled,
         videoEnabled: newVideoEnabled,

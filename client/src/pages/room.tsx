@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMemo, useCallback, useRef, useState } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { ResponsiveVideoGrid } from '@/components/room/responsive-video-grid';
 import { RoomControls } from '@/components/room/room-controls';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import { useMediaSoup } from '@/hooks/use-mediasoup';
+import { useMediaEndpoint } from '@/hooks/use-media-endpoint';
 import { useWebRTC } from '@/hooks/use-web-rtc';
 import { useSocketSetup } from '@/hooks/use-socket-setup';
 import { useScreenShare } from '@/hooks/use-screen-share';
@@ -16,13 +17,17 @@ import SEO from '@/components/seo';
 import { RoomProvider } from '@/contexts/room-context';
 import { SharedPresentation } from '@/components/room/shared-presentation';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { SOCKET_EVENTS, COLLABORATION_MODES } from '@/lib/constants';
+import api from '@/lib/axios';
 
 
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user } = useAuth();
+  const isCloudflareRoom = import.meta.env.VITE_MEDIA_ENGINE === 'cloudflare';
 
   // Setup socket connection
   const { socket, connectionStatus } = useSocketSetup({ roomId });
@@ -48,6 +53,7 @@ const Room = () => {
   const { localStream, mediaState, toggleAudio, toggleVideo } = useMediaSetup({
     socket,
     roomId,
+    enabled: isCloudflareRoom || Boolean(socket),
   });
 
   // Setup chat functionality
@@ -75,6 +81,64 @@ const Room = () => {
     canEdit,
   } = useCollaboration({ socket, roomId });
 
+  // Media Engine Canary Flag (Phase 3 Rollout):
+  // When VITE_MEDIA_ENGINE === 'cloudflare', routes room media through Cloudflare Realtime SFU
+  // and Edge Room Coordinator; otherwise maintains 100% rollback guarantee to legacy Mediasoup.
+  const [capabilityToken, setCapabilityToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isCloudflareRoom || !roomId) return;
+
+    let cancelled = false;
+    api.post(`/api/rooms/${encodeURIComponent(roomId)}/join?includeCapability=true`)
+      .then((response) => {
+        const token = response.data?.data?.capabilityToken;
+        if (!cancelled && typeof token === 'string' && token.length > 0) {
+          setCapabilityToken(token);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to obtain Cloudflare room capability', error);
+        toast({
+          variant: 'destructive',
+          title: 'Unable to Join Room',
+          description: error?.response?.data?.message || 'Access denied or capability issuance failed.',
+        });
+        if (!cancelled) navigate(`/lobby/${encodeURIComponent(roomId)}`);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCloudflareRoom, roomId, navigate, toast]);
+
+  // Use MediaEndpoint hook for Cloudflare Realtime SFU
+  const {
+    peers: cloudflarePeers,
+    peerMediaState: cloudflareMediaState,
+    isConnected: isCloudflareConnected,
+    screenShareStream: cloudflareScreenShareStream,
+    screenSharingUserId: cloudflareScreenSharingUserId,
+    produceScreenStream: cloudflareProduceScreenStream,
+    stopScreenProduction: cloudflareStopScreenProduction,
+    setConsumerLayer: cloudflareSetConsumerLayer,
+    activeSpeakerId: cloudflareActiveSpeakerId,
+    audioLevels: cloudflareAudioLevels,
+  } = useMediaEndpoint({
+    enabled: isCloudflareRoom && Boolean(capabilityToken),
+    engine: 'cloudflare',
+    roomId,
+    userId: user?.id,
+    localStream,
+    socket,
+    capabilityToken,
+    onParticipantInfoRemove: removeParticipantInfo,
+  });
+
+  // Strangler migration seam: pass null socket to legacy Mediasoup & P2P WebRTC hooks
+  // when Cloudflare media engine is active, preventing duplicate connections and side-effects.
+  const legacySocket = isCloudflareRoom ? null : socket;
+
   // Use MediaSoup hook with localStream and participant info callback
   const {
     peers: mediaSoupPeers,
@@ -88,7 +152,7 @@ const Room = () => {
     activeSpeakerId,
     audioLevels,
   } = useMediaSoup(
-    socket,
+    legacySocket,
     localStream,
     roomId,
     user?.id,
@@ -96,18 +160,22 @@ const Room = () => {
     removeParticipantInfo
   );
 
-  // Setup screen sharing with MediaSoup functions
+  // Setup screen sharing with active media engine functions
+  const activeProduceScreenStream = isCloudflareRoom ? cloudflareProduceScreenStream : produceScreenStream;
+  const activeStopScreenProduction = isCloudflareRoom ? cloudflareStopScreenProduction : stopScreenProduction;
+  const activeScreenSharingUserId = isCloudflareRoom ? cloudflareScreenSharingUserId : screenSharingUserId;
+
   const { screenShareState, shareScreen, cleanupScreenShare } = useScreenShare({
-    socket,
+    socket: legacySocket,
     roomId,
-    produceScreenStream,
-    stopScreenProduction,
-    screenSharingUserId,
+    produceScreenStream: activeProduceScreenStream,
+    stopScreenProduction: activeStopScreenProduction,
+    screenSharingUserId: activeScreenSharingUserId,
   });
 
   // Fallback to P2P WebRTC if MediaSoup is not connected
   const { peers: p2pPeers, peerMediaState: p2pMediaState } = useWebRTC(
-    socket,
+    legacySocket,
     localStream,
     roomId,
     updateParticipantInfo
@@ -116,16 +184,20 @@ const Room = () => {
   // Dynamic layout states
   const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(null);
 
-  // Use MediaSoup peers if connected, otherwise fallback to P2P
-  const peers = isMediaSoupConnected ? mediaSoupPeers : p2pPeers;
-  const peerMediaState = isMediaSoupConnected
-    ? mediaSoupMediaState
-    : p2pMediaState;
-
-  // Use MediaSoup screen share stream (no more P2P screen sharing!)
-  const actualScreenStream = isMediaSoupConnected
-    ? screenShareStream
-    : screenShareState.stream;
+  // Active engine resolution
+  const isMediaConnected = isCloudflareRoom ? isCloudflareConnected : isMediaSoupConnected;
+  const peers = isCloudflareRoom
+    ? cloudflarePeers
+    : (isMediaSoupConnected ? mediaSoupPeers : p2pPeers);
+  const peerMediaState = isCloudflareRoom
+    ? cloudflareMediaState
+    : (isMediaSoupConnected ? mediaSoupMediaState : p2pMediaState);
+  const actualScreenStream = isCloudflareRoom
+    ? cloudflareScreenShareStream
+    : (isMediaSoupConnected ? screenShareStream : screenShareState.stream);
+  const resolvedActiveSpeakerId = isCloudflareRoom ? cloudflareActiveSpeakerId : activeSpeakerId;
+  const resolvedAudioLevels = isCloudflareRoom ? cloudflareAudioLevels : audioLevels;
+  const resolvedSetConsumerLayer = isCloudflareRoom ? cloudflareSetConsumerLayer : setConsumerLayer;
 
   // Use ref to avoid dependency on peers Map in leaveMeeting callback
   const peersRef = useRef(peers);
@@ -169,8 +241,8 @@ const Room = () => {
       videoEnabled: mediaState.videoEnabled,
       peerMediaState,
       isScreenSharing: screenShareState.isSharing,
-      screenSharingUser: screenSharingUserId || screenShareState.sharingUser,
-      isMediaSoupConnected,
+      screenSharingUser: activeScreenSharingUserId || screenShareState.sharingUser,
+      isMediaSoupConnected: isMediaConnected,
       getParticipantEmail,
       getParticipantDisplayName,
       toggleAudio,
@@ -197,9 +269,9 @@ const Room = () => {
       stopPresenting,
       updateCollaborationSettings,
       canEdit,
-      setConsumerLayer,
-      activeSpeakerId: activeSpeakerId || null,
-      audioLevels: audioLevels || {},
+      setConsumerLayer: resolvedSetConsumerLayer,
+      activeSpeakerId: resolvedActiveSpeakerId || null,
+      audioLevels: resolvedAudioLevels || {},
       pinnedParticipant,
       setPinnedParticipant,
     }),
@@ -208,13 +280,13 @@ const Room = () => {
       localStream,
       actualScreenStream,
       screenShareState.isSharing,
-      screenSharingUserId,
+      activeScreenSharingUserId,
       screenShareState.sharingUser,
       peers,
       mediaState.audioEnabled,
       mediaState.videoEnabled,
       peerMediaState,
-      isMediaSoupConnected,
+      isMediaConnected,
       getParticipantEmail,
       getParticipantDisplayName,
       toggleAudio,
@@ -238,9 +310,9 @@ const Room = () => {
       stopPresenting,
       updateCollaborationSettings,
       canEdit,
-      setConsumerLayer,
-      activeSpeakerId,
-      audioLevels,
+      resolvedSetConsumerLayer,
+      resolvedActiveSpeakerId,
+      resolvedAudioLevels,
       pinnedParticipant,
     ]
   );
