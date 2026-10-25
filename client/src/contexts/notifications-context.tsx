@@ -7,7 +7,7 @@ import {
   useCallback,
   ReactNode,
 } from 'react';
-import Cookies from 'js-cookie';
+import { getAuthToken } from '@/lib/token-storage';
 import api from '@/lib/axios';
 import { env } from '@/config/env';
 import { useAuth } from '@/hooks/use-auth';
@@ -176,7 +176,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
   const setupSSE = useCallback(async () => {
     try {
-      const token = Cookies.get('token');
+      const token = getAuthToken();
       if (!token) return;
 
       // Read notification preference from auth context — no extra network call needed
@@ -291,12 +291,21 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
   useEffect(() => {
     setupSSE();
+
+    const handleTokenRefreshed = () => {
+      reconnectAttemptsRef.current = 0;
+      setError(null);
+      void setupSSE();
+    };
+    window.addEventListener('meetlite:token-refreshed', handleTokenRefreshed);
+
     return () => {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+      window.removeEventListener('meetlite:token-refreshed', handleTokenRefreshed);
     };
   }, [setupSSE]);
 
