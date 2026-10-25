@@ -22,14 +22,12 @@ export const authMiddleware = async (socket: AuthenticatedSocket, next: (err?: E
       hasToken: !!token,
       tokenLength: token ? token.length : 0,
       socketId: socket.id,
-      auth: socket.handshake.auth,
     });
 
     if (!token) {
       logger.warn('Authentication failed: No token provided', {
         socketId: socket.id,
         ip: socket.handshake.address,
-        auth: socket.handshake.auth,
       });
       return next(new Error('Authentication error: No token provided'));
     }
@@ -37,33 +35,22 @@ export const authMiddleware = async (socket: AuthenticatedSocket, next: (err?: E
     // Verify JWT token
     logger.debug('Verifying JWT token:', {
       jwtSecret: process.env.JWT_SECRET ? 'Set' : 'Not set',
-      tokenPrefix: token.substring(0, 20) + '...',
     });
 
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
 
-    // CLEAN ARCHITECTURE: Client sends fresh profile data in socket.handshake.auth.profile
-    const profileFromClient = socket.handshake.auth.profile || {};
-
-    // Attach user info to socket
+    // Identity and participant metadata come only from the verified token.
     socket.user = {
+      ...decoded,
       userId: decoded.userId,
       email: decoded.email,
       organizationId: decoded.organizationId,
-      name: profileFromClient.name || decoded.name || null,
-      useNameInMeetings:
-        profileFromClient.useNameInMeetings ??
-        decoded.useNameInMeetings ??
-        false,
-      ...decoded,
+      name: decoded.name || null,
+      useNameInMeetings: decoded.useNameInMeetings ?? false,
     };
 
     logger.info('✅ [AUTH] User authenticated successfully:', {
       userId: socket.user.userId,
-      email: socket.user.email,
-      name: socket.user.name,
-      useNameInMeetings: socket.user.useNameInMeetings,
-      profileFromClient: !!profileFromClient.name,
       socketId: socket.id,
     });
 

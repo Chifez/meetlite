@@ -66,12 +66,8 @@ export class FileHandler {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Set CORS headers BEFORE sending file
-    res.header(
-      'Access-Control-Allow-Origin',
-      process.env.CORS_ORIGIN || 'http://localhost:5174'
-    );
-    res.header('Access-Control-Allow-Credentials', 'true');
+    // The service-level CORS middleware has already selected and reflected the
+    // requesting origin. Do not overwrite it with the raw comma-separated env value.
     res.header('Cache-Control', 'public, max-age=31536000');
 
     // Use Express sendFile for proper file serving

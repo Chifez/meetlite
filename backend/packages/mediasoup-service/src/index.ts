@@ -6,6 +6,14 @@ import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import redisClient from './config/redis.js';
+import {
+  validateRequiredEnv,
+  HealthManager,
+  createHealthRouter,
+  createRedisProbe,
+  createCorrelationMiddleware,
+  createRequestLoggingMiddleware,
+} from '@minimeet/shared';
 
 import { logger, requestLogger } from './utils/logger.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -20,6 +28,7 @@ import { TldrawService } from './services/tldraw-service.js';
 import { YjsSyncService } from './services/yjs-sync-service.js';
 import { RecordingService } from './services/recording-service.js';
 import { mediasoupConfig } from './config/mediasoup.js';
+import { isOriginAllowed, parseAllowedOrigins } from './config/cors.js';
 
 // Import controllers
 import { MediaController } from './controllers/media-controller.js';
@@ -40,42 +49,50 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-  });
-});
+export const mediasoupHealthManager = new HealthManager();
+mediasoupHealthManager.registerProbe(
+  'redis',
+  createRedisProbe(() => redisClient.client, { timeoutMs: 2000 }),
+  { critical: true }
+);
+
+// Mount correlation middleware first so all requests receive/preserve correlation IDs
+app.use(createCorrelationMiddleware('mediasoup-service') as any);
+
+// Mount standardized health probe router before CORS
+app.use('/health', createHealthRouter(mediasoupHealthManager) as any);
+
+// Request telemetry logging (skips health check probes)
+app.use(createRequestLoggingMiddleware({ serviceName: 'mediasoup-service', logger }) as any);
 
 // CORS configuration - Allow frontend to access MediaSoup service directly
-const allowedMediaOrigins = (
+const allowedMediaOrigins = parseAllowedOrigins(
   process.env.CORS_ORIGIN ||
-  'http://localhost:5175,http://localhost:5174,http://localhost:3000'
-)
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedMediaOrigins.includes(origin) || allowedMediaOrigins.includes('*')) {
-        return callback(null, true);
-      }
-      if (/^http:\/\/localhost:[0-9]+$/.test(origin) || /^http:\/\/127\.0\.0\.1:[0-9]+$/.test(origin)) {
-        return callback(null, true);
-      }
-      return callback(null, false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Content-Length', 'Content-Type'],
-  })
+    'http://localhost:5175,http://localhost:5174,http://localhost:3000'
 );
+
+const corsOriginMatcher = (origin: string | undefined, callback: (err: Error | null, allow?: any) => void) => {
+  if (isOriginAllowed(origin, allowedMediaOrigins)) {
+    return callback(null, origin || true);
+  }
+  return callback(null, false);
+};
+
+const corsMiddleware = cors({
+  origin: corsOriginMatcher,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+});
+
+// Bypass Express CORS middleware for Socket.IO paths to avoid duplicate Access-Control-Allow-Origin headers
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io')) {
+    return next();
+  }
+  return corsMiddleware(req, res, next);
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -90,7 +107,7 @@ const httpServer = createServer(app);
 // Create Socket.IO server
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5174',
+    origin: corsOriginMatcher,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -233,6 +250,7 @@ app.use('*', notFoundHandler as any);
 // ============================================================================
 
 const gracefulShutdown = async () => {
+  mediasoupHealthManager.markStopped();
   logger.info('Received shutdown signal, shutting down gracefully...');
 
   try {
@@ -267,6 +285,9 @@ process.on('SIGINT', gracefulShutdown);
 
 const startServer = async () => {
   try {
+    // Fail fast before connecting to dependencies or binding a port.
+    validateRequiredEnv('mediasoup', process.env);
+
     // Initialize Redis client
     await redisClient.connect();
     const { pubClient, subClient } = redisClient.getPubSubClients();
@@ -278,6 +299,7 @@ const startServer = async () => {
 
     // Start HTTP server
     httpServer.listen(PORT, () => {
+      mediasoupHealthManager.markStarted();
       logger.info('MediaSoup service started successfully', {
         port: PORT,
         environment: process.env.NODE_ENV,
