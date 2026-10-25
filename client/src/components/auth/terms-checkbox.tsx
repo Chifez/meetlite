@@ -5,17 +5,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Control } from 'react-hook-form';
+import { Control, FieldPath, FieldValues } from 'react-hook-form';
 
-interface TermsCheckboxProps {
-  control: Control<any>;
+interface TermsCheckboxProps<TFieldValues extends FieldValues> {
+  control: Control<TFieldValues>;
+  name: FieldPath<TFieldValues>;
 }
 
-export function TermsCheckbox({ control }: TermsCheckboxProps) {
+export function TermsCheckbox<TFieldValues extends FieldValues>({
+  control,
+  name,
+}: TermsCheckboxProps<TFieldValues>) {
   return (
     <FormField
       control={control}
-      name="agreeToTerms"
+      name={name}
       render={({ field }) => (
         <FormItem className="flex flex-row items-start space-x-3 space-y-0">
           <FormControl>

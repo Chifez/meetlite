@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
+import { setAuthToken } from '@/lib/token-storage';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { LoginForm } from './auth/login-form';
@@ -25,7 +25,7 @@ const AuthPage = ({ mode }: AuthPageProps) => {
   // Handle OAuth callback side effects
   useEffect(() => {
     if (token) {
-      Cookies.set('token', token, { secure: true, sameSite: 'lax' });
+      setAuthToken(token);
       // System admins always go to /admin (unless redirect param overrides)
       if (user?.isSystemAdmin && !redirect) {
         navigate('/admin');

@@ -113,7 +113,7 @@ export function SignupForm({
             label="Confirm password"
           />
 
-          <TermsCheckbox control={form.control} />
+          <TermsCheckbox control={form.control} name="agreeToTerms" />
 
           <Button
             id="signup-submit"

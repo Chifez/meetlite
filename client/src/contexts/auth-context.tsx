@@ -1,8 +1,8 @@
-import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
-import Cookies from 'js-cookie';
+import { getAuthToken, setAuthToken, removeAuthToken } from '@/lib/token-storage';
 import { Organization } from '@/types/organization';
 
 // Types
@@ -110,12 +110,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Proactively schedule token refresh 2 minutes before expiry
+  const scheduleTokenRefresh = useCallback((token: string) => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+
+    try {
+      const decoded = jwtDecode<TokenPayload>(token);
+      const currentTime = Date.now() / 1000;
+      // Refresh 2 minutes before expiration, or in 10s if already close/expired
+      const secondsUntilRefresh = Math.max(10, decoded.exp - currentTime - 120);
+
+      refreshTimeoutRef.current = setTimeout(async () => {
+        try {
+          const currentToken = getAuthToken();
+          if (!currentToken) return;
+
+          const response = await api.post('/api/auth/refresh', {
+            token: currentToken,
+          });
+          const newToken = response.data?.token || response.data?.accessToken;
+          if (newToken) {
+            setAuthToken(newToken);
+            scheduleTokenRefresh(newToken);
+            window.dispatchEvent(
+              new CustomEvent('meetlite:token-refreshed', {
+                detail: { token: newToken },
+              })
+            );
+          }
+        } catch (err) {
+          console.warn('[AUTH] Proactive token refresh failed:', err);
+        }
+      }, secondsUntilRefresh * 1000);
+    } catch {
+      // Invalid token, no schedule
+    }
+  }, []);
+
   // Helper function to handle new tokens from API responses
   const handleNewToken = useCallback((newToken: string) => {
-    Cookies.set('token', newToken, { secure: true, sameSite: 'lax' });
+    setAuthToken(newToken);
+    scheduleTokenRefresh(newToken);
     // Fetch updated profile with new token
     fetchUserProfile(newToken);
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, scheduleTokenRefresh]);
 
   // Update user function
   const updateUser = useCallback((userData: Partial<User>) => {
@@ -126,9 +169,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return prev;
     });
   }, []);
+
   // Validate token with server
   const validateToken = useCallback(async (): Promise<boolean> => {
-    const token = Cookies.get('token');
+    const token = getAuthToken();
     if (!token) return false;
 
     try {
@@ -150,7 +194,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Check for token on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const token = Cookies.get('token');
+      const token = getAuthToken();
       if (!token) {
         setIsLoading(false);
         return;
@@ -161,19 +205,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const currentTime = Date.now() / 1000;
 
         if (decodedToken.exp < currentTime) {
-          // Token expired, try to refresh
-          const isValid = await validateToken();
-          if (!isValid) {
-            Cookies.remove('token');
+          // Token expired, refresh via /api/auth/refresh
+          try {
+            const refreshRes = await api.post('/api/auth/refresh', {
+              token,
+            });
+            const refreshedToken =
+              refreshRes.data?.token || refreshRes.data?.accessToken;
+
+            if (refreshedToken) {
+              setAuthToken(refreshedToken);
+              scheduleTokenRefresh(refreshedToken);
+              await fetchUserProfile(refreshedToken);
+            } else {
+              removeAuthToken();
+              setUser(null);
+            }
+          } catch {
+            removeAuthToken();
             setUser(null);
           }
         } else {
-          // Valid token, fetch latest profile
+          // Valid token, fetch latest profile and schedule refresh
+          scheduleTokenRefresh(token);
           await fetchUserProfile(token);
         }
       } catch (error) {
         // Invalid token
-        Cookies.remove('token');
+        removeAuthToken();
         setUser(null);
       }
 
@@ -181,7 +240,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     checkAuth();
-  }, []);
+
+    // Listen for cross-context token refreshes (e.g. from axios interceptor)
+    const handleExternalTokenRefresh = (event: Event) => {
+      const customEvent = event as CustomEvent<{ token: string }>;
+      const refreshedToken = customEvent.detail?.token;
+      if (refreshedToken) {
+        scheduleTokenRefresh(refreshedToken);
+      }
+    };
+    window.addEventListener(
+      'meetlite:token-refreshed',
+      handleExternalTokenRefresh
+    );
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      window.removeEventListener(
+        'meetlite:token-refreshed',
+        handleExternalTokenRefresh
+      );
+    };
+  }, [fetchUserProfile, scheduleTokenRefresh]);
 
   // Login user
   const login = useCallback(async (email: string, password: string) => {
@@ -191,7 +273,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         password,
       });
       const { token } = response.data;
-      Cookies.set('token', token, { secure: true, sameSite: 'lax' });
+      setAuthToken(token);
+      scheduleTokenRefresh(token);
 
       // Fetch latest profile after login
       await fetchUserProfile(token);
@@ -205,7 +288,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       throw error;
     }
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, scheduleTokenRefresh]);
 
   // Register user
   const signup = useCallback(async (email: string, password: string) => {
@@ -216,7 +299,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       const { token } = response.data;
-      Cookies.set('token', token, { secure: true, sameSite: 'lax' });
+      setAuthToken(token);
+      scheduleTokenRefresh(token);
 
       // Fetch latest profile after signup
       await fetchUserProfile(token);
@@ -231,11 +315,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('error', error);
       throw error;
     }
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, scheduleTokenRefresh]);
 
   // Logout user
   const logout = useCallback(() => {
-    Cookies.remove('token');
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+    removeAuthToken();
     setUser(null);
     setRedirectTo(null); // Clear redirect URL on logout
     toast.success('Logged out', {

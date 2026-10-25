@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { PaymentService } from '@/services/payment-service';
 import { useAuth } from '@/hooks/use-auth';
-import Cookies from 'js-cookie';
+import { setAuthToken } from '@/lib/token-storage';
 import { useToast } from '@/hooks/use-toast';
 import Logo from '@/components/logo';
 import SEO from '@/components/seo';
@@ -32,7 +32,7 @@ const PaymentSuccess: React.FC = () => {
         const result = await PaymentService.handlePaymentSuccess(sessionId);
         if (result.success) {
           if (result.token) {
-            Cookies.set('token', result.token, { secure: true, sameSite: 'lax' });
+            setAuthToken(result.token);
           }
           updateUser({
             plan: {

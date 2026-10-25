@@ -9,21 +9,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Control } from 'react-hook-form';
+import { Control, FieldPath, FieldValues } from 'react-hook-form';
 
-interface PasswordFieldProps {
-  control: Control<any>;
-  name: string;
+interface PasswordFieldProps<TFieldValues extends FieldValues> {
+  control: Control<TFieldValues>;
+  name: FieldPath<TFieldValues>;
   label: string;
   placeholder?: string;
 }
 
-export function PasswordField({
+export function PasswordField<TFieldValues extends FieldValues>({
   control,
   name,
   label,
   placeholder = '••••••••',
-}: PasswordFieldProps) {
+}: PasswordFieldProps<TFieldValues>) {
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePassword = useCallback(() => {
