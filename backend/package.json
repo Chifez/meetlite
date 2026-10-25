@@ -14,8 +14,14 @@
     "dev:gateway": "npm run dev --workspace=@minimeet/api-gateway",
     "dev:all": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:room\" \"npm run dev:mediasoup\"",
     "install:all": "npm install",
-    "build:all": "npm run build --workspaces",
-    "test:all": "npm run test --workspaces"
+    "build": "npm run build --workspace=@minimeet/shared && npm run build --workspace=@minimeet/api-gateway && npm run build --workspace=@minimeet/auth-service && npm run build --workspace=@minimeet/room-service && npm run build --workspace=@minimeet/mediasoup-service && npm run build --workspace=@minimeet/edge-room-coordinator",
+    "typecheck": "npm run typecheck --workspace=@minimeet/shared && npm run typecheck --workspace=@minimeet/api-gateway && npm run typecheck --workspace=@minimeet/auth-service && npm run typecheck --workspace=@minimeet/room-service && npm run typecheck --workspace=@minimeet/mediasoup-service && npm run typecheck --workspace=@minimeet/edge-room-coordinator",
+    "test": "npm run test:unit",
+    "test:unit": "npx tsx --test 'packages/**/src/**/*.test.ts'",
+    "test:all": "npm run test:unit",
+    "db:generate": "npm run prisma:generate --workspace=@minimeet/shared",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace=@minimeet/shared",
+    "db:migrate:status": "npm run prisma:migrate:status --workspace=@minimeet/shared"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

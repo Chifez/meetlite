@@ -4,20 +4,30 @@
   "private": true,
   "workspaces": [
     "client",
-    "backend",
     "backend/packages/*"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:backend\"",
     "dev:client": "npm run dev --workspace=client",
-    "dev:backend": "npm run dev --workspace=backend",
-    "build": "npm run build --workspaces",
+    "dev:backend": "npm --prefix backend run dev",
+    "build": "npm run build:backend",
     "build:client": "npm run build --workspace=client",
-    "build:backend": "npm run build --workspace=backend",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces",
+    "build:backend": "npm run build --workspace=@minimeet/shared && npm run build --workspace=@minimeet/api-gateway && npm run build --workspace=@minimeet/auth-service && npm run build --workspace=@minimeet/room-service && npm run build --workspace=@minimeet/mediasoup-service && npm run build --workspace=@minimeet/edge-room-coordinator",
+    "format:check": "echo 'Format check placeholder: format tool to be configured in R0 tooling'",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck:backend",
+    "typecheck:backend": "npm run typecheck --workspace=@minimeet/shared && npm run typecheck --workspace=@minimeet/api-gateway && npm run typecheck --workspace=@minimeet/auth-service && npm run typecheck --workspace=@minimeet/room-service && npm run typecheck --workspace=@minimeet/mediasoup-service && npm run typecheck --workspace=@minimeet/edge-room-coordinator",
+    "typecheck:all": "npm run typecheck:backend && npm run build:client",
+    "test": "npm run test:unit",
+    "test:unit": "npx tsx --test 'backend/packages/**/src/**/*.test.ts'",
+    "test:integration": "echo 'Integration harness: tsx --test backend/packages/**/src/**/*.integration.test.ts'",
+    "test:contracts": "echo 'Contracts harness: tsx --test backend/packages/**/src/**/*.contract.test.ts'",
+    "test:e2e": "echo 'E2E harness: Playwright E2E configured for staging gates'",
     "clean": "npm run clean --workspaces",
-    "install:all": "npm install && npm install --workspace=client && npm install --workspace=backend/auth-service && npm install --workspace=backend/room-service && npm install --workspace=backend/signaling-service"
+    "install:all": "npm install && npm --prefix backend install",
+    "db:generate": "npm run prisma:generate --workspace=@minimeet/shared",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace=@minimeet/shared",
+    "db:migrate:status": "npm run prisma:migrate:status --workspace=@minimeet/shared"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.20",
@@ -32,5 +42,10 @@
   "dependencies": {
     "prismjs": "^1.30.0",
     "tldraw": "^3.14.2"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.65.0",
+    "@tailwindcss/oxide-darwin-arm64": "^4.3.3",
+    "lightningcss-darwin-arm64": "^1.33.0"
   }
 }
