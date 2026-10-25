@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { prisma } from '@minimeet/shared';
+import { prisma, createVerifiedPrincipal, VerifiedPrincipal } from '@minimeet/shared';
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
+  principal?: VerifiedPrincipal;
 }
 
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -24,7 +25,11 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
+      if (typeof decoded.tokenVersion === 'number' && decoded.tokenVersion !== user.tokenVersion) {
+        return res.status(401).json({ message: 'Token has been revoked' });
+      }
       req.user = user;
+      req.principal = createVerifiedPrincipal(user);
       next();
     } catch (error) {
       console.error('Authentication error:', error);

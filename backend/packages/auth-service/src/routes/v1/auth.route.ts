@@ -32,6 +32,15 @@ router.post(
   asyncHandler(authController.refreshToken.bind(authController))
 );
 router.post(
+  '/logout',
+  asyncHandler(authController.logout.bind(authController))
+);
+router.post(
+  '/logout-all',
+  authenticateToken as any,
+  asyncHandler(authController.logoutAll.bind(authController))
+);
+router.post(
   '/validate',
   asyncHandler(authController.validateToken.bind(authController))
 );

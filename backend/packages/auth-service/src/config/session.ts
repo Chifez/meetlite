@@ -24,7 +24,7 @@ export async function createSessionStore() {
 
     const sessionConfig: any = {
       store: store,
-      secret: process.env.SESSION_SECRET || 'secret',
+      secret: process.env.SESSION_SECRET!,
       name: process.env.SESSION_NAME || 'sid',
       resave: false,
       saveUninitialized: false,
@@ -42,7 +42,7 @@ export async function createSessionStore() {
     console.error('Failed to create session store:', error);
 
     return session({
-      secret: process.env.SESSION_SECRET || 'secret',
+      secret: process.env.SESSION_SECRET!,
       name: process.env.SESSION_NAME || 'sid',
       resave: false,
       saveUninitialized: false,

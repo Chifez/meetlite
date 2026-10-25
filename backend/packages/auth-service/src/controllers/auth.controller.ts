@@ -2,11 +2,11 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 // @ts-ignore
 import jwt from 'jsonwebtoken';
-import { prisma } from '@minimeet/shared';
+import { prisma, AppError, TokenReuseError, TokenRevokedError } from '@minimeet/shared';
 import { AuthService } from '../services/auth.service.js';
 import { generateJWTToken } from '../utils/generate-token.js';
 import { sanitizePlan } from '../utils/sanitize-plan.js';
-import { AppError } from '@minimeet/shared';
+import { tokenManager } from '../services/token.service.js';
 
 export class AuthController {
   private authService: AuthService;
@@ -41,9 +41,14 @@ export class AuthController {
       }
     });
 
-    const token = generateJWTToken(user);
+    const tokenPair = await tokenManager.issueTokenPair(user);
 
-    res.status(201).json({ token });
+    res.status(201).json({
+      token: tokenPair.accessToken,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      expiresIn: tokenPair.expiresIn,
+    });
   }
 
   // Login
@@ -60,40 +65,107 @@ export class AuthController {
       throw AppError.unauthorized('Invalid credentials');
     }
 
-    const token = generateJWTToken(user);
+    const tokenPair = await tokenManager.issueTokenPair(user);
 
-    res.json({ token });
+    res.json({
+      token: tokenPair.accessToken,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      expiresIn: tokenPair.expiresIn,
+    });
   }
 
-  // Refresh token
+  // Refresh token with session family rotation and reuse detection
   async refreshToken(req: Request, res: Response) {
-    const { token } = req.body;
+    const rawToken = req.body.refreshToken || req.body.token;
 
-    if (!token) {
+    if (!rawToken || typeof rawToken !== 'string') {
       throw AppError.validation('Token is required');
     }
 
-    let decoded: any;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET!, {
-        ignoreExpiration: true,
+      // Legacy upgrade path: client sent an expired JWT access token
+      if (rawToken.split('.').length === 3) {
+        let decoded: any;
+        try {
+          decoded = jwt.verify(rawToken, process.env.JWT_SECRET!, {
+            ignoreExpiration: true,
+          });
+        } catch {
+          throw AppError.unauthorized('Invalid token');
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+        if (!user) {
+          throw AppError.unauthorized('User not found');
+        }
+
+        if (decoded.tokenVersion && decoded.tokenVersion !== user.tokenVersion) {
+          throw AppError.unauthorized('Token has been invalidated');
+        }
+
+        const tokenPair = await tokenManager.issueTokenPair(user);
+        return res.json({
+          token: tokenPair.accessToken,
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken,
+          expiresIn: tokenPair.expiresIn,
+        });
+      }
+
+      // Hashed refresh token flow with rotation & reuse detection
+      const tokenPair = await tokenManager.rotateRefreshToken(rawToken, async (userId) => {
+        return prisma.user.findUnique({ where: { id: userId } });
       });
-    } catch (error) {
-      throw AppError.unauthorized('Invalid token');
+
+      return res.json({
+        token: tokenPair.accessToken,
+        accessToken: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken,
+        expiresIn: tokenPair.expiresIn,
+      });
+    } catch (error: any) {
+      if (error instanceof TokenReuseError) {
+        throw AppError.unauthorized('Refresh token reuse detected; session revoked');
+      }
+      if (error instanceof TokenRevokedError) {
+        throw AppError.unauthorized(error.message);
+      }
+      if (error instanceof AppError) throw error;
+      throw AppError.unauthorized('Invalid or expired refresh token');
+    }
+  }
+
+  // Logout session
+  async logout(req: Request, res: Response) {
+    const rawToken = req.body.refreshToken || req.body.token;
+    if (rawToken && typeof rawToken === 'string') {
+      if (rawToken.split('.').length !== 3) {
+        await tokenManager.revokeSession(rawToken);
+      }
+    }
+    res.json({ success: true, message: 'Logged out successfully' });
+  }
+
+  // Logout all devices (bumps tokenVersion)
+  async logoutAll(req: Request, res: Response) {
+    const user = (req as any).user;
+    const userId = user?.id || user?.userId;
+    if (!userId) {
+      throw AppError.unauthorized('Authentication required');
     }
 
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-    if (!user) {
-      throw AppError.unauthorized('User not found');
-    }
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
 
-    if (decoded.tokenVersion && decoded.tokenVersion !== user.tokenVersion) {
-      throw AppError.unauthorized('Token has been invalidated');
-    }
-
-    const newToken = generateJWTToken(user);
-
-    res.json({ token: newToken });
+    await tokenManager.revokeAllUserSessions(userId, updated.tokenVersion);
+    res.json({
+      success: true,
+      message: 'All active sessions invalidated',
+      tokenVersion: updated.tokenVersion,
+    });
   }
 
   // Validate token
