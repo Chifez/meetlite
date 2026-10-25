@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-meetlite}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meetlite_secure_password_2026}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-meetlite}
     ports:
       - "5433:5432"
@@ -50,9 +50,10 @@ services:
   prisma-migrate:
     image: meetlite-auth-service:latest
     container_name: meetlite-prisma-migrate
-    command: npx prisma db push --schema=/app/packages/shared/prisma/schema.prisma --accept-data-loss
+    command: npx prisma migrate deploy --schema=/app/packages/shared/prisma/schema.prisma
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      DIRECT_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,14 +75,15 @@ services:
     environment:
       PORT: 5000
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      PROCESS_ROLE: auth-http
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-meetlite_super_secret_jwt_key_2026}
-      SESSION_SECRET: ${SESSION_SECRET:-meetlite_session_secret_key_2026}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       INITIAL_SYSTEM_ADMIN_EMAIL: ${INITIAL_SYSTEM_ADMIN_EMAIL:-admin@meetlite.dev}
-      INITIAL_SYSTEM_ADMIN_PASSWORD: ${INITIAL_SYSTEM_ADMIN_PASSWORD:-admin123}
+      INITIAL_SYSTEM_ADMIN_PASSWORD: ${INITIAL_SYSTEM_ADMIN_PASSWORD:?INITIAL_SYSTEM_ADMIN_PASSWORD is required}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}
@@ -95,11 +97,75 @@ services:
         condition: service_healthy
       prisma-migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5000/health/ready').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - meetlite-net
 
   # ====================================================
-  # 5. ROOM SERVICE
+  # 4b. AUTH WORKER (Email queue processor)
+  # ====================================================
+  auth-worker:
+    build:
+      context: ./backend
+      dockerfile: packages/auth-service/Dockerfile
+    container_name: meetlite-auth-worker
+    command: ["node", "dist/worker.js"]
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      NODE_ENV: production
+      PROCESS_ROLE: auth-worker
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 4c. AUTH SCHEDULER (Usage reset & plan expiry crons)
+  # ====================================================
+  auth-scheduler:
+    build:
+      context: ./backend
+      dockerfile: packages/auth-service/Dockerfile
+    container_name: meetlite-auth-scheduler
+    command: ["node", "dist/scheduler.js"]
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      NODE_ENV: production
+      PROCESS_ROLE: auth-scheduler
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 5. ROOM SERVICE (HTTP API & SSE only)
   # ====================================================
   room-service:
     build:
@@ -112,15 +178,83 @@ services:
     environment:
       PORT: 5001
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      PROCESS_ROLE: room-http
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-meetlite_super_secret_jwt_key_2026}
-      SESSION_SECRET: ${SESSION_SECRET:-meetlite_session_secret_key_2026}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      CAPABILITY_PRIVATE_KEY: ${CAPABILITY_PRIVATE_KEY:-}
+      CAPABILITY_AUDIENCE: meetlite-edge-coordinator
       OPENAI_API_KEY: ${OPENAI_API_KEY:-mock_openai_api_key_for_testing}
       CORS_ORIGIN: http://localhost:5175,http://localhost:5174,http://localhost:3000
       CLIENT_URL: http://localhost:5175
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5001/health/ready').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 5b. ROOM WORKER (Notifications & video processing queue)
+  # ====================================================
+  room-worker:
+    build:
+      context: ./backend
+      dockerfile: packages/room-service/Dockerfile
+    container_name: meetlite-room-worker
+    command: ["node", "dist/worker.js"]
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      NODE_ENV: production
+      PROCESS_ROLE: room-worker
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-mock_openai_api_key_for_testing}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    networks:
+      - meetlite-net
+
+  # ====================================================
+  # 5c. ROOM SCHEDULER (Recurring meeting generation cron)
+  # ====================================================
+  room-scheduler:
+    build:
+      context: ./backend
+      dockerfile: packages/room-service/Dockerfile
+    container_name: meetlite-room-scheduler
+    command: ["node", "dist/scheduler.js"]
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      NODE_ENV: production
+      PROCESS_ROLE: room-scheduler
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,12 +284,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:-meetlite_secure_password_2026}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meetlite}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-meetlite}?schema=public
       CLIENT_URL: http://localhost:5175
       CORS_ORIGIN: http://localhost:5175,http://localhost:5174,http://localhost:3000
       API_GATEWAY_URL: http://api-gateway:3000
       ROOM_SERVICE_URL: http://room-service:5001
-      JWT_SECRET: ${JWT_SECRET:-meetlite_super_secret_jwt_key_2026}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ANNOUNCED_IP: ${ANNOUNCED_IP:-127.0.0.1}
       RTC_MIN_PORT: 10000
       RTC_MAX_PORT: 10100
@@ -167,6 +301,12 @@ services:
         condition: service_healthy
       room-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3003/health/ready').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - meetlite-net
 
@@ -196,6 +336,12 @@ services:
         condition: service_healthy
       mediasoup-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health/ready').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - meetlite-net
 
@@ -210,6 +356,10 @@ services:
         VITE_API_GATEWAY_URL: http://localhost:3000
         VITE_MEDIASOUP_SERVER_URL: http://localhost:3003
         VITE_BASE_URL: http://localhost:5175
+        # Local browser media must use the real Mediasoup rollback path unless
+        # an operator explicitly enables the credentialed Cloudflare canary.
+        VITE_MEDIA_ENGINE: ${VITE_MEDIA_ENGINE:-mediasoup}
+        VITE_EDGE_COORDINATOR_URL: ${VITE_EDGE_COORDINATOR_URL:-ws://localhost:8787}
     container_name: meetlite-client
     restart: unless-stopped
     ports:
@@ -218,6 +368,55 @@ services:
       - api-gateway
     networks:
       - meetlite-net
+
+  # ====================================================
+  # 9. CLOUDFLARE TUNNEL (Staging Edge Ingress)
+  # ====================================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: meetlite-cloudflared
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./deploy/cloudflare-tunnel/config.yml:/etc/cloudflared/config.yml:ro
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - meetlite-net
+    profiles:
+      - tunnel
+      - staging
+
+  # ====================================================
+  # 10. EDGE ROOM COORDINATOR (Cloudflare Durable Object Edge Emulation)
+  # ====================================================
+  edge-room-coordinator:
+    build:
+      context: ./backend
+      dockerfile: packages/edge-room-coordinator/Dockerfile
+    container_name: meetlite-edge-room-coordinator
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: 8787
+      NODE_ENV: production
+      RUN_STANDALONE: "true"
+      CAPABILITY_AUDIENCE: meetlite-edge-coordinator
+      CAPABILITY_PUBLIC_KEY_JWK: ${CAPABILITY_PUBLIC_KEY_JWK:-}
+      CLOUDFLARE_CALLS_APP_ID: ${CLOUDFLARE_CALLS_APP_ID:-}
+      CLOUDFLARE_CALLS_APP_SECRET: ${CLOUDFLARE_CALLS_APP_SECRET:-}
+    networks:
+      - meetlite-net
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8787/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 networks:
   meetlite-net:
