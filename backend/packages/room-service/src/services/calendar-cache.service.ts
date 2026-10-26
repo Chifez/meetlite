@@ -1,13 +1,11 @@
 import redisClient from '../config/redis.js';
-import {
-  getUserCalendarTokens,
-} from './calendar.service.js';
+import { getUserCalendarTokens } from './calendar.service.js';
 import { google } from 'googleapis';
 
 /**
  * Calendar Cache Service
  * Handles caching of Google Calendar events to reduce API calls
- * Cache key format: calendar:events:{userId}:{startDate}:{endDate}
+ * Cache key format: calendar:events:{userId}:{generation}:{startDate}:{endDate}
  * Cache TTL: 5 minutes (300 seconds)
  */
 
@@ -17,10 +15,21 @@ const CACHE_PREFIX = 'calendar:events';
 /**
  * Generate cache key for calendar events
  */
-const getCacheKey = (userId: string, startDate: Date | string, endDate: Date | string): string => {
+const getCacheKey = async (
+  userId: string,
+  startDate: Date | string,
+  endDate: Date | string
+): Promise<string> => {
   const start = new Date(startDate).toISOString().split('T')[0];
   const end = new Date(endDate).toISOString().split('T')[0];
-  return `${CACHE_PREFIX}:${userId}:${start}:${end}`;
+  let generation = '0';
+  if (redisClient.isReady()) {
+    generation =
+      (await redisClient
+        .getClient()
+        .get(`calendar:cache_generation:${userId}`)) || '0';
+  }
+  return `${CACHE_PREFIX}:${userId}:${generation}:${start}:${end}`;
 };
 
 /**
@@ -33,7 +42,7 @@ export const getCachedCalendarEvents = async (
   forceRefresh = false
 ): Promise<any[]> => {
   try {
-    const cacheKey = getCacheKey(userId, startDate, endDate);
+    const cacheKey = await getCacheKey(userId, startDate, endDate);
 
     // Try to get from cache first (unless force refresh)
     if (!forceRefresh && redisClient.isReady()) {
@@ -107,12 +116,11 @@ export const getCachedCalendarEvents = async (
         : null,
     }));
 
-    // Cache the results
+    // Old generations expire naturally, making invalidation constant-time.
     if (redisClient.isReady()) {
       try {
-        await redisClient
-          .getClient()
-          .setex(cacheKey, CACHE_TTL, JSON.stringify(events));
+        const client = redisClient.getClient();
+        await client.setex(cacheKey, CACHE_TTL, JSON.stringify(events));
         console.log(
           `[Calendar Cache] Cached events for userId: ${userId}, count: ${events.length}`
         );
@@ -130,23 +138,19 @@ export const getCachedCalendarEvents = async (
 
 /**
  * Invalidate calendar cache for a user
- * This is called when meetings are created/updated/deleted
+ * Advances a per-user generation instead of scanning or deleting keys.
  */
-export const invalidateCalendarCache = async (userId: string): Promise<void> => {
+export const invalidateCalendarCache = async (
+  userId: string
+): Promise<void> => {
   if (!redisClient.isReady()) {
     return;
   }
 
   try {
-    const pattern = `${CACHE_PREFIX}:${userId}:*`;
-    const keys = await redisClient.getClient().keys(pattern);
-
-    if (keys.length > 0) {
-      await redisClient.getClient().del(...keys);
-      console.log(
-        `[Calendar Cache] Invalidated ${keys.length} cache entries for userId: ${userId}`
-      );
-    }
+    const client = redisClient.getClient();
+    await client.incr(`calendar:cache_generation:${userId}`);
+    console.log(`[Calendar Cache] Invalidated cache for userId: ${userId}`);
   } catch (error) {
     console.error('[Calendar Cache] Error invalidating cache:', error);
   }
@@ -155,10 +159,15 @@ export const invalidateCalendarCache = async (userId: string): Promise<void> => 
 /**
  * Convert Google Calendar event to meeting format
  */
-export const convertCalendarEventToMeeting = (event: any, userId: string): any => {
+export const convertCalendarEventToMeeting = (
+  event: any,
+  userId: string
+): any => {
   const startDate = new Date(event.start);
   const endDate = new Date(event.end);
-  const duration = Math.round((endDate.getTime() - startDate.getTime()) / 60000); // minutes
+  const duration = Math.round(
+    (endDate.getTime() - startDate.getTime()) / 60000
+  ); // minutes
 
   return {
     meetingId: `google-${event.id}`,

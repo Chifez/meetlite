@@ -2,7 +2,6 @@ import express from 'express';
 import { verifyToken } from '../../middleware/auth.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import {
-  getGoogleAuthUrl,
   handleGoogleCallback,
   connectGoogleCalendar,
   importCalendarEvents,
@@ -17,8 +16,8 @@ import {
 
 const router = express.Router();
 
-// Public routes (no authentication required for OAuth callbacks)
-router.get('/google/auth', getGoogleAuthUrl);
+// The provider callback is public because Google cannot present our JWT. Its
+// one-time opaque state is the authenticated continuation credential.
 router.get('/google/callback', asyncHandler(handleGoogleCallback));
 
 // Authenticated routes (require JWT token)
@@ -29,15 +28,31 @@ router.post(
 );
 router.post('/import', verifyToken as any, asyncHandler(importCalendarEvents));
 router.post('/refresh', verifyToken as any, asyncHandler(refreshCalendarCache));
-router.post('/export', verifyToken as any, asyncHandler(exportMeetingToCalendar));
-router.post('/conflicts', verifyToken as any, asyncHandler(checkCalendarConflicts));
-router.post('/schedule', verifyToken as any, asyncHandler(scheduleMeetingOnCalendar));
+router.post(
+  '/export',
+  verifyToken as any,
+  asyncHandler(exportMeetingToCalendar)
+);
+router.post(
+  '/conflicts',
+  verifyToken as any,
+  asyncHandler(checkCalendarConflicts)
+);
+router.post(
+  '/schedule',
+  verifyToken as any,
+  asyncHandler(scheduleMeetingOnCalendar)
+);
 router.delete(
   '/events/:eventId',
   verifyToken as any,
   asyncHandler(deleteCalendarEvent)
 );
-router.get('/connected', verifyToken as any, asyncHandler(getConnectedCalendars));
+router.get(
+  '/connected',
+  verifyToken as any,
+  asyncHandler(getConnectedCalendars)
+);
 router.post(
   '/disconnect',
   verifyToken as any,

@@ -11,31 +11,20 @@ import {
   createAuthenticatedMicrosoftClient,
 } from '../services/calendar.service.js';
 import {
+  generateOAuthState,
+  verifyAndConsumeOAuthState,
+} from '../services/calendar-oauth-state.service.js';
+import {
   getCachedCalendarEvents,
   invalidateCalendarCache,
 } from '../services/calendar-cache.service.js';
 import { AppError } from '@minimeet/shared';
 import { Response } from 'express';
 
-// Google Calendar OAuth
-export const getGoogleAuthUrl = (req: any, res: Response) => {
-  const oauth2Client = createGoogleOAuth2Client();
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: [
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/calendar.events',
-    ],
-    prompt: 'consent',
-  });
-
-  res.json({ authUrl });
-};
-
 // Google OAuth callback
 export const handleGoogleCallback = async (req: any, res: Response) => {
   const { code, state } = req.query as any;
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5175';
 
   if (!code) {
     return res.redirect(`${frontendUrl}/dashboard?error=no_code_provided`);
@@ -45,32 +34,38 @@ export const handleGoogleCallback = async (req: any, res: Response) => {
     return res.redirect(`${frontendUrl}/dashboard?error=invalid_state`);
   }
 
-  let stateData;
+  let verifiedState;
   try {
-    stateData = JSON.parse(decodeURIComponent(state));
-  } catch (parseError) {
-    return res.redirect(`${frontendUrl}/dashboard?error=invalid_state_format`);
+    verifiedState = await verifyAndConsumeOAuthState(state);
+  } catch (stateErr: any) {
+    console.error(
+      '[Calendar OAuth] Rejected invalid OAuth state:',
+      stateErr.message
+    );
+    return res.redirect(
+      `${frontendUrl}/dashboard?error=state_verification_failed`
+    );
   }
 
-  const { userId, email: userEmail } = stateData;
+  const { userId, email: userEmail } = verifiedState;
 
   const oauth2Client = createGoogleOAuth2Client();
   const { tokens } = await oauth2Client.getToken(code);
 
   // Try to get user's email from Google, but don't fail if we can't
-  let finalEmail = userEmail; // Use email from JWT as fallback
+  let finalEmail = userEmail;
   try {
     const userOAuth2Client = createGoogleOAuth2Client();
     userOAuth2Client.setCredentials(tokens);
 
     const oauth2 = google.oauth2({ version: 'v2', auth: userOAuth2Client });
     const userInfo = await oauth2.userinfo.get();
-    finalEmail = userInfo.data.email || userEmail; // Use Google's email if available
+    finalEmail = userInfo.data.email || userEmail;
   } catch (emailError) {
-    // Could not fetch user email from Google, continue with email from JWT
+    // Continue with email from verified state
   }
 
-  // Save tokens to database
+  // Save tokens to database bound to the verified initiating user
   await saveCalendarTokens(userId, 'google', tokens, finalEmail);
 
   // Send success page that closes the popup
@@ -79,15 +74,11 @@ export const handleGoogleCallback = async (req: any, res: Response) => {
 
 // Connect Google Calendar
 export const connectGoogleCalendar = async (req: any, res: Response) => {
-  const userId = req.user.userId; // From JWT token
-  const userEmail = req.user.email; // From JWT token
+  const userId = req.user.userId; // From verified JWT token
+  const userEmail = req.user.email; // From verified JWT token
 
-  // Create state object with user info
-  const stateData = {
-    userId,
-    email: userEmail,
-  };
-  const state = encodeURIComponent(JSON.stringify(stateData));
+  // Generate opaque, signed, expiring, one-time OAuth state
+  const state = await generateOAuthState(userId, userEmail, 'google');
 
   // Generate OAuth URL for Google Calendar
   const oauth2Client = createGoogleOAuth2Client();
@@ -100,7 +91,7 @@ export const connectGoogleCalendar = async (req: any, res: Response) => {
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
     prompt: 'consent',
-    state: state, // Pass user info in state for callback
+    state: state,
   });
 
   // Validate the URL
@@ -126,7 +117,11 @@ export const importCalendarEvents = async (req: any, res: Response) => {
     // Get user's stored tokens from database
     const tokens = await getUserCalendarTokens(userId, 'google');
     if (!tokens) {
-      throw new AppError('SYSTEM_9009', 'Google Calendar not connected. Please reconnect your account.', { code: 'GOOGLE_REAUTH_REQUIRED' });
+      throw new AppError(
+        'SYSTEM_9009',
+        'Google Calendar not connected. Please reconnect your account.',
+        { code: 'GOOGLE_REAUTH_REQUIRED' }
+      );
     }
 
     // Create new OAuth client with user's tokens
@@ -194,51 +189,94 @@ export const importCalendarEvents = async (req: any, res: Response) => {
 
 // Export meeting to calendar
 export const exportMeetingToCalendar = async (req: any, res: Response) => {
-  const { calendarType } = req.body;
+  const { meetingId, calendarType = 'google' } = req.body;
+  const userId = req.user.userId;
 
-  // Get meeting details from your database
-  const meeting = {
-    title: 'Sample Meeting',
-    description: 'Meeting description',
-    start: new Date(),
-    end: new Date(Date.now() + 60 * 60 * 1000), // 1 hour later
-    attendees: ['user1@example.com', 'user2@example.com'],
-  };
+  if (!meetingId) {
+    throw AppError.validation('Missing required meetingId');
+  }
 
-  if (calendarType === 'google') {
-    const oauth2Client = createGoogleOAuth2Client();
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    const event = {
-      summary: meeting.title,
-      description: meeting.description,
-      start: {
-        dateTime: meeting.start.toISOString(),
-        timeZone: 'UTC',
-      },
-      end: {
-        dateTime: meeting.end.toISOString(),
-        timeZone: 'UTC',
-      },
-      attendees: meeting.attendees.map((email) => ({ email })),
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'email', minutes: 24 * 60 },
-          { method: 'popup', minutes: 10 },
-        ],
-      },
-    };
-
-    const response = await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: event,
-    });
-
-    res.json({ success: true, eventId: response.data.id });
-  } else {
+  if (calendarType !== 'google') {
     throw AppError.validation('Unsupported calendar type');
   }
+
+  // Look up meeting from database
+  const isUuid = /^[0-9a-fA-F-]{36}$/.test(meetingId);
+  const meeting = await prisma.meeting.findFirst({
+    where: isUuid ? { id: meetingId } : { meetingId: meetingId },
+    include: {
+      participants: true,
+      invites: true,
+    },
+  });
+
+  if (!meeting) {
+    throw AppError.notFound('Meeting not found');
+  }
+
+  // Authorization assertion: caller must be meeting creator or participant
+  const isCreator = meeting.createdBy === userId;
+  const isParticipant = (meeting.participants as any[]).some(
+    (p: any) => p.userId === userId
+  );
+  if (!isCreator && !isParticipant) {
+    // Do not disclose whether an inaccessible meeting exists.
+    throw AppError.notFound('Meeting not found');
+  }
+
+  // Get user's stored Google calendar credentials
+  const tokens = await getUserCalendarTokens(userId, 'google');
+  if (!tokens) {
+    throw new AppError(
+      'SYSTEM_9009',
+      'Google Calendar not connected. Please reconnect your account.',
+      { code: 'GOOGLE_REAUTH_REQUIRED' }
+    );
+  }
+
+  const oauth2Client = createGoogleOAuth2Client();
+  oauth2Client.setCredentials(tokens);
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+  const startTime = new Date(meeting.scheduledTime);
+  const durationMs = (meeting.duration || 60) * 60 * 1000;
+  const endTime = new Date(startTime.getTime() + durationMs);
+
+  const attendees = [
+    ...(meeting.invites as any[]).map((inv: any) => ({ email: inv.email })),
+  ];
+
+  const event = {
+    summary: meeting.title,
+    description: meeting.description || `MeetLite meeting: ${meeting.title}`,
+    start: {
+      dateTime: startTime.toISOString(),
+      timeZone: 'UTC',
+    },
+    end: {
+      dateTime: endTime.toISOString(),
+      timeZone: 'UTC',
+    },
+    attendees: attendees.length > 0 ? attendees : undefined,
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'email', minutes: 24 * 60 },
+        { method: 'popup', minutes: 10 },
+      ],
+    },
+  };
+
+  const response = await calendar.events.insert({
+    calendarId: 'primary',
+    requestBody: event,
+  });
+
+  res.json({
+    success: true,
+    eventId: response.data.id,
+    message: 'Meeting exported successfully to Google Calendar',
+  });
 };
 
 // Refresh calendar cache manually
@@ -280,9 +318,7 @@ export const checkCalendarConflicts = async (req: any, res: Response) => {
   if (!tokens) {
     return res.json({
       conflicts: [],
-      availableSlots: [
-        { start: new Date(startDate), end: new Date(endDate) },
-      ],
+      availableSlots: [{ start: new Date(startDate), end: new Date(endDate) }],
     });
   }
 
@@ -345,10 +381,7 @@ export const checkCalendarConflicts = async (req: any, res: Response) => {
     const latestConflictEnd = Math.max(
       ...conflicts.map((conflict) => new Date(conflict.end).getTime())
     );
-    const startFromTime = Math.max(
-      requestedStart.getTime(),
-      latestConflictEnd
-    );
+    const startFromTime = Math.max(requestedStart.getTime(), latestConflictEnd);
 
     // Suggest alternatives using configured offsets from the conflict-free start time
     const timeOffsets = [
@@ -360,8 +393,7 @@ export const checkCalendarConflicts = async (req: any, res: Response) => {
     timeOffsets.forEach((offsetMinutes) => {
       const newTime = new Date(startFromTime + offsetMinutes * 60 * 1000);
       const newEnd = new Date(
-        newTime.getTime() +
-          (requestedEnd.getTime() - requestedStart.getTime())
+        newTime.getTime() + (requestedEnd.getTime() - requestedStart.getTime())
       );
 
       // Only add if it's within business hours
@@ -382,21 +414,19 @@ export const checkCalendarConflicts = async (req: any, res: Response) => {
 
 // Schedule meeting directly on Google Calendar
 export const scheduleMeetingOnCalendar = async (req: any, res: Response) => {
-  const {
-    title,
-    description,
-    startDate,
-    endDate,
-    participants,
-    calendarType,
-  } = req.body;
+  const { title, description, startDate, endDate, participants, calendarType } =
+    req.body;
   const userId = req.user.userId;
 
   if (calendarType === 'google') {
     // Get user's stored tokens from database
     const tokens = await getUserCalendarTokens(userId, 'google');
     if (!tokens) {
-      throw new AppError('SYSTEM_9009', 'Google Calendar not connected. Please reconnect your account.', { code: 'GOOGLE_REAUTH_REQUIRED' });
+      throw new AppError(
+        'SYSTEM_9009',
+        'Google Calendar not connected. Please reconnect your account.',
+        { code: 'GOOGLE_REAUTH_REQUIRED' }
+      );
     }
 
     // Create new OAuth client with user's tokens
@@ -456,7 +486,11 @@ export const deleteCalendarEvent = async (req: any, res: Response) => {
     // Get user's stored tokens from database
     const tokens = await getUserCalendarTokens(userId, 'google');
     if (!tokens) {
-      throw new AppError('SYSTEM_9009', 'Google Calendar not connected. Please reconnect your account.', { code: 'GOOGLE_REAUTH_REQUIRED' });
+      throw new AppError(
+        'SYSTEM_9009',
+        'Google Calendar not connected. Please reconnect your account.',
+        { code: 'GOOGLE_REAUTH_REQUIRED' }
+      );
     }
 
     // Create new OAuth client with user's tokens
@@ -493,7 +527,7 @@ export const getConnectedCalendars = async (req: any, res: Response) => {
     where: {
       userId,
       isConnected: true,
-    }
+    },
   });
 
   const connectedCalendars = integrations.map((integration: any) => ({
@@ -512,7 +546,10 @@ export const getConnectedCalendars = async (req: any, res: Response) => {
 };
 
 // Disconnect calendar
-export const disconnectCalendarIntegration = async (req: any, res: Response) => {
+export const disconnectCalendarIntegration = async (
+  req: any,
+  res: Response
+) => {
   const { calendarType } = req.body;
   const userId = req.user.userId;
 
