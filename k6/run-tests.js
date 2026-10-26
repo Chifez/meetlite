@@ -1,42 +1,114 @@
 #!/usr/bin/env node
 
 /**
- * K6 Test Runner with Test Type Support
+ * MeetLite K6 Test Runner & CLI
  *
  * Supports:
- * - Running tests by category (backend, frontend)
- * - Running tests by type (load, stress, spike, soak, volume, capacity)
- * - Running all tests
- * - Helpful CLI interface
+ * - Shorthand target aliases (e.g. meeting:load, auth:load, room:load, coordinator:load, client:load)
+ * - Preset modes: --smoke, --quick, --load, --stress
+ * - Direct pass-through of native k6 flags (e.g. --vus 5 --duration 10s)
+ * - Category / type discovery (e.g. backend load, frontend load)
+ * - Listing all available targets (--list)
  *
- * Usage:
+ * Usage Examples:
+ *   npm run k6 -- meeting:load --smoke
+ *   npm run k6 -- --vus 5 --duration 10s meeting:load
+ *   npm run k6 -- coordinator:load --vus 10 --duration 5s
+ *   npm run k6 -- client:load --quick
  *   node run-tests.js backend load
- *   node run-tests.js backend stress
- *   node run-tests.js frontend load
- *   node run-tests.js --help
+ *   node run-tests.js --list
  */
 
-// Import Node.js modules
-import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { spawnSync } from 'child_process';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { glob } from 'glob';
+import { dirname, extname, join, relative, resolve } from 'path';
+import glob from 'glob';
 
-// Get current directory (ESM equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Test categories
-const CATEGORIES = ['backend', 'frontend'];
+// Target shortcuts mapping to scenario files (relative to k6 directory)
+const TARGET_MAP = {
+  // Meetings
+  'meeting:load': 'backend/scenarios/meetings/load.js',
+  'meetings:load': 'backend/scenarios/meetings/load.js',
+  meeting: 'backend/scenarios/meetings/load.js',
+  meetings: 'backend/scenarios/meetings/load.js',
 
-// Valid test types
+  // Auth
+  'auth:load': 'backend/scenarios/auth/load.js',
+  auth: 'backend/scenarios/auth/load.js',
+
+  // Rooms
+  'room:load': 'backend/scenarios/rooms/load.js',
+  'rooms:load': 'backend/scenarios/rooms/load.js',
+  room: 'backend/scenarios/rooms/load.js',
+  rooms: 'backend/scenarios/rooms/load.js',
+  'room:stress': 'backend/scenarios/rooms/stress.js',
+  'rooms:stress': 'backend/scenarios/rooms/stress.js',
+
+  // Edge Coordinator (Cloudflare Durable Object Native WebSocket)
+  'coordinator:load': 'backend/scenarios/websocket/coordinator-load.js',
+  coordinator: 'backend/scenarios/websocket/coordinator-load.js',
+  'edge:load': 'backend/scenarios/websocket/coordinator-load.js',
+  edge: 'backend/scenarios/websocket/coordinator-load.js',
+  'ws:coordinator': 'backend/scenarios/websocket/coordinator-load.js',
+
+  // Legacy Socket.IO Signaling
+  'websocket:load': 'backend/scenarios/websocket/connection-load.js',
+  websocket: 'backend/scenarios/websocket/connection-load.js',
+  'socketio:load': 'backend/scenarios/websocket/connection-load.js',
+  socketio: 'backend/scenarios/websocket/connection-load.js',
+
+  // Frontend / Client SPA & Deep-linking
+  'client:load': 'frontend/scenarios/client/load.js',
+  client: 'frontend/scenarios/client/load.js',
+  'frontend:load': 'frontend/scenarios/client/load.js',
+  frontend: 'frontend/scenarios/client/load.js',
+};
+
+// Preset flags configuration
+const PRESETS = {
+  smoke: {
+    vus: 5,
+    duration: '10s',
+    description: 'Fast 10s smoke test with 5 VUs',
+  },
+  quick: {
+    vus: 2,
+    duration: '5s',
+    description: 'Ultra-fast 5s validation with 2 VUs',
+  },
+  load: {
+    vus: 10,
+    duration: '30s',
+    description: 'Standard load baseline with 10 VUs',
+  },
+  stress: {
+    vus: 25,
+    duration: '30s',
+    description: 'Stress profile with 25 VUs',
+  },
+  spike: {
+    vus: 50,
+    duration: '20s',
+    description: 'Sudden burst profile with 50 VUs',
+  },
+  soak: {
+    vus: 15,
+    duration: '2m',
+    description: 'Extended endurance soak profile with 15 VUs',
+  },
+};
+
+const CATEGORIES = ['backend', 'frontend'];
 const TEST_TYPES = ['load', 'stress', 'spike', 'soak', 'volume', 'capacity'];
 
-// Colors for console output
 const colors = {
   reset: '\x1b[0m',
   bright: '\x1b[1m',
+  dim: '\x1b[2m',
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
@@ -52,283 +124,380 @@ function loadEnvFile() {
 
     envContent.split('\n').forEach((line) => {
       line = line.trim();
-      // Skip empty lines and comments
       if (!line || line.startsWith('#')) return;
-
-      // Split by first = sign
       const equalIndex = line.indexOf('=');
       if (equalIndex === -1) return;
-
       const key = line.substring(0, equalIndex).trim();
       const value = line.substring(equalIndex + 1).trim();
-
-      // Remove quotes if present
       const cleanValue = value.replace(/^["']|["']$/g, '');
-
-      if (key) {
-        env[key] = cleanValue;
-      }
+      if (key) env[key] = cleanValue;
     });
 
     return env;
   } catch (error) {
-    // .env file doesn't exist, return empty object
     return {};
   }
 }
 
-// Build k6 environment variable flags
-// k6 uses --env flag format: --env VAR=value --env VAR2=value2
-// We need to escape values that might contain special characters
-function buildK6EnvFlags(env) {
-  return Object.entries(env)
-    .map(([key, value]) => {
-      // Escape quotes and special characters in values
-      const escapedValue = String(value).replace(/"/g, '\\"');
-      return `--env ${key}="${escapedValue}"`;
-    })
-    .join(' ');
+function buildK6EnvArgs(env) {
+  return Object.entries(env).flatMap(([key, value]) => [
+    '--env',
+    `${key}=${String(value)}`,
+  ]);
 }
-/**
- * Print header
- */
+
 function printHeader() {
   console.log(`${colors.cyan}${colors.bright}`);
-  console.log('🚀 MiniMeet K6 Test Runner');
-  console.log('==========================');
+  console.log('🚀 MeetLite K6 Test Runner & CLI');
+  console.log('================================');
   console.log(`${colors.reset}`);
 }
 
-/**
- * Print help message
- */
-function printHelp() {
-  console.log(`${colors.yellow}Usage:${colors.reset}`);
-  console.log('  node run-tests.js [category] [test-type]');
+function printList() {
+  console.log(`${colors.yellow}Available Shorthand Targets:${colors.reset}`);
   console.log('');
-  console.log(`${colors.yellow}Categories:${colors.reset}`);
-  CATEGORIES.forEach((cat) => {
-    console.log(`  ${colors.green}${cat}${colors.reset}`);
-  });
+  const seenPaths = new Set();
+  const grouped = {};
+
+  for (const [alias, relPath] of Object.entries(TARGET_MAP)) {
+    if (!grouped[relPath]) grouped[relPath] = [];
+    grouped[relPath].push(alias);
+  }
+
+  for (const [relPath, aliases] of Object.entries(grouped)) {
+    console.log(`  ${colors.green}${aliases.join(', ')}${colors.reset}`);
+    console.log(`    ${colors.dim}File: ${relPath}${colors.reset}`);
+  }
+
   console.log('');
-  console.log(`${colors.yellow}Test Types:${colors.reset}`);
-  TEST_TYPES.forEach((type) => {
-    console.log(`  ${colors.cyan}${type}${colors.reset}`);
-  });
+  console.log(`${colors.yellow}Available Presets:${colors.reset}`);
+  for (const [preset, cfg] of Object.entries(PRESETS)) {
+    console.log(
+      `  ${colors.cyan}--${preset}${colors.reset} (VUs: ${cfg.vus}, Duration: ${cfg.duration}) - ${cfg.description}`
+    );
+  }
   console.log('');
   console.log(`${colors.yellow}Examples:${colors.reset}`);
-  console.log('  node run-tests.js backend load');
-  console.log('  node run-tests.js backend stress');
-  console.log('  node run-tests.js frontend load');
-  console.log('  node run-tests.js --help');
+  console.log('  npm run k6 -- meeting:load --smoke');
+  console.log('  npm run k6 -- --vus 5 --duration 10s meeting:load');
+  console.log('  npm run k6 -- coordinator:load --smoke');
+  console.log('  npm run k6 -- client:load --quick');
+  console.log('  npm run k6 -- room:stress --vus 15 --duration 20s');
   console.log('');
 }
 
-/**
- * Check if K6 is installed
- */
+function printHelp() {
+  console.log(`${colors.yellow}Usage:${colors.reset}`);
+  console.log('  npm run k6 -- [target] [flags]');
+  console.log('  node run-tests.js [target] [flags]');
+  console.log('  node run-tests.js [category] [test-type]');
+  console.log('');
+  console.log(`${colors.yellow}Presets:${colors.reset}`);
+  console.log('  --smoke               Run 10s test with 5 VUs');
+  console.log('  --quick               Run 5s test with 2 VUs');
+  console.log('  --load                Run 30s test with 10 VUs');
+  console.log('  --stress              Run 30s test with 25 VUs');
+  console.log('  --spike               Run 20s test with 50 VUs');
+  console.log('  --soak                Run 2m endurance test with 15 VUs');
+  console.log('');
+  console.log(`${colors.yellow}Native K6 Flags:${colors.reset}`);
+  console.log('  --vus <n>             Number of virtual users');
+  console.log('  --duration <time>     Test duration (e.g. 10s, 1m)');
+  console.log('  --iterations <n>      Total iterations to execute');
+  console.log('  --http-debug          Log full HTTP requests & responses');
+  console.log('');
+  console.log(`${colors.yellow}Targets:${colors.reset}`);
+  console.log('  meeting:load          Meeting lifecycle journey');
+  console.log('  auth:load             Authentication & profile journey');
+  console.log('  room:load             Room creation & admission');
+  console.log('  room:stress           Room capacity stress test');
+  console.log('  coordinator:load      Native Cloudflare Edge WebSocket');
+  console.log('  websocket:load        Mediasoup Socket.IO signalling');
+  console.log('  client:load           Frontend static & deep-link load');
+  console.log('  all                   Run all test suites');
+  console.log('');
+  console.log('Run with --list to see all shorthand aliases.');
+  console.log('');
+}
+
 function checkK6() {
-  try {
-    execSync('k6 version', { stdio: 'pipe' });
-    return true;
-  } catch (error) {
-    return false;
-  }
+  return spawnSync('k6', ['version'], { stdio: 'pipe' }).status === 0;
 }
 
 /**
- * Run test file
- * @param {string} testFile - Path to test file
+ * Run a single k6 test file with flags
  */
-function runTest(testFile, env = {}) {
+function runTest(testFile, env = {}, extraK6Args = []) {
   console.log(`${colors.cyan}📊 Running: ${testFile}${colors.reset}`);
+  if (extraK6Args.length > 0) {
+    console.log(
+      `${colors.yellow}⚙️  K6 Flags: ${extraK6Args.join(' ')}${colors.reset}`
+    );
+  }
   console.log('');
 
-  try {
-    // Build k6 command with environment variables
-    // k6 uses --env flag for each variable: k6 run --env VAR1=value1 --env VAR2=value2 script.js
-    const envFlags = buildK6EnvFlags(env);
+  const k6Args = ['run', ...buildK6EnvArgs(env), ...extraK6Args, testFile];
+  console.log(`🚀 Executing k6 with ${k6Args.length - 2} argument(s)`);
 
-    // Prepare environment variables for k6
-    // On Windows, we need to properly escape special characters
-    const k6Env = { ...process.env, ...env };
-
-    if (Object.keys(env).length > 0) {
-      console.log(
-        `🔧 Passing ${Object.keys(env).length} environment variables to k6`
-      );
-      // Log which vars are being passed (without sensitive values)
-      Object.keys(env).forEach((key) => {
-        if (key.includes('PASSWORD')) {
-          console.log(`📝 ${key}: ***hidden***`);
-        } else if (key.includes('EMAIL')) {
-          console.log(`📝 ${key}: ${env[key]}`);
-        } else {
-          console.log(`📝 ${key}: ${env[key]}`);
-        }
-      });
-    }
-
-    // Build command - use --env flags AND also pass via process.env
-    // This ensures compatibility across different shells (PowerShell, CMD, bash)
-    const command = envFlags
-      ? `k6 run ${envFlags} ${testFile}`
-      : `k6 run ${testFile}`;
-
-    console.log(
-      `🚀 Executing: k6 run ... (with ${Object.keys(env).length} env vars)`
-    );
-
-    // Execute k6 run command with environment variables
-    // stdio: 'inherit' means output goes to console
-    execSync(command, {
-      stdio: 'inherit',
-      cwd: __dirname,
-      shell: true, // ✅ Needed for env vars on Windows
-      env: k6Env, // ✅ Pass via process.env (this works on all platforms)
-    });
-
-    console.log('');
-    console.log(`${colors.green}✅ Test completed${colors.reset}`);
-    return true;
-  } catch (error) {
-    console.log('');
-    console.log(`${colors.red}❌ Test failed${colors.reset}`);
-    return false;
-  }
-}
-
-/**
- * Run tests by category and type
- * @param {string} category - Test category (backend/frontend)
- * @param {string} testType - Test type (load/stress/etc.)
- */
-async function runTests(category, testType) {
-  // Load environment variables
-  const env = loadEnvFile();
-  if (Object.keys(env).length > 0) {
-    console.log(
-      `${colors.cyan}📝 Loaded ${
-        Object.keys(env).length
-      } environment variables${colors.reset}`
-    );
-    // Debug: Show which variables were loaded (without sensitive values)
-    const envPreview = Object.keys(env).reduce((acc, key) => {
-      if (key.includes('PASSWORD')) {
-        acc[key] = '***hidden***';
-      } else if (key.includes('EMAIL')) {
-        acc[key] = env[key]; // Show email for debugging
-      } else {
-        acc[key] = env[key];
-      }
-      return acc;
-    }, {});
-    console.log(
-      `${colors.cyan}🔍 Variables loaded:`,
-      JSON.stringify(envPreview, null, 2),
-      `${colors.reset}`
-    );
-  } else {
-    console.log(
-      `${colors.yellow}⚠️  No environment variables loaded from .env file${colors.reset}`
-    );
-  }
-
-  // Validate category
-  if (!CATEGORIES.includes(category)) {
-    console.error(
-      `${colors.red}❌ Invalid category: ${category}${colors.reset}`
-    );
-    console.log(`Valid categories: ${CATEGORIES.join(', ')}`);
-    process.exit(1);
-  }
-
-  // Validate test type
-  if (testType && !TEST_TYPES.includes(testType)) {
-    console.error(
-      `${colors.red}❌ Invalid test type: ${testType}${colors.reset}`
-    );
-    console.log(`Valid types: ${TEST_TYPES.join(', ')}`);
-    process.exit(1);
-  }
-
-  // Build glob pattern
-  const testDir = join(__dirname, category, 'scenarios');
-  const pattern = testType
-    ? `**/${testType}.js` // Specific test type: **/load.js
-    : '**/*.js'; // All tests: **/*.js
-
-  // Find test files
-  const testFiles = await glob(pattern, {
-    cwd: testDir,
-    absolute: true,
+  const result = spawnSync('k6', k6Args, {
+    stdio: 'inherit',
+    cwd: __dirname,
+    shell: false,
+    env: { ...process.env, ...env },
   });
 
-  if (testFiles.length === 0) {
-    console.log(
-      `${colors.yellow}⚠️  No ${testType || 'test'} files found in ${category}${
-        colors.reset
-      }`
-    );
-    return;
-  }
-
-  console.log(
-    `${colors.cyan}🚀 Running ${testFiles.length} test(s) for ${category}/${
-      testType || 'all'
-    }${colors.reset}`
-  );
-  console.log('');
-
-  // Run each test file
-  for (const testFile of testFiles) {
-    runTest(testFile, env);
+  if (result.status === 0) {
     console.log('');
+    console.log(`${colors.green}✅ Test completed successfully${colors.reset}`);
+    return true;
   }
 
-  console.log(`${colors.green}🎉 All tests completed!${colors.reset}`);
+  console.log('');
+  console.log(`${colors.red}❌ Test execution failed${colors.reset}`);
+  return false;
 }
 
-/**
- * Main function
- */
-function main() {
-  const args = process.argv.slice(2);
+function requirePositiveInteger(value, flag) {
+  if (!/^\d+$/.test(value || '') || Number(value) < 1) {
+    throw new Error(`${flag} requires a positive integer`);
+  }
+  return value;
+}
 
-  // Handle help flag
-  if (args.includes('--help') || args.includes('-h') || args.length === 0) {
+function requireDuration(value) {
+  if (!/^\d+(ms|s|m|h)$/.test(value || '')) {
+    throw new Error('--duration requires a value such as 10s, 2m, or 1h');
+  }
+  return value;
+}
+
+async function main() {
+  let rawArgs = process.argv.slice(2);
+
+  // If command was invoked as `k6 run ...` or `node run-tests.js run ...`, strip `run`
+  if (rawArgs[0] === 'run') {
+    rawArgs = rawArgs.slice(1);
+  }
+
+  // Help & list options
+  if (
+    rawArgs.includes('--help') ||
+    rawArgs.includes('-h') ||
+    rawArgs.length === 0
+  ) {
     printHeader();
     printHelp();
     return;
   }
 
-  // Check K6 installation
+  if (
+    rawArgs.includes('--list') ||
+    rawArgs.includes('-l') ||
+    rawArgs[0] === 'list'
+  ) {
+    printHeader();
+    printList();
+    return;
+  }
+
   if (!checkK6()) {
     console.error(
       `${colors.red}❌ K6 is not installed or not in PATH${colors.reset}`
     );
-    console.log('');
-    console.log('Please install K6:');
-    console.log('  Windows: choco install k6');
-    console.log('  macOS: brew install k6');
     console.log(
-      '  Linux: See https://k6.io/docs/getting-started/installation/'
+      'Please install K6 via Homebrew (`brew install k6`) or package manager.'
     );
     process.exit(1);
   }
 
   printHeader();
 
-  // Get category and test type from arguments
-  const category = args[0] || 'backend';
-  const testType = args[1] || null;
+  // Parse flags and identify targets
+  const extraK6Args = [];
+  const positionalArgs = [];
+  let detectedPreset = null;
 
-  // Run tests
-  runTests(category, testType).catch((error) => {
-    console.error(`${colors.red}❌ Error: ${error.message}${colors.reset}`);
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i];
+
+    if (
+      arg === '--smoke' ||
+      arg === '--quick' ||
+      arg === '--load' ||
+      arg === '--stress' ||
+      arg === '--spike' ||
+      arg === '--soak'
+    ) {
+      detectedPreset = arg.slice(2);
+      continue;
+    }
+
+    if (arg === '--vus' || arg === '-u') {
+      const val = requirePositiveInteger(rawArgs[++i], '--vus');
+      extraK6Args.push('--vus', val);
+      continue;
+    }
+
+    if (arg === '--duration' || arg === '-d') {
+      const val = requireDuration(rawArgs[++i]);
+      extraK6Args.push('--duration', val);
+      continue;
+    }
+
+    if (arg === '--iterations' || arg === '-i') {
+      const val = requirePositiveInteger(rawArgs[++i], '--iterations');
+      extraK6Args.push('--iterations', val);
+      continue;
+    }
+
+    if (arg.startsWith('--vus=')) {
+      extraK6Args.push('--vus', requirePositiveInteger(arg.slice(6), '--vus'));
+      continue;
+    }
+    if (arg.startsWith('--duration=')) {
+      extraK6Args.push('--duration', requireDuration(arg.slice(11)));
+      continue;
+    }
+    if (arg.startsWith('--iterations=')) {
+      extraK6Args.push(
+        '--iterations',
+        requirePositiveInteger(arg.slice(13), '--iterations')
+      );
+      continue;
+    }
+
+    if (arg === '--http-debug') {
+      extraK6Args.push('--http-debug');
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      throw new Error(`Unsupported k6 flag: ${arg}`);
+    }
+
+    positionalArgs.push(arg);
+  }
+
+  // Check if target has a suffix like `:smoke`, `:quick`, `:spike`, `:soak`, `:stress`
+  let targetArg = positionalArgs[0] || 'all';
+  const suffixMatch = targetArg.match(/:(smoke|quick|spike|soak|stress)$/);
+  if (suffixMatch) {
+    const suffix = suffixMatch[1];
+    // If not already in target map directly (like room:stress), normalize to base target
+    if (!TARGET_MAP[targetArg.toLowerCase()]) {
+      targetArg = targetArg.replace(new RegExp(`:${suffix}$`), ':load');
+      if (!TARGET_MAP[targetArg.toLowerCase()]) {
+        targetArg = targetArg.replace(/:load$/, '');
+      }
+    }
+    if (!detectedPreset) detectedPreset = suffix;
+  }
+
+  // Apply preset flags if not explicitly overridden by user
+  const hasExplicitVus = extraK6Args.includes('--vus');
+  const hasExplicitDuration = extraK6Args.includes('--duration');
+
+  if (detectedPreset && PRESETS[detectedPreset]) {
+    const presetCfg = PRESETS[detectedPreset];
+    console.log(
+      `${colors.cyan}⚡ Applying preset: ${detectedPreset.toUpperCase()} (${presetCfg.description})${colors.reset}`
+    );
+    if (!hasExplicitVus) {
+      extraK6Args.push('--vus', String(presetCfg.vus));
+    }
+    if (!hasExplicitDuration) {
+      extraK6Args.push('--duration', presetCfg.duration);
+    }
+  }
+
+  const env = loadEnvFile();
+
+  // Resolve target files
+  const filesToRun = [];
+
+  // Check 1: Direct target alias match
+  if (TARGET_MAP[targetArg.toLowerCase()]) {
+    filesToRun.push(join(__dirname, TARGET_MAP[targetArg.toLowerCase()]));
+  }
+  // Check 2: Direct file path
+  else if (existsSync(resolve(__dirname, targetArg))) {
+    const candidate = resolve(__dirname, targetArg);
+    const candidateRelative = relative(__dirname, candidate);
+    if (
+      candidateRelative.startsWith('..') ||
+      candidateRelative.startsWith('/') ||
+      extname(candidate) !== '.js'
+    ) {
+      throw new Error(
+        'Direct scenario paths must be JavaScript files inside k6/'
+      );
+    }
+    filesToRun.push(candidate);
+  }
+  // Check 3: Traditional category [type] syntax (e.g. "backend load" or "backend")
+  else if (CATEGORIES.includes(targetArg)) {
+    const category = targetArg;
+    const testType = positionalArgs[1] || null;
+    const testDir = join(__dirname, category, 'scenarios');
+    const pattern = testType ? `**/${testType}.js` : '**/*.js';
+    const matches = glob.sync(pattern, { cwd: testDir, absolute: true });
+    filesToRun.push(...matches);
+  }
+  // Check 4: "all" targets
+  else if (targetArg === 'all') {
+    const backendFiles = glob.sync('**/*.js', {
+      cwd: join(__dirname, 'backend', 'scenarios'),
+      absolute: true,
+    });
+    const frontendFiles = glob.sync('**/*.js', {
+      cwd: join(__dirname, 'frontend', 'scenarios'),
+      absolute: true,
+    });
+    filesToRun.push(...backendFiles, ...frontendFiles);
+  }
+  // Unknown target
+  else {
+    console.error(
+      `${colors.red}❌ Unknown test target: "${targetArg}"${colors.reset}`
+    );
+    console.log(
+      `Run ${colors.yellow}npm run k6 -- --list${colors.reset} to see all available shorthand targets.`
+    );
     process.exit(1);
-  });
+  }
+
+  if (filesToRun.length === 0) {
+    console.log(
+      `${colors.yellow}⚠️  No matching test scenario files found.${colors.reset}`
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `${colors.cyan}🎯 Target files: ${filesToRun.length} scenario(s)${colors.reset}`
+  );
+  console.log('');
+
+  let allPassed = true;
+  for (const testFile of filesToRun) {
+    const passed = runTest(testFile, env, extraK6Args);
+    if (!passed) allPassed = false;
+    console.log('');
+  }
+
+  if (!allPassed) {
+    console.error(
+      `${colors.red}❌ One or more k6 test scenarios failed.${colors.reset}`
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `${colors.green}🎉 All requested k6 tests completed successfully!${colors.reset}`
+  );
 }
 
-// Run main function
-main();
+main().catch((err) => {
+  console.error(`${colors.red}❌ Error: ${err.message}${colors.reset}`);
+  process.exit(1);
+});

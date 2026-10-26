@@ -1,10 +1,12 @@
 {
-  "name": "@minimeet/k6-tests",
+  "name": "@meetlite/k6-tests",
   "version": "1.0.0",
-  "description": "K6 Performance Testing Suite for MiniMeet Application",
+  "description": "K6 Performance Testing Suite for MeetLite Application",
   "type": "module",
   "main": "run-tests.js",
   "scripts": {
+    "k6": "node run-tests.js",
+    "smoke": "node run-tests.js all --smoke",
     "setup": "node scripts/setup-users.js 100",
     "test:backend:load": "node run-tests.js backend load",
     "test:backend:stress": "node run-tests.js backend stress",
@@ -17,9 +19,8 @@
     "runner:room-capacity": "node run-tests.js room-capacity",
     "runner:room-operations": "node run-tests.js room-operations",
     "runner:connection-load": "node run-tests.js connection-load",
-    "runner:stress": "node run-tests.js stress-test",
-    "validate": "node -c scenarios/*.js utils/*.js config/*.js",
-    "lint": "echo 'Linting K6 tests...' && node -c scenarios/*.js utils/*.js config/*.js"
+    "validate": "node scripts/validate-syntax.js",
+    "lint": "npm run validate"
   },
   "keywords": [
     "k6",

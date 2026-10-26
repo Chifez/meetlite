@@ -9,7 +9,7 @@ export const TEST_TYPES = {
       { duration: '2m', target: 0 },
     ],
 
-    threshold: {
+    thresholds: {
       http_req_duration: ['p(95)<1000', 'p(99)<2000'],
 
       http_req_failed: ['rate<0.05'],
@@ -30,8 +30,8 @@ export const TEST_TYPES = {
       { duration: '2m', target: 0 },
     ],
 
-    thresholdes: {
-      http_requ_duration: ['p(95)<5000', 'p(99)<10000'],
+    thresholds: {
+      http_req_duration: ['p(95)<5000', 'p(99)<10000'],
       http_req_failed: ['rate<0.20'],
     },
   },
@@ -120,7 +120,7 @@ export function applyTestType(options, testType) {
   return {
     ...options,
     stages: options.stages || typesConfig.stages,
-    threshold: {
+    thresholds: {
       ...typesConfig.thresholds,
       ...options.thresholds,
     },

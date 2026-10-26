@@ -9,7 +9,7 @@ import { generateRoom } from '../../../backend/utils/data-generators.js';
 const roomStressSuccess = new Rate('room_stress_success');
 
 export const options = createTestOptions('stress', {
-  threholds: {
+  thresholds: {
     room_stress_success: ['rate>0.80'],
     http_req_failed: ['rate<0.20'],
   },
@@ -42,7 +42,10 @@ export default function (data) {
     return;
   }
 
-  const roomId = client.post(ENDPOINTS.rooms.join(roomId), {});
+  const createBody = createRes.json();
+  const roomId = createBody?.data?.roomId || createBody?.roomId;
+
+  const joinRes = client.post(ENDPOINTS.rooms.join(roomId), {});
   const settingsRes = client.patch(ENDPOINTS.rooms.updateSettings(roomId), {
     maxParticipants: 100,
     allowCollaboration: true,
@@ -53,9 +56,10 @@ export default function (data) {
     { mode: 'whiteboard' }
   );
 
-  const allOk = check([joinRes, settingRes, collaborationRes], {
-    'all operations completed': (resposes) => {
-      return responses.every((r) => r.status >= 200 && r.status < 300);
+  const allResponses = [joinRes, settingsRes, collaborationRes];
+  const allOk = check(allResponses, {
+    'all operations completed': (responses) => {
+      return responses.every((r) => r && r.status >= 200 && r.status < 300);
     },
   });
 

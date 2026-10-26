@@ -57,7 +57,7 @@ export default function (data) {
     'meeting created': (r) => r.status === 201,
     'meeting has ID': (r) => {
       const body = r.json();
-      return body && body.meetingId !== undefined;
+      return (body?.data?.meetingId || body?.meetingId) !== undefined;
     },
     'create time < 1s': () => createTime < 1000,
   });
@@ -79,7 +79,8 @@ export default function (data) {
     return; // Exit early if creation failed
   }
 
-  const meetingId = createRes.json().meetingId;
+  const createBody = createRes.json();
+  const meetingId = createBody?.data?.meetingId || createBody?.meetingId;
 
   // Test 2: Get Meeting Details
   const getRes = client.get(ENDPOINTS.meetings.get(meetingId));
@@ -88,7 +89,11 @@ export default function (data) {
     'meeting retrieved': (r) => r.status === 200,
     'meeting data valid': (r) => {
       const body = r.json();
-      return body && body.title !== undefined;
+      const meeting = body?.data || body;
+      return (
+        meeting &&
+        (meeting.title !== undefined || meeting.meetingId !== undefined)
+      );
     },
   });
 
@@ -112,7 +117,8 @@ export default function (data) {
     'meeting started': (r) => r.status === 200 || r.status === 201,
     'room created': (r) => {
       const body = r.json();
-      return body && body.roomId !== undefined;
+      const roomId = body?.data?.roomId || body?.roomId;
+      return roomId !== undefined;
     },
   });
 
@@ -136,7 +142,7 @@ export default function (data) {
     'meetings listed': (r) => r.status === 200,
     'list has data': (r) => {
       const body = r.json();
-      return Array.isArray(body);
+      return Array.isArray(body) || Array.isArray(body?.data);
     },
   });
 

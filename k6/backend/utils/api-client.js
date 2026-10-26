@@ -15,8 +15,6 @@ export class ApiClient {
   getHeaders(customHeaders = {}) {
     const headers = {
       'Content-Type': 'application/json',
-
-      'X-Bypass-Rate-Limit': 'true',
       ...customHeaders,
     };
 

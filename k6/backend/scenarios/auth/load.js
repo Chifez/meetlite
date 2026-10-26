@@ -91,10 +91,14 @@ export default function (data) {
   const profileDuration = Date.now() - profileStart; // Fixed: was ProfileStart (capital P)
 
   const profileOk = check(profileRes, {
-    'profile status is 200': (r) => r.status == 200,
+    'profile status is 200': (r) => r.status === 200,
     'profile has user data': (r) => {
       const body = r.json();
-      return body && body.email !== undefined;
+      return (
+        body &&
+        (body.email !== undefined ||
+          (body.user && body.user.email !== undefined))
+      );
     },
     'profile time < 500ms': () => profileDuration < 500,
   });

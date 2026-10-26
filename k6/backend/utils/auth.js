@@ -44,10 +44,6 @@ export function login(email = null, password = null) {
   const userEmail = email || CONFIG.testUsers.default.email;
   const userPassword = password || CONFIG.testUsers.default.password;
 
-  console.log(`🔐 Attempting login with email: ${userEmail}`);
-  console.log(`📡 API Gateway URL: ${CONFIG.apiGateway.baseUrl}`);
-  console.log(`🔗 Login endpoint: ${ENDPOINTS.auth.login()}`);
-
   // Make login request
   // ENDPOINTS.auth.login() calls the function to get the URL string
   const response = client.post(ENDPOINTS.auth.login(), {
@@ -55,36 +51,50 @@ export function login(email = null, password = null) {
     password: userPassword,
   });
 
-  // Log response details for debugging
-  console.log(`📥 Response status: ${response.status}`);
-  // Check if login was successful (status 200)
-  // === means strict equality (must be exactly 200, not just truthy)
   if (response.status === 200) {
-    // Parse JSON response
-    // response.json() calls our helper method that safely parses JSON
     const data = response.json();
-
-    // Extract token from response
-    // data.token accesses the 'token' property from the response object
-    const token = data.token;
-
-    // Cache token for future use
-    // Store in module-level variable so it persists
+    const token = data?.data?.token || data?.data?.accessToken || data?.token;
     cachedToken = token;
-
-    // Return token
     return token;
   }
 
+  // If user doesn't exist yet, attempt signup
+  if (
+    CONFIG.testUsers.allowProvisionDuringTest &&
+    (response.status === 401 || response.status === 404)
+  ) {
+    console.log(
+      `ℹ️ User not found, automatically provisioning test user: ${userEmail}`
+    );
+    const signupRes = client.post(ENDPOINTS.auth.signup(), {
+      email: userEmail,
+      password: userPassword,
+      name: 'Test User',
+    });
+    if (signupRes.status === 200 || signupRes.status === 201) {
+      const data = signupRes.json();
+      const token =
+        data?.data?.token ||
+        data?.data?.accessToken ||
+        data.token ||
+        data.accessToken;
+      if (token) {
+        client.post(
+          ENDPOINTS.auth.onboarding(),
+          { name: 'Test User', useCase: 'personal' },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        cachedToken = token;
+        return token;
+      }
+    }
+  }
+
   const errorBody = response.json();
-  console.error(`❌ Login failed:`, errorBody);
   console.error(`   Status: ${response.status}`);
   console.error(
-    `   Message: ${errorBody.message || errorBody.error || 'Unknown error'}`
+    `   Message: ${errorBody?.message || errorBody?.error || 'Unknown error'}`
   );
-  console.error(`   Full response:`, response.body);
-  // If login failed, return null
-  // null indicates failure (no token available)
   return null;
 }
 

@@ -40,14 +40,14 @@ let failureCount = 0;
  */
 async function createUser(index) {
   const user = {
-    email: `${CONFIG.testUsers.prefix}-${index}@test.minimeet.com`,
+    email: `${CONFIG.testUsers.prefix}-${index}@meetlite.test`,
     password: `TestPassword${index}!`,
     name: `Test User ${index}`,
   };
 
   return new Promise((resolve) => {
-    // Build full URL
-    const url = `${baseUrl}${ENDPOINTS.auth.signup()}`;
+    // Build full URL (ENDPOINTS already includes apiUrl)
+    const url = ENDPOINTS.auth.signup();
 
     // Parse URL to get hostname and path
     const urlObj = new URL(url);
@@ -74,7 +74,7 @@ async function createUser(index) {
 
       // Handle response end
       res.on('end', () => {
-        if (res.statusCode === 201) {
+        if (res.statusCode === 201 || res.statusCode === 409) {
           successCount++;
           if (index % 10 === 0) {
             console.log(`✅ Created user ${index}/${userCount}`);

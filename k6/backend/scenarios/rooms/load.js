@@ -152,29 +152,24 @@ export default function (data) {
     'room created': (r) => r.status === 201,
 
     // Check 2: Response has roomId
-    // response.json() parses JSON body
-    // && is logical AND (both conditions must be true)
     'room has ID': (r) => {
       const body = r.json();
-      return body && body.roomId !== undefined;
+      return (body?.data?.roomId || body?.roomId) !== undefined;
     },
 
     // Check 3: Response time is acceptable
-    // Duration check: createTime should be less than 2000ms
     'create time < 1s': () => createTime < 1000,
   });
 
   // If room creation failed, exit early
-  // return stops function execution
   if (!createOk) {
     roomSuccess.add(0); // Record failure
     return; // Exit early - don't continue with other tests
   }
 
   // Extract roomId from response
-  // JSON.parse() converts JSON string to JavaScript object
-  // .roomId accesses the roomId property
-  const roomId = createRes.json().roomId;
+  const createBody = createRes.json();
+  const roomId = createBody?.data?.roomId || createBody?.roomId;
 
   // Test 2: Join Room
   const joinStart = Date.now();

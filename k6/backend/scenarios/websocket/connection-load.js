@@ -49,7 +49,8 @@ export function setup() {
 
   let roomId = null;
   if (roomRes.status === 201) {
-    roomId = roomRes.json().roomId;
+    const body = roomRes.json();
+    roomId = body?.data?.roomId || body?.roomId;
   }
 
   return { token, roomId };
