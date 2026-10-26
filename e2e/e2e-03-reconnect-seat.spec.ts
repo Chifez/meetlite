@@ -49,7 +49,9 @@ test.describe('E2E-03: Reconnect, Single Seat Preservation, and Clean Leave Jour
       timeout: 15000,
     });
     await expect(page).not.toHaveURL(/\/dashboard/);
-    await expect(leaveBtn).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(async () => (await getMediaParticipants(roomId, user.token)).length)
+      .toBe(1);
 
     const participantsAfterReconnect = await getMediaParticipants(
       roomId,
