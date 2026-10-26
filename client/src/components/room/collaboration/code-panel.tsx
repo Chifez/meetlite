@@ -18,19 +18,16 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
 
   const isPresenter = user?.id === collaborationState?.presenter?.userId;
   const canUserEdit = user?.id ? canEdit(user.id) : false;
-
-  // Return early if not in code mode
-  if (!socket || collaborationState?.mode !== 'code') {
-    return null;
-  }
+  const isCodeMode = Boolean(socket && collaborationState?.mode === 'code');
 
   // Get current language from collaboration state
-  const currentLanguage = collaborationState.codeData?.language || 'javascript';
+  const currentLanguage =
+    collaborationState?.codeData?.language || 'javascript';
 
   // Initialize Yjs for code editing (pure YJS, no legacy callbacks)
   const { yText, isReady, docId, setActive, updateCursor } = useYjsCode(
     roomId,
-    collaborationState?.mode === 'code'
+    isCodeMode
   );
 
   // Get awareness data for active editors
@@ -41,22 +38,19 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
 
   // Set active status when component mounts/user starts editing
   useEffect(() => {
-    if (canUserEdit) {
+    if (canUserEdit && isCodeMode) {
       setActive(true);
     }
 
     return () => {
       setActive(false);
     };
-  }, [canUserEdit, setActive]);
+  }, [canUserEdit, isCodeMode, setActive]);
 
   const handleLanguageChange = useCallback(
     (language: string) => {
       if (canUserEdit) {
         changeCodeLanguage(language);
-      } else {
-        // do nothing
-        return;
       }
     },
     [canUserEdit, changeCodeLanguage]
@@ -69,6 +63,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({ className }) => {
     },
     [updateCursor]
   );
+
+  // Return early if not in code mode
+  if (!isCodeMode) {
+    return null;
+  }
 
   return (
     <div

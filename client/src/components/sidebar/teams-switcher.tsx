@@ -17,7 +17,7 @@ import { useTeamsStore } from '@/stores/teams-store';
 
 interface TeamsSwitcherProps {}
 
-export function TeamsSwitcher({}: TeamsSwitcherProps) {
+export function TeamsSwitcher(_props: TeamsSwitcherProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeOrganization } = useWorkspace();
@@ -84,9 +84,9 @@ export function TeamsSwitcher({}: TeamsSwitcherProps) {
       <div className="px-2 py-1">
         <div className="text-xs text-sidebar-foreground/60 py-2 flex items-center justify-between px-2">
           <span>No teams yet</span>
-          <button 
-            type="button" 
-            onClick={() => navigate('/settings/organization')} 
+          <button
+            type="button"
+            onClick={() => navigate('/settings/organization')}
             className="text-primary hover:underline text-[10px] font-semibold flex items-center gap-1"
           >
             <Plus className="h-3 w-3" />

@@ -194,7 +194,11 @@ export const setupSocketRoutes = (
       roomController.handleLeaveRoom(socket, data)
     );
 
-    socket.on('disconnect', () => roomController.handleDisconnect(socket));
+    // Socket.IO has already removed room memberships by the `disconnect`
+    // event. Cleanup must run during `disconnecting` while socket.rooms still
+    // contains every joined meeting, otherwise transports leak until the RTC
+    // port range is exhausted.
+    socket.on('disconnecting', () => roomController.handleDisconnect(socket));
 
     // ============================================================================
     // RECORDING EVENTS - Route to RecordingController

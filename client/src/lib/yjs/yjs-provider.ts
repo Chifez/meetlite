@@ -25,7 +25,7 @@ export class YjsProvider implements IYjsProvider {
   documents: Map<string, YjsDocument>;
   awareness: Map<string, Awareness>;
   connected: boolean;
-  private eventListeners: Map<string, Set<Function>>;
+  private eventListeners: Map<string, Set<(...args: any[]) => void>>;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
@@ -62,7 +62,7 @@ export class YjsProvider implements IYjsProvider {
 
     // Setup Socket.IO event listeners
     this.setupSocketListeners();
-    
+
     // Setup reconnection handlers
     this.setupReconnectionHandlers();
 
@@ -72,7 +72,7 @@ export class YjsProvider implements IYjsProvider {
 
     console.log('[YjsProvider] Connected successfully');
   }
-  
+
   /**
    * Setup reconnection handlers for socket disconnect events
    */
@@ -97,13 +97,15 @@ export class YjsProvider implements IYjsProvider {
     // Handle socket reconnect
     this.config.socket.on('connect', () => {
       if (this.reconnectAttempts > 0) {
-        console.log('[YjsProvider] Socket reconnected, re-syncing documents...');
+        console.log(
+          '[YjsProvider] Socket reconnected, re-syncing documents...'
+        );
         this.connected = true;
         this.reconnectAttempts = 0;
-        
+
         // Re-sync all documents
         this.resyncAllDocuments();
-        
+
         this.emit('reconnected');
       }
     });
@@ -128,7 +130,9 @@ export class YjsProvider implements IYjsProvider {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
     this.reconnectAttempts++;
 
-    console.log(`[YjsProvider] Attempting reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    console.log(
+      `[YjsProvider] Attempting reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+    );
 
     this.reconnectTimeout = setTimeout(() => {
       if (this.config.socket && !this.config.socket.connected) {
@@ -142,11 +146,11 @@ export class YjsProvider implements IYjsProvider {
    */
   private resyncAllDocuments(): void {
     console.log('[YjsProvider] Re-syncing all documents...');
-    
+
     this.documents.forEach((yjsDoc, docId) => {
       // Mark as unsynced
       yjsDoc.synced = false;
-      
+
       // Request fresh sync from server
       this.requestSync(docId);
     });
@@ -557,14 +561,14 @@ export class YjsProvider implements IYjsProvider {
     });
   }
 
-  on(event: string, listener: Function): void {
+  on(event: string, listener: (...args: any[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     this.eventListeners.get(event)!.add(listener);
   }
 
-  off(event: string, listener: Function): void {
+  off(event: string, listener: (...args: any[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.delete(listener);

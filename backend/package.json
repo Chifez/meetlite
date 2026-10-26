@@ -25,5 +25,10 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "overrides": {
+    "protobufjs": "7.6.6",
+    "proxy-addr": "2.0.8",
+    "tar": "7.5.22"
   }
 }

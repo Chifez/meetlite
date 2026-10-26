@@ -164,6 +164,9 @@ export const EnhancedVideoParticipant = ({
     >
       <video
         ref={videoRef}
+        data-testid={
+          isLocal ? 'local-participant-video' : 'remote-participant-video'
+        }
         autoPlay
         playsInline
         muted={isLocal}

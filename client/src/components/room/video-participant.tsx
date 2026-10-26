@@ -128,6 +128,9 @@ export const VideoParticipant = ({
     <div className="relative bg-zinc-950 border border-zinc-800/80 rounded-2xl overflow-hidden w-full h-full min-w-0 min-h-0">
       <video
         ref={videoRef}
+        data-testid={
+          isLocal ? 'local-participant-video' : 'remote-participant-video'
+        }
         autoPlay
         playsInline
         muted={isLocal}

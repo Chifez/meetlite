@@ -105,7 +105,6 @@ const Lobby = () => {
         setStream(mediaStream);
         setDevices({ audio: audioInputs, video: videoInputs });
         setSelectedDevices({ audio: defaultAudio, video: defaultVideo });
-
       } catch (mediaError) {
         if (initializationId !== initializationIdRef.current) return;
         console.error('Error accessing media devices:', mediaError);
@@ -291,7 +290,9 @@ const Lobby = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-        <p className="text-[0.875rem] text-muted-foreground">Setting up your devices…</p>
+        <p className="text-[0.875rem] text-muted-foreground">
+          Setting up your devices…
+        </p>
       </div>
     );
   }
@@ -299,12 +300,17 @@ const Lobby = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       {/* Ambient glow */}
-      <div className="absolute top-[-20%] left-[20%] w-[700px] h-[700px] rounded-full bg-primary/5 blur-[140px] pointer-events-none" aria-hidden="true" />
+      <div
+        className="absolute top-[-20%] left-[20%] w-[700px] h-[700px] rounded-full bg-primary/5 blur-[140px] pointer-events-none"
+        aria-hidden="true"
+      />
 
       <div className="relative w-full max-w-3xl">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">Ready to join?</h1>
+          <h1 className="text-[1.25rem] font-bold text-foreground tracking-[-0.025em]">
+            Ready to join?
+          </h1>
           <p className="text-[0.8125rem] text-muted-foreground mt-1">
             Adjust your camera and microphone before entering the room.
           </p>
@@ -316,6 +322,7 @@ const Lobby = () => {
             <div className="relative w-full aspect-video bg-muted rounded-2xl overflow-hidden">
               <video
                 ref={videoRef}
+                data-testid="lobby-video-preview"
                 autoPlay
                 muted
                 playsInline
@@ -338,7 +345,11 @@ const Lobby = () => {
                       : 'bg-white/15 text-white hover:bg-white/25'
                   }`}
                 >
-                  {mediaState.audioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                  {mediaState.audioEnabled ? (
+                    <Mic className="w-4 h-4" />
+                  ) : (
+                    <MicOff className="w-4 h-4" />
+                  )}
                 </button>
                 <button
                   onClick={toggleVideo}
@@ -348,7 +359,11 @@ const Lobby = () => {
                       : 'bg-white/15 text-white hover:bg-white/25'
                   }`}
                 >
-                  {mediaState.videoEnabled ? <VideoIcon className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                  {mediaState.videoEnabled ? (
+                    <VideoIcon className="w-4 h-4" />
+                  ) : (
+                    <VideoOff className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -358,8 +373,13 @@ const Lobby = () => {
           <div className="flex flex-col gap-4">
             {/* Camera select */}
             <div className="space-y-1.5">
-              <label className="text-[0.8125rem] font-medium text-foreground">Camera</label>
-              <Select value={selectedDevices.video} onValueChange={changeVideoDevice}>
+              <label className="text-[0.8125rem] font-medium text-foreground">
+                Camera
+              </label>
+              <Select
+                value={selectedDevices.video}
+                onValueChange={changeVideoDevice}
+              >
                 <SelectTrigger id="lobby-camera-select">
                   <SelectValue placeholder="Select camera" />
                 </SelectTrigger>
@@ -377,8 +397,13 @@ const Lobby = () => {
 
             {/* Microphone select */}
             <div className="space-y-1.5">
-              <label className="text-[0.8125rem] font-medium text-foreground">Microphone</label>
-              <Select value={selectedDevices.audio} onValueChange={changeAudioDevice}>
+              <label className="text-[0.8125rem] font-medium text-foreground">
+                Microphone
+              </label>
+              <Select
+                value={selectedDevices.audio}
+                onValueChange={changeAudioDevice}
+              >
                 <SelectTrigger id="lobby-mic-select">
                   <SelectValue placeholder="Select microphone" />
                 </SelectTrigger>
@@ -397,10 +422,19 @@ const Lobby = () => {
             {/* Room code chip */}
             <div className="flex items-center justify-between border border-border rounded-xl px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-[0.75rem] text-muted-foreground font-medium">Room</span>
-                <code className="text-[0.8125rem] font-mono font-semibold text-foreground">{roomId}</code>
+                <span className="text-[0.75rem] text-muted-foreground font-medium">
+                  Room
+                </span>
+                <code className="text-[0.8125rem] font-mono font-semibold text-foreground">
+                  {roomId}
+                </code>
               </div>
-              <Button variant="ghost" size="icon-sm" onClick={copyRoomLink} title="Copy meeting link">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={copyRoomLink}
+                title="Copy meeting link"
+              >
                 <Copy className="w-3.5 h-3.5" />
               </Button>
             </div>
