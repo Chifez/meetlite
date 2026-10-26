@@ -1,0 +1,31 @@
+# MeetLite Code Owners Specification
+# Governed by docs/architecture/execution/ownership-and-environments.md
+# Protects verifier control plane, security boundaries, media engines, and database migrations.
+
+# Global default: Lead maintainer review
+* @emmanuel
+
+# Verification, CI & Governance Protection
+/.github/                                        @emmanuel
+/.github/workflows/                              @emmanuel
+/.github/CODEOWNERS                              @emmanuel
+/tools/verifier/                                 @emmanuel
+/verification/                                   @emmanuel
+/docs/architecture/execution/                    @emmanuel
+/docs/architecture/decisions/                    @emmanuel
+/docs/performance/capacity-contract.md           @emmanuel
+
+# Security, Auth, Identity & Tenant Isolation
+/backend/packages/shared/src/auth/               @emmanuel
+/backend/packages/auth-service/                  @emmanuel
+/backend/packages/shared/prisma/                 @emmanuel
+
+# Room Signaling & Realtime Media
+/client/src/lib/media-endpoint/                  @emmanuel
+/client/src/hooks/use-media-endpoint.ts          @emmanuel
+/backend/packages/mediasoup-service/             @emmanuel
+/backend/packages/edge-room-coordinator/         @emmanuel
+
+# Durable Storage & Recordings
+/backend/packages/shared/src/services/storage.service.ts  @emmanuel
+/backend/packages/room-service/src/services/recording.service.ts @emmanuel

@@ -1,0 +1,42 @@
+{
+  "scopes": {
+    "client": {
+      "pathPrefix": "client/",
+      "consumers": []
+    },
+    "@minimeet/shared": {
+      "pathPrefix": "backend/packages/shared/",
+      "consumers": [
+        "@minimeet/api-gateway",
+        "@minimeet/auth-service",
+        "@minimeet/room-service",
+        "@minimeet/mediasoup-service",
+        "@minimeet/edge-room-coordinator"
+      ]
+    },
+    "@minimeet/api-gateway": {
+      "pathPrefix": "backend/packages/api-gateway/",
+      "consumers": []
+    },
+    "@minimeet/auth-service": {
+      "pathPrefix": "backend/packages/auth-service/",
+      "consumers": ["@minimeet/api-gateway"]
+    },
+    "@minimeet/room-service": {
+      "pathPrefix": "backend/packages/room-service/",
+      "consumers": [
+        "@minimeet/api-gateway",
+        "@minimeet/mediasoup-service",
+        "@minimeet/edge-room-coordinator"
+      ]
+    },
+    "@minimeet/mediasoup-service": {
+      "pathPrefix": "backend/packages/mediasoup-service/",
+      "consumers": []
+    },
+    "@minimeet/edge-room-coordinator": {
+      "pathPrefix": "backend/packages/edge-room-coordinator/",
+      "consumers": ["client"]
+    }
+  }
+}

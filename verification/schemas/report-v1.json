@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MeetLiteVerificationReportV1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "verifierVersion",
+    "baseSha",
+    "headSha",
+    "riskLevel",
+    "verdict",
+    "timestamp",
+    "durationMs",
+    "environment",
+    "affectedScopes",
+    "checks"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "verifierVersion": {
+      "type": "string"
+    },
+    "baseSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "headSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "isDirty": {
+      "type": "boolean"
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3", "L4"]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "INCONCLUSIVE", "NOT_IMPLEMENTED"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "environment": {
+      "type": "object",
+      "required": ["nodeVersion", "platform", "arch"],
+      "properties": {
+        "nodeVersion": { "type": "string" },
+        "platform": { "type": "string" },
+        "arch": { "type": "string" },
+        "ci": { "type": "boolean" }
+      }
+    },
+    "affectedScopes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "changedFiles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "command",
+          "status",
+          "durationMs",
+          "exitCode",
+          "zeroTestDetected"
+        ],
+        "properties": {
+          "name": { "type": "string" },
+          "command": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "FLAKY",
+              "INFRA_ERROR",
+              "NOT_IMPLEMENTED",
+              "QUARANTINED_FAIL"
+            ]
+          },
+          "durationMs": { "type": "number" },
+          "exitCode": { "type": "number" },
+          "testCount": { "type": "number" },
+          "zeroTestDetected": { "type": "boolean" },
+          "timedOut": { "type": "boolean" },
+          "failureReason": { "type": "string" },
+          "stdoutDigest": { "type": "string" },
+          "stderrDigest": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "totalChecks": { "type": "number" },
+        "passedChecks": { "type": "number" },
+        "failedChecks": { "type": "number" },
+        "notImplementedChecks": { "type": "number" },
+        "infraErrorChecks": { "type": "number" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

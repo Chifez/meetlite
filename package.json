@@ -13,16 +13,19 @@
     "build": "npm run build:backend",
     "build:client": "npm run build --workspace=client",
     "build:backend": "npm run build --workspace=@minimeet/shared && npm run build --workspace=@minimeet/api-gateway && npm run build --workspace=@minimeet/auth-service && npm run build --workspace=@minimeet/room-service && npm run build --workspace=@minimeet/mediasoup-service && npm run build --workspace=@minimeet/edge-room-coordinator",
-    "format:check": "echo 'Format check placeholder: format tool to be configured in R0 tooling'",
+    "format:check": "node tools/scripts/format-check.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck:backend",
     "typecheck:backend": "npm run typecheck --workspace=@minimeet/shared && npm run typecheck --workspace=@minimeet/api-gateway && npm run typecheck --workspace=@minimeet/auth-service && npm run typecheck --workspace=@minimeet/room-service && npm run typecheck --workspace=@minimeet/mediasoup-service && npm run typecheck --workspace=@minimeet/edge-room-coordinator",
     "typecheck:all": "npm run typecheck:backend && npm run build:client",
     "test": "npm run test:unit",
     "test:unit": "npx tsx --test 'backend/packages/**/src/**/*.test.ts'",
-    "test:integration": "echo 'Integration harness: tsx --test backend/packages/**/src/**/*.integration.test.ts'",
-    "test:contracts": "echo 'Contracts harness: tsx --test backend/packages/**/src/**/*.contract.test.ts'",
-    "test:e2e": "echo 'E2E harness: Playwright E2E configured for staging gates'",
+    "test:integration": "npx tsx --test 'backend/packages/**/src/**/*integration*.test.ts'",
+    "test:contracts": "npx tsx --test 'backend/packages/**/src/**/*contract*.test.ts'",
+    "test:e2e": "npx playwright test",
+    "k6": "node k6/run-tests.js",
+    "verify": "npx tsx tools/verifier/src/cli.ts verify",
+    "verify:plan": "npx tsx tools/verifier/src/cli.ts plan",
     "clean": "npm run clean --workspaces",
     "install:all": "npm install && npm --prefix backend install",
     "db:generate": "npm run prisma:generate --workspace=@minimeet/shared",
@@ -30,8 +33,15 @@
     "db:migrate:status": "npm run prisma:migrate:status --workspace=@minimeet/shared"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/lodash": "^4.17.20",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prettier": "^3.9.10"
+  },
+  "overrides": {
+    "protobufjs": "7.6.6",
+    "proxy-addr": "2.0.8",
+    "tar": "7.5.22"
   },
   "engines": {
     "node": ">=20.0.0"

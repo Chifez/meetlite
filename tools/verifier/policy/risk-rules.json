@@ -1,0 +1,94 @@
+{
+  "rules": [
+    {
+      "pattern": "^(tools/verifier|verification|\\.github)/",
+      "riskLevel": "L4",
+      "reason": "Verifier, CI control plane, or verification policy modification"
+    },
+    {
+      "pattern": "^(docker-compose\\.yml|deploy/|k6/)",
+      "riskLevel": "L4",
+      "reason": "Infrastructure, staging deployment, or load harness change"
+    },
+    {
+      "pattern": "^(e2e/|playwright\\.config\\.(ts|js)$)",
+      "riskLevel": "L3",
+      "reason": "End-to-end release gate or browser journey modification"
+    },
+    {
+      "pattern": "^backend/packages/(room-service|auth-service|mediasoup-service|edge-room-coordinator)/src/(auth|routes|services|controllers)/",
+      "riskLevel": "L3",
+      "reason": "Auth, tenant boundary, room capability, signaling, or media routing"
+    },
+    {
+      "pattern": "^client/src/(contexts/auth|hooks/use-media-endpoint|lib/media-endpoint|pages/room|pages/lobby)",
+      "riskLevel": "L3",
+      "reason": "Browser media lifecycle, room admission, or capability token handling"
+    },
+    {
+      "pattern": "^backend/packages/shared/(prisma|src/(auth|storage|queues|health))",
+      "riskLevel": "L2",
+      "reason": "Shared database model, migration, auth contracts, or persistent storage"
+    },
+    {
+      "pattern": "^(backend/packages/[^/]+/package(-lock)?\\.json|backend/package-lock\\.json|client/package(-lock)?\\.json|package(-lock)?\\.json)",
+      "riskLevel": "L2",
+      "reason": "Package manifests, dependencies, or workspace configuration change"
+    },
+    {
+      "pattern": "^(client/|backend/packages/)",
+      "riskLevel": "L1",
+      "reason": "Local component, UI, or service internal code"
+    },
+    {
+      "pattern": "^(docs/|README\\.md|\\.gitignore|\\.prettierrc)",
+      "riskLevel": "L0",
+      "reason": "Documentation or non-executable static repository files"
+    }
+  ],
+  "levels": {
+    "L0": {
+      "name": "Documentation & Static Assets",
+      "checks": ["format:check"]
+    },
+    "L1": {
+      "name": "Local Code & Component Changes",
+      "checks": ["format:check", "lint", "typecheck:all", "test:unit"]
+    },
+    "L2": {
+      "name": "Contract & Data Schema Changes",
+      "checks": [
+        "format:check",
+        "lint",
+        "typecheck:all",
+        "test:unit",
+        "test:integration",
+        "test:contracts"
+      ]
+    },
+    "L3": {
+      "name": "Trust, Realtime & Media Invariants",
+      "checks": [
+        "format:check",
+        "lint",
+        "typecheck:all",
+        "test:unit",
+        "test:integration",
+        "test:contracts",
+        "test:e2e"
+      ]
+    },
+    "L4": {
+      "name": "Deployment, Scale & Verifier Protection",
+      "checks": [
+        "format:check",
+        "lint",
+        "typecheck:all",
+        "test:unit",
+        "test:integration",
+        "test:contracts",
+        "test:e2e"
+      ]
+    }
+  }
+}
