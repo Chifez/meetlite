@@ -36,6 +36,20 @@ export interface PlanDistribution {
   enterprise: number;
 }
 
+export interface SystemHealth {
+  apiResponseTime: number;
+  errorRate: number | null;
+  databaseStatus: 'healthy' | 'degraded';
+  databaseConnections: {
+    latencyMs: number;
+    status: 'healthy' | 'degraded';
+  };
+  uptimeSeconds: number;
+  memoryUsageMb: number;
+  storageUsedBytes: number;
+  storageCapacityBytes: number | null;
+}
+
 export interface UsersListResponse {
   users: any[];
   total: number;
@@ -134,8 +148,27 @@ export class AdminService {
     return extractData<any[]>(response);
   }
 
-  static async getSystemHealth(): Promise<any> {
+  static async getSystemHealth(): Promise<SystemHealth> {
     const response = await api.get('/api/admin/system/health');
+    return extractData<SystemHealth>(response);
+  }
+
+  static async getSystemAuditLogs(
+    params: {
+      page?: number;
+      limit?: number;
+      category?: string;
+      status?: string;
+      search?: string;
+    } = {}
+  ): Promise<{
+    logs: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const response = await api.get('/api/admin/system/audit-logs', { params });
     return extractData<any>(response);
   }
 

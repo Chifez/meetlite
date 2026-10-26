@@ -104,15 +104,16 @@ export class AdminController {
       }
 
       // Exclude password and reset tokens
-      const { password, resetToken, resetTokenExpiry, ...userWithoutPassword } = user as any;
+      const { password, resetToken, resetTokenExpiry, ...userWithoutPassword } =
+        user as any;
 
       const orgsCount = await prisma.organization.count({
         where: {
           OR: [
             { ownerId: userId },
-            { memberships: { some: { userId: userId } } }
-          ]
-        }
+            { memberships: { some: { userId: userId } } },
+          ],
+        },
       });
 
       res.json({
@@ -150,10 +151,11 @@ export class AdminController {
         data: {
           name: name !== undefined ? name : undefined,
           email: email !== undefined ? email : undefined,
-          isSystemAdmin: isSystemAdmin !== undefined ? isSystemAdmin : undefined,
+          isSystemAdmin:
+            isSystemAdmin !== undefined ? isSystemAdmin : undefined,
           planType: plan?.type !== undefined ? plan.type : undefined,
           planStatus: plan?.status !== undefined ? plan.status : undefined,
-        }
+        },
       });
 
       res.json({
@@ -219,7 +221,7 @@ export class AdminController {
 
       await prisma.user.update({
         where: { id: userId },
-        data: { planStatus: 'cancelled' }
+        data: { planStatus: 'cancelled' },
       });
 
       res.json({
@@ -248,7 +250,7 @@ export class AdminController {
 
       await prisma.user.update({
         where: { id: userId },
-        data: { planStatus: 'active' }
+        data: { planStatus: 'active' },
       });
 
       res.json({
@@ -364,7 +366,9 @@ export class AdminController {
   async deleteMeeting(req: Request, res: Response) {
     try {
       const { meetingId } = req.params;
-      const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: meetingId },
+      });
       if (!meeting) {
         throw AppError.notFound('Meeting not found');
       }
@@ -406,7 +410,10 @@ export class AdminController {
   async getRevenueChartData(req: Request, res: Response) {
     try {
       const { type = 'overTime', period = '12m' } = req.query;
-      const data = await AdminService.getRevenueChartData(type as string, period as string);
+      const data = await AdminService.getRevenueChartData(
+        type as string,
+        period as string
+      );
       res.json({ success: true, data });
     } catch (error: any) {
       console.error('Get revenue chart data error:', error);
@@ -428,7 +435,30 @@ export class AdminController {
       console.error('Get system health error:', error);
       res.status(500).json({
         success: false,
-        message: error.message || 'Failed to fetch system health',
+        message: 'Failed to fetch system health',
+      });
+    }
+  }
+
+  /**
+   * GET /admin/system/audit-logs - Get paginated audit logs
+   */
+  async getSystemAuditLogs(req: Request, res: Response) {
+    try {
+      const { page, limit, category, status, search } = req.query as any;
+      const data = await AdminService.getSystemAuditLogs({
+        page,
+        limit,
+        category,
+        status,
+        search,
+      });
+      res.json({ success: true, data });
+    } catch (error: any) {
+      console.error('Get system audit logs error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch audit logs',
       });
     }
   }

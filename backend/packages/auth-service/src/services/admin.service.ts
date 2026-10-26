@@ -35,14 +35,14 @@ export class AdminService {
         where: {
           planType: { in: ['pro', 'enterprise'] },
           planStatus: 'active',
-        }
+        },
       });
       const paidUsers30DaysAgo = await prisma.user.count({
         where: {
           planType: { in: ['pro', 'enterprise'] },
           planStatus: 'active',
           createdAt: { lt: thirtyDaysAgo },
-        }
+        },
       });
       const paidUsersGrowth =
         paidUsers30DaysAgo > 0
@@ -59,20 +59,24 @@ export class AdminService {
             { usage: { lastMeetingDate: { gte: thirtyDaysAgo } } },
             { lastLogin: { gte: thirtyDaysAgo } },
           ],
-        }
+        },
       });
       const activeUsers60DaysAgo = await prisma.user.count({
         where: {
           OR: [
             {
-              usage: { lastApiCallDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+              usage: {
+                lastApiCallDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+              },
             },
             {
-              usage: { lastMeetingDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+              usage: {
+                lastMeetingDate: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+              },
             },
             { lastLogin: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
           ],
-        }
+        },
       });
       const activeUsersGrowth =
         activeUsers60DaysAgo > 0
@@ -86,13 +90,13 @@ export class AdminService {
         where: {
           planType: 'pro',
           planStatus: 'active',
-        }
+        },
       });
       const enterpriseUsers = await prisma.user.count({
         where: {
           planType: 'enterprise',
           planStatus: 'active',
-        }
+        },
       });
       const mrr = proUsers * 12 + enterpriseUsers * 49;
       const mrrLastMonth = await this.getMRRForPeriod(
@@ -106,12 +110,12 @@ export class AdminService {
       const meetingsThisMonth = await prisma.meeting.count({
         where: {
           createdAt: { gte: startOfMonth },
-        }
+        },
       });
       const meetingsLastMonth = await prisma.meeting.count({
         where: {
           createdAt: { gte: startOfLastMonth, lt: startOfMonth },
-        }
+        },
       });
       const meetingsGrowth =
         meetingsLastMonth > 0
@@ -139,8 +143,8 @@ export class AdminService {
       // Storage used
       const storageResult = await prisma.userUsage.aggregate({
         _sum: {
-          storageUsedGb: true
-        }
+          storageUsedGb: true,
+        },
       });
       const storageUsed = Number(storageResult._sum.storageUsedGb || 0);
       const storageCapacity = 10000;
@@ -152,13 +156,13 @@ export class AdminService {
         where: {
           status: 'completed',
           createdAt: { gte: today },
-        }
+        },
       });
       const meetingsCompletedYesterday = await prisma.meeting.count({
         where: {
           status: 'completed',
           createdAt: { gte: yesterday, lt: today },
-        }
+        },
       });
 
       return {
@@ -199,14 +203,14 @@ export class AdminService {
         planType: 'pro',
         planStatus: 'active',
         planStartDate: { gte: startDate, lte: endDate },
-      }
+      },
     });
     const enterpriseUsers = await prisma.user.count({
       where: {
         planType: 'enterprise',
         planStatus: 'active',
         planStartDate: { gte: startDate, lte: endDate },
-      }
+      },
     });
     return proUsers * 12 + enterpriseUsers * 49;
   }
@@ -245,7 +249,7 @@ export class AdminService {
           const count = await prisma.user.count({
             where: {
               createdAt: { gte: startOfHour, lt: endOfHour },
-            }
+            },
           });
 
           data.push({
@@ -266,7 +270,7 @@ export class AdminService {
           const count = await prisma.user.count({
             where: {
               createdAt: { gte: startOfDay, lt: endOfDay },
-            }
+            },
           });
 
           data.push({
@@ -293,13 +297,13 @@ export class AdminService {
         where: {
           planType: 'pro',
           planStatus: 'active',
-        }
+        },
       });
       const enterprise = await prisma.user.count({
         where: {
           planType: 'enterprise',
           planStatus: 'active',
-        }
+        },
       });
 
       return { free, pro, enterprise };
@@ -357,9 +361,9 @@ export class AdminService {
           usage: {
             select: {
               lastApiCallDate: true,
-              lastMeetingDate: true
-            }
-          }
+              lastMeetingDate: true,
+            },
+          },
         },
         orderBy: sortObj,
         skip,
@@ -374,7 +378,7 @@ export class AdminService {
                 { ownerId: user.id },
                 { memberships: { some: { userId: user.id } } },
               ],
-            }
+            },
           });
 
           const lastActive =
@@ -435,7 +439,7 @@ export class AdminService {
       const organizations = await prisma.organization.findMany({
         where: whereClause,
         include: {
-          owner: { select: { email: true, planType: true } }
+          owner: { select: { email: true, planType: true } },
         },
         orderBy: sortObj,
         skip,
@@ -448,12 +452,12 @@ export class AdminService {
             where: {
               organizationId: org.id,
               status: 'active',
-            }
+            },
           });
           const teamsCount = await prisma.team.count({
             where: {
               organizationId: org.id,
-            }
+            },
           });
 
           const planType = org.owner?.planType || 'free';
@@ -529,7 +533,10 @@ export class AdminService {
 
       const meetings = await prisma.meeting.findMany({
         where: whereClause,
-        include: { creator: { select: { email: true, name: true } }, participants: true },
+        include: {
+          creator: { select: { email: true, name: true } },
+          participants: true,
+        },
         orderBy: sortObj,
         skip,
         take: limit,
@@ -582,13 +589,13 @@ export class AdminService {
         where: {
           planType: 'pro',
           planStatus: 'active',
-        }
+        },
       });
       const enterpriseUsers = await prisma.user.count({
         where: {
           planType: 'enterprise',
           planStatus: 'active',
-        }
+        },
       });
 
       const mrr = proUsers * 12 + enterpriseUsers * 49;
@@ -606,7 +613,7 @@ export class AdminService {
       const failedPaymentsCount = await prisma.user.count({
         where: {
           planStatus: 'past_due',
-        }
+        },
       });
 
       return {
@@ -646,7 +653,7 @@ export class AdminService {
               planStatus: 'active',
               planStartDate: { lte: endDate },
               OR: [{ planEndDate: { gte: date } }, { planEndDate: null }],
-            }
+            },
           });
           const enterpriseUsers = await prisma.user.count({
             where: {
@@ -654,7 +661,7 @@ export class AdminService {
               planStatus: 'active',
               planStartDate: { lte: endDate },
               OR: [{ planEndDate: { gte: date } }, { planEndDate: null }],
-            }
+            },
           });
 
           const revenue = proUsers * 12 + enterpriseUsers * 49;
@@ -671,13 +678,13 @@ export class AdminService {
           where: {
             planType: 'pro',
             planStatus: 'active',
-          }
+          },
         });
         const enterpriseUsers = await prisma.user.count({
           where: {
             planType: 'enterprise',
             planStatus: 'active',
-          }
+          },
         });
 
         return [
@@ -703,23 +710,101 @@ export class AdminService {
   }
 
   /**
-   * Get system health metrics
+   * Get real measured system health metrics
    */
   static async getSystemHealth() {
     try {
+      const dbStart = Date.now();
+      let dbStatus = 'healthy';
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+      } catch (dbErr) {
+        dbStatus = 'degraded';
+        console.error('Database health ping failed:', dbErr);
+      }
+      const dbLatency = Date.now() - dbStart;
+
+      // Let the database aggregate storage rather than loading every recording.
+      const storage = await prisma.meetingRecording.aggregate({
+        _sum: { fileSize: true },
+        where: { isArchived: false },
+      });
+      const storageUsedBytes = Number(storage._sum.fileSize || 0);
+
+      const memory = process.memoryUsage();
+
       return {
-        apiResponseTime: 150,
-        errorRate: 0.5,
-        databaseStatus: 'healthy',
+        apiResponseTime: dbLatency,
+        // No request telemetry backend is wired yet. Null is intentional: a
+        // fabricated zero is operationally more dangerous than "not measured".
+        errorRate: null,
+        databaseStatus: dbStatus,
         databaseConnections: {
-          used: 5,
-          total: 10,
+          latencyMs: dbLatency,
+          status: dbStatus,
         },
-        storageUsed: 0,
-        storageCapacity: 10000,
+        uptimeSeconds: Math.floor(process.uptime()),
+        memoryUsageMb: Math.round(memory.heapUsed / (1024 * 1024)),
+        storageUsedBytes,
+        storageCapacityBytes: null,
       };
     } catch (error) {
       console.error('Error getting system health:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get paginated audit logs from database
+   */
+  static async getSystemAuditLogs(
+    params: {
+      page?: number;
+      limit?: number;
+      category?: string;
+      status?: string;
+      search?: string;
+    } = {}
+  ) {
+    try {
+      const page = Math.max(1, Number(params.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(params.limit) || 20));
+      const skip = (page - 1) * limit;
+
+      const where: any = {};
+      if (params.category && params.category !== 'all') {
+        where.category = params.category;
+      }
+      if (params.status && params.status !== 'all') {
+        where.status = params.status;
+      }
+      if (params.search) {
+        where.OR = [
+          { action: { contains: params.search, mode: 'insensitive' } },
+          { details: { contains: params.search, mode: 'insensitive' } },
+          { errorMessage: { contains: params.search, mode: 'insensitive' } },
+        ];
+      }
+
+      const [logs, total] = await Promise.all([
+        prisma.auditLog.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.auditLog.count({ where }),
+      ]);
+
+      return {
+        logs,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      };
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
       throw error;
     }
   }

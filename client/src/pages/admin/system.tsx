@@ -4,14 +4,7 @@ import { AdminService } from '@/services/admin-service';
 import AdminLayout from '@/components/admin/admin-layout';
 import { MetricCard } from '@/components/admin/metric-card';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TableCell, TableRow } from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -28,7 +21,7 @@ export default function AdminSystem() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
     type: 'all',
-    severity: 'all',
+    status: 'all',
   });
 
   const { data: health } = useQuery({
@@ -37,45 +30,35 @@ export default function AdminSystem() {
     refetchInterval: 30 * 1000, // Refetch every 30 seconds
   });
 
-  // Mock logs data - replace with actual API call when implemented
-  const allLogs = [
-    {
-      id: '1',
-      timestamp: new Date(),
-      type: 'error',
-      severity: 'high',
-      userEmail: 'user@example.com',
-      description: 'API request failed',
-      ipAddress: '192.168.1.1',
-      status: 'resolved',
-    },
-  ];
-
-  // Filter logs based on search and filters
-  const logs = allLogs.filter((log) => {
-    // Search filter
-    if (search) {
-      const searchLower = search.toLowerCase();
-      const matchesSearch =
-        log.userEmail?.toLowerCase().includes(searchLower) ||
-        log.description?.toLowerCase().includes(searchLower) ||
-        log.ipAddress?.toLowerCase().includes(searchLower) ||
-        log.type?.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
-    }
-
-    // Type filter
-    if (filters.type !== 'all' && log.type !== filters.type) {
-      return false;
-    }
-
-    // Severity filter
-    if (filters.severity !== 'all' && log.severity !== filters.severity) {
-      return false;
-    }
-
-    return true;
+  const { data: auditData } = useQuery({
+    queryKey: ['admin-system-audit-logs', search, filters],
+    queryFn: () =>
+      AdminService.getSystemAuditLogs({
+        search: search || undefined,
+        category: filters.type !== 'all' ? filters.type : undefined,
+        status: filters.status !== 'all' ? filters.status : undefined,
+      }),
+    refetchInterval: 30 * 1000,
   });
+
+  const rawLogs = auditData?.logs || [];
+  const logs = rawLogs.map((log: any) => ({
+    id: log.id,
+    timestamp: log.createdAt,
+    type: log.category || 'system',
+    severity:
+      log.status === 'failed' || log.status === 'failure' || log.errorMessage
+        ? 'high'
+        : 'low',
+    userEmail: log.userId ? `User ${log.userId.slice(0, 8)}...` : 'System',
+    description:
+      log.details || log.action || log.errorMessage || 'System operation',
+    ipAddress: log.ipAddress || 'Internal',
+    status:
+      log.status === 'success' || log.status === 'resolved'
+        ? 'resolved'
+        : log.status || 'info',
+  }));
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -109,9 +92,7 @@ export default function AdminSystem() {
       <AdminLayout>
         <div className="space-y-6 p-6">
           <div>
-            <h1 className="text-xl font-bold text-foreground">
-              System & Logs
-            </h1>
+            <h1 className="text-xl font-bold text-foreground">System & Logs</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Monitor system health and activity logs
             </p>
@@ -123,23 +104,21 @@ export default function AdminSystem() {
               title="API Response Time"
               value={`${health?.apiResponseTime || 0}ms`}
               subtitle={
-                health?.apiResponseTime < 200
+                (health?.apiResponseTime ?? Number.POSITIVE_INFINITY) < 200
                   ? 'Good'
-                  : health?.apiResponseTime < 500
-                  ? 'Acceptable'
-                  : 'Slow'
+                  : (health?.apiResponseTime ?? Number.POSITIVE_INFINITY) < 500
+                    ? 'Acceptable'
+                    : 'Slow'
               }
             />
             <MetricCard
               title="Error Rate"
-              value={`${health?.errorRate || 0}%`}
-              subtitle={
-                health?.errorRate < 1
-                  ? 'Good'
-                  : health?.errorRate < 5
-                  ? 'Warning'
-                  : 'Critical'
+              value={
+                health?.errorRate == null
+                  ? 'Not measured'
+                  : `${health.errorRate}%`
               }
+              subtitle="Requires request telemetry"
             />
             <div className="border rounded-lg p-6">
               <div className="flex items-center justify-between mb-2">
@@ -152,20 +131,17 @@ export default function AdminSystem() {
                 {health?.databaseStatus || 'Unknown'}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                {health?.databaseConnections?.used || 0} /{' '}
-                {health?.databaseConnections?.total || 0} connections
+                Query latency: {health?.databaseConnections?.latencyMs ?? 0}ms
               </p>
             </div>
             <MetricCard
               title="Storage Used"
-              value={`${health?.storageUsed || 0} GB`}
-              subtitle={`${(
-                ((health?.storageUsed || 0) /
-                  (health?.storageCapacity || 10000)) *
-                100
-              ).toFixed(1)}% of ${(
-                (health?.storageCapacity || 10000) / 1000
-              ).toFixed(0)} TB`}
+              value={`${((health?.storageUsedBytes || 0) / 1024 ** 3).toFixed(2)} GB`}
+              subtitle={
+                health?.storageCapacityBytes
+                  ? `${((health.storageUsedBytes / health.storageCapacityBytes) * 100).toFixed(1)}% used`
+                  : 'Capacity not configured'
+              }
             />
           </div>
 
@@ -205,91 +181,117 @@ export default function AdminSystem() {
                 </SelectContent>
               </Select>
               <Select
-                value={filters.severity}
+                value={filters.status}
                 onValueChange={(value) => {
-                  setFilters({ ...filters, severity: value });
+                  setFilters({ ...filters, status: value });
                 }}
               >
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by severity" />
+                  <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="success">Success</SelectItem>
+                  <SelectItem value="failure">Failure</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto overflow-y-auto scrollbar-hide" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+              <div
+                className="overflow-x-auto overflow-y-auto scrollbar-hide"
+                style={{ maxHeight: 'calc(100vh - 400px)' }}
+              >
                 <table className="min-w-[800px] w-full caption-bottom text-sm">
                   <thead className="sticky top-0 z-30 bg-background shadow-sm [&_tr]:border-b">
                     <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                       <th className="h-10 px-2 text-left align-middle font-semibold text-foreground sticky left-0 z-40 bg-background border-r">
                         Timestamp
                       </th>
-                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">Type</th>
-                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">Severity</th>
-                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">User</th>
-                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">Description</th>
-                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">IP Address</th>
-                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">Status</th>
+                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">
+                        Type
+                      </th>
+                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">
+                        Severity
+                      </th>
+                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">
+                        User
+                      </th>
+                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">
+                        Description
+                      </th>
+                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">
+                        IP Address
+                      </th>
+                      <th className="h-10 px-2 text-left align-middle font-semibold text-foreground">
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
-                  {logs.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-muted-foreground py-8"
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                            <Search className="w-6 h-6 text-muted-foreground" />
+                    {logs.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-muted-foreground py-8"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                              <Search className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                            <p className="text-sm font-medium">No logs found</p>
+                            <p className="text-xs">
+                              {search ||
+                              filters.type !== 'all' ||
+                              filters.status !== 'all'
+                                ? 'Try adjusting your filters'
+                                : 'No audit logs recorded yet for this environment.'}
+                            </p>
                           </div>
-                          <p className="text-sm font-medium">No logs found</p>
-                          <p className="text-xs">
-                            {search || filters.type !== 'all' || filters.severity !== 'all'
-                              ? 'Try adjusting your filters'
-                              : 'Logs API will be implemented in the backend'}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    logs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-sm sticky left-0 z-30 bg-background border-r">
-                          {format(
-                            new Date(log.timestamp),
-                            'MMM d, yyyy HH:mm:ss'
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {log.type.charAt(0).toUpperCase() + log.type.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{getSeverityBadge(log.severity)}</TableCell>
-                        <TableCell className="text-sm">{log.userEmail || 'N/A'}</TableCell>
-                        <TableCell className="text-sm">{log.description}</TableCell>
-                        <TableCell className="text-sm">{log.ipAddress}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              log.status === 'resolved'
-                                ? 'default'
-                                : 'secondary'
-                            }
-                          >
-                            {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
-                          </Badge>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
+                    ) : (
+                      logs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="text-sm sticky left-0 z-30 bg-background border-r">
+                            {format(
+                              new Date(log.timestamp),
+                              'MMM d, yyyy HH:mm:ss'
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {log.type.charAt(0).toUpperCase() +
+                                log.type.slice(1)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {getSeverityBadge(log.severity)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {log.userEmail || 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {log.description}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {log.ipAddress}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                log.status === 'resolved'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                            >
+                              {log.status.charAt(0).toUpperCase() +
+                                log.status.slice(1)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

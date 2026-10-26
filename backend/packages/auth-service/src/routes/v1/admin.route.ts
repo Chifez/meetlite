@@ -16,32 +16,109 @@ router.use(authenticateToken);
 router.use(requireAdmin);
 router.use(adminRateLimiter);
 
-router.get('/metrics', asyncHandler(AdminController.getOverviewMetrics.bind(AdminController)));
-router.get('/metrics/user-growth', asyncHandler(AdminController.getUserGrowthData.bind(AdminController)));
-router.get('/metrics/plan-distribution', asyncHandler(AdminController.getPlanDistribution.bind(AdminController)));
+router.get(
+  '/metrics',
+  asyncHandler(AdminController.getOverviewMetrics.bind(AdminController))
+);
+router.get(
+  '/metrics/user-growth',
+  asyncHandler(AdminController.getUserGrowthData.bind(AdminController))
+);
+router.get(
+  '/metrics/plan-distribution',
+  asyncHandler(AdminController.getPlanDistribution.bind(AdminController))
+);
 
-router.get('/users', asyncHandler(AdminController.getUsersList.bind(AdminController)));
-router.get('/users/:userId', asyncHandler(AdminController.getUserDetails.bind(AdminController)));
-router.patch('/users/:userId', asyncHandler(AdminController.updateUser.bind(AdminController)));
-router.delete('/users/:userId', asyncHandler(AdminController.deleteUser.bind(AdminController)));
-router.post('/users/:userId/suspend', asyncHandler(AdminController.suspendUser.bind(AdminController)));
-router.post('/users/:userId/unsuspend', asyncHandler(AdminController.unsuspendUser.bind(AdminController)));
-router.post('/users/:userId/reset-password', asyncHandler(AdminController.resetUserPassword.bind(AdminController)));
+router.get(
+  '/users',
+  asyncHandler(AdminController.getUsersList.bind(AdminController))
+);
+router.get(
+  '/users/:userId',
+  asyncHandler(AdminController.getUserDetails.bind(AdminController))
+);
+router.patch(
+  '/users/:userId',
+  asyncHandler(AdminController.updateUser.bind(AdminController))
+);
+router.delete(
+  '/users/:userId',
+  asyncHandler(AdminController.deleteUser.bind(AdminController))
+);
+router.post(
+  '/users/:userId/suspend',
+  asyncHandler(AdminController.suspendUser.bind(AdminController))
+);
+router.post(
+  '/users/:userId/unsuspend',
+  asyncHandler(AdminController.unsuspendUser.bind(AdminController))
+);
+router.post(
+  '/users/:userId/reset-password',
+  asyncHandler(AdminController.resetUserPassword.bind(AdminController))
+);
 
-router.get('/organizations', asyncHandler(AdminController.getOrganizationsList.bind(AdminController)));
+router.get(
+  '/organizations',
+  asyncHandler(AdminController.getOrganizationsList.bind(AdminController))
+);
 
-router.get('/meetings', asyncHandler(AdminController.getMeetingsList.bind(AdminController)));
-router.delete('/meetings/:meetingId', asyncHandler(AdminController.deleteMeeting.bind(AdminController)));
+router.get(
+  '/meetings',
+  asyncHandler(AdminController.getMeetingsList.bind(AdminController))
+);
+router.delete(
+  '/meetings/:meetingId',
+  asyncHandler(AdminController.deleteMeeting.bind(AdminController))
+);
 
-router.get('/revenue/metrics', asyncHandler(AdminController.getRevenueMetrics.bind(AdminController)));
-router.get('/revenue/chart', asyncHandler(AdminController.getRevenueChartData.bind(AdminController)));
+router.get(
+  '/revenue/metrics',
+  asyncHandler(AdminController.getRevenueMetrics.bind(AdminController))
+);
+router.get(
+  '/revenue/chart',
+  asyncHandler(AdminController.getRevenueChartData.bind(AdminController))
+);
 
-router.get('/system/health', asyncHandler(AdminController.getSystemHealth.bind(AdminController)));
+router.get(
+  '/system/health',
+  asyncHandler(AdminController.getSystemHealth.bind(AdminController))
+);
+router.get(
+  '/system/audit-logs',
+  asyncHandler(AdminController.getSystemAuditLogs.bind(AdminController))
+);
 
-router.get('/inquiries', asyncHandler(enterpriseInquiryController.listInquiries.bind(enterpriseInquiryController)));
-router.get('/inquiries/stats', asyncHandler(enterpriseInquiryController.getStats.bind(enterpriseInquiryController)));
-router.get('/inquiries/:id', asyncHandler(enterpriseInquiryController.getInquiry.bind(enterpriseInquiryController)));
-router.patch('/inquiries/:id', asyncHandler(enterpriseInquiryController.updateInquiry.bind(enterpriseInquiryController)));
-router.post('/inquiries/:id/notes', asyncHandler(enterpriseInquiryController.addNote.bind(enterpriseInquiryController)));
+router.get(
+  '/inquiries',
+  asyncHandler(
+    enterpriseInquiryController.listInquiries.bind(enterpriseInquiryController)
+  )
+);
+router.get(
+  '/inquiries/stats',
+  asyncHandler(
+    enterpriseInquiryController.getStats.bind(enterpriseInquiryController)
+  )
+);
+router.get(
+  '/inquiries/:id',
+  asyncHandler(
+    enterpriseInquiryController.getInquiry.bind(enterpriseInquiryController)
+  )
+);
+router.patch(
+  '/inquiries/:id',
+  asyncHandler(
+    enterpriseInquiryController.updateInquiry.bind(enterpriseInquiryController)
+  )
+);
+router.post(
+  '/inquiries/:id/notes',
+  asyncHandler(
+    enterpriseInquiryController.addNote.bind(enterpriseInquiryController)
+  )
+);
 
 export default router;
