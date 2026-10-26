@@ -21,6 +21,7 @@ build/
 */build/
 **/dist/
 **/build/
+*.tsbuildinfo
 
 # Logs
 logs
@@ -35,9 +36,15 @@ pids
 *.seed
 *.pid.lock
 
-# Testing
+# Testing & Verifier
 coverage/
 .nyc_output/
+plan.json
+verification-manifest.json
+verification-report.md
+e2e-report.json
+test-results/
+playwright-report/
 
 # IDE
 .idea/

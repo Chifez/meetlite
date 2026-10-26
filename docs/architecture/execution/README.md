@@ -12,7 +12,7 @@ The word **MUST** is a release requirement. **SHOULD** requires a written reason
 Agents executing this plan use two project-local, model-invoked skills:
 
 - [`meetlite-engineering-standards`](../../../.agents/skills/meetlite-engineering-standards/SKILL.md) loads and applies the coding rules and production patterns when code, configuration, schema, messages, infrastructure, or runtime behavior changes.
-- [`meetlite-verification-cage`](../../../.agents/skills/meetlite-verification-cage/SKILL.md) enforces the phase state machine, evidence record, seven verification cages, hard stops, canary, and closure rules.
+- [`meetlite-verification-cage`](../../../.agents/skills/meetlite-verification-cage/SKILL.md) enforces the phase state machine, evidence record, eight verification cages (Cage 0 through Cage 7), hard stops, canary, and closure rules.
 
 This document remains the single source of truth. The skills deliberately route agents here instead of maintaining a second copy of the detailed standards.
 
