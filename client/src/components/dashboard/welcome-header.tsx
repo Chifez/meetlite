@@ -77,19 +77,6 @@ export default function WelcomeHeader({
           </div>
         )}
 
-        {onSchedule && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={onSchedule}
-            className="h-9 px-3.5 text-xs font-medium rounded-xl border-border/80 bg-card hover:bg-surface-sunken text-foreground gap-1.5 shadow-2xs"
-          >
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>Schedule</span>
-          </Button>
-        )}
-
         {onQuickMeeting && (
           <Button
             type="button"

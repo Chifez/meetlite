@@ -190,6 +190,7 @@ const Meetings = () => {
           <MeetingListSection
             meetings={meetings.filter((meeting) => !meeting.teamId)}
             loading={loading}
+            onSchedule={openScheduleModal}
           />
         ) : (
           <MeetingCalendarSection

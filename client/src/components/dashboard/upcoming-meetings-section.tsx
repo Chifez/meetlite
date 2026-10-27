@@ -15,6 +15,10 @@ import { useWorkspace } from '@/contexts/workspace-context';
 import { useMeetingsStore } from '@/stores/meetings-store';
 import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'date-fns';
 import { toast } from 'sonner';
+import MeetingDetailsDialog, {
+  extractMeetingParticipants,
+  getInitials,
+} from '@/components/meeting/meeting-details-dialog';
 
 interface UpcomingMeetingsSectionProps {
   meetings: Meeting[];
@@ -33,24 +37,13 @@ const AVATAR_COLORS = [
   'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300',
 ];
 
-function getInitials(nameOrEmail: string): string {
-  if (!nameOrEmail) return 'U';
-  if (nameOrEmail.includes('@')) {
-    return nameOrEmail.slice(0, 2).toUpperCase();
-  }
-  const parts = nameOrEmail.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return parts[0].slice(0, 2).toUpperCase();
-}
-
 export default function UpcomingMeetingsSection({
   meetings,
   loading,
   onSchedule,
 }: UpcomingMeetingsSectionProps) {
   const [activeTab, setActiveTab] = useState<FilterTab>('today');
+  const [detailsMeeting, setDetailsMeeting] = useState<Meeting | null>(null);
   const { currentWorkspaceName } = useWorkspace();
   const canCreateMeetings = useCanCreateMeetings();
   const { openDeleteDialog, startMeeting } = useMeetingsStore();
@@ -173,10 +166,7 @@ export default function UpcomingMeetingsSection({
             const isLive = meeting.status === 'ongoing' || (minutesUntil <= 0 && minutesUntil >= -(meeting.duration || 45));
             const isStartingSoon = minutesUntil > 0 && minutesUntil <= 30;
 
-            const participantsList = [
-              ...(meeting.participants || []),
-              ...(meeting.invites?.map((i) => i.email) || []),
-            ];
+            const participantsList = extractMeetingParticipants(meeting);
             const visibleAvatars = participantsList.slice(0, 2);
             const overflowCount = participantsList.length - visibleAvatars.length;
 
@@ -204,27 +194,36 @@ export default function UpcomingMeetingsSection({
                 {/* Right: Avatars, Status Badge, and Join/Details Button */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   {/* Overlapping Avatar Stack */}
-                  {participantsList.length > 0 && (
-                    <div className="hidden sm:flex items-center -space-x-1.5 mr-1">
-                      {visibleAvatars.map((participant, pIdx) => {
-                        const colorClass = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
-                        return (
-                          <div
-                            key={pIdx}
-                            className={`w-6 h-6 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold ${colorClass}`}
-                            title={participant}
-                          >
-                            {getInitials(participant)}
+                  <div className="flex items-center -space-x-1.5 mr-1">
+                    {participantsList.length > 0 ? (
+                      <>
+                        {visibleAvatars.map((participant, pIdx) => {
+                          const colorClass = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
+                          return (
+                            <div
+                              key={pIdx}
+                              className={`w-6 h-6 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold ${colorClass}`}
+                              title={participant}
+                            >
+                              {getInitials(participant)}
+                            </div>
+                          );
+                        })}
+                        {overflowCount > 0 && (
+                          <div className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-bold">
+                            +{overflowCount}
                           </div>
-                        );
-                      })}
-                      {overflowCount > 0 && (
-                        <div className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-bold">
-                          +{overflowCount}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </>
+                    ) : (
+                      <div
+                        className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-semibold"
+                        title="You (Host)"
+                      >
+                        You
+                      </div>
+                    )}
+                  </div>
 
                   {/* Status Pill */}
                   {isLive ? (
@@ -251,7 +250,7 @@ export default function UpcomingMeetingsSection({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleJoin(meeting)}
+                      onClick={() => setDetailsMeeting(meeting)}
                       className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-foreground hover:bg-surface-sunken"
                     >
                       Details
@@ -270,6 +269,10 @@ export default function UpcomingMeetingsSection({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40 text-xs">
+                      <DropdownMenuItem onClick={() => setDetailsMeeting(meeting)} className="gap-2">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                        <span>View Details</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleCopyLink(meeting)} className="gap-2">
                         <Copy className="h-3.5 w-3.5" />
                         <span>Copy Link</span>
@@ -305,6 +308,15 @@ export default function UpcomingMeetingsSection({
           </button>
         </div>
       )}
+
+      {/* Meeting Details Dialog */}
+      <MeetingDetailsDialog
+        meeting={detailsMeeting}
+        open={!!detailsMeeting}
+        onOpenChange={(open) => !open && setDetailsMeeting(null)}
+        onJoin={handleJoin}
+        onDelete={(m) => openDeleteDialog(m.meetingId)}
+      />
     </div>
   );
 }

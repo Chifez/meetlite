@@ -168,7 +168,6 @@ const Dashboard = () => {
         <WelcomeHeader
           user={user ?? undefined}
           todayMeetingsCount={todayMeetingsCount}
-          onSchedule={openScheduleModal}
           onQuickMeeting={handleQuickMeeting}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
