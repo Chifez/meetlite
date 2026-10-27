@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
 import { useCalendarIntegration } from '@/hooks/use-calendar-integration';
+import { useMeetingAssets } from '@/hooks/use-meeting-assets';
 import { toast } from 'sonner';
 import { extractError } from '@/lib/api-response';
 import SEO from '@/components/seo';
@@ -10,13 +11,16 @@ import { useMeetingForm } from '@/hooks/use-meeting-forms';
 import api from '@/lib/axios';
 import { extractData } from '@/lib/api-response';
 import WelcomeHeader from '@/components/dashboard/welcome-header';
+import DashboardStatsStrip from '@/components/dashboard/dashboard-stats-strip';
 import QuickActions from '@/components/dashboard/quick-action';
 import UpcomingMeetingsSection from '@/components/dashboard/upcoming-meetings-section';
+import RecentRecordingsWidget from '@/components/dashboard/recent-recordings-widget';
 import RecentActivity from '@/components/dashboard/recent-activity';
 import DashboardLayout from '@/components/dashboard/dashboard-layout';
 import SmartSchedulingModal from '@/components/dashboard/smart-scheduling-modal';
 import DeleteMeetingDialog from '@/components/ui/delete-meeting-dialog';
 import { useMeetingsStore, useUIStore } from '@/stores';
+import { isToday } from 'date-fns';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -24,8 +28,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { meetings, loading, fetchMeetings } = useMeetingsStore();
+  const { stats } = useMeetingAssets(activeOrganization?.id);
   const { setGlobalLoading } = useUIStore();
   const { scheduleMeetingOnCalendar } = useCalendarIntegration();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const showScheduleModal = searchParams.get('modal') === 'schedule';
 
@@ -115,15 +121,27 @@ const Dashboard = () => {
     }
   }, [user?.id, activeOrganization?.id, fetchMeetings]);
 
-  // Get upcoming meetings (first 3) - exclude team meetings
-  const organizationMeetings = meetings.filter((meeting) => !meeting.teamId);
-  const upcomingMeetings = organizationMeetings
-    .sort(
-      (a, b) =>
-        new Date(a.scheduledTime).getTime() -
-        new Date(b.scheduledTime).getTime()
-    )
-    .slice(0, 3);
+  // Filter meetings by organization and search query
+  const organizationMeetings = useMemo(() => {
+    return meetings.filter((meeting) => !meeting.teamId);
+  }, [meetings]);
+
+  const filteredMeetings = useMemo(() => {
+    if (!searchQuery.trim()) return organizationMeetings;
+    const q = searchQuery.toLowerCase();
+    return organizationMeetings.filter((m) =>
+      (m.title || '').toLowerCase().includes(q) ||
+      (m.description || '').toLowerCase().includes(q)
+    );
+  }, [organizationMeetings, searchQuery]);
+
+  // Count meetings today
+  const todayMeetingsCount = useMemo(() => {
+    return organizationMeetings.filter((m) => {
+      const date = new Date(m.scheduledTime);
+      return !isNaN(date.getTime()) && isToday(date);
+    }).length;
+  }, [organizationMeetings]);
 
   return (
     <>
@@ -146,21 +164,48 @@ const Dashboard = () => {
       />
 
       <DashboardLayout>
-        <WelcomeHeader user={user ?? undefined} />
-        <QuickActions
+        {/* 1. Top Header Bar: Greeting, Search, Schedule, and Instant Meeting */}
+        <WelcomeHeader
+          user={user ?? undefined}
+          todayMeetingsCount={todayMeetingsCount}
           onSchedule={openScheduleModal}
-          onJoin={joinRoom}
           onQuickMeeting={handleQuickMeeting}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-10">
-          <div className="lg:col-span-8">
+
+        {/* 2. Compact 4-Card Stats Strip */}
+        <DashboardStatsStrip
+          meetings={organizationMeetings}
+          recordingsCount={stats?.totalRecordings || 0}
+          recordingsTotalSize={stats?.totalSize || 0}
+        />
+
+        {/* 3. Main 2:1 Productivity Split */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Main Column (2/3 width) */}
+          <div className="lg:col-span-8 space-y-4">
+            {/* Compact Action Row: Schedule Card + Join Input */}
+            <QuickActions
+              onSchedule={openScheduleModal}
+              onJoin={joinRoom}
+              onQuickMeeting={handleQuickMeeting}
+            />
+
+            {/* Upcoming Meetings Enclosed Card */}
             <UpcomingMeetingsSection
-              meetings={upcomingMeetings}
+              meetings={filteredMeetings}
               loading={loading}
               onSchedule={openScheduleModal}
             />
           </div>
-          <div className="lg:col-span-4">
+
+          {/* Side Rail (1/3 width) */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Recent Recordings Widget */}
+            <RecentRecordingsWidget />
+
+            {/* Recent Activity Feed */}
             <RecentActivity />
           </div>
         </div>

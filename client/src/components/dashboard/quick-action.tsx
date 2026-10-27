@@ -1,124 +1,79 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Keyboard, Play, ArrowRight } from 'lucide-react';
-import { useUIStore } from '@/stores';
+import { Calendar, Keyboard, ArrowRight } from 'lucide-react';
 import { useCanCreateMeetings } from '@/hooks/use-permissions';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { cn } from '@/lib/utils';
 
 export default function QuickActions({
   onSchedule,
   onJoin,
-  onQuickMeeting,
 }: {
   onSchedule: () => void;
   onJoin: (joinRoomId: string) => void;
-  onQuickMeeting: () => void;
+  onQuickMeeting?: () => void;
 }) {
   const { isPersonalMode } = useWorkspace();
   const canCreateMeetings = useCanCreateMeetings();
   const [joinRoomId, setJoinRoomId] = useState('');
-  const { globalLoading } = useUIStore();
 
   const handleJoin = () => {
-    onJoin(joinRoomId);
+    if (joinRoomId.trim()) {
+      onJoin(joinRoomId.trim());
+    }
   };
 
   const showSchedule = isPersonalMode || canCreateMeetings;
 
   return (
-    <div className={cn("grid gap-2 items-stretch", showSchedule ? "md:grid-cols-3" : "md:grid-cols-2")}>
-      {/* 1. Schedule Meeting */}
+    <div className={`grid gap-3 items-stretch ${showSchedule ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+      {/* 1. Schedule Card */}
       {showSchedule && (
-        <div className="glass-card border border-border flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-surface-sunken text-ink flex items-center justify-center border border-border/50">
-                <Plus className="h-5 w-5" />
-              </div>
-              <h3 className="text-base font-bold text-foreground">Schedule Meeting</h3>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Book a meeting slot on the calendar and dispatch email invites to guests automatically.
+        <button
+          type="button"
+          onClick={onSchedule}
+          className="text-left bg-card border border-border/80 hover:border-primary/40 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition-all group flex items-center gap-3.5 cursor-pointer"
+        >
+          <div className="w-9 h-9 rounded-lg bg-surface-sunken text-foreground flex items-center justify-center shrink-0 border border-border/60 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+            <Calendar className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-xs sm:text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+              Schedule
+            </h3>
+            <p className="text-[11px] text-muted-foreground truncate">
+              Book and invite
             </p>
           </div>
-          <div className="pt-4 mt-auto">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSchedule}
-              className="w-full bg-surface text-ink border-border hover:bg-surface-sunken rounded-xl text-xs font-semibold transition-all"
-            >
-              Schedule Meeting
-            </Button>
-          </div>
-        </div>
+        </button>
       )}
 
-      {/* 2. Join Meeting */}
-      <div className="glass-card border border-border flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden">
-        <div className="space-y-4 flex-1 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-surface-sunken text-ink flex items-center justify-center border border-border/50">
-                <Keyboard className="h-5 w-5" />
-              </div>
-              <h3 className="text-base font-bold text-foreground">Join Meeting</h3>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Instantly enter an ongoing video call workspace by inputting its unique code.
-            </p>
-          </div>
-
-          {/* Nested Button Input widget */}
-          <div className="relative flex items-center mt-3 pt-1">
-            <Input
-              placeholder="Enter meeting code"
-              value={joinRoomId}
-              onChange={(e) => setJoinRoomId(e.target.value)}
-              className="pr-10 rounded-xl bg-muted/30 border-border/60 focus:border-primary text-xs h-9"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleJoin();
-                }
-              }}
-            />
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleJoin}
-              className="absolute right-1 h-7.5 w-7.5 hover:bg-primary/20 text-primary rounded-lg transition-colors"
-              disabled={!joinRoomId.trim()}
-              aria-label="Join Room"
-            >
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* 2. Join Meeting with Inline Input */}
+      <div className="bg-card border border-border/80 rounded-xl p-3.5 shadow-2xs flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-surface-sunken text-foreground flex items-center justify-center shrink-0 border border-border/60">
+          <Keyboard className="h-4 w-4 text-muted-foreground" />
         </div>
-      </div>
-
-      {/* 3. Start Instant Meeting */}
-      <div className="glass-card border border-border flex flex-col justify-between p-6 rounded-2xl relative overflow-hidden">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-surface-sunken text-ink flex items-center justify-center border border-border/50">
-              <Play className="h-5 w-5" />
-            </div>
-            <h3 className="text-base font-bold text-foreground">Instant Meeting</h3>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Create an empty meeting lobby immediately and share its direct URL to invite participants.
-          </p>
-        </div>
-        <div className="pt-4 mt-auto">
+        <div className="relative flex-1">
+          <Input
+            placeholder="Enter meeting code"
+            value={joinRoomId}
+            onChange={(e) => setJoinRoomId(e.target.value)}
+            className="pr-8 rounded-lg bg-surface-sunken/60 border-border/80 focus-visible:ring-1 focus-visible:ring-primary text-xs h-8 placeholder:text-muted-foreground/70"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleJoin();
+              }
+            }}
+          />
           <Button
-            size="sm"
-            onClick={onQuickMeeting}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all"
-            disabled={globalLoading}
+            size="icon"
+            variant="ghost"
+            onClick={handleJoin}
+            disabled={!joinRoomId.trim()}
+            className="absolute right-0.5 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-primary hover:bg-transparent rounded-md transition-colors"
+            aria-label="Join Room"
           >
-            {globalLoading ? 'Creating Room...' : 'Instant Meeting'}
+            <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
