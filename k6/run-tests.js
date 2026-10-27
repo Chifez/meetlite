@@ -48,6 +48,16 @@ const TARGET_MAP = {
   'room:stress': 'backend/scenarios/rooms/stress.js',
   'rooms:stress': 'backend/scenarios/rooms/stress.js',
 
+  // Single-Room Participant Ramp (Hot Partition Breakpoint)
+  'room:ramp': 'backend/scenarios/websocket/room-participant-ramp.js',
+  'participant:ramp': 'backend/scenarios/websocket/room-participant-ramp.js',
+  'hot-room:ramp': 'backend/scenarios/websocket/room-participant-ramp.js',
+
+  // Multi-Room Concurrency Ramp (Horizontal Scalability Breakpoint)
+  'rooms:ramp': 'backend/scenarios/websocket/multi-room-ramp.js',
+  'cluster:ramp': 'backend/scenarios/websocket/multi-room-ramp.js',
+  'multi-room:ramp': 'backend/scenarios/websocket/multi-room-ramp.js',
+
   // Edge Coordinator (Cloudflare Durable Object Native WebSocket)
   'coordinator:load': 'backend/scenarios/websocket/coordinator-load.js',
   coordinator: 'backend/scenarios/websocket/coordinator-load.js',
@@ -217,6 +227,8 @@ function printHelp() {
   console.log('  auth:load             Authentication & profile journey');
   console.log('  room:load             Room creation & admission');
   console.log('  room:stress           Room capacity stress test');
+  console.log('  room:ramp             Single-room participant ramp (hot room breakpoint)');
+  console.log('  rooms:ramp            Multi-room concurrency ramp (cluster scale breakpoint)');
   console.log('  coordinator:load      Native Cloudflare Edge WebSocket');
   console.log('  websocket:load        Mediasoup Socket.IO signalling');
   console.log('  client:load           Frontend static & deep-link load');
