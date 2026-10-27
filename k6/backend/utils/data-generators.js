@@ -70,9 +70,10 @@ export function generateUser() {
  * - ?? is nullish coalescing - uses default if value is null or undefined
  * - || is logical OR - uses default if value is falsy (null, undefined, false, 0, '')
  */
-export function generateRoom(settings = {}) {
+export function generateRoom(inputSettings = {}) {
   counter.room++;
   const timestamp = Date.now();
+  const settings = inputSettings.settings || inputSettings;
 
   return {
     // Generate unique room ID

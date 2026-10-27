@@ -1,4 +1,4 @@
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 import ws from 'k6/ws';
 import { Rate, Trend } from 'k6/metrics';
 import { createTestOptions } from '../../../shared/test-executors.js';
@@ -10,6 +10,7 @@ import { CONFIG } from '../../../config/index.js';
 
 const coordWsSuccess = new Rate('coord_ws_connection_success');
 const coordWsTime = new Trend('coord_ws_connection_time');
+const vuTokens = new Map();
 
 export const options = createTestOptions('load', {
   thresholds: {
@@ -23,7 +24,11 @@ export function setup() {
   if (!token) throw new Error('Failed to authenticate during setup');
 
   const client = new ApiClient(token);
-  const roomData = generateRoom();
+  const roomData = generateRoom({
+    settings: {
+      maxParticipants: 200,
+    },
+  });
   const roomRes = client.post(ENDPOINTS.rooms.create(), {
     settings: roomData.settings,
   });
@@ -38,20 +43,29 @@ export default function (data) {
   const participantNumber = ((__VU - 1) % CONFIG.testUsers.poolSize) + 1;
   const email = `${CONFIG.testUsers.prefix}-${participantNumber}@meetlite.test`;
   const password = `TestPassword${participantNumber}!`;
-  const participantToken = login(email, password);
+
+  let participantToken = vuTokens.get(__VU);
   if (!participantToken) {
-    coordWsSuccess.add(0);
-    return;
+    participantToken = login(email, password);
+    if (!participantToken) {
+      coordWsSuccess.add(0);
+      return;
+    }
+    vuTokens.set(__VU, participantToken);
   }
 
   const client = new ApiClient(participantToken);
   const joinResponse = client.post(
     `${ENDPOINTS.rooms.join(roomId)}?includeCapability=true`
   );
+  if (joinResponse.status !== 200) {
+    coordWsSuccess.add(0);
+    return;
+  }
   const joinBody = joinResponse.json();
   const capabilityToken =
     joinBody?.data?.capabilityToken || joinBody?.capabilityToken;
-  if (joinResponse.status !== 200 || !capabilityToken) {
+  if (!capabilityToken) {
     coordWsSuccess.add(0);
     return;
   }
@@ -91,4 +105,6 @@ export default function (data) {
   check(res, {
     'protocol switching 101': (r) => r && r.status === 101,
   });
+
+  sleep(0.5);
 }
