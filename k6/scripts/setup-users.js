@@ -15,11 +15,17 @@ import http from 'http';
 import { CONFIG } from '../config/index.js';
 import { ENDPOINTS } from '../config/endpoints.js';
 
-// Get command line arguments
-// process.argv[0] = node executable
-// process.argv[1] = script path
-// process.argv[2] = first argument (user count)
-const userCount = parseInt(process.argv[2] || '10', 10);
+// Parse user count from command line arguments
+// Supports: node setup-users.js 50, node setup-users.js vus 50, node setup-users.js --vus 50
+const args = process.argv.slice(2);
+let userCount = 50;
+for (const arg of args) {
+  const match = arg.match(/\d+/);
+  if (match) {
+    userCount = parseInt(match[0], 10);
+    break;
+  }
+}
 const baseUrl = CONFIG.apiGateway.baseUrl;
 
 console.log(`🚀 Creating ${userCount} test users...`);

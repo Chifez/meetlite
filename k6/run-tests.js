@@ -178,6 +178,7 @@ function printList() {
   }
   console.log('');
   console.log(`${colors.yellow}Examples:${colors.reset}`);
+  console.log('  npm run k6 seed vus 50');
   console.log('  npm run k6 -- meeting:load --smoke');
   console.log('  npm run k6 -- --vus 5 --duration 10s meeting:load');
   console.log('  npm run k6 -- coordinator:load --smoke');
@@ -189,6 +190,7 @@ function printList() {
 function printHelp() {
   console.log(`${colors.yellow}Usage:${colors.reset}`);
   console.log('  npm run k6 -- [target] [flags]');
+  console.log('  npm run k6 seed [vus <n>]');
   console.log('  node run-tests.js [target] [flags]');
   console.log('  node run-tests.js [category] [test-type]');
   console.log('');
@@ -205,6 +207,10 @@ function printHelp() {
   console.log('  --duration <time>     Test duration (e.g. 10s, 1m)');
   console.log('  --iterations <n>      Total iterations to execute');
   console.log('  --http-debug          Log full HTTP requests & responses');
+  console.log('');
+  console.log(`${colors.yellow}Utilities:${colors.reset}`);
+  console.log('  seed [vus <n>]        Seed N virtual test users into DB (default: 50)');
+  console.log('                        e.g. npm run k6 seed vus 50');
   console.log('');
   console.log(`${colors.yellow}Targets:${colors.reset}`);
   console.log('  meeting:load          Meeting lifecycle journey');
@@ -298,6 +304,37 @@ async function main() {
     printHeader();
     printList();
     return;
+  }
+
+  // Handle user seeding command (e.g. `npm run k6 seed vus 50`, `npm run k6 seed 50`, `npm run k6 seed:vus 50`)
+  if (
+    rawArgs[0] === 'seed' ||
+    rawArgs[0]?.startsWith('seed:') ||
+    rawArgs[0] === 'seed:vus' ||
+    rawArgs[0] === 'seed:users'
+  ) {
+    printHeader();
+    let count = 50;
+    for (const token of rawArgs) {
+      if (/^\d+$/.test(token)) {
+        count = parseInt(token, 10);
+        break;
+      }
+      const match = token.match(/(\d+)/);
+      if (match && !token.startsWith('seed')) {
+        count = parseInt(match[1], 10);
+        break;
+      }
+    }
+    const scriptPath = join(__dirname, 'scripts', 'setup-users.js');
+    console.log(
+      `${colors.cyan}🌱 Seeding ${count} virtual test users for K6...${colors.reset}\n`
+    );
+    const result = spawnSync('node', [scriptPath, String(count)], {
+      stdio: 'inherit',
+      cwd: __dirname,
+    });
+    process.exit(result.status ?? 0);
   }
 
   if (!checkK6()) {

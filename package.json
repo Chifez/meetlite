@@ -24,6 +24,7 @@
     "test:contracts": "npx tsx --test 'backend/packages/**/src/**/*contract*.test.ts'",
     "test:e2e": "npx playwright test",
     "k6": "node k6/run-tests.js",
+    "k6:seed": "node k6/scripts/setup-users.js",
     "verify": "npx tsx tools/verifier/src/cli.ts verify",
     "verify:plan": "npx tsx tools/verifier/src/cli.ts plan",
     "clean": "npm run clean --workspaces",
