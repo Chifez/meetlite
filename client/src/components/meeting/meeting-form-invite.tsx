@@ -18,6 +18,7 @@ export default function MeetingFormInvite({
   onInviteInputKeyDown,
   invitees,
   removeInvitee,
+  onAddInvitee,
 }: any) {
   return (
     <div className="flex gap-2 items-end">
@@ -48,16 +49,31 @@ export default function MeetingFormInvite({
             </Badge>
           ))}
         </div>
-        <Input
-          value={inviteInput}
-          onChange={onInviteInputChange}
-          onKeyDown={onInviteInputKeyDown}
-          placeholder={
-            inviteMethod === 'email'
-              ? 'Enter email and press Enter'
-              : 'Enter WhatsApp number and press Enter'
-          }
-        />
+        <div className="flex gap-1.5">
+          <Input
+            value={inviteInput}
+            onChange={onInviteInputChange}
+            onKeyDown={onInviteInputKeyDown}
+            placeholder={
+              inviteMethod === 'email'
+                ? 'Enter email and press Enter or Add'
+                : 'Enter WhatsApp number'
+            }
+            className="flex-1"
+          />
+          {onAddInvitee && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddInvitee}
+              disabled={!inviteInput || !inviteInput.trim()}
+              className="h-9 px-3 text-xs shrink-0"
+            >
+              Add
+            </Button>
+          )}
+        </div>
       </div>
       <div className="w-1/3">
         <label className="block mb-1 font-medium">Method</label>

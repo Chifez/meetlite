@@ -115,8 +115,36 @@ const MeetingForm = ({
     [hour, minute, ampm]
   );
 
+  const addInvitee = useCallback(() => {
+    if (!inviteInput.trim()) return;
+    if (inviteMethod === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(inviteInput.trim())) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+      onParticipantInput({
+        target: { name: 'participantInput', value: inviteInput.trim() },
+      } as any);
+    } else if (inviteMethod === 'whatsapp') {
+      if (/^\d{7,15}$/.test(inviteInput.replace(/\D/g, ''))) {
+        onParticipantInput({
+          target: { name: 'participantInput', value: inviteInput.trim() },
+        } as any);
+      } else {
+        toast.error('Please enter a valid WhatsApp number');
+        return;
+      }
+    }
+    setInviteInput('');
+    onInputChange({ target: { name: 'participantInput', value: '' } } as any);
+  }, [inviteInput, inviteMethod, onParticipantInput, onInputChange]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inviteInput.trim()) {
+      addInvitee();
+    }
     await onSubmit();
   };
 
@@ -158,36 +186,17 @@ const MeetingForm = ({
 
   const handleInviteInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInviteInput(e.target.value);
+    onInputChange({ target: { name: 'participantInput', value: e.target.value } } as any);
   };
 
   const handleInviteKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && inviteInput.trim()) {
         e.preventDefault();
-        if (inviteMethod === 'email') {
-          // Email validation
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(inviteInput.trim())) {
-            toast.error('Please enter a valid email address');
-            return;
-          }
-          onParticipantInput({
-            target: { name: 'participantInput', value: inviteInput },
-          } as any);
-        } else if (inviteMethod === 'whatsapp') {
-          if (/^\d{7,15}$/.test(inviteInput.replace(/\D/g, ''))) {
-            onParticipantInput({
-              target: { name: 'participantInput', value: inviteInput },
-            } as any);
-          } else {
-            toast.error('Please enter a valid WhatsApp number');
-            return;
-          }
-        }
-        setInviteInput('');
+        addInvitee();
       }
     },
-    [inviteInput, inviteMethod, onParticipantInput]
+    [inviteInput, addInvitee]
   );
 
   const handleGenerateDescription = useCallback(async () => {
@@ -330,6 +339,7 @@ const MeetingForm = ({
             onInviteInputKeyDown={handleInviteKeyDown}
             invitees={formData.participants}
             removeInvitee={onRemoveParticipant}
+            onAddInvitee={addInvitee}
           />
         </CardContent>
         {!hideFooter && (

@@ -268,11 +268,9 @@ export default function MeetingListSection({
                         <span className="text-xs font-semibold text-foreground font-mono block">
                           {timeStr}
                         </span>
-                        {!isToday(scheduledDate) && (
-                          <span className="text-[10px] text-muted-foreground block truncate">
-                            {dateChip}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-muted-foreground font-medium block truncate">
+                          {isToday(scheduledDate) ? 'Today' : isTomorrow(scheduledDate) ? 'Tomorrow' : dateChip}
+                        </span>
                       </div>
 
                       {/* Title & metadata */}
@@ -312,36 +310,27 @@ export default function MeetingListSection({
                     {/* Right: Avatars, Status Pill, and Actions */}
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       {/* Avatar Stack */}
-                      <div className="flex items-center -space-x-1.5 mr-1">
-                        {participantsList.length > 0 ? (
-                          <>
-                            {visibleAvatars.map((p, pIdx) => {
-                              const colorClass = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
-                              return (
-                                <div
-                                  key={pIdx}
-                                  className={`w-6 h-6 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold ${colorClass}`}
-                                  title={p}
-                                >
-                                  {getInitials(p)}
-                                </div>
-                              );
-                            })}
-                            {overflowCount > 0 && (
-                              <div className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-bold">
-                                +{overflowCount}
+                      {participantsList.length > 0 && (
+                        <div className="flex items-center -space-x-1.5 mr-1">
+                          {visibleAvatars.map((p, pIdx) => {
+                            const colorClass = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
+                            return (
+                              <div
+                                key={pIdx}
+                                className={`w-6 h-6 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold ${colorClass}`}
+                                title={p}
+                              >
+                                {getInitials(p)}
                               </div>
-                            )}
-                          </>
-                        ) : (
-                          <div
-                            className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-semibold"
-                            title="You (Host)"
-                          >
-                            You
-                          </div>
-                        )}
-                      </div>
+                            );
+                          })}
+                          {overflowCount > 0 && (
+                            <div className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-bold">
+                              +{overflowCount}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Status Pill */}
                       {isOngoing ? (

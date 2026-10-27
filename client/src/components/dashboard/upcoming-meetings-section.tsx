@@ -157,9 +157,15 @@ export default function UpcomingMeetingsSection({
         <div className="divide-y divide-border/60">
           {filteredMeetings.slice(0, 5).map((meeting) => {
             const scheduledDate = new Date(meeting.scheduledTime);
-            const timeStr = !isNaN(scheduledDate.getTime())
-              ? format(scheduledDate, 'HH:mm')
-              : '--:--';
+            const isValidDate = !isNaN(scheduledDate.getTime());
+            const timeStr = isValidDate ? format(scheduledDate, 'HH:mm') : '--:--';
+            const dateStr = isValidDate
+              ? isToday(scheduledDate)
+                ? 'Today'
+                : isTomorrow(scheduledDate)
+                ? 'Tomorrow'
+                : format(scheduledDate, 'EEE, MMM d')
+              : '';
 
             const now = new Date();
             const minutesUntil = differenceInMinutes(scheduledDate, now);
@@ -177,9 +183,16 @@ export default function UpcomingMeetingsSection({
               >
                 {/* Left: Time and Meeting Info */}
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <span className="text-xs font-semibold text-muted-foreground font-mono w-11 sm:w-12 shrink-0">
-                    {timeStr}
-                  </span>
+                  <div className="w-14 sm:w-16 shrink-0 space-y-0.5">
+                    <span className="text-xs font-semibold text-foreground font-mono block">
+                      {timeStr}
+                    </span>
+                    {dateStr && (
+                      <span className="text-[10px] text-muted-foreground font-medium block truncate">
+                        {dateStr}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="min-w-0">
                     <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
@@ -194,36 +207,27 @@ export default function UpcomingMeetingsSection({
                 {/* Right: Avatars, Status Badge, and Join/Details Button */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   {/* Overlapping Avatar Stack */}
-                  <div className="flex items-center -space-x-1.5 mr-1">
-                    {participantsList.length > 0 ? (
-                      <>
-                        {visibleAvatars.map((participant, pIdx) => {
-                          const colorClass = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
-                          return (
-                            <div
-                              key={pIdx}
-                              className={`w-6 h-6 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold ${colorClass}`}
-                              title={participant}
-                            >
-                              {getInitials(participant)}
-                            </div>
-                          );
-                        })}
-                        {overflowCount > 0 && (
-                          <div className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-bold">
-                            +{overflowCount}
+                  {participantsList.length > 0 && (
+                    <div className="flex items-center -space-x-1.5 mr-1">
+                      {visibleAvatars.map((participant, pIdx) => {
+                        const colorClass = AVATAR_COLORS[pIdx % AVATAR_COLORS.length];
+                        return (
+                          <div
+                            key={pIdx}
+                            className={`w-6 h-6 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold ${colorClass}`}
+                            title={participant}
+                          >
+                            {getInitials(participant)}
                           </div>
-                        )}
-                      </>
-                    ) : (
-                      <div
-                        className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-semibold"
-                        title="You (Host)"
-                      >
-                        You
-                      </div>
-                    )}
-                  </div>
+                        );
+                      })}
+                      {overflowCount > 0 && (
+                        <div className="w-6 h-6 rounded-full border-2 border-card bg-surface-sunken text-muted-foreground flex items-center justify-center text-[9px] font-bold">
+                          +{overflowCount}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Status Pill */}
                   {isLive ? (
