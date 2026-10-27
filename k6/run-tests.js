@@ -216,6 +216,7 @@ function printHelp() {
   console.log('  --vus <n>             Number of virtual users');
   console.log('  --duration <time>     Test duration (e.g. 10s, 1m)');
   console.log('  --iterations <n>      Total iterations to execute');
+  console.log('  --users-per-room <n>  Occupants per room for multi-room tests (default: 2)');
   console.log('  --http-debug          Log full HTTP requests & responses');
   console.log('');
   console.log(`${colors.yellow}Utilities:${colors.reset}`);
@@ -417,6 +418,24 @@ async function main() {
 
     if (arg === '--http-debug') {
       extraK6Args.push('--http-debug');
+      continue;
+    }
+
+    if (arg === '--users-per-room' || arg === '--room-size') {
+      const val = requirePositiveInteger(rawArgs[++i], arg);
+      extraK6Args.push('--env', `USERS_PER_ROOM=${val}`);
+      continue;
+    }
+
+    if (arg.startsWith('--users-per-room=')) {
+      const val = requirePositiveInteger(arg.slice(17), '--users-per-room');
+      extraK6Args.push('--env', `USERS_PER_ROOM=${val}`);
+      continue;
+    }
+
+    if (arg.startsWith('--room-size=')) {
+      const val = requirePositiveInteger(arg.slice(12), '--room-size');
+      extraK6Args.push('--env', `USERS_PER_ROOM=${val}`);
       continue;
     }
 

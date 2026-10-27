@@ -13,20 +13,22 @@ const chatBroadcastSuccess = new Rate('multi_room_chat_broadcast_success');
 const wsConnectionTime = new Trend('multi_room_ws_connection_time');
 const activeRoomsGauge = new Counter('multi_room_active_rooms');
 
-// Fixed number of participants per room (e.g. 2 participants for 1-on-1 meetings)
-const USERS_PER_ROOM = 2;
+// Number of participants per room (configurable via --users-per-room or --env USERS_PER_ROOM, defaults to 2)
+const USERS_PER_ROOM = parseInt(
+  (typeof __ENV !== 'undefined' && __ENV.USERS_PER_ROOM) || '2',
+  10
+);
 
 // Stepped Ramping Stages: ramps up the number of CONCURRENT ROOMS
-// 10 VUs = 5 rooms | 20 VUs = 10 rooms | 50 VUs = 25 rooms | 100 VUs = 50 rooms
 export const options = {
   stages: [
-    { duration: '15s', target: 10 },  // 5 active rooms
+    { duration: '15s', target: 10 },  // Phase 1 ramp
     { duration: '20s', target: 10 },
-    { duration: '15s', target: 20 },  // 10 active rooms
+    { duration: '15s', target: 20 },  // Phase 2 ramp
     { duration: '20s', target: 20 },
-    { duration: '15s', target: 50 },  // 25 active rooms
+    { duration: '15s', target: 50 },  // Phase 3 ramp
     { duration: '20s', target: 50 },
-    { duration: '15s', target: 100 }, // 50 active rooms (breakpoint target)
+    { duration: '15s', target: 100 }, // Phase 4 ramp (up to 100 VUs)
     { duration: '20s', target: 100 },
     { duration: '15s', target: 0 },   // Graceful ramp down
   ],
@@ -44,14 +46,19 @@ export function setup() {
   if (!token) throw new Error('Failed to authenticate during setup');
 
   const client = new ApiClient(token);
-  const totalRoomsToCreate = 50; // Pre-provision 50 distinct isolated rooms
+  const usersPerRoom = USERS_PER_ROOM;
+  const maxRoomCapacity = Math.max(50, usersPerRoom * 3);
+  // Pre-provision enough rooms for up to 100 concurrent VUs
+  const totalRoomsToCreate = Math.max(25, Math.ceil(100 / usersPerRoom));
   const rooms = [];
 
-  console.log(`\n🏢 Pre-provisioning ${totalRoomsToCreate} distinct rooms for Multi-Room Scalability Test...`);
+  console.log(
+    `\n🏢 Multi-Room Scalability Config: ${usersPerRoom} users/room | Target: ${totalRoomsToCreate} distinct rooms (maxCapacity: ${maxRoomCapacity})`
+  );
   for (let i = 1; i <= totalRoomsToCreate; i++) {
     const roomData = generateRoom({
       name: `Multi-Room Load Test ${i}`,
-      settings: { maxParticipants: 10 },
+      settings: { maxParticipants: maxRoomCapacity },
     });
     const res = client.post(ENDPOINTS.rooms.create(), {
       settings: roomData.settings,
@@ -64,7 +71,7 @@ export function setup() {
   }
 
   console.log(`✅ Successfully initialized ${rooms.length} distinct rooms across the cluster.\n`);
-  return { token, rooms };
+  return { token, rooms, usersPerRoom };
 }
 
 export default function (data) {
@@ -74,10 +81,8 @@ export default function (data) {
     return;
   }
 
-  // Calculate which room this VU belongs to
-  // With USERS_PER_ROOM = 2:
-  // VU 1 & 2 -> Room 0 | VU 3 & 4 -> Room 1 | VU 5 & 6 -> Room 2, etc.
-  const roomIndex = Math.floor((__VU - 1) / USERS_PER_ROOM) % rooms.length;
+  const usersPerRoom = data.usersPerRoom || USERS_PER_ROOM;
+  const roomIndex = Math.floor((__VU - 1) / usersPerRoom) % rooms.length;
   const roomId = rooms[roomIndex];
 
   const participantNumber = ((__VU - 1) % CONFIG.testUsers.poolSize) + 1;
@@ -135,7 +140,7 @@ export default function (data) {
           wsConnectionTime.add(Date.now() - start);
 
           // Track active room concurrency (only first user in room increments gauge)
-          if ((__VU - 1) % USERS_PER_ROOM === 0) {
+          if ((__VU - 1) % usersPerRoom === 0) {
             activeRoomsGauge.add(1);
           }
 
@@ -164,7 +169,7 @@ export default function (data) {
     });
 
     socket.on('close', () => {
-      if ((__VU - 1) % USERS_PER_ROOM === 0) {
+      if ((__VU - 1) % usersPerRoom === 0) {
         activeRoomsGauge.add(-1);
       }
     });
