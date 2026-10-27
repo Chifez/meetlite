@@ -217,6 +217,8 @@ function printHelp() {
   console.log('  --duration <time>     Test duration (e.g. 10s, 1m)');
   console.log('  --iterations <n>      Total iterations to execute');
   console.log('  --users-per-room <n>  Occupants per room for multi-room tests (default: 2)');
+  console.log('  --hold-period <time>  Hold duration at each stage tier (e.g. 30s, 1m)');
+  console.log('  --ramp-period <time>  Transition ramp duration between tiers (e.g. 15s)');
   console.log('  --http-debug          Log full HTTP requests & responses');
   console.log('');
   console.log(`${colors.yellow}Utilities:${colors.reset}`);
@@ -436,6 +438,42 @@ async function main() {
     if (arg.startsWith('--room-size=')) {
       const val = requirePositiveInteger(arg.slice(12), '--room-size');
       extraK6Args.push('--env', `USERS_PER_ROOM=${val}`);
+      continue;
+    }
+
+    if (arg === '--hold' || arg === '--hold-period') {
+      const val = requireDuration(rawArgs[++i]);
+      extraK6Args.push('--env', `HOLD_PERIOD=${val}`);
+      continue;
+    }
+
+    if (arg.startsWith('--hold=')) {
+      const val = requireDuration(arg.slice(7));
+      extraK6Args.push('--env', `HOLD_PERIOD=${val}`);
+      continue;
+    }
+
+    if (arg.startsWith('--hold-period=')) {
+      const val = requireDuration(arg.slice(14));
+      extraK6Args.push('--env', `HOLD_PERIOD=${val}`);
+      continue;
+    }
+
+    if (arg === '--ramp' || arg === '--ramp-period') {
+      const val = requireDuration(rawArgs[++i]);
+      extraK6Args.push('--env', `RAMP_PERIOD=${val}`);
+      continue;
+    }
+
+    if (arg.startsWith('--ramp=')) {
+      const val = requireDuration(arg.slice(7));
+      extraK6Args.push('--env', `RAMP_PERIOD=${val}`);
+      continue;
+    }
+
+    if (arg.startsWith('--ramp-period=')) {
+      const val = requireDuration(arg.slice(14));
+      extraK6Args.push('--env', `RAMP_PERIOD=${val}`);
       continue;
     }
 

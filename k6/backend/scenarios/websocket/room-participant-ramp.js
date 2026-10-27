@@ -14,18 +14,42 @@ const wsConnectionTime = new Trend('room_ramp_ws_connection_time');
 const chatBroadcastLatency = new Trend('room_ramp_chat_broadcast_latency');
 const activeParticipants = new Counter('room_ramp_active_participants');
 
+function parseDurationMs(durationStr, fallbackMs = 30000) {
+  if (!durationStr) return fallbackMs;
+  const match = String(durationStr).match(/^(\d+)(ms|s|m|h)$/);
+  if (!match) return fallbackMs;
+  const val = parseInt(match[1], 10);
+  const unit = match[2];
+  if (unit === 'ms') return val;
+  if (unit === 's') return val * 1000;
+  if (unit === 'm') return val * 60 * 1000;
+  if (unit === 'h') return val * 3600 * 1000;
+  return fallbackMs;
+}
+
+// Configurable hold period before advancing to the next ramp stage (default: 30s)
+const holdPeriod =
+  (typeof __ENV !== 'undefined' && (__ENV.HOLD_PERIOD || __ENV.HOLD)) || '30s';
+const rampPeriod =
+  (typeof __ENV !== 'undefined' && (__ENV.RAMP_PERIOD || __ENV.RAMP)) || '15s';
+
 // Stepped Ramping Stages: gradually increases concurrent users inside the SAME room
+// Each tier ramps up to the target and holds for `holdPeriod` to observe steady-state load
 export const options = {
   stages: [
-    { duration: '15s', target: 10 },  // Phase 1: 10 participants
-    { duration: '20s', target: 10 },
-    { duration: '15s', target: 25 },  // Phase 2: 25 participants
-    { duration: '20s', target: 25 },
-    { duration: '15s', target: 50 },  // Phase 3: 50 participants
-    { duration: '20s', target: 50 },
-    { duration: '15s', target: 100 }, // Phase 4: 100 participants (breakpoint target)
-    { duration: '20s', target: 100 },
-    { duration: '15s', target: 0 },   // Graceful ramp down
+    { duration: rampPeriod, target: 10 },
+    { duration: holdPeriod, target: 10 },  // Phase 1 hold
+    { duration: rampPeriod, target: 25 },
+    { duration: holdPeriod, target: 25 },  // Phase 2 hold
+    { duration: rampPeriod, target: 50 },
+    { duration: holdPeriod, target: 50 },  // Phase 3 hold
+    { duration: rampPeriod, target: 100 },
+    { duration: holdPeriod, target: 100 }, // Phase 4 hold
+    { duration: rampPeriod, target: 150 },
+    { duration: holdPeriod, target: 150 }, // Phase 5 hold
+    { duration: rampPeriod, target: 200 },
+    { duration: holdPeriod, target: 200 }, // Phase 6 hold
+    { duration: rampPeriod, target: 0 },   // Graceful cooldown
   ],
   thresholds: {
     room_ramp_ws_connection_success: ['rate>0.90'],
@@ -53,8 +77,9 @@ export function setup() {
 
   const body = roomRes.json();
   const roomId = body?.data?.roomId || body?.roomId || 'test-room-ramp';
-  console.log(`\n🎯 Created Single Room Breakpoint Target: ${roomId} (Max: 1000 users)\n`);
-  return { token, roomId };
+  console.log(`\n🎯 Single Room Breakpoint Target: ${roomId} (Max: 1000 users)`);
+  console.log(`⏱️  Ramp Configuration: Hold=${holdPeriod} per tier | Ramp=${rampPeriod}\n`);
+  return { token, roomId, holdPeriod };
 }
 
 export default function (data) {
@@ -94,8 +119,8 @@ export default function (data) {
   const baseUrl = CONFIG.services.edgeCoordinator.replace(/\/$/, '');
   const url = `${baseUrl}/rooms/${encodeURIComponent(roomId)}/websocket`;
 
-  // Sustained connection duration per iteration (15 seconds of active interaction)
-  const sessionDurationMs = 15000;
+  // Sustained connection duration per iteration matches the configured hold period
+  const sessionDurationMs = parseDurationMs(data.holdPeriod || holdPeriod, 30000);
   const start = Date.now();
 
   const res = ws.connect(url, {}, function (socket) {
