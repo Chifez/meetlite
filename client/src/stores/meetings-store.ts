@@ -28,7 +28,11 @@ interface MeetingsState {
   // Meeting actions
   fetchMeetings: (userId?: string) => Promise<void>;
   createMeeting: (meetingData: any) => Promise<string | null>;
-  deleteMeeting: (meetingId: string) => Promise<void>;
+  deleteMeeting: (
+    meetingId: string,
+    scope?: 'occurrence' | 'following' | 'series',
+    reason?: string
+  ) => Promise<void>;
   deleteGoogleCalendarMeeting: (externalId: string) => Promise<void>;
   startMeeting: (meetingId: string) => Promise<string>;
   completeMeeting: (meetingId: string) => Promise<void>;
@@ -123,20 +127,23 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
     }
   },
 
-  deleteMeeting: async (meetingId) => {
+  deleteMeeting: async (meetingId, scope, reason) => {
     try {
       set({ deleting: true });
-      await api.delete(`/api/meetings/${meetingId}`);
+      if (scope) {
+        await api.post(
+          `/api/meetings/${meetingId}/cancel`,
+          { scope, reason, expectedRevision: 1 },
+          { headers: { 'x-meeting-v2': 'true' } }
+        );
+      } else {
+        await api.delete(`/api/meetings/${meetingId}`);
+      }
 
-      set((state) => ({
-        meetings: state.meetings.filter(
-          (meeting) => meeting.meetingId !== meetingId
-        ),
-      }));
-
-      toast.success('Meeting deleted successfully');
+      await get().fetchMeetings();
+      toast.success(scope ? 'Meeting cancelled successfully' : 'Meeting deleted successfully');
     } catch (error) {
-      toast.error(extractError(error) || 'Failed to delete meeting. Please try again.');
+      toast.error(extractError(error) || 'Failed to cancel meeting. Please try again.');
       console.error('Delete meeting error:', error);
       throw error;
     } finally {

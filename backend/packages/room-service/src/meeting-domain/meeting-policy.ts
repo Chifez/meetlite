@@ -43,6 +43,7 @@ export interface MeetingView {
 
 export interface PolicyPrincipal {
   userId: string;
+  email?: string;
   orgId?: string | null;
   role?: string;
 }

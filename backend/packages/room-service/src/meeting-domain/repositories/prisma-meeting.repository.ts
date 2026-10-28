@@ -16,6 +16,9 @@ import {
   CreateOccurrenceSeedParams,
   MeetingSeriesStatus,
   MeetingLifecycleStatus,
+  UpdateOccurrenceParams,
+  UpdateSeriesAndOccurrencesParams,
+  SplitSeriesAtOccurrenceParams,
 } from './meeting-repository.types.js';
 import { parseLocalDate, parseLocalTime, parseIanaTimeZone } from '../time/zoned-date-time.js';
 
@@ -429,5 +432,295 @@ export class PrismaMeetingRepository implements MeetingRepository {
     });
 
     return rawList.map((raw) => this.mapSeries(raw));
+  }
+
+  async updateMeetingOccurrence(
+    params: UpdateOccurrenceParams
+  ): Promise<MeetingOccurrenceRecord> {
+    const meeting = await this.findMeetingById(params.meetingId, params.tenant);
+    if (!meeting) {
+      throw new Error(`MEETING_NOT_FOUND: ${params.meetingId}`);
+    }
+
+    if (meeting.lifecycleRevision !== params.expectedRevision) {
+      const err: any = new Error(
+        `MEETING_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${meeting.lifecycleRevision}`
+      );
+      err.code = 'MEETING_REVISION_CONFLICT';
+      throw err;
+    }
+
+    const data: any = {
+      lifecycleRevision: { increment: 1 },
+    };
+    if (params.patch.title !== undefined) data.title = params.patch.title;
+    if (params.patch.description !== undefined) data.description = params.patch.description;
+    if (params.patch.scheduledAt !== undefined) {
+      data.scheduledAt = params.patch.scheduledAt;
+      data.scheduledTime = params.patch.scheduledAt; // Compatibility
+    }
+    if (params.patch.eventTimeZone !== undefined) data.eventTimeZone = params.patch.eventTimeZone;
+    if (params.patch.durationMinutes !== undefined) {
+      data.durationMinutes = params.patch.durationMinutes;
+      data.duration = params.patch.durationMinutes; // Compatibility
+    }
+    if (params.patch.privacy !== undefined) data.privacy = params.patch.privacy;
+
+    const updated = await this.prisma.meeting.update({
+      where: { id: meeting.id },
+      data,
+    });
+
+    return this.mapOccurrence(updated);
+  }
+
+  async cancelMeetingOccurrence(params: {
+    meetingId: string;
+    expectedRevision: number;
+    tenant: TenantContext;
+  }): Promise<MeetingOccurrenceRecord> {
+    return this.updateMeetingStatus({
+      meetingId: params.meetingId,
+      status: 'cancelled',
+      expectedRevision: params.expectedRevision,
+      tenant: params.tenant,
+    });
+  }
+
+  async cancelSeries(params: {
+    seriesId: string;
+    expectedRevision: number;
+    tenant: TenantContext;
+  }): Promise<{ series: MeetingSeriesRecord; cancelledOccurrencesCount: number }> {
+    return await this.prisma.$transaction(async (tx) => {
+      const series = await this.findSeriesById(params.seriesId, params.tenant);
+      if (!series) {
+        throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+      }
+
+      if (series.revision !== params.expectedRevision) {
+        const err: any = new Error(
+          `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${series.revision}`
+        );
+        err.code = 'SERIES_REVISION_CONFLICT';
+        throw err;
+      }
+
+      const updatedSeries = await tx.meetingSeries.update({
+        where: { id: series.id },
+        data: {
+          status: 'CANCELLED',
+          revision: { increment: 1 },
+        },
+      });
+
+      const updatedOccurrences = await tx.meeting.updateMany({
+        where: {
+          seriesId: series.id,
+          status: { in: ['scheduled', 'ongoing'] },
+        },
+        data: {
+          status: 'cancelled',
+          lifecycleRevision: { increment: 1 },
+        },
+      });
+
+      return {
+        series: this.mapSeries(updatedSeries),
+        cancelledOccurrencesCount: updatedOccurrences.count,
+      };
+    });
+  }
+
+  async cancelFollowingOccurrences(params: {
+    seriesId: string;
+    fromOccurrenceKey: string;
+    expectedRevision: number;
+    cappedRule: string;
+    tenant: TenantContext;
+  }): Promise<{ series: MeetingSeriesRecord; cancelledOccurrencesCount: number }> {
+    return await this.prisma.$transaction(async (tx) => {
+      const series = await this.findSeriesById(params.seriesId, params.tenant);
+      if (!series) {
+        throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+      }
+
+      if (series.revision !== params.expectedRevision) {
+        const err: any = new Error(
+          `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${series.revision}`
+        );
+        err.code = 'SERIES_REVISION_CONFLICT';
+        throw err;
+      }
+
+      const updatedSeries = await tx.meetingSeries.update({
+        where: { id: series.id },
+        data: {
+          recurrenceRule: params.cappedRule,
+          revision: { increment: 1 },
+        },
+      });
+
+      const updatedOccurrences = await tx.meeting.updateMany({
+        where: {
+          seriesId: series.id,
+          occurrenceKey: { gte: params.fromOccurrenceKey },
+          status: { in: ['scheduled', 'ongoing'] },
+        },
+        data: {
+          status: 'cancelled',
+          lifecycleRevision: { increment: 1 },
+        },
+      });
+
+      return {
+        series: this.mapSeries(updatedSeries),
+        cancelledOccurrencesCount: updatedOccurrences.count,
+      };
+    });
+  }
+
+  async updateSeriesAndOccurrences(
+    params: UpdateSeriesAndOccurrencesParams
+  ): Promise<{ series: MeetingSeriesRecord; updatedOccurrencesCount: number }> {
+    return await this.prisma.$transaction(async (tx) => {
+      const series = await this.findSeriesById(params.seriesId, params.tenant);
+      if (!series) {
+        throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+      }
+
+      if (series.revision !== params.expectedRevision) {
+        const err: any = new Error(
+          `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${series.revision}`
+        );
+        err.code = 'SERIES_REVISION_CONFLICT';
+        throw err;
+      }
+
+      const seriesData: any = {
+        revision: { increment: 1 },
+      };
+      if (params.seriesPatch.title !== undefined) seriesData.title = params.seriesPatch.title;
+      if (params.seriesPatch.description !== undefined) seriesData.description = params.seriesPatch.description;
+      if (params.seriesPatch.durationMinutes !== undefined) seriesData.durationMinutes = params.seriesPatch.durationMinutes;
+      if (params.seriesPatch.privacy !== undefined) seriesData.privacy = params.seriesPatch.privacy;
+      if (params.seriesPatch.recurrenceRule !== undefined) seriesData.recurrenceRule = params.seriesPatch.recurrenceRule;
+
+      const updatedSeries = await tx.meetingSeries.update({
+        where: { id: series.id },
+        data: seriesData,
+      });
+
+      const occData: any = {
+        lifecycleRevision: { increment: 1 },
+      };
+      if (params.seriesPatch.title !== undefined) occData.title = params.seriesPatch.title;
+      if (params.seriesPatch.description !== undefined) occData.description = params.seriesPatch.description;
+      if (params.seriesPatch.durationMinutes !== undefined) {
+        occData.durationMinutes = params.seriesPatch.durationMinutes;
+        occData.duration = params.seriesPatch.durationMinutes;
+      }
+      if (params.seriesPatch.privacy !== undefined) occData.privacy = params.seriesPatch.privacy;
+
+      const updatedOccurrences = await tx.meeting.updateMany({
+        where: {
+          seriesId: series.id,
+          status: 'scheduled',
+        },
+        data: occData,
+      });
+
+      return {
+        series: this.mapSeries(updatedSeries),
+        updatedOccurrencesCount: updatedOccurrences.count,
+      };
+    });
+  }
+
+  async splitSeriesAtOccurrence(
+    params: SplitSeriesAtOccurrenceParams
+  ): Promise<{
+    predecessorSeries: MeetingSeriesRecord;
+    successorSeries: MeetingSeriesRecord;
+    updatedMeeting: MeetingOccurrenceRecord;
+  }> {
+    return await this.prisma.$transaction(async (tx) => {
+      const predecessor = await this.findSeriesById(params.predecessorSeriesId, params.tenant);
+      if (!predecessor) {
+        throw new Error(`SERIES_NOT_FOUND: ${params.predecessorSeriesId}`);
+      }
+
+      if (predecessor.revision !== params.expectedRevision) {
+        const err: any = new Error(
+          `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${predecessor.revision}`
+        );
+        err.code = 'SERIES_REVISION_CONFLICT';
+        throw err;
+      }
+
+      // 1. Cap predecessor
+      const updatedPredecessor = await tx.meetingSeries.update({
+        where: { id: predecessor.id },
+        data: {
+          recurrenceRule: params.cappedPredecessorRule,
+          revision: { increment: 1 },
+        },
+      });
+
+      // 2. Create successor series
+      const successor = await tx.meetingSeries.create({
+        data: {
+          seriesId: params.successorSeries.seriesId,
+          organizationId: params.successorSeries.organizationId ?? predecessor.organizationId,
+          teamId: params.successorSeries.teamId ?? predecessor.teamId,
+          createdBy: params.successorSeries.createdBy,
+          title: params.successorSeries.title,
+          description: params.successorSeries.description ?? null,
+          durationMinutes: params.successorSeries.durationMinutes,
+          privacy: params.successorSeries.privacy,
+          timeZone: params.successorSeries.timeZone,
+          localStartDate: params.successorSeries.localStartDate,
+          localStartTime: params.successorSeries.localStartTime,
+          recurrenceRule: params.successorSeries.recurrenceRule,
+          status: 'ACTIVE',
+          revision: 1,
+        },
+      });
+
+      // 3. Re-parent target occurrence and any following unstarted occurrences
+      const targetMeeting = await this.findMeetingById(params.targetMeetingId, params.tenant);
+      if (!targetMeeting) {
+        throw new Error(`MEETING_NOT_FOUND: ${params.targetMeetingId}`);
+      }
+
+      const updatedMeeting = await tx.meeting.update({
+        where: { id: targetMeeting.id },
+        data: {
+          seriesId: successor.id,
+          lifecycleRevision: { increment: 1 },
+        },
+      });
+
+      const splitKey = targetMeeting.occurrenceKey;
+      if (splitKey) {
+        await tx.meeting.updateMany({
+          where: {
+            seriesId: predecessor.id,
+            occurrenceKey: { gt: splitKey },
+            id: { not: targetMeeting.id },
+          },
+          data: {
+            seriesId: successor.id,
+            lifecycleRevision: { increment: 1 },
+          },
+        });
+      }
+
+      return {
+        predecessorSeries: this.mapSeries(updatedPredecessor),
+        successorSeries: this.mapSeries(successor),
+        updatedMeeting: this.mapOccurrence(updatedMeeting),
+      };
+    });
   }
 }

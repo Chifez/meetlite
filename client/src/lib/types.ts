@@ -72,6 +72,9 @@ export interface Meeting {
     rrule?: string;
   };
   recurrenceId?: string;
+  seriesId?: string;
+  occurrenceKey?: string;
+  parentRecurrenceId?: string;
   recurrenceExceptions?: Array<{
     date: string | Date;
     action: 'cancelled' | 'modified';

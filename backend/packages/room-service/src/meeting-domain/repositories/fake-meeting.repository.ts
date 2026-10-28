@@ -16,6 +16,9 @@ import {
   CreateOccurrenceSeedParams,
   MeetingSeriesStatus,
   MeetingLifecycleStatus,
+  UpdateOccurrenceParams,
+  UpdateSeriesAndOccurrencesParams,
+  SplitSeriesAtOccurrenceParams,
 } from './meeting-repository.types.js';
 
 export class FakeMeetingRepository implements MeetingRepository {
@@ -359,5 +362,261 @@ export class FakeMeetingRepository implements MeetingRepository {
     }
 
     return results;
+  }
+
+  async updateMeetingOccurrence(
+    params: UpdateOccurrenceParams
+  ): Promise<MeetingOccurrenceRecord> {
+    const meeting = await this.findMeetingById(params.meetingId, params.tenant);
+    if (!meeting) {
+      throw new Error(`MEETING_NOT_FOUND: ${params.meetingId}`);
+    }
+
+    if (meeting.lifecycleRevision !== params.expectedRevision) {
+      const err: any = new Error(
+        `MEETING_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${meeting.lifecycleRevision}`
+      );
+      err.code = 'MEETING_REVISION_CONFLICT';
+      throw err;
+    }
+
+    const updated: MeetingOccurrenceRecord = {
+      ...meeting,
+      title: params.patch.title ?? meeting.title,
+      description: params.patch.description !== undefined ? params.patch.description : meeting.description,
+      scheduledAt: params.patch.scheduledAt ?? meeting.scheduledAt,
+      eventTimeZone: params.patch.eventTimeZone ?? meeting.eventTimeZone,
+      durationMinutes: params.patch.durationMinutes ?? meeting.durationMinutes,
+      privacy: params.patch.privacy ?? meeting.privacy,
+      lifecycleRevision: meeting.lifecycleRevision + 1,
+    };
+
+    this.occurrenceStore.set(meeting.id, updated);
+    return updated;
+  }
+
+  async cancelMeetingOccurrence(params: {
+    meetingId: string;
+    expectedRevision: number;
+    tenant: TenantContext;
+  }): Promise<MeetingOccurrenceRecord> {
+    return this.updateMeetingStatus({
+      meetingId: params.meetingId,
+      status: 'cancelled',
+      expectedRevision: params.expectedRevision,
+      tenant: params.tenant,
+    });
+  }
+
+  async cancelSeries(params: {
+    seriesId: string;
+    expectedRevision: number;
+    tenant: TenantContext;
+  }): Promise<{ series: MeetingSeriesRecord; cancelledOccurrencesCount: number }> {
+    const series = await this.updateSeriesStatus({
+      seriesId: params.seriesId,
+      status: 'CANCELLED',
+      expectedRevision: params.expectedRevision,
+      tenant: params.tenant,
+    });
+
+    let count = 0;
+    for (const [id, occ] of this.occurrenceStore.entries()) {
+      if (occ.seriesId === series.id && (occ.status === 'scheduled' || occ.status === 'live')) {
+        this.occurrenceStore.set(id, {
+          ...occ,
+          status: 'cancelled',
+          lifecycleRevision: occ.lifecycleRevision + 1,
+        });
+        count++;
+      }
+    }
+
+    return { series, cancelledOccurrencesCount: count };
+  }
+
+  async cancelFollowingOccurrences(params: {
+    seriesId: string;
+    fromOccurrenceKey: string;
+    expectedRevision: number;
+    cappedRule: string;
+    tenant: TenantContext;
+  }): Promise<{ series: MeetingSeriesRecord; cancelledOccurrencesCount: number }> {
+    const series = await this.findSeriesById(params.seriesId, params.tenant);
+    if (!series) {
+      throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+    }
+
+    if (series.revision !== params.expectedRevision) {
+      const err: any = new Error(
+        `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${series.revision}`
+      );
+      err.code = 'SERIES_REVISION_CONFLICT';
+      throw err;
+    }
+
+    const updatedSeries: MeetingSeriesRecord = {
+      ...series,
+      recurrenceRule: params.cappedRule,
+      revision: series.revision + 1,
+      updatedAt: new Date(),
+    };
+    this.seriesStore.set(series.id, updatedSeries);
+
+    let count = 0;
+    for (const [id, occ] of this.occurrenceStore.entries()) {
+      if (
+        occ.seriesId === series.id &&
+        occ.occurrenceKey &&
+        occ.occurrenceKey >= params.fromOccurrenceKey &&
+        (occ.status === 'scheduled' || occ.status === 'live')
+      ) {
+        this.occurrenceStore.set(id, {
+          ...occ,
+          status: 'cancelled',
+          lifecycleRevision: occ.lifecycleRevision + 1,
+        });
+        count++;
+      }
+    }
+
+    return { series: updatedSeries, cancelledOccurrencesCount: count };
+  }
+
+  async updateSeriesAndOccurrences(
+    params: UpdateSeriesAndOccurrencesParams
+  ): Promise<{ series: MeetingSeriesRecord; updatedOccurrencesCount: number }> {
+    const series = await this.findSeriesById(params.seriesId, params.tenant);
+    if (!series) {
+      throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+    }
+
+    if (series.revision !== params.expectedRevision) {
+      const err: any = new Error(
+        `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${series.revision}`
+      );
+      err.code = 'SERIES_REVISION_CONFLICT';
+      throw err;
+    }
+
+    const updatedSeries: MeetingSeriesRecord = {
+      ...series,
+      title: params.seriesPatch.title ?? series.title,
+      description: params.seriesPatch.description !== undefined ? params.seriesPatch.description : series.description,
+      durationMinutes: params.seriesPatch.durationMinutes ?? series.durationMinutes,
+      privacy: params.seriesPatch.privacy ?? series.privacy,
+      recurrenceRule: params.seriesPatch.recurrenceRule ?? series.recurrenceRule,
+      revision: series.revision + 1,
+      updatedAt: new Date(),
+    };
+    this.seriesStore.set(series.id, updatedSeries);
+
+    let count = 0;
+    for (const [id, occ] of this.occurrenceStore.entries()) {
+      if (occ.seriesId === series.id && occ.status === 'scheduled') {
+        this.occurrenceStore.set(id, {
+          ...occ,
+          title: params.seriesPatch.title ?? occ.title,
+          description: params.seriesPatch.description !== undefined ? params.seriesPatch.description : occ.description,
+          durationMinutes: params.seriesPatch.durationMinutes ?? occ.durationMinutes,
+          privacy: params.seriesPatch.privacy ?? occ.privacy,
+          lifecycleRevision: occ.lifecycleRevision + 1,
+        });
+        count++;
+      }
+    }
+
+    return { series: updatedSeries, updatedOccurrencesCount: count };
+  }
+
+  async splitSeriesAtOccurrence(
+    params: SplitSeriesAtOccurrenceParams
+  ): Promise<{
+    predecessorSeries: MeetingSeriesRecord;
+    successorSeries: MeetingSeriesRecord;
+    updatedMeeting: MeetingOccurrenceRecord;
+  }> {
+    const predecessor = await this.findSeriesById(params.predecessorSeriesId, params.tenant);
+    if (!predecessor) {
+      throw new Error(`SERIES_NOT_FOUND: ${params.predecessorSeriesId}`);
+    }
+
+    if (predecessor.revision !== params.expectedRevision) {
+      const err: any = new Error(
+        `SERIES_REVISION_CONFLICT: expected ${params.expectedRevision}, found ${predecessor.revision}`
+      );
+      err.code = 'SERIES_REVISION_CONFLICT';
+      throw err;
+    }
+
+    // 1. Cap predecessor
+    const updatedPredecessor: MeetingSeriesRecord = {
+      ...predecessor,
+      recurrenceRule: params.cappedPredecessorRule,
+      revision: predecessor.revision + 1,
+      updatedAt: new Date(),
+    };
+    this.seriesStore.set(predecessor.id, updatedPredecessor);
+
+    // 2. Create successor series
+    const successorId = randomUUID();
+    const successorSeries: MeetingSeriesRecord = {
+      id: successorId,
+      seriesId: params.successorSeries.seriesId,
+      organizationId: params.successorSeries.organizationId ?? predecessor.organizationId,
+      teamId: params.successorSeries.teamId ?? predecessor.teamId,
+      createdBy: params.successorSeries.createdBy,
+      title: params.successorSeries.title,
+      description: params.successorSeries.description ?? null,
+      durationMinutes: params.successorSeries.durationMinutes,
+      privacy: params.successorSeries.privacy,
+      timeZone: params.successorSeries.timeZone,
+      localStartDate: params.successorSeries.localStartDate,
+      localStartTime: params.successorSeries.localStartTime,
+      recurrenceRule: params.successorSeries.recurrenceRule,
+      status: 'ACTIVE',
+      revision: 1,
+      materializedThrough: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.seriesStore.set(successorId, successorSeries);
+
+    // 3. Re-parent target meeting and following scheduled meetings to successor series
+    const targetMeeting = await this.findMeetingById(params.targetMeetingId, params.tenant);
+    if (!targetMeeting) {
+      throw new Error(`MEETING_NOT_FOUND: ${params.targetMeetingId}`);
+    }
+
+    const updatedTarget: MeetingOccurrenceRecord = {
+      ...targetMeeting,
+      seriesId: successorId,
+      lifecycleRevision: targetMeeting.lifecycleRevision + 1,
+    };
+    this.occurrenceStore.set(targetMeeting.id, updatedTarget);
+
+    const splitKey = targetMeeting.occurrenceKey;
+    if (splitKey) {
+      for (const [id, occ] of this.occurrenceStore.entries()) {
+        if (
+          occ.id !== targetMeeting.id &&
+          occ.seriesId === predecessor.id &&
+          occ.occurrenceKey &&
+          occ.occurrenceKey > splitKey
+        ) {
+          this.occurrenceStore.set(id, {
+            ...occ,
+            seriesId: successorId,
+            lifecycleRevision: occ.lifecycleRevision + 1,
+          });
+        }
+      }
+    }
+
+    return {
+      predecessorSeries: updatedPredecessor,
+      successorSeries,
+      updatedMeeting: updatedTarget,
+    };
   }
 }

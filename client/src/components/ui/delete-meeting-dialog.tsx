@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Loader2 } from 'lucide-react';
 import { useMeetingsStore } from '@/stores';
+import { MeetingScopeDialog, RecurrenceScope } from '@/components/meeting/meeting-scope-dialog';
 
 export default function DeleteMeetingDialog() {
   const {
@@ -18,7 +19,21 @@ export default function DeleteMeetingDialog() {
     closeDeleteDialog,
     deleteMeeting,
     deleteGoogleCalendarMeeting,
+    meetings,
   } = useMeetingsStore();
+
+  const currentMeeting = meetings.find((m) => m.meetingId === deleteDialog.meetingId);
+  const isRecurring = Boolean(
+    currentMeeting?.isRecurring ||
+    currentMeeting?.seriesId ||
+    currentMeeting?.parentRecurrenceId
+  );
+
+  const handleScopedCancel = async (scope: RecurrenceScope) => {
+    if (!deleteDialog.meetingId) return;
+    await deleteMeeting(deleteDialog.meetingId, scope);
+    closeDeleteDialog();
+  };
 
   const handleDelete = async () => {
     if (!deleteDialog.meetingId) return;
@@ -62,6 +77,18 @@ export default function DeleteMeetingDialog() {
         'Are you sure you want to delete this meeting? This action cannot be undone.',
     };
   };
+
+  if (isRecurring && !deleteDialog.isGoogleCalendar) {
+    return (
+      <MeetingScopeDialog
+        open={deleteDialog.open}
+        onOpenChange={handleOpenChange}
+        mode="cancel"
+        meetingTitle={currentMeeting?.title}
+        onConfirm={handleScopedCancel}
+      />
+    );
+  }
 
   const dialogContent = getDialogContent();
 

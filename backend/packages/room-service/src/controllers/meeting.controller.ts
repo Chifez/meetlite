@@ -570,9 +570,60 @@ export class MeetingController {
   }
 
   /**
-   * PUT /meetings/:meetingId - Update meeting
+   * PUT / PATCH /meetings/:meetingId - Update meeting
    */
   async updateMeeting(req: AuthenticatedRequest, res: Response) {
+    const isV2Request =
+      req.headers['x-meeting-v2'] === 'true' ||
+      req.body?.scope !== undefined ||
+      req.body?.expectedRevision !== undefined;
+
+    if (isV2Request) {
+      try {
+        const idempotencyKey =
+          (req.headers['idempotency-key'] as string) ||
+          req.body?.idempotencyKey ||
+          `upd_${req.params.meetingId}_${Date.now()}`;
+
+        const result = await this.meetingApplication.update({
+          principal: {
+            userId: req.user.userId,
+            email: req.user.email,
+            orgId: req.user.organizationId,
+          },
+          command: {
+            idempotencyKey,
+            targetMeetingId: req.params.meetingId as string,
+            scope: req.body?.scope,
+            expectedRevision: req.body?.expectedRevision ?? 1,
+            patch: {
+              title: req.body?.title,
+              description: req.body?.description,
+              localDate: req.body?.localDate,
+              localTime: req.body?.localTime,
+              timeZone: req.body?.timeZone,
+              durationMinutes: req.body?.durationMinutes ?? req.body?.duration,
+              privacy: req.body?.privacy,
+              recurrence: req.body?.recurrence,
+              disambiguation: req.body?.disambiguation,
+            },
+          },
+        });
+        return ResponseHelpers.ok(res, result, 'Meeting updated successfully');
+      } catch (err: any) {
+        if (err.code === 'MEETING_NOT_FOUND') {
+          throw AppError.notFound('Meeting');
+        }
+        if (err.code === 'MEETING_ACTION_FORBIDDEN' || err.code === 'NOT_ORGANIZER') {
+          throw AppError.forbidden('Not authorized to update this meeting.');
+        }
+        if (err.code === 'MEETING_REVISION_CONFLICT' || err.code === 'SERIES_REVISION_CONFLICT') {
+          return res.status(409).json({ success: false, error: { code: err.code, message: err.message } });
+        }
+        throw err;
+      }
+    }
+
     const meeting = await prisma.meeting.findUnique({
       where: { meetingId: req.params.meetingId as string },
       include: {
@@ -820,6 +871,54 @@ export class MeetingController {
     }
 
     return ResponseHelpers.ok(res, null, 'Meeting deleted successfully');
+  }
+
+  /**
+   * POST /meetings/:meetingId/cancel - Scoped cancellation (MLTR-05)
+   */
+  async cancelMeeting(req: AuthenticatedRequest, res: Response) {
+    const isV2Request =
+      req.headers['x-meeting-v2'] === 'true' ||
+      req.body?.scope !== undefined ||
+      req.body?.expectedRevision !== undefined;
+
+    if (isV2Request) {
+      try {
+        const idempotencyKey =
+          (req.headers['idempotency-key'] as string) ||
+          req.body?.idempotencyKey ||
+          `cancel_${req.params.meetingId}_${Date.now()}`;
+
+        const result = await this.meetingApplication.cancel({
+          principal: {
+            userId: req.user.userId,
+            email: req.user.email,
+            orgId: req.user.organizationId,
+          },
+          command: {
+            idempotencyKey,
+            targetMeetingId: req.params.meetingId as string,
+            scope: req.body?.scope,
+            expectedRevision: req.body?.expectedRevision ?? 1,
+            reason: req.body?.reason,
+          },
+        });
+        return ResponseHelpers.ok(res, result, 'Meeting cancelled successfully');
+      } catch (err: any) {
+        if (err.code === 'MEETING_NOT_FOUND') {
+          throw AppError.notFound('Meeting');
+        }
+        if (err.code === 'MEETING_ACTION_FORBIDDEN' || err.code === 'NOT_ORGANIZER') {
+          throw AppError.forbidden('Not authorized to cancel this meeting.');
+        }
+        if (err.code === 'MEETING_REVISION_CONFLICT' || err.code === 'SERIES_REVISION_CONFLICT') {
+          return res.status(409).json({ success: false, error: { code: err.code, message: err.message } });
+        }
+        throw err;
+      }
+    }
+
+    return this.deleteMeeting(req, res);
   }
 
   /**

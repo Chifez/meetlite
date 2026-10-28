@@ -12,6 +12,9 @@ import {
   CreateOccurrenceSeedParams,
   MeetingSeriesStatus,
   MeetingLifecycleStatus,
+  UpdateOccurrenceParams,
+  UpdateSeriesAndOccurrencesParams,
+  SplitSeriesAtOccurrenceParams,
 } from './meeting-repository.types.js';
 
 export interface MeetingRepository {
@@ -128,4 +131,58 @@ export interface MeetingRepository {
     horizon: Date,
     limit: number
   ): Promise<readonly MeetingSeriesRecord[]>;
+
+  /**
+   * MLTR-05: Updates a single occurrence with lifecycleRevision concurrency check.
+   */
+  updateMeetingOccurrence(
+    params: UpdateOccurrenceParams
+  ): Promise<MeetingOccurrenceRecord>;
+
+  /**
+   * MLTR-05: Cancels a single occurrence with lifecycleRevision concurrency check.
+   */
+  cancelMeetingOccurrence(params: {
+    meetingId: string;
+    expectedRevision: number;
+    tenant: TenantContext;
+  }): Promise<MeetingOccurrenceRecord>;
+
+  /**
+   * MLTR-05: Cancels an entire series and all future scheduled occurrences with revision concurrency check.
+   */
+  cancelSeries(params: {
+    seriesId: string;
+    expectedRevision: number;
+    tenant: TenantContext;
+  }): Promise<{ series: MeetingSeriesRecord; cancelledOccurrencesCount: number }>;
+
+  /**
+   * MLTR-05: Cancels occurrences starting from split occurrence key and caps the series rule.
+   */
+  cancelFollowingOccurrences(params: {
+    seriesId: string;
+    fromOccurrenceKey: string;
+    expectedRevision: number;
+    cappedRule: string;
+    tenant: TenantContext;
+  }): Promise<{ series: MeetingSeriesRecord; cancelledOccurrencesCount: number }>;
+
+  /**
+   * MLTR-05: Updates series definition and propagates common fields to future scheduled occurrences.
+   */
+  updateSeriesAndOccurrences(
+    params: UpdateSeriesAndOccurrencesParams
+  ): Promise<{ series: MeetingSeriesRecord; updatedOccurrencesCount: number }>;
+
+  /**
+   * MLTR-05: Splits a series into predecessor (capped) and successor series starting at target occurrence.
+   */
+  splitSeriesAtOccurrence(
+    params: SplitSeriesAtOccurrenceParams
+  ): Promise<{
+    predecessorSeries: MeetingSeriesRecord;
+    successorSeries: MeetingSeriesRecord;
+    updatedMeeting: MeetingOccurrenceRecord;
+  }>;
 }

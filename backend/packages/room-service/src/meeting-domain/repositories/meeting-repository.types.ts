@@ -125,3 +125,52 @@ export interface AppendOutboxParams {
   payload: Record<string, unknown>;
   occurredAt?: Date;
 }
+
+export interface UpdateOccurrenceParams {
+  meetingId: string;
+  patch: {
+    title?: string;
+    description?: string | null;
+    scheduledAt?: Date;
+    eventTimeZone?: string;
+    durationMinutes?: number;
+    privacy?: string;
+  };
+  expectedRevision: number;
+  tenant: TenantContext;
+}
+
+export interface UpdateSeriesAndOccurrencesParams {
+  seriesId: string;
+  expectedRevision: number;
+  seriesPatch: {
+    title?: string;
+    description?: string | null;
+    durationMinutes?: number;
+    privacy?: string;
+    recurrenceRule?: string;
+  };
+  tenant: TenantContext;
+}
+
+export interface SplitSeriesAtOccurrenceParams {
+  predecessorSeriesId: string;
+  expectedRevision: number;
+  cappedPredecessorRule: string;
+  successorSeries: {
+    seriesId: string;
+    localStartDate: LocalDate;
+    localStartTime: LocalTime;
+    recurrenceRule: string;
+    title: string;
+    description?: string | null;
+    durationMinutes: number;
+    privacy: string;
+    timeZone: IanaTimeZone;
+    organizationId?: string | null;
+    teamId?: string | null;
+    createdBy: string;
+  };
+  targetMeetingId: string;
+  tenant: TenantContext;
+}

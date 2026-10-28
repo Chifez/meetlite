@@ -38,6 +38,18 @@ router.put(
   asyncHandler(meetingController.updateMeeting.bind(meetingController))
 );
 
+// PATCH /meetings/:meetingId - Scoped update meeting (MLTR-05)
+router.patch(
+  '/:meetingId',
+  asyncHandler(meetingController.updateMeeting.bind(meetingController))
+);
+
+// POST /meetings/:meetingId/cancel - Scoped cancel meeting (MLTR-05)
+router.post(
+  '/:meetingId/cancel',
+  asyncHandler(meetingController.cancelMeeting.bind(meetingController))
+);
+
 // DELETE /meetings/:meetingId - Delete meeting
 router.delete(
   '/:meetingId',
