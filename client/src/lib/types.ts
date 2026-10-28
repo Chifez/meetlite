@@ -40,6 +40,21 @@ export interface RoomData {
   participants: string[];
 }
 
+export interface ActionCapability {
+  allowed: boolean;
+  reason?: string;
+  availableAt?: string;
+}
+
+export interface MeetingCapabilities {
+  start: ActionCapability;
+  join: ActionCapability;
+  leave: ActionCapability;
+  endForAll: ActionCapability;
+  update: ActionCapability;
+  cancel: ActionCapability;
+}
+
 export interface Meeting {
   meetingId: string;
   title: string;
@@ -53,6 +68,7 @@ export interface Meeting {
   createdAt?: string;
   roomId?: string;
   teamId?: string;
+  capabilities?: MeetingCapabilities;
   invites?: {
     email: string;
     status: 'pending' | 'accepted' | 'declined';

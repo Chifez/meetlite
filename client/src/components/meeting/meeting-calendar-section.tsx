@@ -12,8 +12,11 @@ export default function MeetingCalendarSection({
 }) {
   const filteredMeetings = useMemo(() => {
     return meetings.filter((meeting) => {
-      // Exclude parent recurring meetings, only show instances and regular meetings
-      return !(meeting.isRecurring && !meeting.recurrenceId);
+      // Exclude series templates (which are non-joinable templates), only show joinable occurrences and single meetings
+      const isSeriesTemplate =
+        Boolean(meeting.seriesId && !meeting.occurrenceKey) ||
+        Boolean(meeting.isRecurring && !meeting.recurrenceId && !meeting.parentRecurrenceId);
+      return !isSeriesTemplate;
     });
   }, [meetings]);
 

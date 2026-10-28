@@ -1,17 +1,14 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
-  Clock,
   MoreHorizontal,
   Copy,
   Trash2,
-  Play,
-  Square,
   Lock,
-  Globe,
   Search,
-  Filter,
+  Square,
+  Play,
+  Video,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,23 +21,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Meeting } from '@/lib/types';
-import { useMeetingsStore } from '@/stores/meetings-store';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { format, differenceInMinutes, isToday, isTomorrow, isThisWeek } from 'date-fns';
-import { toast } from 'sonner';
-import MeetingDetailsDialog, {
+import MeetingDetailsDialog from '@/components/meeting/meeting-details-dialog';
+import { useMeetingController } from '@/features/meetings/meeting-controller';
+import {
+  primaryMeetingAction,
   extractMeetingParticipants,
   getInitials,
-} from '@/components/meeting/meeting-details-dialog';
-
-const AVATAR_COLORS = [
-  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
-  'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300',
-  'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
-  'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300',
-  'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300',
-];
+  formatMeetingTime,
+  formatMeetingDate,
+  AVATAR_COLORS,
+} from '@/features/meetings/meeting-view-state';
 
 interface MeetingListSectionProps {
   meetings: Meeting[];
@@ -56,17 +48,30 @@ export default function MeetingListSection({
   onSchedule,
 }: MeetingListSectionProps) {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { currentWorkspaceName } = useWorkspace();
-  const { startMeeting, completeMeeting, openDeleteDialog } = useMeetingsStore();
+
+  const {
+    handleAction,
+    openDetails,
+    closeDetails,
+    detailsMeeting,
+    handleCopyLink,
+    handleDelete,
+    handleEndMeeting,
+  } = useMeetingController();
 
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [detailsMeeting, setDetailsMeeting] = useState<Meeting | null>(null);
 
   // Filter meetings by search query
   const searchedMeetings = useMemo(() => {
-    let list = [...meetings].filter((m) => !m.recurrenceId);
+    let list = [...meetings].filter((m) => {
+      // Exclude series templates (which are non-joinable), keep joinable occurrences and standalone meetings
+      const isSeriesTemplate =
+        Boolean(m.seriesId && !m.occurrenceKey) ||
+        Boolean(m.isRecurring && !m.parentRecurrenceId && !m.recurrenceId && !m.occurrenceKey);
+      return !isSeriesTemplate;
+    });
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -110,45 +115,6 @@ export default function MeetingListSection({
 
     return { todayList, thisWeekList, laterList };
   }, [searchedMeetings]);
-
-  const handleCopyLink = (meeting: Meeting) => {
-    const url = `${window.location.origin}/lobby/${meeting.roomId || meeting.meetingId}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Meeting link copied to clipboard');
-  };
-
-  const handleStartOrJoin = async (meeting: Meeting) => {
-    try {
-      if (meeting.status === 'scheduled') {
-        const roomId = await startMeeting(meeting.meetingId);
-        navigate(`/lobby/${roomId}`);
-      } else {
-        navigate(`/lobby/${meeting.roomId || meeting.meetingId}`);
-      }
-    } catch (e) {
-      navigate(`/lobby/${meeting.roomId || meeting.meetingId}`);
-    }
-  };
-
-  const handleEndMeeting = async (meeting: Meeting) => {
-    try {
-      await completeMeeting(meeting.meetingId);
-      toast.success('Meeting ended');
-    } catch (e) {
-      toast.error('Failed to end meeting');
-    }
-  };
-
-  const handleDelete = (meeting: Meeting) => {
-    if (meeting.source === 'google' && meeting.externalId) {
-      openDeleteDialog(meeting.meetingId, {
-        isGoogleCalendar: true,
-        externalId: meeting.externalId,
-      });
-    } else {
-      openDeleteDialog(meeting.meetingId);
-    }
-  };
 
   if (loading) {
     return (
@@ -239,18 +205,12 @@ export default function MeetingListSection({
             {/* Meeting Agenda Rows */}
             <div className="divide-y divide-border/60">
               {sec.items.map((meeting) => {
-                const scheduledDate = new Date(meeting.scheduledTime);
-                const isValidDate = !isNaN(scheduledDate.getTime());
-                const timeStr = isValidDate ? format(scheduledDate, 'HH:mm') : '--:--';
-                const dateChip = isValidDate ? format(scheduledDate, 'EEE, MMM d') : '';
+                const timeStr = formatMeetingTime(meeting.scheduledTime);
+                const dateStr = formatMeetingDate(meeting.scheduledTime);
 
-                const now = new Date();
-                const minutesUntil = differenceInMinutes(scheduledDate, now);
-                const isOngoing =
-                  meeting.status === 'ongoing' ||
-                  (minutesUntil <= 0 && minutesUntil >= -(meeting.duration || 45));
-                const isStartingSoon = minutesUntil > 0 && minutesUntil <= 30;
-                const isCreator = meeting.createdBy === user?.id;
+                const isHost = meeting.createdBy === user?.id;
+                const isLive = meeting.status === 'ongoing' || Boolean(meeting.roomId && meeting.status !== 'completed');
+                const action = primaryMeetingAction(meeting, { currentUserId: user?.id });
 
                 const participantsList = extractMeetingParticipants(meeting);
                 const visibleAvatars = participantsList.slice(0, 3);
@@ -261,15 +221,15 @@ export default function MeetingListSection({
                     key={meeting.meetingId}
                     className="py-3.5 px-4 sm:px-5 flex items-center justify-between gap-4 hover:bg-muted/20 transition-colors group"
                   >
-                    {/* Left: Time and Title */}
+                    {/* Left: Time and Date Column + Title & Metadata */}
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                      {/* Time and date column */}
-                      <div className="w-14 sm:w-16 shrink-0 space-y-0.5">
+                      {/* Scheduled Time and Date Underneath */}
+                      <div className="w-16 sm:w-20 shrink-0 space-y-0.5">
                         <span className="text-xs font-semibold text-foreground font-mono block">
                           {timeStr}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-medium block truncate">
-                          {isToday(scheduledDate) ? 'Today' : isTomorrow(scheduledDate) ? 'Tomorrow' : dateChip}
+                          {dateStr}
                         </span>
                       </div>
 
@@ -278,7 +238,7 @@ export default function MeetingListSection({
                         <div className="flex items-center gap-2 flex-wrap">
                           <button
                             type="button"
-                            onClick={() => setDetailsMeeting(meeting)}
+                            onClick={() => openDetails(meeting)}
                             className="text-xs sm:text-sm font-semibold text-foreground truncate hover:text-primary transition-colors text-left cursor-pointer"
                           >
                             {meeting.title || 'Untitled Meeting'}
@@ -309,7 +269,7 @@ export default function MeetingListSection({
 
                     {/* Right: Avatars, Status Pill, and Actions */}
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      {/* Avatar Stack */}
+                      {/* Avatar Stack for invited & direct participants */}
                       {participantsList.length > 0 && (
                         <div className="flex items-center -space-x-1.5 mr-1">
                           {visibleAvatars.map((p, pIdx) => {
@@ -333,14 +293,10 @@ export default function MeetingListSection({
                       )}
 
                       {/* Status Pill */}
-                      {isOngoing ? (
+                      {isLive ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                           Ongoing
-                        </span>
-                      ) : isStartingSoon ? (
-                        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
-                          In {minutesUntil} min
                         </span>
                       ) : (
                         <span className="hidden sm:inline-block text-[11px] font-medium text-muted-foreground">
@@ -348,40 +304,66 @@ export default function MeetingListSection({
                         </span>
                       )}
 
-                      {/* Main Action Button */}
-                      {isOngoing ? (
-                        isCreator ? (
+                      {/* Main Action Button guarded by server capabilities */}
+                      {isLive && isHost ? (
+                        <div className="flex items-center gap-1.5">
                           <Button
                             size="sm"
-                            variant="destructive"
-                            onClick={() => handleEndMeeting(meeting)}
-                            className="h-7 px-3 text-xs font-semibold rounded-lg gap-1 shadow-2xs"
-                          >
-                            <Square className="w-3 h-3 fill-current" />
-                            <span>End</span>
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleStartOrJoin(meeting)}
+                            onClick={() => handleAction(meeting, { kind: 'join', label: 'Join' })}
                             className="h-7 px-3 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
                           >
                             Join
                           </Button>
-                        )
-                      ) : isStartingSoon ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleEndMeeting(meeting)}
+                            className="h-7 px-2.5 text-xs font-semibold rounded-lg gap-1 shadow-2xs"
+                            title="End for all participants"
+                          >
+                            <Square className="w-3 h-3 fill-current" />
+                            <span className="hidden md:inline">End</span>
+                          </Button>
+                        </div>
+                      ) : action.kind === 'start' ? (
                         <Button
                           size="sm"
-                          onClick={() => handleStartOrJoin(meeting)}
+                          onClick={() => handleAction(meeting, action)}
+                          className="h-7 px-3 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                        >
+                          Start
+                        </Button>
+                      ) : action.kind === 'join' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleAction(meeting, action)}
                           className="h-7 px-3 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
                         >
                           Join
+                        </Button>
+                      ) : action.kind === 'disabled' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-muted-foreground opacity-75"
+                        >
+                          {action.label}
+                        </Button>
+                      ) : action.kind === 'recap' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAction(meeting, action)}
+                          className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-foreground hover:bg-surface-sunken"
+                        >
+                          Recap
                         </Button>
                       ) : (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setDetailsMeeting(meeting)}
+                          onClick={() => openDetails(meeting)}
                           className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-foreground hover:bg-surface-sunken"
                         >
                           Details
@@ -400,7 +382,7 @@ export default function MeetingListSection({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40 text-xs">
-                          <DropdownMenuItem onClick={() => setDetailsMeeting(meeting)} className="gap-2">
+                          <DropdownMenuItem onClick={() => openDetails(meeting)} className="gap-2">
                             <MoreHorizontal className="h-3.5 w-3.5" />
                             <span>View Details</span>
                           </DropdownMenuItem>
@@ -501,9 +483,9 @@ export default function MeetingListSection({
       <MeetingDetailsDialog
         meeting={detailsMeeting}
         open={!!detailsMeeting}
-        onOpenChange={(open) => !open && setDetailsMeeting(null)}
-        onJoin={handleStartOrJoin}
-        onDelete={handleDelete}
+        onOpenChange={(open) => !open && closeDetails()}
+        onJoin={(m) => handleAction(m)}
+        onDelete={(m) => handleDelete(m)}
       />
     </div>
   );

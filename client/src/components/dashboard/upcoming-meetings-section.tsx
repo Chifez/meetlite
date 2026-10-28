@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, ChevronDown, MoreHorizontal, Copy, Trash2, Video, Clock, ArrowDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, MoreHorizontal, Copy, Trash2, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,13 +12,20 @@ import {
 import { Meeting } from '@/lib/types';
 import { useCanCreateMeetings } from '@/hooks/use-permissions';
 import { useWorkspace } from '@/contexts/workspace-context';
-import { useMeetingsStore } from '@/stores/meetings-store';
-import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'date-fns';
-import { toast } from 'sonner';
-import MeetingDetailsDialog, {
+import { useAuth } from '@/hooks/use-auth';
+import { isToday, isTomorrow, isThisWeek } from 'date-fns';
+import MeetingDetailsDialog from '@/components/meeting/meeting-details-dialog';
+import {
+  useMeetingController,
+} from '@/features/meetings/meeting-controller';
+import {
+  primaryMeetingAction,
   extractMeetingParticipants,
   getInitials,
-} from '@/components/meeting/meeting-details-dialog';
+  formatMeetingTime,
+  formatMeetingDate,
+  AVATAR_COLORS,
+} from '@/features/meetings/meeting-view-state';
 
 interface UpcomingMeetingsSectionProps {
   meetings: Meeting[];
@@ -28,26 +35,25 @@ interface UpcomingMeetingsSectionProps {
 
 type FilterTab = 'today' | 'tomorrow' | 'week';
 
-// Soft pastel palette for avatar badges
-const AVATAR_COLORS = [
-  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
-  'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300',
-  'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
-  'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300',
-  'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300',
-];
-
 export default function UpcomingMeetingsSection({
   meetings,
   loading,
   onSchedule,
 }: UpcomingMeetingsSectionProps) {
   const [activeTab, setActiveTab] = useState<FilterTab>('today');
-  const [detailsMeeting, setDetailsMeeting] = useState<Meeting | null>(null);
   const { currentWorkspaceName } = useWorkspace();
+  const { user } = useAuth();
   const canCreateMeetings = useCanCreateMeetings();
-  const { openDeleteDialog, startMeeting } = useMeetingsStore();
   const navigate = useNavigate();
+
+  const {
+    handleAction,
+    openDetails,
+    closeDetails,
+    detailsMeeting,
+    handleCopyLink,
+    handleDelete,
+  } = useMeetingController();
 
   // Filter meetings based on active tab
   const filteredMeetings = useMemo(() => {
@@ -60,19 +66,6 @@ export default function UpcomingMeetingsSection({
       return true;
     });
   }, [meetings, activeTab]);
-
-  const handleCopyLink = (meeting: Meeting) => {
-    const url = `${window.location.origin}/lobby/${meeting.roomId || meeting.meetingId}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Meeting link copied to clipboard');
-  };
-
-  const handleJoin = (meeting: Meeting) => {
-    if (meeting.status === 'scheduled') {
-      startMeeting(meeting.meetingId);
-    }
-    navigate(`/lobby/${meeting.roomId || meeting.meetingId}`);
-  };
 
   return (
     <div className="bg-card border border-border/80 rounded-2xl shadow-2xs overflow-hidden">
@@ -127,7 +120,6 @@ export default function UpcomingMeetingsSection({
           <p className="text-xs text-muted-foreground mt-2 font-medium">Loading meetings...</p>
         </div>
       ) : filteredMeetings.length === 0 ? (
-        // Compact 80px empty state matching Claude design
         <div className="px-5 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-surface-sunken flex items-center justify-center shrink-0 border border-border/60 text-muted-foreground">
@@ -156,24 +148,14 @@ export default function UpcomingMeetingsSection({
       ) : (
         <div className="divide-y divide-border/60">
           {filteredMeetings.slice(0, 5).map((meeting) => {
-            const scheduledDate = new Date(meeting.scheduledTime);
-            const isValidDate = !isNaN(scheduledDate.getTime());
-            const timeStr = isValidDate ? format(scheduledDate, 'HH:mm') : '--:--';
-            const dateStr = isValidDate
-              ? isToday(scheduledDate)
-                ? 'Today'
-                : isTomorrow(scheduledDate)
-                ? 'Tomorrow'
-                : format(scheduledDate, 'EEE, MMM d')
-              : '';
+            const timeStr = formatMeetingTime(meeting.scheduledTime);
+            const dateStr = formatMeetingDate(meeting.scheduledTime);
 
-            const now = new Date();
-            const minutesUntil = differenceInMinutes(scheduledDate, now);
-            const isLive = meeting.status === 'ongoing' || (minutesUntil <= 0 && minutesUntil >= -(meeting.duration || 45));
-            const isStartingSoon = minutesUntil > 0 && minutesUntil <= 30;
+            const isLive = meeting.status === 'ongoing' || Boolean(meeting.roomId && meeting.status !== 'completed');
+            const action = primaryMeetingAction(meeting, { currentUserId: user?.id });
 
             const participantsList = extractMeetingParticipants(meeting);
-            const visibleAvatars = participantsList.slice(0, 2);
+            const visibleAvatars = participantsList.slice(0, 3);
             const overflowCount = participantsList.length - visibleAvatars.length;
 
             return (
@@ -181,7 +163,7 @@ export default function UpcomingMeetingsSection({
                 key={meeting.meetingId}
                 className="py-3 px-4 sm:px-5 flex items-center justify-between gap-3 hover:bg-muted/20 transition-colors group"
               >
-                {/* Left: Time and Meeting Info */}
+                {/* Left: Time, Date and Meeting Info */}
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                   <div className="w-14 sm:w-16 shrink-0 space-y-0.5">
                     <span className="text-xs font-semibold text-foreground font-mono block">
@@ -195,16 +177,20 @@ export default function UpcomingMeetingsSection({
                   </div>
 
                   <div className="min-w-0">
-                    <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => openDetails(meeting)}
+                      className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors text-left cursor-pointer block"
+                    >
                       {meeting.title || 'Untitled Meeting'}
-                    </h3>
+                    </button>
                     <p className="text-[11px] text-muted-foreground truncate">
                       {meeting.duration || 45} min · {currentWorkspaceName || 'Personal Account'}
                     </p>
                   </div>
                 </div>
 
-                {/* Right: Avatars, Status Badge, and Join/Details Button */}
+                {/* Right: Avatars, Status Badge, and Primary Action */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   {/* Overlapping Avatar Stack */}
                   {participantsList.length > 0 && (
@@ -235,26 +221,48 @@ export default function UpcomingMeetingsSection({
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                       Live
                     </span>
-                  ) : isStartingSoon ? (
-                    <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
-                      In {minutesUntil} min
-                    </span>
                   ) : null}
 
-                  {/* Primary CTA (Join or Details) */}
-                  {isLive || isStartingSoon ? (
+                  {/* Primary CTA guarded strictly by server capabilities */}
+                  {action.kind === 'start' ? (
                     <Button
                       size="sm"
-                      onClick={() => handleJoin(meeting)}
+                      onClick={() => handleAction(meeting, action)}
+                      className="h-7 px-3 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                    >
+                      Start
+                    </Button>
+                  ) : action.kind === 'join' ? (
+                    <Button
+                      size="sm"
+                      onClick={() => handleAction(meeting, action)}
                       className="h-7 px-3 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
                     >
                       Join
+                    </Button>
+                  ) : action.kind === 'disabled' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled
+                      className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-muted-foreground opacity-75"
+                    >
+                      {action.label}
+                    </Button>
+                  ) : action.kind === 'recap' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAction(meeting, action)}
+                      className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-foreground hover:bg-surface-sunken"
+                    >
+                      Recap
                     </Button>
                   ) : (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setDetailsMeeting(meeting)}
+                      onClick={() => openDetails(meeting)}
                       className="h-7 px-3 text-xs font-medium rounded-lg border-border/80 text-foreground hover:bg-surface-sunken"
                     >
                       Details
@@ -273,7 +281,7 @@ export default function UpcomingMeetingsSection({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40 text-xs">
-                      <DropdownMenuItem onClick={() => setDetailsMeeting(meeting)} className="gap-2">
+                      <DropdownMenuItem onClick={() => openDetails(meeting)} className="gap-2">
                         <MoreHorizontal className="h-3.5 w-3.5" />
                         <span>View Details</span>
                       </DropdownMenuItem>
@@ -283,7 +291,7 @@ export default function UpcomingMeetingsSection({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={() => openDeleteDialog(meeting.meetingId)}
+                        onClick={() => handleDelete(meeting)}
                         className="gap-2 text-destructive focus:text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -317,9 +325,9 @@ export default function UpcomingMeetingsSection({
       <MeetingDetailsDialog
         meeting={detailsMeeting}
         open={!!detailsMeeting}
-        onOpenChange={(open) => !open && setDetailsMeeting(null)}
-        onJoin={handleJoin}
-        onDelete={(m) => openDeleteDialog(m.meetingId)}
+        onOpenChange={(open) => !open && closeDetails()}
+        onJoin={(m) => handleAction(m)}
+        onDelete={(m) => handleDelete(m)}
       />
     </div>
   );

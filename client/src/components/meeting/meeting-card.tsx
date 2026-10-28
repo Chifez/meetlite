@@ -13,12 +13,18 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Meeting } from '@/lib/types';
-import { useMeetingsStore } from '@/stores/meetings-store';
 import { useAuth } from '@/hooks/use-auth';
-import { useNavigate } from 'react-router-dom';
 import { formatRecurrenceFrequency } from '@/lib/recurrence-utils';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import {
+  primaryMeetingAction,
+  extractMeetingParticipants,
+  getInitials,
+  formatMeetingTime,
+  formatMeetingDate,
+} from '@/features/meetings/meeting-view-state';
+import { useMeetingController } from '@/features/meetings/meeting-controller';
 
 interface MeetingCardProps {
   meeting: Meeting;
@@ -27,62 +33,25 @@ interface MeetingCardProps {
 
 const MeetingCard: React.FC<MeetingCardProps> = ({
   meeting,
-  showJoinButton,
+  showJoinButton = true,
 }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const { startMeeting, completeMeeting, openDeleteDialog } =
-    useMeetingsStore();
+  const userId = user?.id;
+  const { handleAction, handleDelete, handleEndMeeting } = useMeetingController();
 
   const scheduledTime = meeting.scheduledTime || '';
   const duration = meeting.duration || 60;
   const privacy = meeting.privacy || 'public';
-  const statusValue = meeting.status || 'scheduled';
   const createdBy = meeting.createdBy || '';
-  const participants = meeting.participants || [];
-  const userId = user?.id;
+  const isHost = createdBy === userId;
+  const isLive = meeting.status === 'ongoing' || Boolean(meeting.roomId && meeting.status !== 'completed');
 
-  // Compute status info
-  const getDisplayStatus = () => {
-    const now = new Date();
-    const start = new Date(scheduledTime);
-    const end = new Date(start.getTime() + duration * 60000);
-    
-    if (
-      statusValue === 'ongoing' ||
-      (statusValue === 'scheduled' && now >= start && now <= end)
-    ) {
-      return {
-        label: 'Ongoing',
-        dotColor: 'bg-green-500 shadow-[0_0_10px_#22c55e]',
-        textColor: 'text-green-600 dark:text-green-400',
-        pulse: true,
-      };
-    }
-    if (statusValue === 'completed' || now > end) {
-      return {
-        label: 'Ended',
-        dotColor: 'bg-zinc-400 dark:bg-zinc-600',
-        textColor: 'text-muted-foreground',
-        pulse: false,
-      };
-    }
-    if (statusValue === 'cancelled') {
-      return {
-        label: 'Cancelled',
-        dotColor: 'bg-red-500 shadow-[0_0_10px_#ef4444]',
-        textColor: 'text-red-500',
-        pulse: false,
-      };
-    }
-    // Default: Scheduled / Not started
-    return {
-      label: 'Scheduled',
-      dotColor: 'bg-blue-500 shadow-[0_0_10px_#3b82f6]',
-      textColor: 'text-blue-500',
-      pulse: false,
-    };
-  };
+  const action = primaryMeetingAction(meeting, { currentUserId: userId });
+  const allParticipants = extractMeetingParticipants(meeting);
+  const maxAvatars = 4;
+  const visibleParticipants = allParticipants.slice(0, maxAvatars);
+  const overflowCount = allParticipants.length - maxAvatars;
+  const recurrenceFrequency = formatRecurrenceFrequency(meeting);
 
   const getTypeIcon = (type: string) => {
     const iconProps = { className: 'w-4 h-4 text-muted-foreground' };
@@ -96,88 +65,43 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     }
   };
 
-  const getButtonState = () => {
-    const isCreator = createdBy === userId;
-    const isOngoing =
-      statusValue === 'ongoing' ||
-      (statusValue === 'scheduled' && new Date() >= new Date(scheduledTime));
-    const isCompleted =
-      statusValue === 'completed' ||
-      new Date() >
-        new Date(new Date(scheduledTime).getTime() + duration * 60000);
-    const isCancelled = statusValue === 'cancelled';
-
-    if (isCompleted || isCancelled) {
-      return { type: 'disabled', text: 'Ended', disabled: true };
+  const getStatusBadge = () => {
+    if (isLive) {
+      return {
+        label: 'Ongoing',
+        dotColor: 'bg-green-500 shadow-[0_0_10px_#22c55e]',
+        textColor: 'text-green-600 dark:text-green-400',
+        pulse: true,
+      };
     }
-
-    if (isCreator) {
-      if (isOngoing) {
-        return { type: 'end', text: 'End Meeting', disabled: false };
-      } else {
-        return { type: 'start', text: 'Start', disabled: false };
-      }
-    } else {
-      if (isOngoing) {
-        return { type: 'join', text: 'Join', disabled: false };
-      } else {
-        return { type: 'disabled', text: 'Waiting...', disabled: true };
-      }
+    if (meeting.status === 'completed') {
+      return {
+        label: 'Ended',
+        dotColor: 'bg-zinc-400 dark:bg-zinc-600',
+        textColor: 'text-muted-foreground',
+        pulse: false,
+      };
     }
+    if (meeting.status === 'cancelled') {
+      return {
+        label: 'Cancelled',
+        dotColor: 'bg-red-500 shadow-[0_0_10px_#ef4444]',
+        textColor: 'text-red-500',
+        pulse: false,
+      };
+    }
+    return {
+      label: 'Scheduled',
+      dotColor: 'bg-blue-500 shadow-[0_0_10px_#3b82f6]',
+      textColor: 'text-blue-500',
+      pulse: false,
+    };
   };
 
-  const statusObj = getDisplayStatus();
-  const buttonState = getButtonState();
-  const maxAvatars = 4;
-  const visibleParticipants = participants.slice(0, maxAvatars);
-  const overflowCount = participants.length - maxAvatars;
-  const recurrenceFrequency = formatRecurrenceFrequency(meeting);
-
-  const getInitials = (email: string) => {
-    const cleanEmail = email.split('@')[0];
-    const parts = cleanEmail.split(/[._-]/);
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return cleanEmail.slice(0, 2).toUpperCase();
-  };
-
-  const handleButtonClick = async () => {
-    if (buttonState.disabled) return;
-
-    try {
-      if (buttonState.type === 'start') {
-        const roomId = await startMeeting(meeting.meetingId);
-        navigate(`/lobby/${roomId}`);
-      } else if (buttonState.type === 'join') {
-        try {
-          const roomId = await startMeeting(meeting.meetingId);
-          navigate(`/lobby/${roomId}`);
-        } catch (error: any) {
-          navigate(`/meeting/${meeting.meetingId}/join`);
-        }
-      } else if (buttonState.type === 'end') {
-        await completeMeeting(meeting.meetingId);
-      }
-    } catch (error) {
-      console.error('Meeting action failed:', error);
-    }
-  };
-
-  const handleDeleteMeeting = async () => {
-    if (meeting.source === 'google' && meeting.externalId) {
-      openDeleteDialog(meeting.meetingId, {
-        isGoogleCalendar: true,
-        externalId: meeting.externalId,
-      });
-    } else {
-      openDeleteDialog(meeting.meetingId);
-    }
-  };
+  const statusObj = getStatusBadge();
 
   return (
     <div className="glass-card border-border shadow-sm transition-[transform,shadow,border] duration-150 ease-out-strong rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden group">
-      
       {/* 1. Left Section: Title & Metadata */}
       <div className="flex-1 min-w-0 space-y-2.5">
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -186,13 +110,13 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             {statusObj.pulse && (
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             )}
-            <span className={cn("relative inline-flex rounded-full h-2 w-2", statusObj.dotColor)}></span>
+            <span className={cn('relative inline-flex rounded-full h-2 w-2', statusObj.dotColor)}></span>
           </span>
 
           <div className="flex items-center space-x-1.5 min-w-0">
             {getTypeIcon(privacy)}
             <h4 className="font-bold text-foreground truncate group-hover:text-primary transition-colors text-sm sm:text-base">
-              {meeting.title}
+              {meeting.title || 'Untitled Meeting'}
             </h4>
           </div>
 
@@ -215,7 +139,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             )}
             <Badge
               variant="outline"
-              className={cn("px-2 py-0.5 text-[10px] font-bold border-none bg-transparent", statusObj.textColor)}
+              className={cn('px-2 py-0.5 text-[10px] font-bold border-none bg-transparent', statusObj.textColor)}
             >
               {statusObj.label}
             </Badge>
@@ -227,10 +151,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />
             <span>
-              {format(new Date(scheduledTime), 'MMM dd, yyyy')} • {new Date(scheduledTime).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {formatMeetingDate(scheduledTime)} • {formatMeetingTime(scheduledTime)}
             </span>
           </div>
           <span>•</span>
@@ -245,7 +166,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
       </div>
 
       {/* 2. Middle Section: Stacked Avatars */}
-      {participants.length > 0 && (
+      {allParticipants.length > 0 && (
         <div className="flex items-center space-x-2 shrink-0 md:justify-center">
           <span className="text-xs font-bold text-muted-foreground md:hidden">Attendees:</span>
           <div className="flex -space-x-2.5 overflow-hidden">
@@ -277,38 +198,81 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             size="icon"
             variant="ghost"
             className="text-destructive hover:bg-destructive/10 rounded-xl h-9 w-9"
-            onClick={handleDeleteMeeting}
+            onClick={() => handleDelete(meeting)}
             aria-label="Delete meeting"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
+
         {showJoinButton && (
-          <Button
-            size="sm"
-            onClick={handleButtonClick}
-            disabled={buttonState.disabled}
-            className={cn(
-              "rounded-xl px-4 py-2 font-bold text-xs shadow-sm transition-all h-9 flex items-center gap-1.5",
-              buttonState.disabled
-                ? 'bg-muted text-muted-foreground'
-                : buttonState.type === 'end'
-                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/95'
-                : 'bg-gradient-to-r from-primary to-violet-600 text-primary-foreground hover:opacity-95 shadow-md hover:shadow-lg'
-            )}
-          >
-            {buttonState.type === 'start' ? (
+          isLive && isHost ? (
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                onClick={() => handleAction(meeting, { kind: 'join', label: 'Join' })}
+                className="rounded-xl px-4 py-2 font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all h-9 flex items-center gap-1.5"
+              >
+                <Video className="h-3.5 w-3.5" />
+                Join
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleEndMeeting(meeting)}
+                className="rounded-xl px-3 py-2 font-bold text-xs shadow-sm transition-all h-9 flex items-center gap-1.5"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+                End
+              </Button>
+            </div>
+          ) : action.kind === 'start' ? (
+            <Button
+              size="sm"
+              onClick={() => handleAction(meeting, action)}
+              className="rounded-xl px-4 py-2 font-bold text-xs bg-gradient-to-r from-primary to-violet-600 text-primary-foreground hover:opacity-95 shadow-md hover:shadow-lg transition-all h-9 flex items-center gap-1.5"
+            >
               <Play className="h-3.5 w-3.5 fill-current" />
-            ) : buttonState.type === 'end' ? (
-              <Square className="h-3.5 w-3.5 fill-current" />
-            ) : (
+              Start
+            </Button>
+          ) : action.kind === 'join' ? (
+            <Button
+              size="sm"
+              onClick={() => handleAction(meeting, action)}
+              className="rounded-xl px-4 py-2 font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all h-9 flex items-center gap-1.5"
+            >
               <Video className="h-3.5 w-3.5" />
-            )}
-            {buttonState.text}
-          </Button>
+              Join
+            </Button>
+          ) : action.kind === 'disabled' ? (
+            <Button
+              size="sm"
+              disabled
+              className="rounded-xl px-4 py-2 font-bold text-xs bg-muted text-muted-foreground opacity-75 shadow-none h-9 flex items-center gap-1.5"
+            >
+              {action.label}
+            </Button>
+          ) : action.kind === 'recap' ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction(meeting, action)}
+              className="rounded-xl px-4 py-2 font-bold text-xs h-9 flex items-center gap-1.5"
+            >
+              Recap
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction(meeting, action)}
+              className="rounded-xl px-4 py-2 font-bold text-xs h-9 flex items-center gap-1.5"
+            >
+              Details
+            </Button>
+          )
         )}
       </div>
-
     </div>
   );
 };

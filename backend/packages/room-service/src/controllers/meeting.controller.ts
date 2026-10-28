@@ -32,6 +32,7 @@ import { PrismaMeetingRepository } from '../meeting-domain/repositories/prisma-m
 import { PrismaOutboxRepository } from '../meeting-domain/repositories/prisma-outbox.repository.js';
 import { RRuleRecurrenceEngine } from '../meeting-domain/recurrence/rrule-recurrence-engine.js';
 import { parseLocalDate, parseLocalTime, parseIanaTimeZone } from '../meeting-domain/time/zoned-date-time.js';
+import { MeetingPolicy, PolicyPrincipal } from '../meeting-domain/meeting-policy.js';
 
 
 export class MeetingController {
@@ -514,7 +515,43 @@ export class MeetingController {
       );
     }
 
-    return ResponseHelpers.ok(res, allMeetings);
+    const userPrincipal: PolicyPrincipal = {
+      userId: req.user.userId,
+      organizationId: req.user.organizationId,
+      email: req.user.email,
+    };
+
+    const meetingsWithCapabilities = allMeetings.map((m: any) => {
+      if (m.source !== 'google') {
+        const isParticipant = m.participants?.some((p: any) => p.userId === userPrincipal.userId);
+        const isInvited = m.invites?.some((i: any) => i.email === userPrincipal.email);
+        const capabilities = MeetingPolicy.evaluateCapabilities({
+          meeting: {
+            id: m.id || m.meetingId,
+            meetingId: m.meetingId,
+            organizationId: m.organizationId,
+            createdBy: m.createdBy,
+            scheduledAt: m.scheduledAt ? new Date(m.scheduledAt) : new Date(m.scheduledTime),
+            duration: m.duration || 45,
+            status: m.status,
+            roomId: m.roomId,
+            seriesId: m.seriesId,
+            occurrenceKey: m.occurrenceKey,
+            revision: m.revision || 1,
+          },
+          principal: userPrincipal,
+          isParticipant,
+          isInvited,
+        });
+        return {
+          ...m,
+          capabilities,
+        };
+      }
+      return m;
+    });
+
+    return ResponseHelpers.ok(res, meetingsWithCapabilities);
   }
 
   /**
@@ -566,7 +603,36 @@ export class MeetingController {
       );
     }
 
-    return ResponseHelpers.ok(res, meeting);
+    const userPrincipal: PolicyPrincipal = {
+      userId: req.user.userId,
+      organizationId: req.user.organizationId,
+      email: req.user.email,
+    };
+    const isParticipant = meeting.participants?.some((p: any) => p.userId === userPrincipal.userId);
+    const isInvited = meeting.invites?.some((i: any) => i.email === userPrincipal.email);
+    const capabilities = MeetingPolicy.evaluateCapabilities({
+      meeting: {
+        id: meeting.id,
+        meetingId: meeting.meetingId,
+        organizationId: meeting.organizationId,
+        createdBy: meeting.createdBy,
+        scheduledAt: meeting.scheduledAt ? new Date(meeting.scheduledAt) : new Date(meeting.scheduledTime),
+        duration: meeting.duration || 45,
+        status: meeting.status,
+        roomId: meeting.roomId,
+        seriesId: meeting.seriesId,
+        occurrenceKey: meeting.occurrenceKey,
+        revision: meeting.revision || 1,
+      },
+      principal: userPrincipal,
+      isParticipant,
+      isInvited,
+    });
+
+    return ResponseHelpers.ok(res, {
+      ...meeting,
+      capabilities,
+    });
   }
 
   /**
