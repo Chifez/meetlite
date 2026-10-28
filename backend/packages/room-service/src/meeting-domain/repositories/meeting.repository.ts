@@ -62,12 +62,14 @@ export interface MeetingRepository {
   }): Promise<readonly MeetingOccurrenceRecord[]>;
 
   /**
-   * Upserts an occurrence for rolling materialization. Idempotent on (seriesId, occurrenceKey).
+   * Upserts an occurrence for rolling materialization or standalone creation.
+   * Idempotent on (seriesId, occurrenceKey) or meetingId.
    */
   upsertOccurrence(params: {
-    seriesId: string;
+    seriesId?: string | null;
     seed: CreateOccurrenceSeedParams;
     tenant: TenantContext;
+    createdBy?: string;
   }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean }>;
 
   /**

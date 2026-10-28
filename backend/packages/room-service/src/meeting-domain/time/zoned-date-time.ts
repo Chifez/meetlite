@@ -227,3 +227,12 @@ export function resolveZonedDateTime(
     },
   };
 }
+
+/**
+ * Format stable occurrence key YYYY-MM-DDTHH:mm:ss
+ */
+export function formatZonedKey(date: LocalDate, time: LocalTime): string {
+  const normTime = time.length === 5 ? `${time}:00` : time;
+  return `${date}T${normTime}`;
+}
+

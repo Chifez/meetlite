@@ -27,13 +27,72 @@ import { prisma } from '@minimeet/shared';
 import { WORKSPACE_ROLES } from '@minimeet/shared';
 import logger from '../utils/logger.js';
 import { RecurrenceMetrics } from '../services/recurrence-metrics.service.js';
+import { MeetingApplication } from '../meeting-domain/meeting-application.js';
+import { PrismaMeetingRepository } from '../meeting-domain/repositories/prisma-meeting.repository.js';
+import { PrismaOutboxRepository } from '../meeting-domain/repositories/prisma-outbox.repository.js';
+import { RRuleRecurrenceEngine } from '../meeting-domain/recurrence/rrule-recurrence-engine.js';
+import { parseLocalDate, parseLocalTime, parseIanaTimeZone } from '../meeting-domain/time/zoned-date-time.js';
 
 
 export class MeetingController {
+  private meetingApplication: MeetingApplication;
+
+  constructor(meetingApplication?: MeetingApplication) {
+    this.meetingApplication =
+      meetingApplication ??
+      new MeetingApplication({
+        meetingRepository: new PrismaMeetingRepository(prisma as any),
+        outboxRepository: new PrismaOutboxRepository(prisma as any),
+        recurrenceEngine: new RRuleRecurrenceEngine(),
+      });
+  }
+
   /**
    * POST /meetings - Create a new meeting
    */
   async createMeeting(req: AuthenticatedRequest, res: Response) {
+    const isV2Request =
+      req.headers['x-meeting-v2'] === 'true' ||
+      Boolean(req.body.localDate && req.body.localTime && req.body.timeZone) ||
+      process.env.FEATURE_MEETING_SERIES_V2 === 'true';
+
+    if (isV2Request && req.body.localDate && req.body.localTime && req.body.timeZone) {
+      const idempotencyKey =
+        (req.headers['idempotency-key'] as string) ||
+        req.body.idempotencyKey ||
+        uuidv4();
+
+      const result = await this.meetingApplication.create({
+        principal: {
+          userId: req.user.userId,
+          orgId: req.user.organizationId,
+        },
+        command: {
+          idempotencyKey,
+          title: req.body.title,
+          description: req.body.description,
+          localDate: parseLocalDate(req.body.localDate),
+          localTime: parseLocalTime(req.body.localTime),
+          timeZone: parseIanaTimeZone(req.body.timeZone),
+          durationMinutes: Number(req.body.durationMinutes || req.body.duration || 30),
+          privacy: req.body.privacy || 'public',
+          attendeeEmails: req.body.participants || req.body.inviteEmails || [],
+          recurrence: req.body.recurrence?.spec ?? req.body.recurrence,
+          teamId: req.body.teamId,
+          disambiguation: req.body.disambiguation,
+        },
+      });
+
+      return ResponseHelpers.created(
+        res,
+        {
+          meetingId: result.view.meeting.meetingId,
+          series: result.series,
+          view: result.view,
+        },
+        'Meeting created successfully'
+      );
+    }
     const {
       title,
       description,
@@ -462,6 +521,26 @@ export class MeetingController {
    * GET /meetings/:meetingId - Get meeting details
    */
   async getMeeting(req: AuthenticatedRequest, res: Response) {
+    const isV2Request = req.headers['x-meeting-v2'] === 'true' || req.query.v2 === 'true';
+    if (isV2Request) {
+      try {
+        const view = await this.meetingApplication.getView({
+          meetingId: req.params.meetingId as string,
+          principal: {
+            userId: req.user.userId,
+            orgId: req.user.organizationId,
+          },
+          viewerTimeZone: (req.query.timeZone as string) || 'UTC',
+        });
+        return ResponseHelpers.ok(res, view, 'Meeting retrieved successfully');
+      } catch (err: any) {
+        if (err.code === 'MEETING_NOT_FOUND') {
+          throw AppError.notFound('Meeting');
+        }
+        throw err;
+      }
+    }
+
     const meeting = await prisma.meeting.findUnique({
       where: { meetingId: req.params.meetingId as string },
       include: {

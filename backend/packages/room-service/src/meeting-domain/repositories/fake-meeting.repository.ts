@@ -161,31 +161,63 @@ export class FakeMeetingRepository implements MeetingRepository {
   }
 
   async upsertOccurrence(params: {
-    seriesId: string;
+    seriesId?: string | null;
     seed: CreateOccurrenceSeedParams;
     tenant: TenantContext;
+    createdBy?: string;
   }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean }> {
-    const existing = await this.findOccurrenceByKey(params.seriesId, params.seed.occurrenceKey, params.tenant);
-    if (existing) {
-      return { occurrence: existing, created: false };
+    if (params.seriesId) {
+      const existing = await this.findOccurrenceByKey(params.seriesId, params.seed.occurrenceKey, params.tenant);
+      if (existing) {
+        return { occurrence: existing, created: false };
+      }
+
+      const series = await this.findSeriesById(params.seriesId, params.tenant);
+      if (!series) {
+        throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+      }
+
+      const occurrence: MeetingOccurrenceRecord = {
+        id: randomUUID(),
+        meetingId: params.seed.meetingId,
+        organizationId: series.organizationId,
+        teamId: series.teamId,
+        createdBy: series.createdBy,
+        title: params.seed.title ?? series.title,
+        description: params.seed.description ?? series.description,
+        privacy: params.seed.privacy ?? series.privacy,
+        seriesId: series.id,
+        occurrenceKey: params.seed.occurrenceKey,
+        scheduledAt: params.seed.scheduledAt,
+        eventTimeZone: params.seed.eventTimeZone,
+        durationMinutes: params.seed.durationMinutes,
+        status: 'scheduled',
+        lifecycleRevision: 1,
+        roomId: null,
+        createdAt: new Date(),
+      };
+
+      this.occurrenceStore.set(occurrence.id, occurrence);
+      return { occurrence, created: true };
     }
 
-    const series = await this.findSeriesById(params.seriesId, params.tenant);
-    if (!series) {
-      throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+    // Standalone meeting occurrence
+    const existing = await this.findMeetingById(params.seed.meetingId, params.tenant);
+    if (existing) {
+      return { occurrence: existing, created: false };
     }
 
     const occurrence: MeetingOccurrenceRecord = {
       id: randomUUID(),
       meetingId: params.seed.meetingId,
-      organizationId: series.organizationId,
-      teamId: series.teamId,
-      createdBy: series.createdBy,
-      title: params.seed.title ?? series.title,
-      description: params.seed.description ?? series.description,
-      privacy: params.seed.privacy ?? series.privacy,
-      seriesId: series.id,
-      occurrenceKey: params.seed.occurrenceKey,
+      organizationId: params.tenant.organizationId ?? null,
+      teamId: params.tenant.teamId ?? null,
+      createdBy: params.createdBy ?? '00000000-0000-0000-0000-000000000000',
+      title: params.seed.title ?? 'Untitled Meeting',
+      description: params.seed.description ?? null,
+      privacy: params.seed.privacy ?? 'public',
+      seriesId: null,
+      occurrenceKey: null,
       scheduledAt: params.seed.scheduledAt,
       eventTimeZone: params.seed.eventTimeZone,
       durationMinutes: params.seed.durationMinutes,

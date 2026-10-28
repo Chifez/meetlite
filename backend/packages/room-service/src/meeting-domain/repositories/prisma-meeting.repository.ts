@@ -207,39 +207,71 @@ export class PrismaMeetingRepository implements MeetingRepository {
   }
 
   async upsertOccurrence(params: {
-    seriesId: string;
+    seriesId?: string | null;
     seed: CreateOccurrenceSeedParams;
     tenant: TenantContext;
+    createdBy?: string;
   }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean }> {
-    const series = await this.findSeriesById(params.seriesId, params.tenant);
-    if (!series) {
-      throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
-    }
+    if (params.seriesId) {
+      const series = await this.findSeriesById(params.seriesId, params.tenant);
+      if (!series) {
+        throw new Error(`SERIES_NOT_FOUND: ${params.seriesId}`);
+      }
 
-    const existing = await this.prisma.meeting.findUnique({
-      where: {
-        seriesId_occurrenceKey: {
+      const existing = await this.prisma.meeting.findUnique({
+        where: {
+          seriesId_occurrenceKey: {
+            seriesId: series.id,
+            occurrenceKey: params.seed.occurrenceKey,
+          },
+        },
+      });
+
+      if (existing) {
+        return { occurrence: this.mapOccurrence(existing), created: false };
+      }
+
+      const created = await this.prisma.meeting.create({
+        data: {
+          meetingId: params.seed.meetingId,
+          organizationId: series.organizationId,
+          teamId: series.teamId,
+          createdBy: series.createdBy,
+          title: params.seed.title ?? series.title,
+          description: params.seed.description ?? series.description,
+          privacy: params.seed.privacy ?? series.privacy,
           seriesId: series.id,
           occurrenceKey: params.seed.occurrenceKey,
+          scheduledAt: params.seed.scheduledAt,
+          scheduledTime: params.seed.scheduledAt,
+          eventTimeZone: params.seed.eventTimeZone,
+          durationMinutes: params.seed.durationMinutes,
+          duration: params.seed.durationMinutes,
+          status: 'scheduled',
+          lifecycleRevision: 1,
         },
-      },
-    });
+      });
 
+      return { occurrence: this.mapOccurrence(created), created: true };
+    }
+
+    // Standalone meeting occurrence
+    const existing = await this.findMeetingById(params.seed.meetingId, params.tenant);
     if (existing) {
-      return { occurrence: this.mapOccurrence(existing), created: false };
+      return { occurrence: existing, created: false };
     }
 
     const created = await this.prisma.meeting.create({
       data: {
         meetingId: params.seed.meetingId,
-        organizationId: series.organizationId,
-        teamId: series.teamId,
-        createdBy: series.createdBy,
-        title: params.seed.title ?? series.title,
-        description: params.seed.description ?? series.description,
-        privacy: params.seed.privacy ?? series.privacy,
-        seriesId: series.id,
-        occurrenceKey: params.seed.occurrenceKey,
+        organizationId: params.tenant.organizationId ?? null,
+        teamId: params.tenant.teamId ?? null,
+        createdBy: params.createdBy ?? '00000000-0000-0000-0000-000000000000',
+        title: params.seed.title ?? 'Untitled Meeting',
+        description: params.seed.description ?? null,
+        privacy: params.seed.privacy ?? 'public',
+        seriesId: null,
+        occurrenceKey: null,
         scheduledAt: params.seed.scheduledAt,
         scheduledTime: params.seed.scheduledAt,
         eventTimeZone: params.seed.eventTimeZone,
