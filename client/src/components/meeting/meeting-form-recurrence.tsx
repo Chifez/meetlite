@@ -21,6 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { MeetingFormData } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { features } from '@/config/features';
 
 interface MeetingFormRecurrenceProps {
   formData: MeetingFormData;
@@ -55,6 +56,11 @@ export default function MeetingFormRecurrence({
   formData,
   onRecurrenceChange,
 }: MeetingFormRecurrenceProps) {
+  // MLTR-00: Typed kill switch to safely hide or disable recurrence creation
+  if (!features.recurringMeetingsEnabled) {
+    return null;
+  }
+
   const recurrence = formData.recurrence || {
     enabled: false,
     pattern: 'weekly' as const,

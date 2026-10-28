@@ -25,6 +25,8 @@ import {
 } from '../services/calendar-cache.service.js';
 import { prisma } from '@minimeet/shared';
 import { WORKSPACE_ROLES } from '@minimeet/shared';
+import logger from '../utils/logger.js';
+import { RecurrenceMetrics } from '../services/recurrence-metrics.service.js';
 
 
 export class MeetingController {
@@ -216,6 +218,7 @@ export class MeetingController {
     }
 
     if (isRecurring && recurrenceData) {
+      const startTime = Date.now();
       try {
         const now = new Date();
         const endDate = new Date();
@@ -227,11 +230,33 @@ export class MeetingController {
           now,
           endDate
         );
-      } catch (recurrenceError) {
-        console.error(
-          'Failed to create initial recurrence instances:',
-          recurrenceError
+
+        RecurrenceMetrics.record({
+          metric: 'meeting_recurrence_expand_total',
+          result: 'success',
+          meetingId: meeting.meetingId,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (recurrenceError: any) {
+        RecurrenceMetrics.recordFailure(
+          'meeting_recurrence_expand_total',
+          'RECURRENCE_INITIAL_EXPANSION_FAILED',
+          {
+            meetingId: meeting.meetingId,
+            error: recurrenceError,
+            durationMs: Date.now() - startTime,
+          }
         );
+
+        // MLTR-00 Invariant: Do not report a recurring series as ready when no valid occurrence exists.
+        // Clean up the parent meeting to avoid leaving a corrupted, empty series in the database.
+        try {
+          await prisma.meeting.delete({ where: { id: meeting.id } });
+        } catch (cleanupErr) {
+          logger.error('[Meetings] Failed to cleanup orphaned parent meeting after expansion failure:', cleanupErr);
+        }
+
+        throw AppError.internal('Failed to generate initial recurrence occurrences for recurring meeting');
       }
     }
 
