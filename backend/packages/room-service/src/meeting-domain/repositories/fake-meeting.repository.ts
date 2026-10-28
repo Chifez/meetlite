@@ -329,4 +329,35 @@ export class FakeMeetingRepository implements MeetingRepository {
     this.occurrenceStore.set(meeting.id, updated);
     return updated;
   }
+
+  async advanceMaterializedThrough(
+    seriesId: string,
+    throughExclusive: Date,
+    tenant?: TenantContext
+  ): Promise<void> {
+    const series = await this.findSeriesById(seriesId, tenant ?? {});
+    if (series) {
+      series.materializedThrough = throughExclusive;
+      series.updatedAt = new Date();
+      this.seriesStore.set(series.id, series);
+    }
+  }
+
+  async findDueSeriesForMaterialization(
+    horizon: Date,
+    limit: number
+  ): Promise<readonly MeetingSeriesRecord[]> {
+    const results: MeetingSeriesRecord[] = [];
+    const horizonMs = horizon.getTime();
+
+    for (const series of this.seriesStore.values()) {
+      if (series.status !== 'ACTIVE') continue;
+      if (!series.materializedThrough || series.materializedThrough.getTime() < horizonMs) {
+        results.push({ ...series });
+        if (results.length >= limit) break;
+      }
+    }
+
+    return results;
+  }
 }

@@ -111,4 +111,21 @@ export interface MeetingRepository {
     expectedRevision: number;
     tenant: TenantContext;
   }): Promise<MeetingOccurrenceRecord>;
+
+  /**
+   * Advances the materializedThrough timestamp of a series.
+   */
+  advanceMaterializedThrough(
+    seriesId: string,
+    throughExclusive: Date,
+    tenant?: TenantContext
+  ): Promise<void>;
+
+  /**
+   * Finds active series whose materializedThrough is null or earlier than horizon.
+   */
+  findDueSeriesForMaterialization(
+    horizon: Date,
+    limit: number
+  ): Promise<readonly MeetingSeriesRecord[]>;
 }

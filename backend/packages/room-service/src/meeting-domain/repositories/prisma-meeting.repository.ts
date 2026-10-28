@@ -397,4 +397,37 @@ export class PrismaMeetingRepository implements MeetingRepository {
 
     return this.mapOccurrence(updated);
   }
+
+  async advanceMaterializedThrough(
+    seriesId: string,
+    throughExclusive: Date,
+    tenant?: TenantContext
+  ): Promise<void> {
+    const series = await this.findSeriesById(seriesId, tenant ?? {});
+    if (series) {
+      await this.prisma.meetingSeries.update({
+        where: { id: series.id },
+        data: { materializedThrough: throughExclusive },
+      });
+    }
+  }
+
+  async findDueSeriesForMaterialization(
+    horizon: Date,
+    limit: number
+  ): Promise<readonly MeetingSeriesRecord[]> {
+    const rawList = await this.prisma.meetingSeries.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { materializedThrough: null },
+          { materializedThrough: { lt: horizon } },
+        ],
+      },
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return rawList.map((raw) => this.mapSeries(raw));
+  }
 }

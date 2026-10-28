@@ -157,8 +157,11 @@ export class RRuleRecurrenceEngine implements RecurrenceEngine {
     input: ValidatedRecurrence,
     window: ExpansionWindow
   ): readonly OccurrenceSeed[] {
-    const { rruleString, timeZone, localTime } = input;
-    const rule = rrulestr(rruleString);
+    const { rruleString, timeZone, localTime, localDate } = input;
+    const [y, m, d] = localDate.split('-').map(Number);
+    const [hh, mm, ss] = localTime.split(':').map(Number);
+    const defaultDtstart = new Date(Date.UTC(y, m - 1, d, hh, mm, ss || 0));
+    const rule = rrulestr(rruleString, { dtstart: defaultDtstart });
 
     // Expand local dates between bounds
     // Note: RRule evaluates dates naively according to the constructed DTSTART
