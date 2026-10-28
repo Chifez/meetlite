@@ -10,6 +10,7 @@ export type MeetingSeriesStatus = 'ACTIVE' | 'CANCELLED' | 'ENDED';
 export type MeetingLifecycleStatus =
   | 'scheduled'
   | 'live'
+  | 'ongoing'
   | 'ended'
   | 'cancelled'
   | 'completed';

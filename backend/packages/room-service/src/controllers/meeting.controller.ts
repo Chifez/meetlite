@@ -37,13 +37,15 @@ import { MeetingPolicy, PolicyPrincipal } from '../meeting-domain/meeting-policy
 
 export class MeetingController {
   private meetingApplication: MeetingApplication;
+  private outboxRepo: PrismaOutboxRepository;
 
-  constructor(meetingApplication?: MeetingApplication) {
+  constructor(meetingApplication?: MeetingApplication, outboxRepo?: PrismaOutboxRepository) {
+    this.outboxRepo = outboxRepo ?? new PrismaOutboxRepository(prisma as any);
     this.meetingApplication =
       meetingApplication ??
       new MeetingApplication({
         meetingRepository: new PrismaMeetingRepository(prisma as any),
-        outboxRepository: new PrismaOutboxRepository(prisma as any),
+        outboxRepository: this.outboxRepo,
         recurrenceEngine: new RRuleRecurrenceEngine(),
       });
   }
@@ -529,15 +531,21 @@ export class MeetingController {
           meeting: {
             id: m.id || m.meetingId,
             meetingId: m.meetingId,
-            organizationId: m.organizationId,
+            organizationId: m.organizationId || null,
+            teamId: m.teamId || null,
             createdBy: m.createdBy,
+            title: m.title || '',
+            description: m.description || null,
+            privacy: m.privacy || 'public',
             scheduledAt: m.scheduledAt ? new Date(m.scheduledAt) : new Date(m.scheduledTime),
-            duration: m.duration || 45,
-            status: m.status,
-            roomId: m.roomId,
-            seriesId: m.seriesId,
-            occurrenceKey: m.occurrenceKey,
-            revision: m.revision || 1,
+            eventTimeZone: m.eventTimeZone || 'UTC',
+            durationMinutes: m.durationMinutes || m.duration || 45,
+            status: m.status as any,
+            roomId: m.roomId || null,
+            seriesId: m.seriesId || null,
+            occurrenceKey: m.occurrenceKey || null,
+            lifecycleRevision: m.lifecycleRevision || 1,
+            createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
           },
           principal: userPrincipal,
           isParticipant,
@@ -614,15 +622,21 @@ export class MeetingController {
       meeting: {
         id: meeting.id,
         meetingId: meeting.meetingId,
-        organizationId: meeting.organizationId,
+        organizationId: meeting.organizationId || null,
+        teamId: meeting.teamId || null,
         createdBy: meeting.createdBy,
+        title: meeting.title || '',
+        description: meeting.description || null,
+        privacy: meeting.privacy || 'public',
         scheduledAt: meeting.scheduledAt ? new Date(meeting.scheduledAt) : new Date(meeting.scheduledTime),
-        duration: meeting.duration || 45,
-        status: meeting.status,
-        roomId: meeting.roomId,
-        seriesId: meeting.seriesId,
-        occurrenceKey: meeting.occurrenceKey,
-        revision: meeting.revision || 1,
+        eventTimeZone: meeting.eventTimeZone || 'UTC',
+        durationMinutes: meeting.durationMinutes || meeting.duration || 45,
+        status: meeting.status as any,
+        roomId: meeting.roomId || null,
+        seriesId: meeting.seriesId || null,
+        occurrenceKey: meeting.occurrenceKey || null,
+        lifecycleRevision: meeting.lifecycleRevision || 1,
+        createdAt: meeting.createdAt ? new Date(meeting.createdAt) : new Date(),
       },
       principal: userPrincipal,
       isParticipant,
@@ -1082,7 +1096,7 @@ export class MeetingController {
 
     try {
       await this.outboxRepo.append({
-        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+        eventId: `evt_${uuidv4().replace(/-/g, '')}`,
         aggregateType: 'meeting-occurrence',
         aggregateId: meeting.meetingId,
         eventType: 'meeting.started.v1',
@@ -1132,7 +1146,7 @@ export class MeetingController {
 
     try {
       await this.outboxRepo.append({
-        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+        eventId: `evt_${uuidv4().replace(/-/g, '')}`,
         aggregateType: 'meeting-occurrence',
         aggregateId: meeting.meetingId,
         eventType: 'meeting.ended.v1',
