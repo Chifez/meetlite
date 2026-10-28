@@ -52,6 +52,7 @@ model User {
   teamMemberships      TeamMember[]
   ownedTeams           Team[]                       @relation("TeamOwner")
   createdMeetings      Meeting[]                    @relation("MeetingCreator")
+  createdSeries        MeetingSeries[]              @relation("MeetingSeriesCreator")
   participants         MeetingParticipant[]
   recordingParticipants MeetingRecordingParticipant[]
   sentOrgInvitations   OrganizationInvitation[]     @relation("OrgInviter")
@@ -121,6 +122,7 @@ model Organization {
   memberships                UserOrganizationMembership[]
   teams                      Team[]
   meetings                   Meeting[]
+  series                     MeetingSeries[]
   recordings                 MeetingRecording[]
   invitations                OrganizationInvitation[]
   activities                 Activity[]
@@ -168,6 +170,7 @@ model Team {
   owner                     User                         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members                   TeamMember[]
   meetings                  Meeting[]
+  series                    MeetingSeries[]
   recordings                MeetingRecording[]
   invitations               TeamInvitation[]
 
@@ -209,22 +212,31 @@ model Meeting {
   recurrenceEndDate  DateTime?                    @map("recurrence_end_date")
   recurrenceRrule    String?                      @map("recurrence_rrule")
   parentRecurrenceId String?                      @map("parent_recurrence_id") @db.Uuid
+  seriesId           String?                      @map("series_id") @db.Uuid
+  occurrenceKey      String?                      @map("occurrence_key")
+  scheduledAt        DateTime?                    @map("scheduled_at") @db.Timestamptz(3)
+  eventTimeZone      String?                      @map("event_time_zone")
+  durationMinutes    Int?                         @map("duration_minutes")
+  lifecycleRevision  Int                          @default(1) @map("lifecycle_revision")
   createdAt          DateTime                     @default(now()) @map("created_at")
 
   creator            User                         @relation("MeetingCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   organization       Organization?                @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   team               Team?                        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  series             MeetingSeries?               @relation(fields: [seriesId], references: [id], onDelete: Restrict)
   parentRecurrence   Meeting?                     @relation("RecurrenceSeries", fields: [parentRecurrenceId], references: [id], onDelete: SetNull)
   recurrences        Meeting[]                    @relation("RecurrenceSeries")
   participants       MeetingParticipant[]
   invites            MeetingInvite[]
-  exceptions         MeetingRecurrenceException[]
   recordings         MeetingRecording[]
 
+  @@unique([seriesId, occurrenceKey])
   @@index([organizationId])
   @@index([teamId])
   @@index([createdBy])
   @@index([scheduledTime])
+  @@index([organizationId, scheduledAt])
+  @@index([seriesId, scheduledAt])
   @@map("meetings")
 }
 
@@ -255,15 +267,72 @@ model MeetingInvite {
 }
 
 model MeetingRecurrenceException {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  parentMeetingId    String   @map("parent_meeting_id") @db.Uuid
-  exceptionDate      DateTime @map("exception_date")
-  action             String
-  modifiedMeetingId  String?  @map("modified_meeting_id") @db.Uuid
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seriesId          String        @map("series_id") @db.Uuid
+  occurrenceKey     String        @map("occurrence_key")
+  kind              String        // CANCELLED | OVERRIDDEN
+  overrideMeetingId String?       @map("override_meeting_id") @db.Uuid
+  seriesRevision    Int           @map("series_revision")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  parentMeeting      Meeting  @relation(fields: [parentMeetingId], references: [id], onDelete: Cascade)
+  series            MeetingSeries @relation(fields: [seriesId], references: [id], onDelete: Restrict)
 
+  @@unique([seriesId, occurrenceKey])
   @@map("meeting_recurrence_exceptions")
+}
+
+enum MeetingSeriesStatus {
+  ACTIVE
+  CANCELLED
+  ENDED
+}
+
+model MeetingSeries {
+  id                  String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seriesId            String                       @unique @map("series_id")
+  organizationId      String?                      @map("organization_id") @db.Uuid
+  teamId              String?                      @map("team_id") @db.Uuid
+  createdBy           String                       @map("created_by") @db.Uuid
+  title               String
+  description         String?
+  durationMinutes     Int                          @map("duration_minutes")
+  privacy             String
+  timeZone            String                       @map("time_zone")
+  localStartDate      String                       @map("local_start_date")
+  localStartTime      String                       @map("local_start_time")
+  recurrenceRule      String                       @map("recurrence_rule")
+  status              MeetingSeriesStatus          @default(ACTIVE)
+  revision            Int                          @default(1)
+  materializedThrough DateTime?                    @map("materialized_through") @db.Timestamptz(3)
+  createdAt           DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  creator             User                         @relation("MeetingSeriesCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  organization        Organization?                @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  team                Team?                        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  occurrences         Meeting[]
+  exceptions          MeetingRecurrenceException[]
+
+  @@index([organizationId, status])
+  @@index([teamId, status])
+  @@map("meeting_series")
+}
+
+model OutboxEvent {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId       String    @unique @map("event_id")
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  eventType     String    @map("event_type")
+  schemaVersion Int       @map("schema_version")
+  payload       Json
+  occurredAt    DateTime  @map("occurred_at") @db.Timestamptz(3)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts      Int       @default(0)
+  lastErrorCode String?   @map("last_error_code")
+
+  @@index([publishedAt, occurredAt])
+  @@map("outbox_events")
 }
 
 model MeetingRecording {
