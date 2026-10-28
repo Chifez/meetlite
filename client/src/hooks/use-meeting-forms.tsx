@@ -6,6 +6,7 @@ import { extractData, extractError } from '@/lib/api-response';
 // import { env } from '@/config/env';
 
 import { MeetingFormData } from '@/lib/types';
+import { getUserTimeZone } from '@/lib/timezones';
 
 const initialFormData: MeetingFormData = {
   title: '',
@@ -195,6 +196,7 @@ export const useMeetingForm = (
       privacy: formData.privacy,
       inviteEmails: finalParticipants,
       hostEmail: user?.email,
+      timeZone: getUserTimeZone(),
       ...(teamId && { teamId }),
       ...(teamId && {
         autoIncludeTeamMembers: formData.autoIncludeTeamMembers ?? true,

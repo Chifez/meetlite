@@ -21,4 +21,12 @@ const timezones = [
   'UTC',
 ];
 
+export function getUserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 export default timezones;

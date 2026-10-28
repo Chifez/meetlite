@@ -11,6 +11,7 @@ import MeetingFormFooter from '@/components/meeting/meeting-form-footer';
 import { useStreamingAI } from '@/hooks/use-streaming-ai';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { getUserTimeZone } from '@/lib/timezones';
 
 interface MeetingFormProps {
   formData: MeetingFormData;
@@ -83,7 +84,7 @@ const MeetingForm = ({
   onAutoIncludeChange,
 }: MeetingFormProps) => {
   const [inviteMethod, setInviteMethod] = useState('email');
-  const [timezone, setTimezone] = useState(propTimezone || 'Africa/Lagos');
+  const [timezone, setTimezone] = useState(propTimezone || getUserTimeZone());
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
   const [inviteInput, setInviteInput] = useState('');
   const [editingTime, setEditingTime] = useState({

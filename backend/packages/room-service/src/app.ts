@@ -11,6 +11,7 @@ import analyticsRoutesV1 from './routes/v1/analytics.routes.js';
 import aiRoutesV1 from './routes/v1/ai.routes.js';
 import calendarRoutesV1 from './routes/v1/calendar.routes.js';
 import notificationRoutesV1 from './routes/v1/notifications.routes.js';
+import meetingRecurrenceRoutesV1 from './routes/v1/meeting-recurrence.routes.js';
 
 import {
   HealthManager,
@@ -64,6 +65,7 @@ export function createRoomApp(customHealthManager?: HealthManager): express.Appl
   app.use('/api/v1/analytics', analyticsRoutesV1 as any);
   app.use('/api/v1/ai', aiRoutesV1 as any);
   app.use('/api/v1/notifications', notificationRoutesV1 as any);
+  app.use('/api/v1/meeting-recurrence', meetingRecurrenceRoutesV1 as any);
 
   // Global error handler middleware
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {

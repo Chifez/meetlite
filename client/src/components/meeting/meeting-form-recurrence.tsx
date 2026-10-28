@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,8 @@ import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { MeetingFormData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { features } from '@/config/features';
+import api from '@/lib/axios';
+import { getUserTimeZone } from '@/lib/timezones';
 
 interface MeetingFormRecurrenceProps {
   formData: MeetingFormData;
@@ -68,8 +70,96 @@ export default function MeetingFormRecurrence({
     endType: 'never' as const,
   };
 
-  // Generate preview of next occurrences
-  const previewDates = useMemo(() => {
+  // MLTR-01: Server-backed recurrence preview using the exact engine planned for materialization
+  const [serverPreviewDates, setServerPreviewDates] = useState<Date[]>([]);
+
+  useEffect(() => {
+    if (!recurrence.enabled || !formData.date) {
+      setServerPreviewDates([]);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchServerPreview = async () => {
+      try {
+        const localDate = format(formData.date!, 'yyyy-MM-dd');
+        const localTime = formData.time
+          ? formData.time.length === 5
+            ? `${formData.time}:00`
+            : formData.time
+          : '09:00:00';
+        const timeZone = getUserTimeZone();
+
+        const pattern = recurrence.pattern;
+        const frequency =
+          pattern === 'monthly'
+            ? 'monthlyByDate'
+            : pattern === 'yearly'
+            ? 'yearlyByDate'
+            : pattern;
+
+        const spec: any = {
+          frequency,
+          interval: recurrence.interval || 1,
+          end:
+            recurrence.endType === 'after'
+              ? { type: 'count', count: recurrence.occurrences || 10 }
+              : recurrence.endType === 'on' && recurrence.endDate
+              ? {
+                  type: 'until',
+                  localDate: format(new Date(recurrence.endDate), 'yyyy-MM-dd'),
+                }
+              : { type: 'never' },
+        };
+
+        if (frequency === 'weekly') {
+          spec.weekdays =
+            recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0
+              ? recurrence.daysOfWeek
+              : [formData.date!.getDay()];
+        } else if (frequency === 'monthlyByDate') {
+          spec.dayOfMonth = recurrence.dayOfMonth || formData.date!.getDate();
+        }
+
+        const res = await api.post('/api/v1/meeting-recurrence/preview', {
+          localDate,
+          localTime,
+          timeZone,
+          recurrence: spec,
+          limit: 5,
+        });
+
+        if (isMounted && res.data?.data?.occurrences) {
+          const seeds = res.data.data.occurrences.map(
+            (o: any) => new Date(o.scheduledAt)
+          );
+          setServerPreviewDates(seeds);
+        }
+      } catch (err) {
+        // Fall back gracefully to local calculation if server preview is unavailable
+      }
+    };
+
+    void fetchServerPreview();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    recurrence.enabled,
+    recurrence.pattern,
+    recurrence.interval,
+    recurrence.endType,
+    recurrence.endDate,
+    recurrence.occurrences,
+    recurrence.daysOfWeek,
+    recurrence.dayOfMonth,
+    formData.date,
+    formData.time,
+  ]);
+
+  // Fallback preview calculation in case server preview request is pending
+  const fallbackPreviewDates = useMemo(() => {
     if (!recurrence.enabled || !formData.date) return [];
 
     const startDate = new Date(formData.date);
@@ -87,7 +177,6 @@ export default function MeetingFormRecurrence({
           nextDate = addDays(prevDate, interval);
           break;
         case 'weekdays': {
-          // Move to next weekday
           let tempDate = addDays(prevDate, 1);
           while (tempDate.getDay() === 0 || tempDate.getDay() === 6) {
             tempDate = addDays(tempDate, 1);
@@ -108,7 +197,6 @@ export default function MeetingFormRecurrence({
           nextDate = addWeeks(prevDate, 1);
       }
 
-      // Check end conditions
       if (recurrence.endType === 'after' && recurrence.occurrences) {
         if (i >= recurrence.occurrences) break;
       }
@@ -121,6 +209,9 @@ export default function MeetingFormRecurrence({
 
     return dates;
   }, [recurrence, formData.date]);
+
+  const previewDates =
+    serverPreviewDates.length > 0 ? serverPreviewDates : fallbackPreviewDates;
 
   // Generate summary text
   const getSummaryText = (): string => {

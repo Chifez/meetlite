@@ -14,6 +14,7 @@ import MeetingForm from '@/components/meeting/meeting-form';
 import { MeetingFormData } from '@/lib/types';
 import { useEnhancedSmartScheduling } from '@/hooks/use-enhanced-smart-scheduling';
 import ConflictResolutionModal from '@/components/scheduling/conflict-resolution-modal';
+import { getUserTimeZone } from '@/lib/timezones';
 
 interface SmartSchedulingModalProps {
   open: boolean;
@@ -51,7 +52,7 @@ export default function SmartSchedulingModal({
   const [activeTab, setActiveTab] = useState('smart');
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('');
   const [parseConfidence, setParseConfidence] = useState<number | null>(null);
-  const [timezone, setTimezone] = useState('Africa/Lagos');
+  const [timezone, setTimezone] = useState(getUserTimeZone());
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictData, setConflictData] = useState<{
     parsedData: any;
@@ -180,7 +181,7 @@ export default function SmartSchedulingModal({
     setActiveTab('smart');
     setNaturalLanguageInput('');
     setParseConfidence(null);
-    setTimezone('Africa/Lagos');
+    setTimezone(getUserTimeZone());
     clearResult();
   };
 
