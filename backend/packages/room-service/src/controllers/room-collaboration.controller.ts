@@ -34,15 +34,42 @@ async function assertRoomJoinAccess(req: any, room: any): Promise<void> {
 
   const meeting = await prisma.meeting.findFirst({
     where: { roomId: room.roomId },
-    select: { createdBy: true, privacy: true, invites: true },
+    select: {
+      createdBy: true,
+      privacy: true,
+      invites: true,
+      participants: true,
+      seriesId: true,
+      organizationId: true,
+    },
   });
 
   if (meeting) {
     if (meeting.createdBy === userId || meeting.privacy === 'public') return;
+
+    // Check direct participants
+    const isParticipant = meeting.participants?.some(
+      (p: any) => p.userId === userId
+    );
+    if (isParticipant) return;
+
+    // Check invites
     const invite = meeting.invites?.find(
       (candidate: any) => candidate.email === req.user.email && candidate.status !== 'declined'
     );
     if (invite) return;
+
+    // If part of series, check series invitations
+    if (meeting.seriesId) {
+      const seriesInvite = await prisma.meetingInvite.findFirst({
+        where: {
+          email: req.user.email,
+          status: { not: 'declined' },
+          meeting: { seriesId: meeting.seriesId },
+        },
+      });
+      if (seriesInvite) return;
+    }
   }
 
   if (!meeting) {

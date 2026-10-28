@@ -64,7 +64,7 @@ export class MeetingPolicy {
     const isHost = principal.userId === meeting.createdBy;
     const isStatusEnded = meeting.status === 'ended' || meeting.status === 'completed';
     const isStatusCancelled = meeting.status === 'cancelled';
-    const isStatusLive = meeting.status === 'live';
+    const isStatusLive = meeting.status === 'live' || meeting.status === 'ongoing' || Boolean(meeting.roomId);
 
     // 1. UPDATE capability
     const update: ActionCapability = !isHost
@@ -84,19 +84,22 @@ export class MeetingPolicy {
       ? { allowed: false, reason: 'ENDED' }
       : { allowed: true, reason: 'ALLOWED' };
 
-    // 3. START capability (Only host can start a scheduled meeting)
+    // 3. START capability (Only host can start a meeting)
     const start: ActionCapability = isStatusCancelled
       ? { allowed: false, reason: 'CANCELLED' }
       : isStatusEnded
       ? { allowed: false, reason: 'ENDED' }
-      : isStatusLive
-      ? { allowed: false, reason: 'ALLOWED' } // Already live, action is join
       : !isHost
       ? { allowed: false, reason: 'NOT_ORGANIZER' }
+      : isStatusLive
+      ? { allowed: true, reason: 'ALLOWED' } // Host can rejoin existing live room
       : { allowed: true, reason: 'ALLOWED', availableAt: meeting.scheduledAt.toISOString() };
 
     // 4. JOIN capability
     let join: ActionCapability;
+    const earlyWindowMs = 15 * 60 * 1000; // 15 minutes early window
+    const availableAtInstant = new Date(meeting.scheduledAt.getTime() - earlyWindowMs);
+
     if (isStatusCancelled) {
       join = { allowed: false, reason: 'CANCELLED' };
     } else if (isStatusEnded) {
@@ -106,14 +109,23 @@ export class MeetingPolicy {
     } else {
       // Meeting is scheduled
       if (isHost) {
-        join = { allowed: true, reason: 'ALLOWED', availableAt: meeting.scheduledAt.toISOString() };
+        join = { allowed: true, reason: 'ALLOWED', availableAt: availableAtInstant.toISOString() };
       } else {
-        // Non-host participant waiting for host to start
-        join = {
-          allowed: false,
-          reason: 'WAITING_FOR_HOST',
-          availableAt: meeting.scheduledAt.toISOString(),
-        };
+        // Non-host: check if too early
+        if (now.getTime() < availableAtInstant.getTime()) {
+          join = {
+            allowed: false,
+            reason: 'TOO_EARLY',
+            availableAt: availableAtInstant.toISOString(),
+          };
+        } else {
+          // In early window, but waiting for host to initiate room
+          join = {
+            allowed: false,
+            reason: 'WAITING_FOR_HOST',
+            availableAt: meeting.scheduledAt.toISOString(),
+          };
+        }
       }
     }
 

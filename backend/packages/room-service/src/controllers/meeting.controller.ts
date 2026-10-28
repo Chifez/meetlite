@@ -980,10 +980,20 @@ export class MeetingController {
       throw AppError.forbidden('Not authorized to start this meeting');
     }
 
+    if (meeting.status === 'cancelled') {
+      throw AppError.validation('Cannot start a cancelled meeting');
+    }
+
+    if (meeting.status === 'completed' || meeting.status === 'ended') {
+      throw AppError.validation('Cannot start an ended meeting');
+    }
+
     if (meeting.roomId) {
-      const conflictError: any = AppError.conflict('Meeting already started');
-      conflictError.roomId = meeting.roomId;
-      throw conflictError;
+      return ResponseHelpers.ok(
+        res,
+        { roomId: meeting.roomId, alreadyStarted: true },
+        'Meeting already active'
+      );
     }
 
     const roomId = nanoid(10);
@@ -1003,6 +1013,24 @@ export class MeetingController {
         status: 'ongoing'
       }
     });
+
+    try {
+      await this.outboxRepo.append({
+        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+        aggregateType: 'meeting-occurrence',
+        aggregateId: meeting.meetingId,
+        eventType: 'meeting.started.v1',
+        schemaVersion: 1,
+        payload: {
+          meetingId: meeting.meetingId,
+          roomId,
+          startedBy: req.user.userId,
+        },
+        occurredAt: new Date(),
+      });
+    } catch (outboxErr) {
+      console.warn('[MeetingController] Failed to append meeting.started outbox event:', outboxErr);
+    }
 
     return ResponseHelpers.ok(res, { roomId }, 'Meeting started successfully');
   }
@@ -1035,6 +1063,23 @@ export class MeetingController {
       where: { id: meeting.id },
       data: { status: 'completed' }
     });
+
+    try {
+      await this.outboxRepo.append({
+        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+        aggregateType: 'meeting-occurrence',
+        aggregateId: meeting.meetingId,
+        eventType: 'meeting.ended.v1',
+        schemaVersion: 1,
+        payload: {
+          meetingId: meeting.meetingId,
+          endedBy: req.user.userId,
+        },
+        occurredAt: new Date(),
+      });
+    } catch (outboxErr) {
+      console.warn('[MeetingController] Failed to append meeting.ended outbox event:', outboxErr);
+    }
 
     return ResponseHelpers.ok(res, null, 'Meeting completed successfully');
   }
