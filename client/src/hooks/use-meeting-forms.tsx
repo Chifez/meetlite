@@ -13,6 +13,7 @@ const initialFormData: MeetingFormData = {
   description: '',
   date: undefined,
   time: '',
+  timeZone: getUserTimeZone(),
   duration: 30,
   privacy: 'public',
   participants: [],
@@ -122,31 +123,17 @@ export const useMeetingForm = (
       return;
     }
 
-    const scheduledTime =
-      formData.date && formData.time
-        ? (() => {
-            // Create date in local timezone
-            const [year, month, day] = [
-              formData.date.getFullYear(),
-              formData.date.getMonth(),
-              formData.date.getDate(),
-            ];
-            const [hours, minutes] = formData.time.split(':').map(Number);
-            const localDate = new Date(year, month, day, hours, minutes);
-            return localDate.toISOString();
-          })()
-        : undefined;
-
-    if (!scheduledTime) {
+    if (!formData.date || !formData.time) {
       toast.error('Please select a meeting time');
       return;
     }
 
-    // Check if the scheduled time is in the past
-    if (new Date(scheduledTime) <= new Date()) {
-      toast.error('Meeting time cannot be in the past');
-      return;
-    }
+    const localDate = [
+      formData.date.getFullYear(),
+      String(formData.date.getMonth() + 1).padStart(2, '0'),
+      String(formData.date.getDate()).padStart(2, '0'),
+    ].join('-');
+    const localTime = formData.time.length === 5 ? `${formData.time}:00` : formData.time;
 
     // Auto-add pending email input to participants array (synchronous approach)
     let finalParticipants = [...formData.participants];
@@ -190,34 +177,53 @@ export const useMeetingForm = (
     const meetingData = {
       title: formData.title.trim(),
       description: formData.description.trim(),
-      scheduledTime,
+      localDate,
+      localTime,
       duration: formData.duration,
       participants: finalParticipants,
       privacy: formData.privacy,
       inviteEmails: finalParticipants,
       hostEmail: user?.email,
-      timeZone: getUserTimeZone(),
+      timeZone: formData.timeZone,
       ...(teamId && { teamId }),
       ...(teamId && {
         autoIncludeTeamMembers: formData.autoIncludeTeamMembers ?? true,
       }),
       ...(formData.recurrence?.enabled && {
         recurrence: {
-          pattern: formData.recurrence.pattern,
+          frequency:
+            formData.recurrence.pattern === 'monthly'
+              ? 'monthlyByDate'
+              : formData.recurrence.pattern === 'yearly'
+                ? 'yearlyByDate'
+                : formData.recurrence.pattern,
           interval: formData.recurrence.interval,
-          daysOfWeek: formData.recurrence.daysOfWeek,
+          weekdays: formData.recurrence.daysOfWeek,
           dayOfMonth: formData.recurrence.dayOfMonth,
-          endDate: formData.recurrence.endDate
-            ? formData.recurrence.endDate.toISOString()
-            : undefined,
-          occurrences: formData.recurrence.occurrences,
-          endType: formData.recurrence.endType,
+          end:
+            formData.recurrence.endType === 'after'
+              ? { type: 'count', count: formData.recurrence.occurrences }
+              : formData.recurrence.endType === 'on' && formData.recurrence.endDate
+                ? {
+                    type: 'until',
+                    localDate: [
+                      formData.recurrence.endDate.getFullYear(),
+                      String(formData.recurrence.endDate.getMonth() + 1).padStart(2, '0'),
+                      String(formData.recurrence.endDate.getDate()).padStart(2, '0'),
+                    ].join('-'),
+                  }
+                : { type: 'never' },
         },
       }),
     };
 
     try {
-      const response = await api.post(`/api/meetings`, meetingData);
+      const response = await api.post(`/api/meetings`, meetingData, {
+        headers: {
+          'x-meeting-v2': 'true',
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+      });
       const result = extractData<{ meetingId: string }>(response);
 
       toast.success('Meeting created successfully!');

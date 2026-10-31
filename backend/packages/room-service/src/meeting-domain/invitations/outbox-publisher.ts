@@ -6,6 +6,7 @@
 
 import { OutboxRepository } from '../repositories/outbox.repository.js';
 import { OutboxEventRecord } from '../repositories/meeting-repository.types.js';
+import { randomUUID } from 'node:crypto';
 
 export interface EventDispatcher {
   dispatch(event: OutboxEventRecord): Promise<void>;
@@ -27,7 +28,11 @@ export class OutboxPublisher {
    * Processes a bounded batch of unpublished outbox events idempotently.
    */
   async publishBatch(batchSize = 50): Promise<PublishBatchResult> {
-    const events = await this.outboxRepo.fetchUnpublished(batchSize);
+    const events = await this.outboxRepo.claimUnpublished(
+      batchSize,
+      `outbox_${randomUUID()}`,
+      new Date(Date.now() + 60_000)
+    );
     let published = 0;
     let failed = 0;
 

@@ -84,7 +84,9 @@ const MeetingForm = ({
   onAutoIncludeChange,
 }: MeetingFormProps) => {
   const [inviteMethod, setInviteMethod] = useState('email');
-  const [timezone, setTimezone] = useState(propTimezone || getUserTimeZone());
+  const [timezone, setTimezone] = useState(
+    propTimezone || formData.timeZone || getUserTimeZone()
+  );
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
   const [inviteInput, setInviteInput] = useState('');
   const [editingTime, setEditingTime] = useState({
@@ -264,7 +266,21 @@ const MeetingForm = ({
     if (propTimezone && propTimezone !== timezone) {
       setTimezone(propTimezone);
     }
-  }, [propTimezone, timezone]);
+    if (propTimezone && propTimezone !== formData.timeZone) {
+      onInputChange({
+        target: { name: 'timeZone', value: propTimezone },
+      } as React.ChangeEvent<HTMLInputElement>);
+    }
+  }, [formData.timeZone, onInputChange, propTimezone, timezone]);
+
+  const handleTimezoneChange = useCallback(
+    (value: string) => {
+      setTimezone(value);
+      propSetTimezone?.(value);
+      onInputChange({ target: { name: 'timeZone', value } } as React.ChangeEvent<HTMLInputElement>);
+    },
+    [onInputChange, propSetTimezone]
+  );
 
   return (
     <Card>
@@ -294,7 +310,7 @@ const MeetingForm = ({
             timePopoverOpen={timePopoverOpen}
             setTimePopoverOpen={handleTimePopoverOpen}
             timezone={timezone}
-            setTimezone={propSetTimezone || setTimezone}
+            setTimezone={handleTimezoneChange}
             onTimeChange={onTimeChange}
             handleTimeBoxChange={handleTimeBoxChange}
             handleTimeConfirm={handleTimeConfirm}
@@ -308,6 +324,7 @@ const MeetingForm = ({
           {onRecurrenceChange && (
             <MeetingFormRecurrence
               formData={formData}
+              timeZone={timezone}
               onRecurrenceChange={onRecurrenceChange}
             />
           )}

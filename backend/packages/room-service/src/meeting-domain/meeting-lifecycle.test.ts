@@ -109,6 +109,23 @@ describe('MLTR-06: Server-Owned Lifecycle and Capabilities', () => {
     assert.equal(attendeeCaps.endForAll.allowed, false); // Attendee cannot end for all
   });
 
+  it('security invariant: a live private meeting remains closed to an uninvited viewer', () => {
+    const capabilities = MeetingPolicy.evaluateCapabilities({
+      meeting: {
+        ...baseScheduledMeeting,
+        privacy: 'private',
+        status: 'ongoing',
+        roomId: 'room_private_001',
+      },
+      principal: attendeePrincipal,
+      isParticipant: false,
+      isInvited: false,
+    });
+
+    assert.equal(capabilities.join.allowed, false);
+    assert.equal(capabilities.join.reason, 'NOT_INVITED');
+  });
+
   it('invariant: ended or cancelled meetings forbid start and join unconditionally', () => {
     const endedMeeting: MeetingOccurrenceRecord = {
       ...baseScheduledMeeting,

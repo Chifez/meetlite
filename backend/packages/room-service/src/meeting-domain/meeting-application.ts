@@ -101,18 +101,20 @@ export interface MeetingApplicationConfig {
   meetingRepository: MeetingRepository;
   outboxRepository: OutboxRepository;
   recurrenceEngine: RecurrenceEngine;
+  now?: () => Date;
 }
 
 export class MeetingApplication {
   private readonly meetingRepo: MeetingRepository;
   private readonly outboxRepo: OutboxRepository;
   private readonly recurrenceEngine: RecurrenceEngine;
-  private readonly idempotencyCache = new Map<string, CreateMeetingResult>();
+  private readonly now: () => Date;
 
   constructor(config: MeetingApplicationConfig) {
     this.meetingRepo = config.meetingRepository;
     this.outboxRepo = config.outboxRepository;
     this.recurrenceEngine = config.recurrenceEngine;
+    this.now = config.now ?? (() => new Date());
   }
 
   async create(params: {
@@ -127,11 +129,6 @@ export class MeetingApplication {
       const err: any = new Error('MISSING_IDEMPOTENCY_KEY: Idempotency-Key header or property is required');
       err.code = 'MISSING_IDEMPOTENCY_KEY';
       throw err;
-    }
-
-    const cached = this.idempotencyCache.get(command.idempotencyKey);
-    if (cached) {
-      return cached;
     }
 
     // 2. Validate Zoned Date-Time with DST Gap and Ambiguity Handling
@@ -150,6 +147,11 @@ export class MeetingApplication {
     }
 
     const scheduledAt = resolvedTime.value.utcInstant;
+    if (scheduledAt.getTime() <= this.now().getTime()) {
+      throw Object.assign(new Error('MEETING_TIME_IN_PAST: Meeting time must be in the future'), {
+        code: 'MEETING_TIME_IN_PAST',
+      });
+    }
     const occurrenceKey = formatZonedKey(command.localDate, command.localTime);
     const tenant = { organizationId: principal.orgId, teamId: command.teamId };
 
@@ -171,8 +173,46 @@ export class MeetingApplication {
 
       const seriesPublicId = `series_${randomUUID().replace(/-/g, '')}`;
       const firstMeetingPublicId = `meet_${randomUUID().replace(/-/g, '')}`;
+      const occurredAt = new Date();
+      const createEvents = [
+        {
+          eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+          aggregateType: 'meeting-series',
+          aggregateId: seriesPublicId,
+          eventType: 'meeting.series.created.v1',
+          schemaVersion: 1,
+          payload: {
+            seriesId: seriesPublicId,
+            createdBy: principal.userId,
+            title: command.title,
+            timeZone: command.timeZone,
+            localStartDate: command.localDate,
+            localStartTime: command.localTime,
+            recurrenceRule: validatedRecurrence.value.rruleString,
+          },
+          occurredAt,
+        },
+        {
+          eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+          aggregateType: 'meeting-occurrence',
+          aggregateId: firstMeetingPublicId,
+          eventType: 'meeting.occurrence.created.v1',
+          schemaVersion: 1,
+          payload: {
+            meetingId: firstMeetingPublicId,
+            seriesId: seriesPublicId,
+            occurrenceKey,
+            scheduledAt: scheduledAt.toISOString(),
+            eventTimeZone: command.timeZone,
+            durationMinutes: command.durationMinutes,
+            attendeeEmails: command.attendeeEmails ?? [],
+          },
+          occurredAt,
+        },
+      ];
 
-      const { series, firstOccurrence } = await this.meetingRepo.createSeriesWithFirstOccurrence({
+      const { series, firstOccurrence, outboxCommitted } = await this.meetingRepo.createSeriesWithFirstOccurrence({
+        idempotencyKey: command.idempotencyKey,
         series: {
           seriesId: seriesPublicId,
           organizationId: principal.orgId,
@@ -198,44 +238,11 @@ export class MeetingApplication {
           privacy: command.privacy,
         },
         attendeeEmails: command.attendeeEmails,
+        outboxEvents: createEvents,
       });
-
-      // Transactional Outbox Append
-      await this.outboxRepo.append({
-        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
-        aggregateType: 'meeting-series',
-        aggregateId: series.seriesId,
-        eventType: 'meeting.series.created.v1',
-        schemaVersion: 1,
-        payload: {
-          seriesId: series.seriesId,
-          createdBy: series.createdBy,
-          title: series.title,
-          timeZone: series.timeZone,
-          localStartDate: series.localStartDate,
-          localStartTime: series.localStartTime,
-          recurrenceRule: series.recurrenceRule,
-        },
-        occurredAt: series.createdAt,
-      });
-
-      await this.outboxRepo.append({
-        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
-        aggregateType: 'meeting-occurrence',
-        aggregateId: firstOccurrence.meetingId,
-        eventType: 'meeting.occurrence.created.v1',
-        schemaVersion: 1,
-        payload: {
-          meetingId: firstOccurrence.meetingId,
-          seriesId: series.seriesId,
-          occurrenceKey: firstOccurrence.occurrenceKey,
-          scheduledAt: firstOccurrence.scheduledAt.toISOString(),
-          eventTimeZone: firstOccurrence.eventTimeZone,
-          durationMinutes: firstOccurrence.durationMinutes,
-          attendeeEmails: command.attendeeEmails ?? [],
-        },
-        occurredAt: firstOccurrence.createdAt,
-      });
+      if (!outboxCommitted) {
+        for (const event of createEvents) await this.outboxRepo.append(event);
+      }
 
       const view = MeetingPolicy.buildMeetingView({
         meeting: firstOccurrence,
@@ -244,14 +251,27 @@ export class MeetingApplication {
         viewerTimeZone: command.timeZone,
       });
 
-      const result: CreateMeetingResult = { series, view };
-      this.idempotencyCache.set(command.idempotencyKey, result);
-      return result;
+      return { series, view };
     }
 
     // 4. One-off Meeting Path (Occurrence without series)
     const meetingPublicId = `meet_${randomUUID().replace(/-/g, '')}`;
-    const { occurrence } = await this.meetingRepo.upsertOccurrence({
+    const occurrenceEvent = {
+      eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+      aggregateType: 'meeting-occurrence',
+      aggregateId: meetingPublicId,
+      eventType: 'meeting.occurrence.created.v1',
+      schemaVersion: 1,
+      payload: {
+        meetingId: meetingPublicId,
+        scheduledAt: scheduledAt.toISOString(),
+        eventTimeZone: command.timeZone,
+        durationMinutes: command.durationMinutes,
+        attendeeEmails: command.attendeeEmails ?? [],
+      },
+      occurredAt: new Date(),
+    };
+    const { occurrence, outboxCommitted } = await this.meetingRepo.upsertOccurrence({
       seriesId: null,
       seed: {
         meetingId: meetingPublicId,
@@ -265,23 +285,11 @@ export class MeetingApplication {
       },
       tenant,
       createdBy: principal.userId,
+      idempotencyKey: command.idempotencyKey,
+      attendeeEmails: command.attendeeEmails,
+      outboxEvents: [occurrenceEvent],
     });
-
-    await this.outboxRepo.append({
-      eventId: `evt_${randomUUID().replace(/-/g, '')}`,
-      aggregateType: 'meeting-occurrence',
-      aggregateId: occurrence.meetingId,
-      eventType: 'meeting.occurrence.created.v1',
-      schemaVersion: 1,
-      payload: {
-        meetingId: occurrence.meetingId,
-        scheduledAt: occurrence.scheduledAt.toISOString(),
-        eventTimeZone: occurrence.eventTimeZone,
-        durationMinutes: occurrence.durationMinutes,
-        attendeeEmails: command.attendeeEmails ?? [],
-      },
-      occurredAt: occurrence.createdAt,
-    });
+    if (!outboxCommitted) await this.outboxRepo.append(occurrenceEvent);
 
     const view = MeetingPolicy.buildMeetingView({
       meeting: occurrence,
@@ -290,15 +298,15 @@ export class MeetingApplication {
       viewerTimeZone: command.timeZone,
     });
 
-    const result: CreateMeetingResult = { view };
-    this.idempotencyCache.set(command.idempotencyKey, result);
-    return result;
+    return { view };
   }
 
   async getView(params: {
     meetingId: string;
     principal: PolicyPrincipal;
     viewerTimeZone?: string;
+    isParticipant?: boolean;
+    isInvited?: boolean;
   }): Promise<MeetingView> {
     const { meetingId, principal, viewerTimeZone = 'UTC' } = params;
     const tenant = { organizationId: principal.orgId };
@@ -320,6 +328,8 @@ export class MeetingApplication {
       series,
       principal,
       viewerTimeZone,
+      isParticipant: params.isParticipant,
+      isInvited: params.isInvited,
     });
   }
 

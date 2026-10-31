@@ -90,6 +90,7 @@ export interface Meeting {
   recurrenceId?: string;
   seriesId?: string;
   occurrenceKey?: string;
+  lifecycleRevision?: number;
   parentRecurrenceId?: string;
   recurrenceExceptions?: Array<{
     date: string | Date;
@@ -103,6 +104,7 @@ export interface MeetingFormData {
   description: string;
   date: Date | undefined;
   time: string;
+  timeZone: string;
   duration: number;
   privacy: 'public' | 'private';
   participants: string[];

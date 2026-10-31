@@ -31,7 +31,12 @@ export default function DeleteMeetingDialog() {
 
   const handleScopedCancel = async (scope: RecurrenceScope) => {
     if (!deleteDialog.meetingId) return;
-    await deleteMeeting(deleteDialog.meetingId, scope);
+    await deleteMeeting(
+      deleteDialog.meetingId,
+      scope,
+      undefined,
+      currentMeeting?.lifecycleRevision
+    );
     closeDeleteDialog();
   };
 

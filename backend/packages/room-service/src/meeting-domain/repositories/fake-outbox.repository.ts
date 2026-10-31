@@ -9,6 +9,7 @@ import { OutboxEventRecord, AppendOutboxParams } from './meeting-repository.type
 
 export class FakeOutboxRepository implements OutboxRepository {
   private events: OutboxEventRecord[] = [];
+  private claimed = new Set<string>();
 
   async append(params: AppendOutboxParams): Promise<OutboxEventRecord> {
     const existing = this.events.find((e) => e.eventId === params.eventId);
@@ -42,10 +43,19 @@ export class FakeOutboxRepository implements OutboxRepository {
       .map((e) => ({ ...e }));
   }
 
+  async claimUnpublished(limit: number): Promise<readonly OutboxEventRecord[]> {
+    const events = this.events
+      .filter((event) => event.publishedAt === null && !this.claimed.has(event.eventId))
+      .slice(0, limit);
+    for (const event of events) this.claimed.add(event.eventId);
+    return events;
+  }
+
   async markPublished(eventId: string, publishedAt: Date = new Date()): Promise<void> {
     const event = this.events.find((e) => e.eventId === eventId);
     if (event) {
       event.publishedAt = publishedAt;
+    this.claimed.delete(eventId);
     }
   }
 
@@ -54,6 +64,7 @@ export class FakeOutboxRepository implements OutboxRepository {
     if (event) {
       event.attempts += 1;
       event.lastErrorCode = lastErrorCode;
+    this.claimed.delete(eventId);
     }
   }
 }

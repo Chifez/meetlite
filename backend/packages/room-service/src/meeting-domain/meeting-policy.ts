@@ -63,6 +63,8 @@ export class MeetingPolicy {
   }): MeetingCapabilities {
     const { meeting, principal, now = new Date() } = params;
     const isHost = principal.userId === meeting.createdBy;
+    const mayAttend =
+      isHost || meeting.privacy === 'public' || params.isParticipant === true || params.isInvited === true;
     const isStatusEnded = meeting.status === 'ended' || meeting.status === 'completed';
     const isStatusCancelled = meeting.status === 'cancelled';
     const isStatusLive = meeting.status === 'live' || meeting.status === 'ongoing' || Boolean(meeting.roomId);
@@ -101,7 +103,9 @@ export class MeetingPolicy {
     const earlyWindowMs = 15 * 60 * 1000; // 15 minutes early window
     const availableAtInstant = new Date(meeting.scheduledAt.getTime() - earlyWindowMs);
 
-    if (isStatusCancelled) {
+    if (!mayAttend) {
+      join = { allowed: false, reason: 'NOT_INVITED' };
+    } else if (isStatusCancelled) {
       join = { allowed: false, reason: 'CANCELLED' };
     } else if (isStatusEnded) {
       join = { allowed: false, reason: 'ENDED' };

@@ -112,9 +112,11 @@ export interface CreateOccurrenceSeedParams {
 }
 
 export interface CreateSeriesWithFirstOccurrenceParams {
+  idempotencyKey?: string;
   series: CreateSeriesParams;
   firstOccurrence: CreateOccurrenceSeedParams;
   attendeeEmails?: readonly string[];
+  outboxEvents?: readonly AppendOutboxParams[];
 }
 
 export interface AppendOutboxParams {

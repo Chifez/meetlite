@@ -7,6 +7,7 @@ export interface MeetingInviteEmailOptions {
     scheduledTime: Date | string;
     duration: number;
     createdBy: string;
+    eventTimeZone?: string;
   };
   joinUrl: string;
   hostEmail?: string;
@@ -18,16 +19,25 @@ export const getMeetingInviteEmailTemplate = ({
   hostEmail,
 }: MeetingInviteEmailOptions) => {
   const meetingDate = new Date(meeting.scheduledTime);
+  const eventTimeZone = meeting.eventTimeZone || 'UTC';
   const timeString = meetingDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: eventTimeZone,
+    timeZoneName: 'short',
   });
   const dateString = meetingDate.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: eventTimeZone,
+  });
+  const utcString = meetingDate.toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
   });
 
   const content = `
@@ -53,7 +63,11 @@ export const getMeetingInviteEmailTemplate = ({
         </tr>
         <tr class="receipt-row">
           <td class="receipt-label">Time</td>
-          <td class="receipt-value">${timeString} (UTC)</td>
+          <td class="receipt-value">${timeString} (${eventTimeZone})</td>
+        </tr>
+        <tr class="receipt-row">
+          <td class="receipt-label">UTC</td>
+          <td class="receipt-value">${utcString} UTC</td>
         </tr>
         <tr class="receipt-row">
           <td class="receipt-label">Duration</td>

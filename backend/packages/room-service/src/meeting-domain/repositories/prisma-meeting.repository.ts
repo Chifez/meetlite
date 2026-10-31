@@ -3,7 +3,8 @@
  * Enforces tenant scoping, transactional boundaries, and persistence invariants.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   MeetingRepository,
 } from './meeting.repository.js';
@@ -24,6 +25,38 @@ import { parseLocalDate, parseLocalTime, parseIanaTimeZone } from '../time/zoned
 
 export class PrismaMeetingRepository implements MeetingRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async createInvites(
+    tx: Prisma.TransactionClient,
+    meetingId: string,
+    attendeeEmails: readonly string[] = []
+  ): Promise<void> {
+    const emails = [...new Set(attendeeEmails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+    if (emails.length === 0) return;
+    await tx.meetingInvite.createMany({
+      data: emails.map((email) => ({ meetingId, email, inviteToken: randomUUID() })),
+      skipDuplicates: true,
+    });
+  }
+
+  private async appendOutbox(
+    tx: Prisma.TransactionClient,
+    events: CreateSeriesWithFirstOccurrenceParams['outboxEvents'] = []
+  ): Promise<void> {
+    if (events.length === 0) return;
+    await tx.outboxEvent.createMany({
+      data: events.map((event) => ({
+        eventId: event.eventId,
+        aggregateType: event.aggregateType,
+        aggregateId: event.aggregateId,
+        eventType: event.eventType,
+        schemaVersion: event.schemaVersion,
+        payload: event.payload as Prisma.InputJsonValue,
+        occurredAt: event.occurredAt ?? new Date(),
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   private mapSeries(raw: any): MeetingSeriesRecord {
     return {
@@ -86,7 +119,27 @@ export class PrismaMeetingRepository implements MeetingRepository {
   ): Promise<{
     series: MeetingSeriesRecord;
     firstOccurrence: MeetingOccurrenceRecord;
+    outboxCommitted?: boolean;
   }> {
+    if (params.idempotencyKey) {
+      const existingSeries = await this.prisma.meetingSeries.findUnique({
+        where: {
+          createdBy_idempotencyKey: {
+            createdBy: params.series.createdBy,
+            idempotencyKey: params.idempotencyKey,
+          },
+        },
+        include: { occurrences: { orderBy: { scheduledAt: 'asc' }, take: 1 } },
+      });
+      const firstOccurrence = existingSeries?.occurrences[0];
+      if (existingSeries && firstOccurrence) {
+        return {
+          series: this.mapSeries(existingSeries),
+          firstOccurrence: this.mapOccurrence(firstOccurrence),
+          outboxCommitted: true,
+        };
+      }
+    }
     return this.prisma.$transaction(async (tx) => {
       const createdSeries = await tx.meetingSeries.create({
         data: {
@@ -105,6 +158,7 @@ export class PrismaMeetingRepository implements MeetingRepository {
           status: 'ACTIVE',
           revision: 1,
           materializedThrough: params.firstOccurrence.scheduledAt,
+          idempotencyKey: params.idempotencyKey ?? null,
         },
       });
 
@@ -126,12 +180,25 @@ export class PrismaMeetingRepository implements MeetingRepository {
           duration: params.firstOccurrence.durationMinutes, // Compatibility write
           status: 'scheduled',
           lifecycleRevision: 1,
+          idempotencyKey: params.idempotencyKey ?? null,
         },
       });
+
+      const attendeeEmails = params.attendeeEmails ?? [];
+      if (attendeeEmails.length > 0) {
+        await tx.meetingSeriesAttendee.createMany({
+          data: [...new Set(attendeeEmails.map((email) => email.trim().toLowerCase()).filter(Boolean))]
+            .map((email) => ({ seriesId: createdSeries.id, email })),
+          skipDuplicates: true,
+        });
+      }
+      await this.createInvites(tx, createdMeeting.id, attendeeEmails);
+      await this.appendOutbox(tx, params.outboxEvents);
 
       return {
         series: this.mapSeries(createdSeries),
         firstOccurrence: this.mapOccurrence(createdMeeting),
+        outboxCommitted: true,
       };
     });
   }
@@ -214,7 +281,10 @@ export class PrismaMeetingRepository implements MeetingRepository {
     seed: CreateOccurrenceSeedParams;
     tenant: TenantContext;
     createdBy?: string;
-  }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean }> {
+    idempotencyKey?: string;
+    attendeeEmails?: readonly string[];
+    outboxEvents?: readonly import('./meeting-repository.types.js').AppendOutboxParams[];
+  }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean; outboxCommitted?: boolean }> {
     if (params.seriesId) {
       const series = await this.findSeriesById(params.seriesId, params.tenant);
       if (!series) {
@@ -231,11 +301,12 @@ export class PrismaMeetingRepository implements MeetingRepository {
       });
 
       if (existing) {
-        return { occurrence: this.mapOccurrence(existing), created: false };
+        return { occurrence: this.mapOccurrence(existing), created: false, outboxCommitted: true };
       }
 
-      const created = await this.prisma.meeting.create({
-        data: {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const meeting = await tx.meeting.create({
+          data: {
           meetingId: params.seed.meetingId,
           organizationId: series.organizationId,
           teamId: series.teamId,
@@ -252,20 +323,42 @@ export class PrismaMeetingRepository implements MeetingRepository {
           duration: params.seed.durationMinutes,
           status: 'scheduled',
           lifecycleRevision: 1,
-        },
+          },
+        });
+        const attendees = await tx.meetingSeriesAttendee.findMany({
+          where: { seriesId: series.id },
+          select: { email: true },
+        });
+        await this.createInvites(tx, meeting.id, attendees.map(({ email }) => email));
+        await this.appendOutbox(tx, params.outboxEvents);
+        return meeting;
       });
 
-      return { occurrence: this.mapOccurrence(created), created: true };
+      return { occurrence: this.mapOccurrence(created), created: true, outboxCommitted: true };
     }
 
     // Standalone meeting occurrence
+    if (params.idempotencyKey && params.createdBy) {
+      const idempotentMeeting = await this.prisma.meeting.findUnique({
+        where: {
+          createdBy_idempotencyKey: {
+            createdBy: params.createdBy,
+            idempotencyKey: params.idempotencyKey,
+          },
+        },
+      });
+      if (idempotentMeeting) {
+        return { occurrence: this.mapOccurrence(idempotentMeeting), created: false, outboxCommitted: true };
+      }
+    }
     const existing = await this.findMeetingById(params.seed.meetingId, params.tenant);
     if (existing) {
-      return { occurrence: existing, created: false };
+      return { occurrence: existing, created: false, outboxCommitted: true };
     }
 
-    const created = await this.prisma.meeting.create({
-      data: {
+    const created = await this.prisma.$transaction(async (tx) => {
+      const meeting = await tx.meeting.create({
+        data: {
         meetingId: params.seed.meetingId,
         organizationId: params.tenant.organizationId ?? null,
         teamId: params.tenant.teamId ?? null,
@@ -282,10 +375,15 @@ export class PrismaMeetingRepository implements MeetingRepository {
         duration: params.seed.durationMinutes,
         status: 'scheduled',
         lifecycleRevision: 1,
-      },
+        idempotencyKey: params.idempotencyKey ?? null,
+        },
+      });
+      await this.createInvites(tx, meeting.id, params.attendeeEmails);
+      await this.appendOutbox(tx, params.outboxEvents);
+      return meeting;
     });
 
-    return { occurrence: this.mapOccurrence(created), created: true };
+    return { occurrence: this.mapOccurrence(created), created: true, outboxCommitted: true };
   }
 
   async createException(params: {
@@ -313,11 +411,11 @@ export class PrismaMeetingRepository implements MeetingRepository {
 
     return {
       id: raw.id,
-      seriesId: raw.seriesId,
-      occurrenceKey: raw.occurrenceKey,
-      kind: raw.kind as 'CANCELLED' | 'OVERRIDDEN',
+      seriesId: series.id,
+      occurrenceKey: params.occurrenceKey,
+      kind: params.kind,
       overrideMeetingId: raw.overrideMeetingId,
-      seriesRevision: raw.seriesRevision,
+      seriesRevision: params.seriesRevision,
       createdAt: raw.createdAt,
     };
   }
@@ -334,15 +432,25 @@ export class PrismaMeetingRepository implements MeetingRepository {
       orderBy: { createdAt: 'asc' },
     });
 
-    return rawList.map((raw) => ({
-      id: raw.id,
-      seriesId: raw.seriesId,
-      occurrenceKey: raw.occurrenceKey,
-      kind: raw.kind as 'CANCELLED' | 'OVERRIDDEN',
-      overrideMeetingId: raw.overrideMeetingId,
-      seriesRevision: raw.seriesRevision,
-      createdAt: raw.createdAt,
-    }));
+    return rawList.flatMap((raw) => {
+      if (
+        !raw.seriesId ||
+        !raw.occurrenceKey ||
+        !raw.seriesRevision ||
+        (raw.kind !== 'CANCELLED' && raw.kind !== 'OVERRIDDEN')
+      ) {
+        return [];
+      }
+      return [{
+        id: raw.id,
+        seriesId: raw.seriesId,
+        occurrenceKey: raw.occurrenceKey,
+        kind: raw.kind,
+        overrideMeetingId: raw.overrideMeetingId,
+        seriesRevision: raw.seriesRevision,
+        createdAt: raw.createdAt,
+      }];
+    });
   }
 
   async updateSeriesStatus(params: {
@@ -362,14 +470,15 @@ export class PrismaMeetingRepository implements MeetingRepository {
       );
     }
 
-    const updated = await this.prisma.meetingSeries.update({
-      where: { id: series.id },
+    const write = await this.prisma.meetingSeries.updateMany({
+      where: { id: series.id, revision: params.expectedRevision },
       data: {
         status: params.status,
         revision: { increment: 1 },
       },
     });
-
+    if (write.count !== 1) throw Object.assign(new Error('SERIES_REVISION_CONFLICT'), { code: 'SERIES_REVISION_CONFLICT' });
+    const updated = await this.prisma.meetingSeries.findUniqueOrThrow({ where: { id: series.id } });
     return this.mapSeries(updated);
   }
 
@@ -390,14 +499,15 @@ export class PrismaMeetingRepository implements MeetingRepository {
       );
     }
 
-    const updated = await this.prisma.meeting.update({
-      where: { id: meeting.id },
+    const write = await this.prisma.meeting.updateMany({
+      where: { id: meeting.id, lifecycleRevision: params.expectedRevision },
       data: {
         status: params.status,
         lifecycleRevision: { increment: 1 },
       },
     });
-
+    if (write.count !== 1) throw Object.assign(new Error('MEETING_REVISION_CONFLICT'), { code: 'MEETING_REVISION_CONFLICT' });
+    const updated = await this.prisma.meeting.findUniqueOrThrow({ where: { id: meeting.id } });
     return this.mapOccurrence(updated);
   }
 
@@ -466,11 +576,12 @@ export class PrismaMeetingRepository implements MeetingRepository {
     }
     if (params.patch.privacy !== undefined) data.privacy = params.patch.privacy;
 
-    const updated = await this.prisma.meeting.update({
-      where: { id: meeting.id },
+    const write = await this.prisma.meeting.updateMany({
+      where: { id: meeting.id, lifecycleRevision: params.expectedRevision },
       data,
     });
-
+    if (write.count !== 1) throw Object.assign(new Error('MEETING_REVISION_CONFLICT'), { code: 'MEETING_REVISION_CONFLICT' });
+    const updated = await this.prisma.meeting.findUniqueOrThrow({ where: { id: meeting.id } });
     return this.mapOccurrence(updated);
   }
 
@@ -506,13 +617,15 @@ export class PrismaMeetingRepository implements MeetingRepository {
         throw err;
       }
 
-      const updatedSeries = await tx.meetingSeries.update({
-        where: { id: series.id },
+      const seriesWrite = await tx.meetingSeries.updateMany({
+        where: { id: series.id, revision: params.expectedRevision },
         data: {
           status: 'CANCELLED',
           revision: { increment: 1 },
         },
       });
+      if (seriesWrite.count !== 1) throw Object.assign(new Error('SERIES_REVISION_CONFLICT'), { code: 'SERIES_REVISION_CONFLICT' });
+      const updatedSeries = await tx.meetingSeries.findUniqueOrThrow({ where: { id: series.id } });
 
       const updatedOccurrences = await tx.meeting.updateMany({
         where: {
@@ -553,13 +666,15 @@ export class PrismaMeetingRepository implements MeetingRepository {
         throw err;
       }
 
-      const updatedSeries = await tx.meetingSeries.update({
-        where: { id: series.id },
+      const seriesWrite = await tx.meetingSeries.updateMany({
+        where: { id: series.id, revision: params.expectedRevision },
         data: {
           recurrenceRule: params.cappedRule,
           revision: { increment: 1 },
         },
       });
+      if (seriesWrite.count !== 1) throw Object.assign(new Error('SERIES_REVISION_CONFLICT'), { code: 'SERIES_REVISION_CONFLICT' });
+      const updatedSeries = await tx.meetingSeries.findUniqueOrThrow({ where: { id: series.id } });
 
       const updatedOccurrences = await tx.meeting.updateMany({
         where: {
@@ -606,10 +721,12 @@ export class PrismaMeetingRepository implements MeetingRepository {
       if (params.seriesPatch.privacy !== undefined) seriesData.privacy = params.seriesPatch.privacy;
       if (params.seriesPatch.recurrenceRule !== undefined) seriesData.recurrenceRule = params.seriesPatch.recurrenceRule;
 
-      const updatedSeries = await tx.meetingSeries.update({
-        where: { id: series.id },
+      const seriesWrite = await tx.meetingSeries.updateMany({
+        where: { id: series.id, revision: params.expectedRevision },
         data: seriesData,
       });
+      if (seriesWrite.count !== 1) throw Object.assign(new Error('SERIES_REVISION_CONFLICT'), { code: 'SERIES_REVISION_CONFLICT' });
+      const updatedSeries = await tx.meetingSeries.findUniqueOrThrow({ where: { id: series.id } });
 
       const occData: any = {
         lifecycleRevision: { increment: 1 },
@@ -659,13 +776,15 @@ export class PrismaMeetingRepository implements MeetingRepository {
       }
 
       // 1. Cap predecessor
-      const updatedPredecessor = await tx.meetingSeries.update({
-        where: { id: predecessor.id },
+      const predecessorWrite = await tx.meetingSeries.updateMany({
+        where: { id: predecessor.id, revision: params.expectedRevision },
         data: {
           recurrenceRule: params.cappedPredecessorRule,
           revision: { increment: 1 },
         },
       });
+      if (predecessorWrite.count !== 1) throw Object.assign(new Error('SERIES_REVISION_CONFLICT'), { code: 'SERIES_REVISION_CONFLICT' });
+      const updatedPredecessor = await tx.meetingSeries.findUniqueOrThrow({ where: { id: predecessor.id } });
 
       // 2. Create successor series
       const successor = await tx.meetingSeries.create({

@@ -2,12 +2,14 @@ import { create } from 'zustand';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
 import { extractData } from '@/lib/api-response';
+import { getUserTimeZone } from '@/lib/timezones';
 
 export interface MeetingFormData {
   title: string;
   description: string;
   date: Date | undefined;
   time: string;
+  timeZone: string;
   duration: number;
   privacy: 'public' | 'private';
   participants: string[];
@@ -53,6 +55,7 @@ const initialFormData: MeetingFormData = {
   description: '',
   date: undefined,
   time: '',
+  timeZone: getUserTimeZone(),
   duration: 30,
   privacy: 'public',
   participants: [],
@@ -138,24 +141,25 @@ export const useFormStore = create<FormState>((set, get) => ({
       return;
     }
 
-    const scheduledTime =
-      formData.date && formData.time
-        ? new Date(
-            formData.date.toISOString().split('T')[0] + 'T' + formData.time
-          ).toISOString()
-        : undefined;
-
-    if (!scheduledTime) {
+    if (!formData.date || !formData.time) {
       toast.error('Please select a meeting time');
       return;
     }
+
+    const localDate = [
+      formData.date.getFullYear(),
+      String(formData.date.getMonth() + 1).padStart(2, '0'),
+      String(formData.date.getDate()).padStart(2, '0'),
+    ].join('-');
 
     set({ loading: true });
 
     const meetingData = {
       title: formData.title.trim(),
       description: formData.description.trim(),
-      scheduledTime,
+      localDate,
+      localTime: formData.time.length === 5 ? `${formData.time}:00` : formData.time,
+      timeZone: formData.timeZone,
       duration: formData.duration,
       participants: formData.participants,
       privacy: formData.privacy,
@@ -165,7 +169,9 @@ export const useFormStore = create<FormState>((set, get) => ({
     };
 
     try {
-      const response = await api.post(`/api/meetings`, meetingData);
+      const response = await api.post(`/api/meetings`, meetingData, {
+        headers: { 'x-meeting-v2': 'true', 'Idempotency-Key': crypto.randomUUID() },
+      });
       const result = extractData<{ meetingId: string }>(response);
       toast.success('Meeting created successfully!');
       onSuccess?.(result.meetingId);

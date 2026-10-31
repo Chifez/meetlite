@@ -31,7 +31,8 @@ interface MeetingsState {
   deleteMeeting: (
     meetingId: string,
     scope?: 'occurrence' | 'following' | 'series',
-    reason?: string
+    reason?: string,
+    expectedRevision?: number
   ) => Promise<void>;
   deleteGoogleCalendarMeeting: (externalId: string) => Promise<void>;
   startMeeting: (meetingId: string) => Promise<string>;
@@ -127,19 +128,25 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
     }
   },
 
-  deleteMeeting: async (meetingId, scope, reason) => {
+  deleteMeeting: async (meetingId, scope, reason, expectedRevision) => {
     try {
       set({ deleting: true });
       if (scope) {
         await api.post(
           `/api/meetings/${meetingId}/cancel`,
-          { scope, reason, expectedRevision: 1 },
-          { headers: { 'x-meeting-v2': 'true' } }
+          { scope, reason, expectedRevision },
+          {
+            headers: {
+              'x-meeting-v2': 'true',
+              'Idempotency-Key': crypto.randomUUID(),
+            },
+          }
         );
       } else {
         await api.delete(`/api/meetings/${meetingId}`);
       }
 
+      set({ lastFetched: null });
       await get().fetchMeetings();
       toast.success(scope ? 'Meeting cancelled successfully' : 'Meeting deleted successfully');
     } catch (error) {

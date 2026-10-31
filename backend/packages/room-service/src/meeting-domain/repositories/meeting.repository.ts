@@ -27,6 +27,7 @@ export interface MeetingRepository {
   ): Promise<{
     series: MeetingSeriesRecord;
     firstOccurrence: MeetingOccurrenceRecord;
+    outboxCommitted?: boolean;
   }>;
 
   /**
@@ -73,7 +74,10 @@ export interface MeetingRepository {
     seed: CreateOccurrenceSeedParams;
     tenant: TenantContext;
     createdBy?: string;
-  }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean }>;
+    idempotencyKey?: string;
+    attendeeEmails?: readonly string[];
+    outboxEvents?: readonly import('./meeting-repository.types.js').AppendOutboxParams[];
+  }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean; outboxCommitted?: boolean }>;
 
   /**
    * Creates an exception for an occurrence (e.g. CANCELLED or OVERRIDDEN).

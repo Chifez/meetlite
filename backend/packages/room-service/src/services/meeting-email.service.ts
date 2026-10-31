@@ -22,6 +22,7 @@ export class MeetingEmailService {
         meetingId: params.meeting.meetingId,
         meetingTitle: params.meeting.title,
         meetingTime: params.meeting.scheduledTime,
+        eventTimeZone: params.meeting.eventTimeZone || 'UTC',
         meetingDescription: params.meeting.description,
         duration: params.meeting.duration,
         joinUrl,
@@ -30,7 +31,7 @@ export class MeetingEmailService {
       },
       {
         priority: 1,
-        jobId: `meeting-invite-${params.meeting.meetingId}-${params.to}-${Date.now()}`,
+        jobId: `meeting-invite-${params.inviteToken}`,
       }
     );
   }

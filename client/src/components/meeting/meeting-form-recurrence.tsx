@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -18,15 +18,15 @@ import {
   
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
+import { format } from 'date-fns';
 import { MeetingFormData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { features } from '@/config/features';
 import api from '@/lib/axios';
-import { getUserTimeZone } from '@/lib/timezones';
 
 interface MeetingFormRecurrenceProps {
   formData: MeetingFormData;
+  timeZone: string;
   onRecurrenceChange: (recurrence: MeetingFormData['recurrence']) => void;
 }
 
@@ -56,6 +56,7 @@ const END_TYPE_OPTIONS = [
 
 export default function MeetingFormRecurrence({
   formData,
+  timeZone,
   onRecurrenceChange,
 }: MeetingFormRecurrenceProps) {
   // MLTR-00: Typed kill switch to safely hide or disable recurrence creation
@@ -88,8 +89,6 @@ export default function MeetingFormRecurrence({
             ? `${formData.time}:00`
             : formData.time
           : '09:00:00';
-        const timeZone = getUserTimeZone();
-
         const pattern = recurrence.pattern;
         const frequency =
           pattern === 'monthly'
@@ -156,62 +155,9 @@ export default function MeetingFormRecurrence({
     recurrence.dayOfMonth,
     formData.date,
     formData.time,
+    timeZone,
   ]);
-
-  // Fallback preview calculation in case server preview request is pending
-  const fallbackPreviewDates = useMemo(() => {
-    if (!recurrence.enabled || !formData.date) return [];
-
-    const startDate = new Date(formData.date);
-    const dates: Date[] = [startDate];
-    const pattern = recurrence.pattern;
-    const interval = recurrence.interval || 1;
-    const maxPreview = 5;
-
-    for (let i = 1; i < maxPreview; i++) {
-      let nextDate: Date;
-      const prevDate = dates[dates.length - 1];
-
-      switch (pattern) {
-        case 'daily':
-          nextDate = addDays(prevDate, interval);
-          break;
-        case 'weekdays': {
-          let tempDate = addDays(prevDate, 1);
-          while (tempDate.getDay() === 0 || tempDate.getDay() === 6) {
-            tempDate = addDays(tempDate, 1);
-          }
-          nextDate = tempDate;
-          break;
-        }
-        case 'weekly':
-          nextDate = addWeeks(prevDate, interval);
-          break;
-        case 'monthly':
-          nextDate = addMonths(prevDate, interval);
-          break;
-        case 'yearly':
-          nextDate = addYears(prevDate, interval);
-          break;
-        default:
-          nextDate = addWeeks(prevDate, 1);
-      }
-
-      if (recurrence.endType === 'after' && recurrence.occurrences) {
-        if (i >= recurrence.occurrences) break;
-      }
-      if (recurrence.endType === 'on' && recurrence.endDate) {
-        if (nextDate > new Date(recurrence.endDate)) break;
-      }
-
-      dates.push(nextDate);
-    }
-
-    return dates;
-  }, [recurrence, formData.date]);
-
-  const previewDates =
-    serverPreviewDates.length > 0 ? serverPreviewDates : fallbackPreviewDates;
+  const previewDates = serverPreviewDates;
 
   // Generate summary text
   const getSummaryText = (): string => {

@@ -70,4 +70,16 @@ describe('P0-02: Safe Database Delivery & Migration Contract', () => {
     assert.ok(rootPkg.scripts['db:migrate:deploy'], 'root must have db:migrate:deploy');
     assert.ok(rootPkg.scripts['db:migrate:status'], 'root must have db:migrate:status');
   });
+
+  test('MLTR expand migration preserves legacy recurrence data', () => {
+    const migrationPath = path.join(
+      repoRoot,
+      'backend/packages/shared/prisma/migrations/20261028164500_mltr02_expand_persistence_model/migration.sql'
+    );
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+
+    assert.doesNotMatch(sql, /DROP COLUMN[^;]*(parent_meeting_id|exception_date|action|modified_meeting_id)/i);
+    assert.match(sql, /ADD COLUMN "series_id" UUID[,;]/);
+    assert.doesNotMatch(sql, /ADD COLUMN "series_id" UUID NOT NULL/);
+  });
 });

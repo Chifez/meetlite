@@ -129,6 +129,22 @@ export class OccurrenceMaterializer {
       }
 
       const meetingPublicId = `meet_${randomUUID().replace(/-/g, '')}`;
+      const occurrenceEvent = {
+        eventId: `evt_${randomUUID().replace(/-/g, '')}`,
+        aggregateType: 'meeting-occurrence',
+        aggregateId: meetingPublicId,
+        eventType: 'meeting.occurrence.created.v1',
+        schemaVersion: 1,
+        payload: {
+          meetingId: meetingPublicId,
+          seriesId: series.seriesId,
+          occurrenceKey: seed.occurrenceKey,
+          scheduledAt: seed.scheduledAt.toISOString(),
+          eventTimeZone: series.timeZone,
+          durationMinutes: series.durationMinutes,
+        },
+        occurredAt: new Date(),
+      };
       const upsertResult = await this.meetingRepo.upsertOccurrence({
         seriesId: series.id,
         seed: {
@@ -142,26 +158,12 @@ export class OccurrenceMaterializer {
           privacy: series.privacy,
         },
         tenant,
+        outboxEvents: [occurrenceEvent],
       });
 
       if (upsertResult.created) {
         createdCount += 1;
-        await this.outboxRepo.append({
-          eventId: `evt_${randomUUID().replace(/-/g, '')}`,
-          aggregateType: 'meeting-occurrence',
-          aggregateId: upsertResult.occurrence.meetingId,
-          eventType: 'meeting.occurrence.created.v1',
-          schemaVersion: 1,
-          payload: {
-            meetingId: upsertResult.occurrence.meetingId,
-            seriesId: series.seriesId,
-            occurrenceKey: upsertResult.occurrence.occurrenceKey,
-            scheduledAt: upsertResult.occurrence.scheduledAt.toISOString(),
-            eventTimeZone: upsertResult.occurrence.eventTimeZone,
-            durationMinutes: upsertResult.occurrence.durationMinutes,
-          },
-          occurredAt: upsertResult.occurrence.createdAt,
-        });
+        if (!upsertResult.outboxCommitted) await this.outboxRepo.append(occurrenceEvent);
       } else {
         existingCount += 1;
       }

@@ -116,6 +116,7 @@ export function adaptMeetingInviteTemplate(originalTemplate: any) {
         scheduledTime: data.meetingTime,
         duration: data.duration,
         description: data.meetingDescription,
+        eventTimeZone: data.eventTimeZone || data.timezone,
       },
       joinUrl,
       hostEmail: data.hostEmail,

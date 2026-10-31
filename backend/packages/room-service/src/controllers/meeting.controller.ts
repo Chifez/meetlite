@@ -56,14 +56,30 @@ export class MeetingController {
   async createMeeting(req: AuthenticatedRequest, res: Response) {
     const isV2Request =
       req.headers['x-meeting-v2'] === 'true' ||
-      Boolean(req.body.localDate && req.body.localTime && req.body.timeZone) ||
-      process.env.FEATURE_MEETING_SERIES_V2 === 'true';
+      Boolean(req.body.localDate && req.body.localTime && req.body.timeZone);
 
     if (isV2Request && req.body.localDate && req.body.localTime && req.body.timeZone) {
+      if (
+        req.body.teamId &&
+        !(await MeetingAuthorizationService.canCreateForTeam(
+          req.body.teamId,
+          req.user.userId,
+          req.user.organizationId
+        ))
+      ) {
+        throw AppError.forbidden('You are not authorized to create meetings for this team.');
+      }
       const idempotencyKey =
         (req.headers['idempotency-key'] as string) ||
         req.body.idempotencyKey ||
-        uuidv4();
+        '';
+
+      if (!idempotencyKey) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'MISSING_IDEMPOTENCY_KEY', message: 'Idempotency-Key is required' },
+        });
+      }
 
       const result = await this.meetingApplication.create({
         principal: {
@@ -569,6 +585,27 @@ export class MeetingController {
     const isV2Request = req.headers['x-meeting-v2'] === 'true' || req.query.v2 === 'true';
     if (isV2Request) {
       try {
+        const authorizedMeeting = await prisma.meeting.findFirst({
+          where: {
+            OR: [
+              { meetingId: req.params.meetingId as string },
+              { id: req.params.meetingId as string },
+            ],
+          },
+          include: { participants: true, invites: true },
+        });
+        if (!authorizedMeeting) {
+          throw AppError.notFound('Meeting');
+        }
+        const hasAccess = await MeetingAuthorizationService.canAccess(
+          authorizedMeeting,
+          req.user.userId,
+          req.user.email,
+          req.user.organizationId
+        );
+        if (!hasAccess) {
+          throw AppError.forbidden('Access denied. You need to be invited to access this meeting.');
+        }
         const view = await this.meetingApplication.getView({
           meetingId: req.params.meetingId as string,
           principal: {
@@ -576,6 +613,12 @@ export class MeetingController {
             orgId: req.user.organizationId,
           },
           viewerTimeZone: (req.query.timeZone as string) || 'UTC',
+          isParticipant: authorizedMeeting.participants.some(
+            (participant) => participant.userId === req.user.userId
+          ),
+          isInvited: authorizedMeeting.invites.some(
+            (invite) => invite.email === req.user.email && invite.status !== 'declined'
+          ),
         });
         return ResponseHelpers.ok(res, view, 'Meeting retrieved successfully');
       } catch (err: any) {
@@ -663,7 +706,14 @@ export class MeetingController {
         const idempotencyKey =
           (req.headers['idempotency-key'] as string) ||
           req.body?.idempotencyKey ||
-          `upd_${req.params.meetingId}_${Date.now()}`;
+          '';
+
+        if (!idempotencyKey) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'MISSING_IDEMPOTENCY_KEY', message: 'Idempotency-Key is required' },
+          });
+        }
 
         const result = await this.meetingApplication.update({
           principal: {
@@ -967,7 +1017,14 @@ export class MeetingController {
         const idempotencyKey =
           (req.headers['idempotency-key'] as string) ||
           req.body?.idempotencyKey ||
-          `cancel_${req.params.meetingId}_${Date.now()}`;
+          '';
+
+        if (!idempotencyKey) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'MISSING_IDEMPOTENCY_KEY', message: 'Idempotency-Key is required' },
+          });
+        }
 
         const result = await this.meetingApplication.cancel({
           principal: {
@@ -1077,40 +1134,31 @@ export class MeetingController {
     }
 
     const roomId = nanoid(10);
-    const room = await prisma.room.create({
-      data: {
-        roomId,
-        createdBy: req.user.userId,
-        organizationId: meeting.organizationId,
-        teamId: meeting.teamId || null,
-      }
-    });
-
-    await prisma.meeting.update({
-      where: { id: meeting.id },
-      data: {
-        roomId,
-        status: 'ongoing'
-      }
-    });
-
-    try {
-      await this.outboxRepo.append({
-        eventId: `evt_${uuidv4().replace(/-/g, '')}`,
-        aggregateType: 'meeting-occurrence',
-        aggregateId: meeting.meetingId,
-        eventType: 'meeting.started.v1',
-        schemaVersion: 1,
-        payload: {
-          meetingId: meeting.meetingId,
+    await prisma.$transaction(async (tx) => {
+      await tx.room.create({
+        data: {
           roomId,
-          startedBy: req.user.userId,
+          createdBy: req.user.userId,
+          organizationId: meeting.organizationId,
+          teamId: meeting.teamId || null,
         },
-        occurredAt: new Date(),
       });
-    } catch (outboxErr) {
-      console.warn('[MeetingController] Failed to append meeting.started outbox event:', outboxErr);
-    }
+      await tx.meeting.update({
+        where: { id: meeting.id },
+        data: { roomId, status: 'ongoing', lifecycleRevision: { increment: 1 } },
+      });
+      await tx.outboxEvent.create({
+        data: {
+          eventId: `evt_${uuidv4().replace(/-/g, '')}`,
+          aggregateType: 'meeting-occurrence',
+          aggregateId: meeting.meetingId,
+          eventType: 'meeting.started.v1',
+          schemaVersion: 1,
+          payload: { meetingId: meeting.meetingId, roomId, startedBy: req.user.userId },
+          occurredAt: new Date(),
+        },
+      });
+    });
 
     return ResponseHelpers.ok(res, { roomId }, 'Meeting started successfully');
   }
@@ -1139,27 +1187,27 @@ export class MeetingController {
       throw AppError.validation('Cannot complete a cancelled meeting');
     }
 
-    await prisma.meeting.update({
-      where: { id: meeting.id },
-      data: { status: 'completed' }
-    });
-
-    try {
-      await this.outboxRepo.append({
-        eventId: `evt_${uuidv4().replace(/-/g, '')}`,
-        aggregateType: 'meeting-occurrence',
-        aggregateId: meeting.meetingId,
-        eventType: 'meeting.ended.v1',
-        schemaVersion: 1,
-        payload: {
-          meetingId: meeting.meetingId,
-          endedBy: req.user.userId,
-        },
-        occurredAt: new Date(),
-      });
-    } catch (outboxErr) {
-      console.warn('[MeetingController] Failed to append meeting.ended outbox event:', outboxErr);
+    if (meeting.status !== 'ongoing' && meeting.status !== 'live') {
+      throw AppError.validation('Only an active meeting can be completed');
     }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.meeting.update({
+        where: { id: meeting.id },
+        data: { status: 'completed', lifecycleRevision: { increment: 1 } },
+      });
+      await tx.outboxEvent.create({
+        data: {
+          eventId: `evt_${uuidv4().replace(/-/g, '')}`,
+          aggregateType: 'meeting-occurrence',
+          aggregateId: meeting.meetingId,
+          eventType: 'meeting.ended.v1',
+          schemaVersion: 1,
+          payload: { meetingId: meeting.meetingId, endedBy: req.user.userId },
+          occurredAt: new Date(),
+        },
+      });
+    });
 
     return ResponseHelpers.ok(res, null, 'Meeting completed successfully');
   }

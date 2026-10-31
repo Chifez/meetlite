@@ -25,6 +25,7 @@ export class FakeMeetingRepository implements MeetingRepository {
   private seriesStore = new Map<string, MeetingSeriesRecord>();
   private occurrenceStore = new Map<string, MeetingOccurrenceRecord>();
   private exceptionsStore: MeetingRecurrenceExceptionRecord[] = [];
+  private createCommands = new Map<string, { seriesId?: string; meetingId: string }>();
 
   private matchesTenant(
     recordTenant: { organizationId?: string | null; teamId?: string | null },
@@ -44,7 +45,19 @@ export class FakeMeetingRepository implements MeetingRepository {
   ): Promise<{
     series: MeetingSeriesRecord;
     firstOccurrence: MeetingOccurrenceRecord;
+    outboxCommitted?: boolean;
   }> {
+    const commandKey = params.idempotencyKey
+      ? `${params.series.createdBy}:${params.idempotencyKey}`
+      : undefined;
+    const prior = commandKey ? this.createCommands.get(commandKey) : undefined;
+    if (prior?.seriesId) {
+      const series = this.seriesStore.get(prior.seriesId);
+      const firstOccurrence = this.occurrenceStore.get(prior.meetingId);
+      if (series && firstOccurrence) {
+        return { series: { ...series }, firstOccurrence: { ...firstOccurrence }, outboxCommitted: true };
+      }
+    }
     const seriesInternalId = randomUUID();
     const occurrenceInternalId = randomUUID();
     const now = new Date();
@@ -92,6 +105,7 @@ export class FakeMeetingRepository implements MeetingRepository {
 
     this.seriesStore.set(series.id, series);
     this.occurrenceStore.set(firstOccurrence.id, firstOccurrence);
+    if (commandKey) this.createCommands.set(commandKey, { seriesId: series.id, meetingId: firstOccurrence.id });
 
     return { series, firstOccurrence };
   }
@@ -168,7 +182,10 @@ export class FakeMeetingRepository implements MeetingRepository {
     seed: CreateOccurrenceSeedParams;
     tenant: TenantContext;
     createdBy?: string;
-  }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean }> {
+    idempotencyKey?: string;
+    attendeeEmails?: readonly string[];
+    outboxEvents?: readonly import('./meeting-repository.types.js').AppendOutboxParams[];
+  }): Promise<{ occurrence: MeetingOccurrenceRecord; created: boolean; outboxCommitted?: boolean }> {
     if (params.seriesId) {
       const existing = await this.findOccurrenceByKey(params.seriesId, params.seed.occurrenceKey, params.tenant);
       if (existing) {
@@ -205,6 +222,14 @@ export class FakeMeetingRepository implements MeetingRepository {
     }
 
     // Standalone meeting occurrence
+    const commandKey = params.idempotencyKey && params.createdBy
+      ? `${params.createdBy}:${params.idempotencyKey}`
+      : undefined;
+    const prior = commandKey ? this.createCommands.get(commandKey) : undefined;
+    if (prior) {
+      const occurrence = this.occurrenceStore.get(prior.meetingId);
+      if (occurrence) return { occurrence: { ...occurrence }, created: false, outboxCommitted: true };
+    }
     const existing = await this.findMeetingById(params.seed.meetingId, params.tenant);
     if (existing) {
       return { occurrence: existing, created: false };
@@ -231,6 +256,7 @@ export class FakeMeetingRepository implements MeetingRepository {
     };
 
     this.occurrenceStore.set(occurrence.id, occurrence);
+    if (commandKey) this.createCommands.set(commandKey, { meetingId: occurrence.id });
     return { occurrence, created: true };
   }
 

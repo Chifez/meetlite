@@ -21,7 +21,7 @@ export function useMeetingController() {
   }, []);
 
   const handleCopyLink = useCallback((meeting: Meeting) => {
-    const url = `${window.location.origin}/lobby/${meeting.roomId || meeting.meetingId}`;
+    const url = `${window.location.origin}/meeting/${meeting.meetingId}/join`;
     navigator.clipboard.writeText(url);
     toast.success('Meeting link copied to clipboard');
   }, []);
@@ -61,8 +61,11 @@ export function useMeetingController() {
       }
 
       case 'join': {
-        const target = meeting.roomId || meeting.meetingId;
-        navigate(`/lobby/${target}`);
+        if (meeting.roomId) {
+          navigate(`/lobby/${meeting.roomId}`);
+        } else {
+          navigate(`/meeting/${meeting.meetingId}/join`);
+        }
         break;
       }
 

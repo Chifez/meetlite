@@ -16,6 +16,12 @@ export interface OutboxRepository {
    */
   fetchUnpublished(limit: number): Promise<readonly OutboxEventRecord[]>;
 
+  claimUnpublished(
+    limit: number,
+    workerId: string,
+    leaseUntil: Date
+  ): Promise<readonly OutboxEventRecord[]>;
+
   /**
    * Marks an event as published.
    */

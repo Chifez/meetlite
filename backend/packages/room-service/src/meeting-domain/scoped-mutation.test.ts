@@ -35,6 +35,7 @@ describe('MLTR-05: Scoped Recurrence Edits and Cancellations', () => {
       meetingRepository: meetingRepo,
       outboxRepository: outboxRepo,
       recurrenceEngine,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
     });
 
     // Create recurring weekly meeting on Mondays at 10:00:00 America/New_York

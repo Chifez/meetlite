@@ -3,6 +3,36 @@ import { WORKSPACE_ROLES } from '@minimeet/shared';
 
 
 export class MeetingAuthorizationService {
+  static async canCreateForTeam(
+    teamId: string,
+    userId: string,
+    organizationId: string
+  ): Promise<boolean> {
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, organizationId, status: { not: 'deleted' } },
+      select: { ownerId: true },
+    });
+    if (!team) return false;
+    if (team.ownerId === userId) return true;
+
+    const [teamMembership, organizationMembership] = await Promise.all([
+      prisma.teamMember.findFirst({
+        where: { teamId, userId, status: 'active' },
+        select: { userId: true },
+      }),
+      prisma.userOrganizationMembership.findFirst({
+        where: {
+          organizationId,
+          userId,
+          status: 'active',
+          role: { in: [WORKSPACE_ROLES.OWNER, WORKSPACE_ROLES.ADMIN] },
+        },
+        select: { userId: true },
+      }),
+    ]);
+    return Boolean(teamMembership || organizationMembership);
+  }
+
   /**
    * Check if user can modify (update/delete) a meeting
    */

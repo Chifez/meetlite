@@ -20,6 +20,7 @@ describe('MLTR-03: MeetingApplication Atomic Series & First Occurrence Creation'
       meetingRepository: meetingRepo,
       outboxRepository: outboxRepo,
       recurrenceEngine,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
     });
 
     const result = await app.create({
@@ -72,6 +73,7 @@ describe('MLTR-03: MeetingApplication Atomic Series & First Occurrence Creation'
       meetingRepository: meetingRepo,
       outboxRepository: outboxRepo,
       recurrenceEngine,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
     });
 
     const { view } = await app.create({
@@ -109,6 +111,7 @@ describe('MLTR-03: MeetingApplication Atomic Series & First Occurrence Creation'
       meetingRepository: meetingRepo,
       outboxRepository: outboxRepo,
       recurrenceEngine,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
     });
 
     const cmd = {
@@ -147,6 +150,7 @@ describe('MLTR-03: MeetingApplication Atomic Series & First Occurrence Creation'
       meetingRepository: meetingRepo,
       outboxRepository: outboxRepo,
       recurrenceEngine,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
     });
 
     await assert.rejects(
@@ -169,6 +173,31 @@ describe('MLTR-03: MeetingApplication Atomic Series & First Occurrence Creation'
         assert.ok(err.message.includes('Daylight Saving Time') || err.message.includes('does not exist'));
         return true;
       }
+    );
+  });
+
+  it('invariant: rejects a valid zoned wall-clock time that is already in the past', async () => {
+    const app = new MeetingApplication({
+      meetingRepository: new FakeMeetingRepository(),
+      outboxRepository: new FakeOutboxRepository(),
+      recurrenceEngine: new RRuleRecurrenceEngine(),
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    await assert.rejects(
+      app.create({
+        principal: { userId: hostUserId, orgId },
+        command: {
+          idempotencyKey: 'idem_past_time',
+          title: 'Past meeting',
+          localDate: parseLocalDate('2025-12-31'),
+          localTime: parseLocalTime('23:00:00'),
+          timeZone: parseIanaTimeZone('UTC'),
+          durationMinutes: 30,
+          privacy: 'private',
+        },
+      }),
+      (error: unknown) => error instanceof Error && 'code' in error && error.code === 'MEETING_TIME_IN_PAST'
     );
   });
 

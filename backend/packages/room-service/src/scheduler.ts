@@ -2,10 +2,14 @@ import dotenv from 'dotenv';
 import { prisma, validateRequiredEnv } from '@minimeet/shared';
 import logger from './utils/logger.js';
 import { startRecurrenceScheduler } from './jobs/recurrence.job.js';
+import { PrismaOutboxRepository } from './meeting-domain/repositories/prisma-outbox.repository.js';
+import { OutboxPublisher } from './meeting-domain/invitations/outbox-publisher.js';
+import { MeetingOutboxDispatcher } from './meeting-domain/invitations/meeting-outbox-dispatcher.js';
 
 dotenv.config();
 
 let recurrenceTask: { stop: () => void } | null = null;
+let outboxTimer: NodeJS.Timeout | null = null;
 
 const connectDB = async () => {
   try {
@@ -34,6 +38,18 @@ export const startScheduler = async () => {
     await connectDB();
 
     recurrenceTask = startRecurrenceScheduler(process.env.RECURRENCE_CRON_SCHEDULE || '0 2 * * *');
+    const outboxPublisher = new OutboxPublisher(
+      new PrismaOutboxRepository(prisma),
+      new MeetingOutboxDispatcher(prisma)
+    );
+    const publishOutbox = async () => {
+      const result = await outboxPublisher.publishBatch(50);
+      if (result.processed > 0) logger.info('Meeting outbox batch processed', result);
+    };
+    await publishOutbox();
+    outboxTimer = setInterval(() => void publishOutbox().catch((error) => {
+      logger.error('Meeting outbox batch failed', error);
+    }), 5_000);
     logger.info('Recurrence scheduler started successfully');
 
     const shutdown = async (signal: string) => {
@@ -44,6 +60,7 @@ export const startScheduler = async () => {
           recurrenceTask.stop();
           logger.info('Recurrence scheduler stopped');
         }
+        if (outboxTimer) clearInterval(outboxTimer);
 
         await prisma.$disconnect();
         logger.info('Graceful scheduler shutdown complete');
