@@ -48,7 +48,6 @@ const Dashboard = () => {
     removeParticipant,
     handleSubmit: submitForm,
   } = useMeetingForm(() => {
-    setSearchParams({});
     if (user?.id) {
       fetchMeetings(user.id);
     }

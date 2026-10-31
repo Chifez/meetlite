@@ -76,11 +76,11 @@ const Meetings = () => {
     handleDateChange,
     handleTimeChange,
     handlePrivacyChange,
+    handleRecurrenceChange,
     handleParticipantInput,
     removeParticipant,
     handleSubmit: submitForm,
   } = useMeetingForm(() => {
-    setSearchParams({});
     loadMeetings();
   });
 
@@ -152,6 +152,7 @@ const Meetings = () => {
         onDateChange={handleDateChange}
         onTimeChange={handleTimeChange}
         onPrivacyChange={handlePrivacyChange}
+        onRecurrenceChange={handleRecurrenceChange}
         onParticipantInput={handleParticipantInput}
         onRemoveParticipant={removeParticipant}
         onSubmit={handleFormSubmit}
