@@ -99,27 +99,34 @@ export default function DeleteMeetingDialog() {
 
   return (
     <AlertDialog open={deleteDialog.open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-w-[440px] p-5 rounded-[14px] border border-[#DAD7CF] dark:border-border/80 bg-[#FBFAF8] dark:bg-card shadow-xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>{dialogContent.title}</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogTitle className="text-base font-medium text-foreground">
+            {dialogContent.title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-xs text-[#6B6A65] dark:text-muted-foreground leading-relaxed mt-1">
             {dialogContent.description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+        <AlertDialogFooter className="mt-4 pt-3 border-t border-[#E2DFD7] dark:border-border/80 flex items-center justify-end gap-2">
+          <AlertDialogCancel
+            disabled={deleting}
+            className="h-8 px-3 rounded-lg border-[#CFCCC3] dark:border-border/80 bg-white dark:bg-card text-xs font-medium"
+          >
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={deleting}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="h-8 px-3.5 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium text-xs shadow-xs"
           >
             {deleting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 Deleting...
               </>
             ) : (
-              'Delete'
+              'Delete meeting'
             )}
           </AlertDialogAction>
         </AlertDialogFooter>
