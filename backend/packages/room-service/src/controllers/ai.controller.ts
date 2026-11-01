@@ -6,6 +6,7 @@ import {
   generateInsights,
   generateDescription,
   parseMeetingDescription,
+  SmartSchedulingPipeline,
 } from '../services/ai.service.js';
 import { request as undiciRequest } from 'undici';
 import { AppError } from '@minimeet/shared';
@@ -200,17 +201,12 @@ Rules:
   }
 };
 
-// Parse meeting description
+// Parse meeting description using Gated Pipeline
 export const parseMeeting = async (req: Request, res: Response) => {
   const { input, timezone = 'UTC', organizationId } = req.body;
 
   if (!input || typeof input !== 'string' || !input.trim()) {
     throw AppError.validation('Meeting description is required');
-  }
-
-  // Check if OPENAI_API_KEY is available
-  if (!process.env.OPENAI_API_KEY) {
-    throw AppError.internal('AI service not configured properly');
   }
 
   // Fetch teams and members for context if organizationId is provided
@@ -220,13 +216,13 @@ export const parseMeeting = async (req: Request, res: Response) => {
       const teams = await prisma.team.findMany({
         where: {
           organizationId,
-          status: { not: 'deleted' }
+          status: { not: 'deleted' },
         },
         include: {
           members: {
-            include: { user: { select: { email: true, name: true } } }
-          }
-        }
+            include: { user: { select: { email: true, name: true } } },
+          },
+        },
       });
 
       if (teams.length > 0) {
@@ -252,15 +248,22 @@ export const parseMeeting = async (req: Request, res: Response) => {
     }
   }
 
-  const parsedData = await parseMeetingDescription(
+  const pipelineResult = await SmartSchedulingPipeline.process(
     input,
     timezone,
-    teamsContext
+    teamsContext,
+    {
+      prismaClient: prisma,
+      hostUserId: (req as any).user?.userId,
+      organizationId,
+    }
   );
 
   res.json({
     success: true,
-    data: parsedData,
-    confidence: parsedData.confidence || 0.8,
+    data: pipelineResult.data,
+    confidence: pipelineResult.confidence,
+    diagnostics: pipelineResult.diagnostics,
+    conflictCheck: pipelineResult.conflictCheck,
   });
 };

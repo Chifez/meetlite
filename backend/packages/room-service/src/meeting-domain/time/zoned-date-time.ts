@@ -180,7 +180,7 @@ export function resolveZonedDateTime(
 
   if (offsetDiffMinutes > 0) {
     const testEarlier = DateTime.fromMillis(dtDefault.toMillis() - offsetDiffMinutes * 60000, { zone });
-    if (testEarlier.toFormat('HH:mm:ss') === time && dtDefault.toFormat('HH:mm:ss') === time) {
+    if (testEarlier.isValid && testEarlier.toFormat('HH:mm:ss') === time && dtDefault.toFormat('HH:mm:ss') === time) {
       isAmbiguous = true;
       candidateEarlier = testEarlier;
       candidateLater = dtDefault;
