@@ -170,11 +170,10 @@ export const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedRole('member')}
-                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${
-                  selectedRole === 'member'
+                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${selectedRole === 'member'
                     ? 'bg-primary/5 dark:bg-primary/10'
                     : 'hover:bg-muted/50'
-                }`}
+                  }`}
               >
                 <div className="w-7 h-7 rounded-md bg-[#EEEDE8] dark:bg-neutral-800 flex items-center justify-center shrink-0 mt-0.5">
                   <User className="h-3.5 w-3.5 text-foreground" />
@@ -199,11 +198,10 @@ export const AddTeamMemberModal: React.FC<AddTeamMemberModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedRole('owner')}
-                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${
-                  selectedRole === 'owner'
+                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${selectedRole === 'owner'
                     ? 'bg-primary/5 dark:bg-primary/10'
                     : 'hover:bg-muted/50'
-                }`}
+                  }`}
               >
                 <div className="w-7 h-7 rounded-md bg-[#EEEDE8] dark:bg-neutral-800 flex items-center justify-center shrink-0 mt-0.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-foreground" />

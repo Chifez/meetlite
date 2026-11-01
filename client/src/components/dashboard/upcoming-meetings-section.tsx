@@ -1,6 +1,17 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MoreHorizontal, Copy, Trash2, ArrowDown } from 'lucide-react';
+import {
+  Calendar,
+  MoreHorizontal,
+  Copy,
+  Trash2,
+  ArrowDown,
+  CalendarPlus,
+  Video,
+  Sparkles,
+  Link2,
+  ShieldCheck,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +42,7 @@ interface UpcomingMeetingsSectionProps {
   meetings: Meeting[];
   loading: boolean;
   onSchedule: () => void;
+  onQuickMeeting?: () => void;
 }
 
 type FilterTab = 'today' | 'tomorrow' | 'week';
@@ -39,6 +51,7 @@ export default function UpcomingMeetingsSection({
   meetings,
   loading,
   onSchedule,
+  onQuickMeeting,
 }: UpcomingMeetingsSectionProps) {
   const [activeTab, setActiveTab] = useState<FilterTab>('today');
   const { currentWorkspaceName } = useWorkspace();
@@ -120,30 +133,68 @@ export default function UpcomingMeetingsSection({
           <p className="text-xs text-muted-foreground mt-2 font-medium">Loading meetings...</p>
         </div>
       ) : filteredMeetings.length === 0 ? (
-        <div className="px-5 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-surface-sunken flex items-center justify-center shrink-0 border border-border/60 text-muted-foreground">
-              <Calendar className="w-4 h-4" />
+        <div className="py-12 sm:py-16 md:py-20 px-6 flex flex-col items-center justify-center text-center">
+          {/* Layered Centerpiece Icon */}
+          <div className="relative mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center text-primary shadow-xs">
+              <Calendar className="w-7 h-7 stroke-[1.75]" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-foreground">
-                No meetings scheduled {activeTab === 'today' ? 'today' : activeTab === 'tomorrow' ? 'tomorrow' : 'this week'}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Book a meeting slot to invite collaborators.
-              </p>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-card shadow-xs flex items-center justify-center text-primary">
+              <Sparkles className="w-3.5 h-3.5" />
             </div>
           </div>
-          {canCreateMeetings && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSchedule}
-              className="h-8 px-3 text-xs font-semibold rounded-lg border-border/80 hover:bg-surface-sunken"
-            >
-              Schedule meeting
-            </Button>
-          )}
+
+          {/* Typography */}
+          <div className="space-y-1.5 max-w-md mx-auto">
+            <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
+              No meetings scheduled {activeTab === 'today' ? 'for today' : activeTab === 'tomorrow' ? 'for tomorrow' : 'this week'}
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Your agenda is completely clear. Plan ahead by scheduling a team sync, client call, or start an instant room anytime.
+            </p>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="flex items-center gap-2.5 mt-5 flex-wrap justify-center">
+            {canCreateMeetings && (
+              <Button
+                size="sm"
+                onClick={onSchedule}
+                className="h-8.5 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs gap-1.5 cursor-pointer"
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                <span>Schedule a meeting</span>
+              </Button>
+            )}
+
+            {onQuickMeeting && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onQuickMeeting}
+                className="h-8.5 px-3.5 text-xs font-semibold rounded-xl border-border/80 bg-background hover:bg-surface-sunken text-foreground gap-1.5 cursor-pointer"
+              >
+                <Video className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Start instant meeting</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Capability Highlight Badges */}
+          <div className="flex items-center gap-2 flex-wrap justify-center mt-7 pt-5 border-t border-border/50 max-w-lg w-full">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
+              <Sparkles className="w-3 h-3 text-primary shrink-0" />
+              <span>Smart scheduling</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
+              <Link2 className="w-3 h-3 text-primary shrink-0" />
+              <span>1-click shareable links</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
+              <ShieldCheck className="w-3 h-3 text-primary shrink-0" />
+              <span>End-to-end encrypted</span>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="divide-y divide-border/60">

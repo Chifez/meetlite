@@ -9,6 +9,10 @@ import {
   Square,
   Play,
   Video,
+  CalendarPlus,
+  Sparkles,
+  Link2,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,30 +135,51 @@ export default function MeetingListSection({
 
     if (searchedMeetings.length === 0) {
       return (
-        <div className="bg-card border border-border/80 rounded-2xl p-10 text-center space-y-3 shadow-2xs">
-          <div className="w-10 h-10 rounded-xl bg-surface-sunken flex items-center justify-center mx-auto border border-border/60 text-muted-foreground">
-            <Calendar className="w-5 h-5" />
+        <div className="bg-card border border-border/80 rounded-2xl py-14 sm:py-16 md:py-20 px-6 text-center flex flex-col items-center justify-center shadow-2xs">
+          <div className="relative mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center text-primary shadow-xs">
+              <Calendar className="w-7 h-7 stroke-[1.75]" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-card shadow-xs flex items-center justify-center text-primary">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-foreground">
+          <div className="space-y-1.5 max-w-md mx-auto">
+            <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
               {searchQuery ? 'No meetings match your search' : 'No upcoming meetings scheduled'}
             </h3>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {searchQuery
                 ? 'Try searching with a different title or keyword.'
-                : 'Schedule a meeting or invite collaborators to get started.'}
+                : 'Your schedule is currently open. Book a new meeting or invite teammates to collaborate.'}
             </p>
           </div>
           {onSchedule && !searchQuery && (
-            <div className="pt-2">
+            <div className="pt-4">
               <Button
                 size="sm"
-                variant="outline"
                 onClick={onSchedule}
-                className="text-xs font-semibold rounded-xl border-border/80 hover:bg-surface-sunken"
+                className="h-8.5 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs gap-1.5 cursor-pointer"
               >
-                Schedule a meeting
+                <CalendarPlus className="w-3.5 h-3.5" />
+                <span>Schedule a meeting</span>
               </Button>
+            </div>
+          )}
+          {!searchQuery && (
+            <div className="flex items-center gap-2 flex-wrap justify-center mt-7 pt-5 border-t border-border/50 max-w-lg w-full">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
+                <Sparkles className="w-3 h-3 text-primary shrink-0" />
+                <span>Natural language scheduling</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
+                <Link2 className="w-3 h-3 text-primary shrink-0" />
+                <span>Instant join links</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
+                <ShieldCheck className="w-3 h-3 text-primary shrink-0" />
+                <span>Private access control</span>
+              </div>
             </div>
           )}
         </div>

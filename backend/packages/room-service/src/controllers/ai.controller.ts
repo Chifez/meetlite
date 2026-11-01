@@ -53,7 +53,7 @@ export const getMeetingInsights = async (req: Request, res: Response) => {
     where: { id: idStr },
     include: { participants: true, invites: true },
   }) as any;
-  
+
   if (!meeting) {
     throw AppError.notFound('Meeting');
   }
@@ -72,7 +72,7 @@ export const getMeetingInsights = async (req: Request, res: Response) => {
     where: { meetingId: idStr },
     select: { transcriptText: true }
   });
-  
+
   const transcript = recording?.transcriptText || 'No transcript available.';
 
   const insights = await generateInsights({

@@ -10,12 +10,20 @@ export interface InputTagsProps {
   maxTags?: number;
   className?: string;
   id?: string;
+  validateTag?: (tag: string) => boolean;
+  errorMessage?: (invalidTag: string) => string;
+  inputType?: string;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isValidEmail(email: string): boolean {
   return EMAIL_REGEX.test(email.trim());
+}
+
+export function isValidPhone(phone: string): boolean {
+  const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
+  return /^\+?[0-9]{7,15}$/.test(cleaned);
 }
 
 export function InputTags({
@@ -25,13 +33,16 @@ export function InputTags({
   disabled = false,
   className,
   id,
+  validateTag = isValidEmail,
+  errorMessage,
+  inputType = 'email',
 }: InputTagsProps) {
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addTag = (rawTag: string) => {
-    const clean = rawTag.trim().toLowerCase();
+    const clean = rawTag.trim();
     if (!clean) return;
     if (!tags.includes(clean)) {
       onChange([...tags, clean]);
@@ -57,7 +68,7 @@ export function InputTags({
       e.preventDefault();
       const parts = text
         .split(/[,;\s\n]+/)
-        .map((p) => p.trim().toLowerCase())
+        .map((p) => p.trim())
         .filter(Boolean);
 
       const next = [...tags];
@@ -82,7 +93,7 @@ export function InputTags({
     onChange(tags.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const invalidTag = tags.find((tag) => !isValidEmail(tag));
+  const invalidTag = tags.find((tag) => !validateTag(tag));
 
   return (
     <div className="w-full">
@@ -127,7 +138,7 @@ export function InputTags({
         <input
           id={id}
           ref={inputRef}
-          type="email"
+          type={inputType}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -142,7 +153,9 @@ export function InputTags({
 
       {invalidTag && (
         <div className="text-[11px] text-[#A32D2D] dark:text-destructive mt-1.5 pl-0.5 font-medium">
-          "{invalidTag}" isn't a valid email. Edit or remove it.
+          {errorMessage
+            ? errorMessage(invalidTag)
+            : `"${invalidTag}" isn't a valid entry. Edit or remove it.`}
         </div>
       )}
     </div>

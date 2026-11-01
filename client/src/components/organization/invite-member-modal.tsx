@@ -141,11 +141,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <button
                 type="button"
                 onClick={() => setRole('member')}
-                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${
-                  role === 'member'
+                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${role === 'member'
                     ? 'bg-primary/5 dark:bg-primary/10'
                     : 'hover:bg-muted/50'
-                }`}
+                  }`}
               >
                 <div className="w-7 h-7 rounded-md bg-[#EEEDE8] dark:bg-neutral-800 flex items-center justify-center shrink-0 mt-0.5">
                   <User className="h-3.5 w-3.5 text-foreground" />
@@ -170,11 +169,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <button
                 type="button"
                 onClick={() => setRole('admin')}
-                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${
-                  role === 'admin'
+                className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${role === 'admin'
                     ? 'bg-primary/5 dark:bg-primary/10'
                     : 'hover:bg-muted/50'
-                }`}
+                  }`}
               >
                 <div className="w-7 h-7 rounded-md bg-[#EEEDE8] dark:bg-neutral-800 flex items-center justify-center shrink-0 mt-0.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-foreground" />
@@ -200,11 +198,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setRole('owner')}
-                  className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${
-                    role === 'owner'
+                  className={`w-full p-2.5 flex items-start gap-3 text-left transition-colors ${role === 'owner'
                       ? 'bg-primary/5 dark:bg-primary/10'
                       : 'hover:bg-muted/50'
-                  }`}
+                    }`}
                 >
                   <div className="w-7 h-7 rounded-md bg-[#EEEDE8] dark:bg-neutral-800 flex items-center justify-center shrink-0 mt-0.5">
                     <Crown className="h-3.5 w-3.5 text-foreground" />

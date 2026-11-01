@@ -195,6 +195,7 @@ const Dashboard = () => {
               meetings={filteredMeetings}
               loading={loading}
               onSchedule={openScheduleModal}
+              onQuickMeeting={handleQuickMeeting}
             />
           </div>
 

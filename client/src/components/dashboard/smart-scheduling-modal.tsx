@@ -8,6 +8,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   CalendarPlus,
   Sparkles,
   Calendar as CalendarIcon,
@@ -21,15 +27,24 @@ import {
   Hourglass,
   Pencil,
   Loader2,
+  Mail,
+  Smartphone,
+  Link2,
+  Copy,
+  Check,
+  AlertTriangle,
+  ArrowUpRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MeetingFormData } from '@/lib/types';
 import { getUserTimeZone } from '@/lib/timezones';
-import { InputTags } from '@/components/scheduling/input-tags';
+import { InputTags, isValidEmail, isValidPhone } from '@/components/scheduling/input-tags';
 import { MeetingScheduledConfirmation } from '@/components/scheduling/meeting-scheduled-dialog';
 import { useStreamingAI } from '@/hooks/use-streaming-ai';
 import { useEnhancedSmartScheduling } from '@/hooks/use-enhanced-smart-scheduling';
+import { useCurrentPlan } from '@/hooks/use-current-plan';
+import PlanSettingsDialog from '@/components/plan/plan-settings-dialog';
 import { toast } from 'sonner';
 
 interface SmartSchedulingModalProps {
@@ -171,6 +186,31 @@ export default function SmartSchedulingModal({
   const [titleError, setTitleError] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
+  // User Plan & Gating
+  const { currentPlan } = useCurrentPlan();
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+
+  // Invite Mode: Email, Phone/SMS, or Shareable Link
+  const [inviteMethod, setInviteMethod] = useState<'email' | 'phone' | 'link'>('email');
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Custom Duration State
+  const [isCustomDuration, setIsCustomDuration] = useState(() => {
+    return formData.duration ? !DURATION_PRESETS.includes(formData.duration) : false;
+  });
+  const [customMinutesInput, setCustomMinutesInput] = useState<string>(() => {
+    return formData.duration ? String(formData.duration) : '45';
+  });
+
+  // Plan duration limits: Free = 40 min, Pro = 480 min (8h), Enterprise = 1440 min
+  const maxDurationForPlan = useMemo(() => {
+    if (currentPlan === 'free') return 40;
+    if (currentPlan === 'pro') return 480;
+    return 1440;
+  }, [currentPlan]);
+
+  const isDurationGated = (formData.duration || 30) > maxDurationForPlan;
+
   // Confirmation view state
   const [confirmedMeeting, setConfirmedMeeting] = useState<any | null>(null);
 
@@ -243,9 +283,51 @@ export default function SmartSchedulingModal({
     }
   }, [timezone]);
 
-  // Handle Duration chip click
+  // Handle Duration Preset chip click
   const handleDurationSelect = (min: number) => {
+    setIsCustomDuration(false);
     onInputChange({ target: { name: 'duration', value: min } } as any);
+  };
+
+  // Handle Custom Duration Toggle & Input
+  const handleCustomDurationClick = () => {
+    setIsCustomDuration(true);
+    const parsed = parseInt(customMinutesInput, 10) || 45;
+    onInputChange({ target: { name: 'duration', value: parsed } } as any);
+  };
+
+  const handleCustomMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setCustomMinutesInput(val);
+    const parsed = parseInt(val, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      onInputChange({ target: { name: 'duration', value: parsed } } as any);
+    }
+  };
+
+  const handleAdjustCustomMinutes = (delta: number) => {
+    const currentVal = parseInt(customMinutesInput, 10) || 30;
+    const nextVal = Math.min(1440, Math.max(5, currentVal + delta));
+    setCustomMinutesInput(String(nextVal));
+    onInputChange({ target: { name: 'duration', value: nextVal } } as any);
+  };
+
+  // Share link preview & copy handler
+  const shareLinkUrl = useMemo(() => {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'https://meetlite.app';
+    const meetingId = (formData as any).roomId || (formData as any).meetingId || 'preview';
+    return `${base}/lobby/${meetingId}`;
+  }, [formData]);
+
+  const handleCopyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLinkUrl);
+      setLinkCopied(true);
+      toast.success('Meeting link copied to clipboard');
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy link');
+    }
   };
 
   // Handle Improve Description with AI
@@ -274,6 +356,16 @@ export default function SmartSchedulingModal({
       return;
     }
     setTitleError(false);
+
+    // Gated duration check against user plan
+    if (isDurationGated) {
+      toast.error(
+        currentPlan === 'free'
+          ? `Free plan allows up to 40 minutes per meeting. Upgrade to Pro for longer meetings.`
+          : `Duration exceeds your plan limit (${maxDurationForPlan} minutes). Upgrade your plan to continue.`
+      );
+      return;
+    }
 
     try {
       const result = await onSubmit();
@@ -688,14 +780,14 @@ export default function SmartSchedulingModal({
                       Duration
                     </span>
                     {DURATION_PRESETS.map((mins) => {
-                      const isSelected = formData.duration === mins;
+                      const isSelected = !isCustomDuration && formData.duration === mins;
                       return (
                         <button
                           key={mins}
                           type="button"
                           onClick={() => handleDurationSelect(mins)}
                           className={cn(
-                            'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
+                            'px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer',
                             isSelected
                               ? 'bg-[#E3E6F0] dark:bg-primary/20 border-primary text-primary font-semibold'
                               : 'bg-white dark:bg-card border-[#CFCCC3] dark:border-border/80 text-[#3A3A37] dark:text-muted-foreground hover:bg-muted'
@@ -705,44 +797,268 @@ export default function SmartSchedulingModal({
                         </button>
                       );
                     })}
+                    <button
+                      type="button"
+                      onClick={handleCustomDurationClick}
+                      className={cn(
+                        'px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer',
+                        isCustomDuration
+                          ? 'bg-[#E3E6F0] dark:bg-primary/20 border-primary text-primary font-semibold'
+                          : 'bg-white dark:bg-card border-[#CFCCC3] dark:border-border/80 text-[#3A3A37] dark:text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      Custom
+                    </button>
                   </div>
+
+                  {/* Custom Duration Input & Steppers */}
+                  {isCustomDuration && (
+                    <div className="mt-2.5 p-2 bg-[#F6F5F1] dark:bg-muted/40 border border-[#DAD7CF] dark:border-border/80 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="relative flex items-center">
+                          <input
+                            type="number"
+                            min={5}
+                            max={1440}
+                            step={5}
+                            value={customMinutesInput}
+                            onChange={handleCustomMinutesChange}
+                            placeholder="Mins"
+                            className={cn(
+                              'w-20 h-7 bg-white dark:bg-background border rounded-md px-2 text-xs text-foreground outline-none transition-all pr-8',
+                              isDurationGated
+                                ? 'border-amber-500 ring-2 ring-amber-500/20'
+                                : 'border-[#CFCCC3] dark:border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20'
+                            )}
+                          />
+                          <span className="absolute right-2 text-[10px] text-muted-foreground pointer-events-none">
+                            min
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {[
+                            { label: '+15m', delta: 15 },
+                            { label: '+30m', delta: 30 },
+                            { label: '+60m', delta: 60 },
+                          ].map((btn) => (
+                            <button
+                              key={btn.label}
+                              type="button"
+                              onClick={() => handleAdjustCustomMinutes(btn.delta)}
+                              className="px-2 py-0.5 text-[11px] font-medium bg-white dark:bg-card border border-[#DAD7CF] dark:border-border/80 text-foreground hover:bg-muted rounded transition-colors"
+                            >
+                              {btn.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <span className="text-[11px] text-[#6B6A65] dark:text-muted-foreground font-mono">
+                          ({Math.floor((formData.duration || 30) / 60) > 0 ? `${Math.floor((formData.duration || 30) / 60)}h ` : ''}
+                          {(formData.duration || 30) % 60 > 0 ? `${(formData.duration || 30) % 60}m` : ''})
+                        </span>
+                      </div>
+
+                      {/* Plan Gating Alert if exceeded */}
+                      {isDurationGated && (
+                        <div className="p-2 px-2.5 rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 min-w-0">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <span className="text-[11px] leading-tight">
+                              {currentPlan === 'free'
+                                ? `Free plan allows up to 40 min. Your duration is ${formData.duration} min.`
+                                : `Plan limit is ${maxDurationForPlan} min. Your duration is ${formData.duration} min.`}
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setPlanDialogOpen(true)}
+                            className="h-6 px-2 text-[11px] font-semibold text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60 shrink-0 gap-0.5"
+                          >
+                            <span>Upgrade</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Live End Time Hint */}
                   <div className="text-[11px] text-[#6B6A65] dark:text-muted-foreground mt-1.5">
                     Ends {endTimeStr || '3:00 AM'} · {timezone} ({tzAbbrev})
                   </div>
                 </div>
 
-                {/* Invite People via InputTags */}
+                {/* Invite People via Dropdown & Dynamic Mode UI */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90">
                       Invite people
                     </label>
-                    <span className="text-[11px] text-[#6B6A65] dark:text-muted-foreground">
-                      Send by <strong className="font-semibold text-foreground">Email</strong>
-                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-[11px] text-[#6B6A65] dark:text-muted-foreground hover:text-foreground inline-flex items-center gap-1 font-medium transition-colors cursor-pointer group"
+                        >
+                          <span>Send by</span>
+                          <strong className="font-semibold text-foreground underline decoration-dotted underline-offset-2">
+                            {inviteMethod === 'email'
+                              ? 'Email'
+                              : inviteMethod === 'phone'
+                              ? 'Phone / SMS'
+                              : 'Shareable Link'}
+                          </strong>
+                          <ChevronDown className="w-3 h-3 text-[#6B6A65] group-hover:text-foreground transition-transform" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52 text-xs p-1">
+                        <DropdownMenuItem
+                          onClick={() => setInviteMethod('email')}
+                          className={cn(
+                            'gap-2 cursor-pointer',
+                            inviteMethod === 'email' && 'bg-muted font-medium'
+                          )}
+                        >
+                          <Mail className="w-3.5 h-3.5 text-primary" />
+                          <div className="flex flex-col">
+                            <span className="font-medium">Send by Email</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Calendar invites with join link
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setInviteMethod('phone')}
+                          className={cn(
+                            'gap-2 cursor-pointer',
+                            inviteMethod === 'phone' && 'bg-muted font-medium'
+                          )}
+                        >
+                          <Smartphone className="w-3.5 h-3.5 text-primary" />
+                          <div className="flex flex-col">
+                            <span className="font-medium">Send by Phone / SMS</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Mobile text reminders
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setInviteMethod('link')}
+                          className={cn(
+                            'gap-2 cursor-pointer',
+                            inviteMethod === 'link' && 'bg-muted font-medium'
+                          )}
+                        >
+                          <Link2 className="w-3.5 h-3.5 text-primary" />
+                          <div className="flex flex-col">
+                            <span className="font-medium">Shareable Link</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Copy link to invite anyone
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <InputTags
-                    tags={formData.participants || []}
-                    onChange={(tags) => {
-                      if (tags.length < (formData.participants || []).length) {
-                        const removed = (formData.participants || []).find(
-                          (t) => !tags.includes(t)
-                        );
-                        if (removed) onRemoveParticipant(removed);
-                      } else {
-                        const added = tags[tags.length - 1];
-                        if (added) {
-                          onParticipantInput({
-                            target: { name: 'participantInput', value: added },
-                          });
+
+                  {/* Mode-Specific Input UI */}
+                  {inviteMethod === 'email' && (
+                    <InputTags
+                      tags={formData.participants || []}
+                      onChange={(tags) => {
+                        if (tags.length < (formData.participants || []).length) {
+                          const removed = (formData.participants || []).find(
+                            (t) => !tags.includes(t)
+                          );
+                          if (removed) onRemoveParticipant(removed);
+                        } else {
+                          const added = tags[tags.length - 1];
+                          if (added) {
+                            onParticipantInput({
+                              target: { name: 'participantInput', value: added },
+                            });
+                          }
                         }
+                      }}
+                      placeholder={
+                        formData.participants?.length === 0 ? 'Add email...' : 'Add another'
                       }
-                    }}
-                    placeholder={
-                      formData.participants?.length === 0 ? 'Add email...' : 'Add another'
-                    }
-                  />
+                      inputType="email"
+                      validateTag={isValidEmail}
+                      errorMessage={(tag) => `"${tag}" isn't a valid email. Edit or remove it.`}
+                    />
+                  )}
+
+                  {inviteMethod === 'phone' && (
+                    <div>
+                      <InputTags
+                        tags={formData.participants || []}
+                        onChange={(tags) => {
+                          if (tags.length < (formData.participants || []).length) {
+                            const removed = (formData.participants || []).find(
+                              (t) => !tags.includes(t)
+                            );
+                            if (removed) onRemoveParticipant(removed);
+                          } else {
+                            const added = tags[tags.length - 1];
+                            if (added) {
+                              onParticipantInput({
+                                target: { name: 'participantInput', value: added },
+                              });
+                            }
+                          }
+                        }}
+                        placeholder={
+                          formData.participants?.length === 0
+                            ? 'Add phone (+1 555 0192)...'
+                            : 'Add another phone'
+                        }
+                        inputType="tel"
+                        validateTag={isValidPhone}
+                        errorMessage={(tag) =>
+                          `"${tag}" isn't a valid phone number. Use E.164 (e.g. +1 555 0192).`
+                        }
+                      />
+                      <p className="text-[11px] text-[#6B6A65] dark:text-muted-foreground mt-1">
+                        Participants will receive an SMS text reminder with the join link.
+                      </p>
+                    </div>
+                  )}
+
+                  {inviteMethod === 'link' && (
+                    <div className="bg-white dark:bg-background border border-[#CFCCC3] dark:border-border/80 rounded-lg p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-[#F6F5F1] dark:bg-muted/50 border border-[#DAD7CF] dark:border-border/60 rounded-md px-2.5 py-1.5 text-xs text-foreground font-mono truncate select-all">
+                          {shareLinkUrl}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCopyShareLink}
+                          className="h-8 px-2.5 text-xs font-medium border-[#CFCCC3] dark:border-border/80 gap-1 shrink-0"
+                        >
+                          {linkCopied ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copy link</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-[#6B6A65] dark:text-muted-foreground leading-normal">
+                        Anyone with this link can join. Once created, you can paste it directly into Slack, Teams, or WhatsApp.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Grouped Options Card: Privacy & Repeat */}
@@ -1078,6 +1394,7 @@ export default function SmartSchedulingModal({
           </div>
         )}
       </DialogContent>
+      <PlanSettingsDialog open={planDialogOpen} onOpenChange={setPlanDialogOpen} />
     </Dialog>
   );
 }
