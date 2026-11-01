@@ -174,15 +174,16 @@ export function resolveZonedDateTime(
   // A cleaner, standard check for ambiguity:
   // In Luxon, if dt.offset differs between minus 1ms and plus 1ms for the same local window
   // Let's test standard ambiguity:
-  const candidateEarlier = DateTime.fromISO(isoLocal, { zone });
-  // If we shift offset by the difference:
   const offsetDiffMinutes = earlierZoneDt.offset - laterZoneDt.offset;
+  let candidateEarlier = dtDefault;
+  let candidateLater = dtDefault;
+
   if (offsetDiffMinutes > 0) {
-    // There is a fall-back transition nearby (e.g. 60 min difference).
-    // Test if Candidate - offsetDiff formats to identical local time
-    const candidate2 = DateTime.fromMillis(candidateEarlier.toMillis() + offsetDiffMinutes * 60000, { zone });
-    if (candidate2.toFormat('HH:mm:ss') === time && candidateEarlier.toFormat('HH:mm:ss') === time) {
+    const testEarlier = DateTime.fromMillis(dtDefault.toMillis() - offsetDiffMinutes * 60000, { zone });
+    if (testEarlier.toFormat('HH:mm:ss') === time && dtDefault.toFormat('HH:mm:ss') === time) {
       isAmbiguous = true;
+      candidateEarlier = testEarlier;
+      candidateLater = dtDefault;
     }
   }
 
@@ -197,10 +198,7 @@ export function resolveZonedDateTime(
       };
     }
 
-    const resolvedDt =
-      disambiguation === 'earlier'
-        ? candidateEarlier // First pass (earlier instant, UTC-4 in New York)
-        : DateTime.fromMillis(candidateEarlier.toMillis() + offsetDiffMinutes * 60000, { zone }); // Second pass (UTC-5)
+    const resolvedDt = disambiguation === 'earlier' ? candidateEarlier : candidateLater;
 
     return {
       ok: true,
