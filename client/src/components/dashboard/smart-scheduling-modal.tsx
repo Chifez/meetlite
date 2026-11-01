@@ -17,7 +17,6 @@ import {
   Repeat,
   ChevronDown,
   X,
-  Wand2,
   Users,
   Hourglass,
   Pencil,
@@ -31,7 +30,6 @@ import { InputTags } from '@/components/scheduling/input-tags';
 import { MeetingScheduledConfirmation } from '@/components/scheduling/meeting-scheduled-dialog';
 import { useStreamingAI } from '@/hooks/use-streaming-ai';
 import { useEnhancedSmartScheduling } from '@/hooks/use-enhanced-smart-scheduling';
-import ConflictResolutionModal from '@/components/scheduling/conflict-resolution-modal';
 import { toast } from 'sonner';
 
 interface SmartSchedulingModalProps {
@@ -52,6 +50,18 @@ interface SmartSchedulingModalProps {
   teamId?: string;
   teamName?: string;
   onAutoIncludeChange?: (checked: boolean) => void;
+}
+
+interface DynamicSuggestedSlot {
+  id: string;
+  title: string;
+  timeLabel: string;
+  dateStr: string;
+  timeStr: string;
+  status: string;
+  statusType: 'free' | 'conflict';
+  pillLabel?: string;
+  avatars: Array<{ initials: string; bg: string; color: string }>;
 }
 
 // Helper: Snap to next 15-minute slot
@@ -99,7 +109,34 @@ function calculateEndTime(
   return `${displayHour}:${String(endMins).padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`;
 }
 
+// Helper: Generate participant avatar initials and deterministic colors
+function getParticipantAvatars(
+  participants: string[] = []
+): Array<{ initials: string; bg: string; color: string }> {
+  if (!participants || participants.length === 0) {
+    return [{ initials: 'YOU', bg: '#EEEDE8', color: '#3A3A37' }];
+  }
+  const colors = [
+    { bg: '#E1F5EE', color: '#085041' },
+    { bg: '#FAECE7', color: '#712B13' },
+    { bg: '#EBF3FE', color: '#1B4D89' },
+    { bg: '#F1EFE8', color: '#5A5850' },
+    { bg: '#FBEBEB', color: '#791F1F' },
+  ];
+  return participants.slice(0, 4).map((p, i) => {
+    const clean = p.split('@')[0] || 'U';
+    const initials = clean.slice(0, 2).toUpperCase();
+    return { initials, ...colors[i % colors.length] };
+  });
+}
+
 const DURATION_PRESETS = [15, 30, 45, 60];
+
+const SAMPLE_PROMPTS = [
+  'Sync tomorrow at 2:00 PM for 30m',
+  'Weekly standup, Mondays 10:00 AM',
+  'Project review this Friday at 3:00 PM for 45 min',
+];
 
 export default function SmartSchedulingModal({
   open,
@@ -117,6 +154,7 @@ export default function SmartSchedulingModal({
   onCancel,
   teamId,
   teamName,
+  onAutoIncludeChange,
 }: SmartSchedulingModalProps) {
   // Sticky tab selection
   const [activeTab, setActiveTab] = useState<'smart' | 'manual'>(() => {
@@ -136,7 +174,7 @@ export default function SmartSchedulingModal({
   // Confirmation view state
   const [confirmedMeeting, setConfirmedMeeting] = useState<any | null>(null);
 
-  // Time picker popover state
+  // Time and Date picker popover states
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -146,80 +184,23 @@ export default function SmartSchedulingModal({
   // AI Description improvement
   const { isStreaming, generateDescriptionNonStreaming } = useStreamingAI();
 
-  // Natural language smart scheduling states
+  // Natural language smart scheduling states (all dynamic, no hardcoded mocks)
   const [nlPrompt, setNlPrompt] = useState('');
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(0);
-  const [showConflictModal, setShowConflictModal] = useState(false);
-  const [conflictData, setConflictData] = useState<any>(null);
-
-  const {
-    isProcessing: isSmartProcessing,
-    error: parsingError,
-    smartSchedule,
-    populateFormData,
-    clearResult,
-  } = useEnhancedSmartScheduling();
-
-  // Mock slots for Smart scheduling tab demo
   const [parsedFacts, setParsedFacts] = useState<{
     title: string;
     attendees: string;
     window: string;
     duration: string;
-  } | null>({
-    title: 'Design sync',
-    attendees: 'Tolu, Ada',
-    window: 'Mon, Nov 2 · 12–5 PM',
-    duration: '45 min',
-  });
+  } | null>(null);
 
-  const [suggestedSlots, setSuggestedSlots] = useState<
-    Array<{
-      id: string;
-      title: string;
-      timeLabel: string;
-      status: string;
-      statusType: 'free' | 'conflict';
-      pillLabel?: string;
-      avatars: Array<{ initials: string; bg: string; color: string }>;
-    }>
-  >([
-    {
-      id: 'slot-1',
-      title: 'Design sync',
-      timeLabel: 'Mon, Nov 2 · 2:00–2:45 PM',
-      status: "Everyone's free",
-      statusType: 'free',
-      pillLabel: 'Best fit',
-      avatars: [
-        { initials: 'TK', bg: '#E1F5EE', color: '#085041' },
-        { initials: 'AO', bg: '#FAECE7', color: '#712B13' },
-      ],
-    },
-    {
-      id: 'slot-2',
-      title: 'Design sync',
-      timeLabel: 'Mon, Nov 2 · 3:30–4:15 PM',
-      status: "Everyone's free",
-      statusType: 'free',
-      avatars: [
-        { initials: 'TK', bg: '#E1F5EE', color: '#085041' },
-        { initials: 'AO', bg: '#FAECE7', color: '#712B13' },
-      ],
-    },
-    {
-      id: 'slot-3',
-      title: 'Design sync',
-      timeLabel: 'Mon, Nov 2 · 1:00–1:45 PM',
-      status: 'Ada has a conflict',
-      statusType: 'conflict',
-      pillLabel: '1 busy',
-      avatars: [
-        { initials: 'TK', bg: '#E1F5EE', color: '#085041' },
-        { initials: 'AO', bg: '#FAEEDA', color: '#633806' },
-      ],
-    },
-  ]);
+  const [suggestedSlots, setSuggestedSlots] = useState<DynamicSuggestedSlot[]>([]);
+
+  const {
+    isProcessing: isSmartProcessing,
+    smartSchedule,
+    populateFormData,
+  } = useEnhancedSmartScheduling();
 
   // Ensure reasonable initial defaults when opened
   useEffect(() => {
@@ -275,9 +256,7 @@ export default function SmartSchedulingModal({
       return;
     }
     try {
-      const improved = await generateDescriptionNonStreaming(
-        formData.title
-      );
+      const improved = await generateDescriptionNonStreaming(formData.title);
       if (improved) {
         onInputChange({ target: { name: 'description', value: improved } } as any);
         toast.success('Description improved with AI');
@@ -299,7 +278,6 @@ export default function SmartSchedulingModal({
     try {
       const result = await onSubmit();
 
-      // Snapshot meeting data for confirmation view
       const snapshot = {
         title: formData.title,
         description: formData.description,
@@ -320,40 +298,133 @@ export default function SmartSchedulingModal({
     }
   };
 
-  // Handle Smart Processing
-  const handleFindTimes = async () => {
-    if (!nlPrompt.trim()) return;
+  // Dynamic Natural Language Smart Parsing & Slot Builder
+  const handleFindTimes = async (promptOverride?: string) => {
+    const inputToParse = (promptOverride || nlPrompt).trim();
+    if (!inputToParse) return;
+
+    if (promptOverride) {
+      setNlPrompt(promptOverride);
+    }
 
     try {
-      const { parsedData, conflictCheck } = await smartSchedule(nlPrompt);
-      if (parsedData) {
-        setParsedFacts({
-          title: parsedData.title || 'Meeting',
-          attendees: parsedData.participants?.join(', ') || 'None specified',
-          window: `${format(parsedData.date || new Date(), 'EEE, MMM d')} · ${parsedData.time || '12 PM'}`,
-          duration: `${parsedData.duration || 30} min`,
-        });
+      const { parsedData, conflictCheck } = await smartSchedule(inputToParse);
+      if (!parsedData) return;
 
-        // Apply parsed fields to form
-        const updates = populateFormData(parsedData);
-        Object.entries(updates).forEach(([key, val]) => {
-          if (key === 'date' && val) onDateChange(val);
-          else if (key === 'time' && val)
-            onTimeChange({ target: { name: 'time', value: val } } as any);
-          else if (key === 'privacy' && val) onPrivacyChange(val);
-          else if (key !== 'participants' && key !== 'recurrence') {
-            onInputChange({ target: { name: key, value: val } } as any);
-          }
+      // 1. Calculate Date Object & Readable Labels
+      let dateObj = new Date();
+      if (parsedData.date) {
+        const parts = parsedData.date.split('-').map(Number);
+        if (parts.length === 3) {
+          dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+      }
+
+      const dateLabel = format(dateObj, 'EEE, MMM d');
+      const timeDisplay = formatTime12h(parsedData.time);
+      const endDisplay = calculateEndTime(dateObj, parsedData.time, parsedData.duration || 30);
+
+      // 2. Derive What We Understood
+      const attendeeList = parsedData.participants || [];
+      const attendeeText =
+        attendeeList.length > 0
+          ? `${attendeeList.length} attendee${attendeeList.length > 1 ? 's' : ''} (${attendeeList.join(', ')})`
+          : 'Host only';
+
+      setParsedFacts({
+        title: parsedData.title || 'Scheduled Meeting',
+        attendees: attendeeText,
+        window: `${dateLabel} · ${timeDisplay}`,
+        duration: `${parsedData.duration || 30} min`,
+      });
+
+      // 3. Build Real Dynamic Slots
+      const slots: DynamicSuggestedSlot[] = [];
+      const avatars = getParticipantAvatars(attendeeList);
+
+      const hasConflict = conflictCheck ? !conflictCheck.isAvailable : false;
+      const conflictCount = conflictCheck?.conflicts?.length || 0;
+
+      // Primary requested slot
+      slots.push({
+        id: 'slot-requested',
+        title: parsedData.title || 'Scheduled Meeting',
+        timeLabel: `${dateLabel} · ${timeDisplay}–${endDisplay}`,
+        dateStr: parsedData.date,
+        timeStr: parsedData.time,
+        status: hasConflict
+          ? `${conflictCount} conflict${conflictCount > 1 ? 's' : ''} on your calendar`
+          : "Everyone's free · Best fit",
+        statusType: hasConflict ? 'conflict' : 'free',
+        pillLabel: hasConflict ? 'Conflict' : 'Best fit',
+        avatars,
+      });
+
+      // Alternative slots from conflict check
+      if (conflictCheck?.alternatives && conflictCheck.alternatives.length > 0) {
+        conflictCheck.alternatives.forEach((alt, idx) => {
+          const altDate = alt.date ? new Date(`${alt.date}T${alt.time}`) : new Date(alt.start);
+          const altDateLabel = !isNaN(altDate.getTime()) ? format(altDate, 'EEE, MMM d') : alt.date;
+          const altTimeDisplay = formatTime12h(alt.time);
+          const altEndDisplay = calculateEndTime(altDate, alt.time, parsedData.duration || 30);
+
+          slots.push({
+            id: `slot-alt-${idx}`,
+            title: parsedData.title || 'Scheduled Meeting',
+            timeLabel: `${altDateLabel} · ${altTimeDisplay}–${altEndDisplay}`,
+            dateStr: alt.date,
+            timeStr: alt.time,
+            status: alt.reason || 'Open alternative slot',
+            statusType: 'free',
+            pillLabel: 'Open',
+            avatars,
+          });
         });
       }
 
-      if (conflictCheck && !conflictCheck.isAvailable) {
-        setConflictData({ parsedData, conflictCheck });
-        setShowConflictModal(true);
+      setSuggestedSlots(slots);
+      setSelectedSlotIndex(0);
+
+      // 4. Update the form data with the primary slot
+      const updates = populateFormData(parsedData);
+      Object.entries(updates).forEach(([key, val]) => {
+        if (key === 'date' && val) onDateChange(val);
+        else if (key === 'time' && val)
+          onTimeChange({ target: { name: 'time', value: val } } as any);
+        else if (key === 'privacy' && val) onPrivacyChange(val);
+        else if (key === 'recurrence' && val && onRecurrenceChange)
+          onRecurrenceChange(val as MeetingFormData['recurrence']);
+        else if (key !== 'participants' && key !== 'recurrence') {
+          onInputChange({ target: { name: key, value: val } } as any);
+        }
+      });
+
+      if (hasConflict) {
+        toast.warning(
+          `Schedule conflict detected for ${timeDisplay}. Open alternative slots have been provided below.`
+        );
+      } else {
+        toast.success(`Found open slot for ${timeDisplay}!`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Smart scheduling NL parse error:', err);
+      toast.error('Could not parse scheduling prompt');
     }
+  };
+
+  // Slot Selection Handler
+  const handleSlotSelect = (slot: DynamicSuggestedSlot, idx: number) => {
+    setSelectedSlotIndex(idx);
+    if (slot.dateStr) {
+      const parts = slot.dateStr.split('-').map(Number);
+      if (parts.length === 3) {
+        onDateChange(new Date(parts[0], parts[1] - 1, parts[2]));
+      }
+    }
+    if (slot.timeStr) {
+      onTimeChange({ target: { name: 'time', value: slot.timeStr } } as any);
+    }
+    toast.info(`Updated schedule to ${slot.timeLabel}`);
   };
 
   const handleClose = () => {
@@ -429,6 +500,24 @@ export default function SmartSchedulingModal({
             {/* Body */}
             {activeTab === 'manual' ? (
               <div className="px-4.5 pb-3.5 space-y-3">
+                {/* Optional Team Context Banner */}
+                {teamName && (
+                  <div className="flex items-center justify-between p-2 px-3 rounded-lg bg-primary/5 border border-primary/15 text-xs text-foreground">
+                    <span className="font-medium">Scheduling for @{teamName}</span>
+                    {onAutoIncludeChange && (
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          defaultChecked
+                          onChange={(e) => onAutoIncludeChange(e.target.checked)}
+                          className="accent-primary rounded"
+                        />
+                        <span>Auto-invite team members</span>
+                      </label>
+                    )}
+                  </div>
+                )}
+
                 {/* Title */}
                 <div>
                   <label
@@ -499,7 +588,7 @@ export default function SmartSchedulingModal({
                         </>
                       ) : (
                         <>
-                          <Wand2 className="w-3 h-3" />
+                          <Sparkles className="w-3 h-3" />
                           <span>Improve with AI</span>
                         </>
                       )}
@@ -507,9 +596,9 @@ export default function SmartSchedulingModal({
                   </div>
                 </div>
 
-                {/* Date & Start Time Grid */}
-                <div className="grid grid-cols-[1.3fr_1fr] gap-2.5">
-                  {/* Date */}
+                {/* Date and Start Time Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-[1.3fr_1fr] gap-2.5">
+                  {/* Date Picker */}
                   <div>
                     <label className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90 block mb-1.5">
                       Date
@@ -518,10 +607,10 @@ export default function SmartSchedulingModal({
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="w-full h-9 bg-white dark:bg-background border border-[#CFCCC3] dark:border-border/80 rounded-lg px-2.5 flex items-center gap-2 text-xs text-foreground text-left hover:border-foreground/30 focus:border-primary focus:ring-3 focus:ring-primary/20 transition-all"
+                          className="w-full h-9 bg-white dark:bg-background border border-[#CFCCC3] dark:border-border/80 rounded-lg px-2.5 flex items-center gap-2 text-xs text-foreground text-left focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
                         >
-                          <CalendarIcon className="w-3.5 h-3.5 text-[#6B6A65] dark:text-muted-foreground shrink-0" />
-                          <span className="truncate">
+                          <CalendarIcon className="w-4 h-4 text-[#6B6A65] shrink-0" />
+                          <span>
                             {formData.date
                               ? format(formData.date, 'EEE, MMM d, yyyy')
                               : 'Select date'}
@@ -533,20 +622,16 @@ export default function SmartSchedulingModal({
                           mode="single"
                           selected={formData.date}
                           onSelect={(d) => {
-                            onDateChange(d);
+                            if (d) onDateChange(d);
                             setDatePickerOpen(false);
                           }}
-                          disabled={(d) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            return d < today;
-                          }}
+                          initialFocus
                         />
                       </PopoverContent>
                     </Popover>
                   </div>
 
-                  {/* Start time */}
+                  {/* Start Time Select */}
                   <div>
                     <label className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90 block mb-1.5">
                       Start time
@@ -555,64 +640,65 @@ export default function SmartSchedulingModal({
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="w-full h-9 bg-white dark:bg-background border border-[#CFCCC3] dark:border-border/80 rounded-lg px-2.5 flex items-center justify-between text-xs text-foreground text-left hover:border-foreground/30 focus:border-primary focus:ring-3 focus:ring-primary/20 transition-all"
+                          className="w-full h-9 bg-white dark:bg-background border border-[#CFCCC3] dark:border-border/80 rounded-lg px-2.5 flex items-center justify-between text-xs text-foreground text-left focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
                         >
-                          <span className="truncate">
-                            {formatTime12h(formData.time) || '2:30 AM'}
-                          </span>
-                          <ChevronDown className="w-3.5 h-3.5 text-[#6B6A65] dark:text-muted-foreground shrink-0" />
+                          <span>{formatTime12h(formData.time) || 'Select time'}</span>
+                          <ChevronDown className="w-3.5 h-3.5 text-[#6B6A65]" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-48 p-1 max-h-56 overflow-y-auto" align="end">
-                        {Array.from({ length: 96 }).map((_, i) => {
-                          const hour = Math.floor(i / 4);
-                          const min = (i % 4) * 15;
-                          const time24 = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-                          const isSelected = formData.time === time24;
-                          return (
-                            <button
-                              key={time24}
-                              type="button"
-                              onClick={() => {
-                                onTimeChange({
-                                  target: { name: 'time', value: time24 },
-                                } as any);
-                                setTimePickerOpen(false);
-                              }}
-                              className={cn(
-                                'w-full text-left px-2.5 py-1.5 text-xs rounded-md transition-colors',
-                                isSelected
-                                  ? 'bg-primary text-primary-foreground font-medium'
-                                  : 'hover:bg-muted text-foreground'
-                              )}
-                            >
-                              {formatTime12h(time24)}
-                            </button>
-                          );
-                        })}
+                      <PopoverContent className="w-44 p-1 max-h-56 overflow-y-auto" align="start">
+                        <div className="space-y-0.5">
+                          {Array.from({ length: 96 }).map((_, i) => {
+                            const totalMins = i * 15;
+                            const h = Math.floor(totalMins / 60);
+                            const m = totalMins % 60;
+                            const time24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                            const isSelected = formData.time === time24;
+                            return (
+                              <button
+                                key={time24}
+                                type="button"
+                                onClick={() => {
+                                  onTimeChange({
+                                    target: { name: 'time', value: time24 },
+                                  } as any);
+                                  setTimePickerOpen(false);
+                                }}
+                                className={cn(
+                                  'w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors',
+                                  isSelected
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted text-foreground'
+                                )}
+                              >
+                                {formatTime12h(time24)}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
                 </div>
 
-                {/* Duration Chips */}
+                {/* Duration Chips & Live End Time */}
                 <div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90 mr-1">
                       Duration
                     </span>
                     {DURATION_PRESETS.map((mins) => {
-                      const isSelected = (formData.duration || 30) === mins;
+                      const isSelected = formData.duration === mins;
                       return (
                         <button
                           key={mins}
                           type="button"
                           onClick={() => handleDurationSelect(mins)}
                           className={cn(
-                            'px-3 py-1 border rounded-full text-xs font-medium transition-all',
+                            'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
                             isSelected
-                              ? 'bg-primary/10 border-primary text-primary dark:bg-primary/20'
-                              : 'bg-white dark:bg-background border-[#CFCCC3] dark:border-border/80 text-[#3A3A37] dark:text-foreground hover:bg-secondary/40'
+                              ? 'bg-[#E3E6F0] dark:bg-primary/20 border-primary text-primary font-semibold'
+                              : 'bg-white dark:bg-card border-[#CFCCC3] dark:border-border/80 text-[#3A3A37] dark:text-muted-foreground hover:bg-muted'
                           )}
                         >
                           {mins} min
@@ -620,31 +706,42 @@ export default function SmartSchedulingModal({
                       );
                     })}
                   </div>
-                  {endTimeStr && (
-                    <div className="text-[11px] text-[#6B6A65] dark:text-muted-foreground mt-1.5">
-                      Ends {endTimeStr} · {timezone} ({tzAbbrev})
-                    </div>
-                  )}
+                  {/* Live End Time Hint */}
+                  <div className="text-[11px] text-[#6B6A65] dark:text-muted-foreground mt-1.5">
+                    Ends {endTimeStr || '3:00 AM'} · {timezone} ({tzAbbrev})
+                  </div>
                 </div>
 
-                {/* Invite People (InputTags) */}
+                {/* Invite People via InputTags */}
                 <div>
-                  <div className="flex justify-between items-baseline mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90">
                       Invite people
                     </label>
                     <span className="text-[11px] text-[#6B6A65] dark:text-muted-foreground">
-                      Send by <b className="font-medium text-foreground">Email</b>
+                      Send by <strong className="font-semibold text-foreground">Email</strong>
                     </span>
                   </div>
                   <InputTags
                     tags={formData.participants || []}
-                    onChange={(newTags) => {
-                      onInputChange({
-                        target: { name: 'participants', value: newTags },
-                      } as any);
+                    onChange={(tags) => {
+                      if (tags.length < (formData.participants || []).length) {
+                        const removed = (formData.participants || []).find(
+                          (t) => !tags.includes(t)
+                        );
+                        if (removed) onRemoveParticipant(removed);
+                      } else {
+                        const added = tags[tags.length - 1];
+                        if (added) {
+                          onParticipantInput({
+                            target: { name: 'participantInput', value: added },
+                          });
+                        }
+                      }
                     }}
-                    placeholder="Add emails..."
+                    placeholder={
+                      formData.participants?.length === 0 ? 'Add email...' : 'Add another'
+                    }
                   />
                 </div>
 
@@ -751,7 +848,7 @@ export default function SmartSchedulingModal({
                 </div>
               </div>
             ) : (
-              /* Smart Scheduling Tab */
+              /* Smart Scheduling Tab (100% Dynamic) */
               <div className="px-4.5 pb-3.5 space-y-3.5">
                 {/* Natural Language Box */}
                 <div>
@@ -762,18 +859,24 @@ export default function SmartSchedulingModal({
                     <textarea
                       value={nlPrompt}
                       onChange={(e) => setNlPrompt(e.target.value)}
-                      placeholder="e.g. Design sync with Tolu and Ada Monday afternoon, 45 min"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleFindTimes();
+                        }
+                      }}
+                      placeholder="e.g. Design review tomorrow at 2:00 PM for 45 min with teammate@company.com"
                       rows={2}
                       className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none border-none p-0 resize-none"
                     />
                     <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#E8E5DE] dark:border-border/60">
                       <span className="text-[11px] text-[#6B6A65] dark:text-muted-foreground">
-                        Mention people, a day, and how long
+                        Press Enter or click Find times
                       </span>
                       <Button
                         type="button"
                         size="sm"
-                        onClick={handleFindTimes}
+                        onClick={() => handleFindTimes()}
                         disabled={isSmartProcessing || !nlPrompt.trim()}
                         className="h-7 px-2.5 text-xs rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1"
                       >
@@ -792,17 +895,14 @@ export default function SmartSchedulingModal({
                     </div>
                   </div>
 
-                  {/* Suggestion Chips */}
+                  {/* Clickable Quick Starter Chips */}
                   <div className="flex gap-1.5 flex-wrap mt-2">
-                    {[
-                      'Weekly standup, Mondays 9am',
-                      '1:1 with Tolu, 30 min, this week',
-                    ].map((sample) => (
+                    {SAMPLE_PROMPTS.map((sample) => (
                       <button
                         key={sample}
                         type="button"
-                        onClick={() => setNlPrompt(sample)}
-                        className="text-xs bg-white dark:bg-card border border-[#DAD7CF] dark:border-border/80 text-[#6B6A65] dark:text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-lg transition-colors text-left"
+                        onClick={() => handleFindTimes(sample)}
+                        className="text-xs bg-white dark:bg-card border border-[#DAD7CF] dark:border-border/80 text-[#6B6A65] dark:text-muted-foreground hover:text-foreground hover:border-primary/50 px-2.5 py-1 rounded-lg transition-colors text-left"
                       >
                         {sample}
                       </button>
@@ -810,7 +910,7 @@ export default function SmartSchedulingModal({
                   </div>
                 </div>
 
-                {/* What We Understood Section */}
+                {/* Parsed Facts Banner (shown only when parsed) */}
                 {parsedFacts && (
                   <div>
                     <span className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90 block mb-1.5">
@@ -821,9 +921,9 @@ export default function SmartSchedulingModal({
                         <Pencil className="w-3.5 h-3.5 text-[#6B6A65]" />
                         {parsedFacts.title}
                       </span>
-                      <span className="inline-flex items-center gap-1.5 bg-white dark:bg-card border border-[#DAD7CF] dark:border-border/80 rounded-lg px-2.5 py-1 text-xs text-foreground font-medium">
-                        <Users className="w-3.5 h-3.5 text-[#6B6A65]" />
-                        {parsedFacts.attendees}
+                      <span className="inline-flex items-center gap-1.5 bg-white dark:bg-card border border-[#DAD7CF] dark:border-border/80 rounded-lg px-2.5 py-1 text-xs text-foreground font-medium truncate max-w-xs">
+                        <Users className="w-3.5 h-3.5 text-[#6B6A65] shrink-0" />
+                        <span className="truncate">{parsedFacts.attendees}</span>
                       </span>
                       <span className="inline-flex items-center gap-1.5 bg-white dark:bg-card border border-[#DAD7CF] dark:border-border/80 rounded-lg px-2.5 py-1 text-xs text-foreground font-medium">
                         <CalendarIcon className="w-3.5 h-3.5 text-[#6B6A65]" />
@@ -837,85 +937,100 @@ export default function SmartSchedulingModal({
                   </div>
                 )}
 
-                {/* Suggested Times List */}
-                <div>
-                  <div className="flex justify-between items-baseline mb-1.5">
-                    <span className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90">
-                      Suggested times
-                    </span>
-                    <span className="text-[11px] text-[#6B6A65] dark:text-muted-foreground">
-                      {timezone} ({tzAbbrev})
-                    </span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {suggestedSlots.map((slot, idx) => {
-                      const isSelected = selectedSlotIndex === idx;
-                      return (
-                        <div
-                          key={slot.id}
-                          onClick={() => setSelectedSlotIndex(idx)}
-                          className={cn(
-                            'flex items-center gap-2.5 p-2 px-3 rounded-[10px] border cursor-pointer transition-all',
-                            isSelected
-                              ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                              : 'bg-white dark:bg-card border-[#DAD7CF] dark:border-border/80 hover:border-foreground/30'
-                          )}
-                        >
+                {/* Suggested Times List (Dynamic) */}
+                {suggestedSlots.length > 0 ? (
+                  <div>
+                    <div className="flex justify-between items-baseline mb-1.5">
+                      <span className="text-xs font-medium text-[#3A3A37] dark:text-foreground/90">
+                        Suggested times
+                      </span>
+                      <span className="text-[11px] text-[#6B6A65] dark:text-muted-foreground">
+                        {timezone} ({tzAbbrev})
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {suggestedSlots.map((slot, idx) => {
+                        const isSelected = selectedSlotIndex === idx;
+                        return (
                           <div
+                            key={slot.id}
+                            onClick={() => handleSlotSelect(slot, idx)}
                             className={cn(
-                              'w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                              'flex items-center gap-2.5 p-2 px-3 rounded-[10px] border cursor-pointer transition-all',
                               isSelected
-                                ? 'border-primary bg-primary'
-                                : 'border-[#B4B2A9] bg-transparent'
+                                ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                                : 'bg-white dark:bg-card border-[#DAD7CF] dark:border-border/80 hover:border-foreground/30'
                             )}
                           >
-                            {isSelected && (
-                              <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-foreground">
-                              {slot.timeLabel}
-                            </div>
                             <div
                               className={cn(
-                                'text-[11px]',
-                                slot.statusType === 'conflict'
-                                  ? 'text-[#854F0B] dark:text-amber-400 font-medium'
-                                  : 'text-[#6B6A65] dark:text-muted-foreground'
+                                'w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                                isSelected
+                                  ? 'border-primary bg-primary'
+                                  : 'border-[#B4B2A9] bg-transparent'
                               )}
                             >
-                              {slot.status}
+                              {isSelected && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
+                              )}
                             </div>
-                          </div>
-                          <div className="flex -space-x-1.5 shrink-0">
-                            {slot.avatars.map((av, avIdx) => (
-                              <div
-                                key={avIdx}
-                                style={{ backgroundColor: av.bg, color: av.color }}
-                                className="w-5 h-5 rounded-full border border-white dark:border-card text-[9px] font-medium flex items-center justify-center"
-                              >
-                                {av.initials}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-foreground">
+                                {slot.timeLabel}
                               </div>
-                            ))}
+                              <div
+                                className={cn(
+                                  'text-[11px]',
+                                  slot.statusType === 'conflict'
+                                    ? 'text-[#854F0B] dark:text-amber-400 font-medium'
+                                    : 'text-[#6B6A65] dark:text-muted-foreground'
+                                )}
+                              >
+                                {slot.status}
+                              </div>
+                            </div>
+                            <div className="flex -space-x-1.5 shrink-0">
+                              {slot.avatars.map((av, avIdx) => (
+                                <div
+                                  key={avIdx}
+                                  style={{ backgroundColor: av.bg, color: av.color }}
+                                  className="w-5 h-5 rounded-full border border-white dark:border-card text-[9px] font-medium flex items-center justify-center"
+                                >
+                                  {av.initials}
+                                </div>
+                              ))}
+                            </div>
+                            {slot.pillLabel && (
+                              <span
+                                className={cn(
+                                  'text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0',
+                                  slot.statusType === 'conflict'
+                                    ? 'bg-[#FAEEDA] text-[#633806] dark:bg-amber-950/60 dark:text-amber-300'
+                                    : 'bg-[#E1F5EE] text-[#085041] dark:bg-emerald-950/60 dark:text-emerald-300'
+                                )}
+                              >
+                                {slot.pillLabel}
+                              </span>
+                            )}
                           </div>
-                          {slot.pillLabel && (
-                            <span
-                              className={cn(
-                                'text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0',
-                                slot.statusType === 'conflict'
-                                  ? 'bg-[#FAEEDA] text-[#633806] dark:bg-amber-950/60 dark:text-amber-300'
-                                  : 'bg-[#E1F5EE] text-[#085041] dark:bg-emerald-950/60 dark:text-emerald-300'
-                              )}
-                            >
-                              {slot.pillLabel}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Initial Empty Prompt State */
+                  <div className="p-4 rounded-xl border border-dashed border-[#DAD7CF] dark:border-neutral-800 text-center space-y-1 bg-muted/20">
+                    <div className="w-7 h-7 mx-auto rounded-lg bg-[#EEEDE8] dark:bg-neutral-800 flex items-center justify-center text-primary mb-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="text-xs font-medium text-foreground">
+                      Natural language scheduling
+                    </div>
+                    <p className="text-[11px] text-muted-foreground max-w-xs mx-auto leading-normal">
+                      Type who you want to meet with, what day, and duration. We'll automatically verify calendar availability and propose conflict-free slots.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -937,7 +1052,7 @@ export default function SmartSchedulingModal({
                     onClick={() => handleTabChange('manual')}
                     className="text-xs text-primary font-medium hover:underline focus:outline-none"
                   >
-                    Edit details
+                    Edit details in manual form →
                   </button>
                 )}
               </div>
@@ -963,33 +1078,6 @@ export default function SmartSchedulingModal({
           </div>
         )}
       </DialogContent>
-
-      {/* Conflict Resolution Modal fallback */}
-      {conflictData && (
-        <ConflictResolutionModal
-          open={showConflictModal}
-          onOpenChange={setShowConflictModal}
-          conflictCheck={conflictData.conflictCheck}
-          originalMeeting={{
-            title: conflictData.parsedData.title,
-            date: conflictData.parsedData.date,
-            time: conflictData.parsedData.time,
-            duration: conflictData.parsedData.duration,
-          }}
-          onSelectAlternative={(alt) => {
-            setShowConflictModal(false);
-            setConflictData(null);
-          }}
-          onProceedAnyway={() => {
-            setShowConflictModal(false);
-            setConflictData(null);
-          }}
-          onCancel={() => {
-            setShowConflictModal(false);
-            setConflictData(null);
-          }}
-        />
-      )}
     </Dialog>
   );
 }
