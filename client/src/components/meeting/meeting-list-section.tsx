@@ -10,9 +10,6 @@ import {
   Play,
   Video,
   CalendarPlus,
-  Sparkles,
-  Link2,
-  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,52 +132,34 @@ export default function MeetingListSection({
 
     if (searchedMeetings.length === 0) {
       return (
-        <div className="bg-card border border-border/80 rounded-2xl py-14 sm:py-16 md:py-20 px-6 text-center flex flex-col items-center justify-center shadow-2xs">
-          <div className="relative mb-4">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center text-primary shadow-xs">
-              <Calendar className="w-7 h-7 stroke-[1.75]" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-card shadow-xs flex items-center justify-center text-primary">
-              <Sparkles className="w-3.5 h-3.5" />
-            </div>
+        <div className="bg-card border border-border/80 rounded-2xl py-12 sm:py-16 px-6 text-center flex flex-col items-center justify-center shadow-2xs">
+          {/* Empty Icon */}
+          <div className="w-12 h-12 rounded-2xl bg-surface-sunken dark:bg-muted border border-border/60 flex items-center justify-center text-muted-foreground mb-3.5">
+            <Calendar className="w-6 h-6 stroke-[1.75]" />
           </div>
-          <div className="space-y-1.5 max-w-md mx-auto">
-            <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
+
+          {/* Header & Subtext */}
+          <div className="space-y-1 max-w-sm mx-auto">
+            <h3 className="text-sm font-semibold text-foreground">
               {searchQuery ? 'No meetings match your search' : 'No upcoming meetings scheduled'}
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-xs text-muted-foreground">
               {searchQuery
                 ? 'Try searching with a different title or keyword.'
-                : 'Your schedule is currently open. Book a new meeting or invite teammates to collaborate.'}
+                : 'Book a meeting slot to invite collaborators and start calls.'}
             </p>
           </div>
+
+          {/* Schedule Meeting Button */}
           {onSchedule && !searchQuery && (
-            <div className="pt-4">
-              <Button
-                size="sm"
-                onClick={onSchedule}
-                className="h-8.5 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs gap-1.5 cursor-pointer"
-              >
-                <CalendarPlus className="w-3.5 h-3.5" />
-                <span>Schedule a meeting</span>
-              </Button>
-            </div>
-          )}
-          {!searchQuery && (
-            <div className="flex items-center gap-2 flex-wrap justify-center mt-7 pt-5 border-t border-border/50 max-w-lg w-full">
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
-                <Sparkles className="w-3 h-3 text-primary shrink-0" />
-                <span>Natural language scheduling</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
-                <Link2 className="w-3 h-3 text-primary shrink-0" />
-                <span>Instant join links</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-surface-sunken/60 dark:bg-muted/40 border border-border/50 rounded-full px-2.5 py-1">
-                <ShieldCheck className="w-3 h-3 text-primary shrink-0" />
-                <span>Private access control</span>
-              </div>
-            </div>
+            <Button
+              size="sm"
+              onClick={onSchedule}
+              className="mt-4 h-8.5 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs gap-1.5 cursor-pointer"
+            >
+              <CalendarPlus className="w-3.5 h-3.5" />
+              <span>Schedule meeting</span>
+            </Button>
           )}
         </div>
       );
